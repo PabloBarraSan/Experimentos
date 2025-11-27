@@ -49,9 +49,6 @@ function renderHeader(resource) {
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                 <div>
-                    <button onclick="app.showDetail('${resource._id}')" class="mb-2 text-sm text-slate-500 hover:text-blue-600 flex items-center gap-1 transition">
-                        <i class="fa-solid fa-arrow-left"></i> Volver al menú del recurso
-                    </button>
                     <h1 class="text-3xl font-bold text-slate-800 flex items-center gap-3">
                         ${resource.title || resource.name}
                         <span class="text-lg font-normal text-slate-500 bg-slate-100 px-3 py-1 rounded-full">${resource.subtitle || ''}</span>
@@ -118,7 +115,7 @@ function renderContent(resource, stats, appointmentsData) {
 
                         <!-- Action Buttons -->
                         <div class="space-y-2">
-                            <button onclick="app.loadCalendarView()" class="w-full text-left px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition flex items-center gap-3 shadow-sm">
+                            <button onclick="navigateToCalendar()" class="w-full text-left px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition flex items-center gap-3 shadow-sm">
                                 <i class="fa-regular fa-calendar"></i> Calendari cites
                             </button>
                             <button class="w-full text-left px-4 py-3 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition flex items-center gap-3 shadow-sm">

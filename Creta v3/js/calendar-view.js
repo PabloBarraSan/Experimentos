@@ -13,13 +13,23 @@ const calendarState = {
 // Expose navigation functions globally
 window.calendar = {
     prevPeriod: () => {
-        const days = calendarState.viewMode === 'week' ? 7 : 1;
-        calendarState.currentDate.setDate(calendarState.currentDate.getDate() - days);
+        if (calendarState.viewMode === 'month') {
+            calendarState.currentDate.setMonth(calendarState.currentDate.getMonth() - 1);
+        } else if (calendarState.viewMode === 'week') {
+            calendarState.currentDate.setDate(calendarState.currentDate.getDate() - 7);
+        } else {
+            calendarState.currentDate.setDate(calendarState.currentDate.getDate() - 1);
+        }
         refreshCalendar();
     },
     nextPeriod: () => {
-        const days = calendarState.viewMode === 'week' ? 7 : 1;
-        calendarState.currentDate.setDate(calendarState.currentDate.getDate() + days);
+        if (calendarState.viewMode === 'month') {
+            calendarState.currentDate.setMonth(calendarState.currentDate.getMonth() + 1);
+        } else if (calendarState.viewMode === 'week') {
+            calendarState.currentDate.setDate(calendarState.currentDate.getDate() + 7);
+        } else {
+            calendarState.currentDate.setDate(calendarState.currentDate.getDate() + 1);
+        }
         refreshCalendar();
     },
     goToToday: () => {
@@ -37,6 +47,118 @@ async function refreshCalendar() {
         await renderCalendarView(calendarState.resource, calendarState.container);
     }
 }
+
+// Quick Actions Handlers
+window.handleSearchAppointments = function() {
+    // TODO: Implementar búsqueda de citas
+    console.log('Buscar citas');
+};
+
+window.handleManageSchedules = function() {
+    // TODO: Implementar gestión de horarios
+    console.log('Gestionar horarios');
+};
+
+window.handleCloneWeek = function() {
+    // TODO: Implementar clonar semana
+    console.log('Clonar Semana');
+};
+
+window.handleDeleteWeek = function() {
+    // TODO: Implementar eliminar semana
+    console.log('Eliminar Semana');
+};
+
+// Slot Actions Handlers
+window.handleReserveSlot = function(slotId) {
+    // TODO: Implementar reservar slot
+    console.log('Reservar slot:', slotId);
+};
+
+window.handleMoreInfo = function(slotId) {
+    // TODO: Implementar más información del slot
+    console.log('Más info slot:', slotId);
+};
+
+window.handleDeleteSlot = function(slotId) {
+    // TODO: Implementar eliminar slot
+    if (confirm('¿Estás seguro de que quieres eliminar este slot?')) {
+        console.log('Eliminar slot:', slotId);
+    }
+};
+
+// Reservation Actions Handlers
+window.handleReservationInfo = function(reservationId) {
+    // TODO: Implementar información de reserva
+    console.log('Info reserva:', reservationId);
+};
+
+window.handleEditReservation = function(reservationId) {
+    // TODO: Implementar editar reserva
+    console.log('Editar reserva:', reservationId);
+};
+
+window.handlePrintReservation = function(reservationId) {
+    // TODO: Implementar imprimir reserva
+    console.log('Imprimir reserva:', reservationId);
+};
+
+window.handleReservationNotes = function(reservationId) {
+    // TODO: Implementar notas de reserva
+    console.log('Notas reserva:', reservationId);
+};
+
+window.handleSendMessage = function(reservationId) {
+    // TODO: Implementar enviar mensaje
+    console.log('Enviar mensaje reserva:', reservationId);
+};
+
+window.handleCancelReservation = function(reservationId) {
+    // TODO: Implementar cancelar reserva
+    if (confirm('¿Estás seguro de que quieres cancelar esta reserva?')) {
+        console.log('Cancelar reserva:', reservationId);
+    }
+};
+
+// Toggle reservation card expand/collapse
+window.toggleReservation = function(reservationId) {
+    const content = document.getElementById(reservationId);
+    const chevron = document.getElementById(`chevron-${reservationId}`);
+    
+    if (content && chevron) {
+        const isHidden = content.classList.contains('hidden');
+        
+        if (isHidden) {
+            content.classList.remove('hidden');
+            chevron.classList.remove('fa-chevron-down');
+            chevron.classList.add('fa-chevron-up');
+        } else {
+            content.classList.add('hidden');
+            chevron.classList.remove('fa-chevron-up');
+            chevron.classList.add('fa-chevron-down');
+        }
+    }
+};
+
+// Filter reservations by search text
+window.filterReservations = function(slotId) {
+    const searchInput = document.getElementById(`reservation-search-${slotId}`);
+    const container = document.getElementById(`reservations-container-${slotId}`);
+    
+    if (!searchInput || !container) return;
+    
+    const searchText = searchInput.value.toLowerCase().trim();
+    const reservationCards = container.querySelectorAll('.reservation-card');
+    
+    reservationCards.forEach(card => {
+        const searchableText = card.getAttribute('data-search-text') || '';
+        if (searchableText.includes(searchText)) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+};
 
 /**
  * Render the complete calendar view for a resource
@@ -120,6 +242,14 @@ window.openSlotDetails = function (slotId) {
     sidebar.classList.remove('translate-x-full');
     overlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden'; // Prevent background scrolling
+
+    // Add Escape key listener
+    window.sidebarEscapeHandler = function(e) {
+        if (e.key === 'Escape') {
+            window.closeSidebar();
+        }
+    };
+    document.addEventListener('keydown', window.sidebarEscapeHandler);
 };
 
 /**
@@ -132,6 +262,12 @@ window.closeSidebar = function () {
     sidebar.classList.add('translate-x-full');
     overlay.classList.add('hidden');
     document.body.style.overflow = '';
+
+    // Remove Escape key listener
+    if (window.sidebarEscapeHandler) {
+        document.removeEventListener('keydown', window.sidebarEscapeHandler);
+        window.sidebarEscapeHandler = null;
+    }
 };
 
 /**
@@ -178,6 +314,14 @@ window.openEmptySlotDetails = function (dateStr, settingName, startHour, endHour
     sidebar.classList.remove('translate-x-full');
     overlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+
+    // Add Escape key listener
+    window.sidebarEscapeHandler = function(e) {
+        if (e.key === 'Escape') {
+            window.closeSidebar();
+        }
+    };
+    document.addEventListener('keydown', window.sidebarEscapeHandler);
 };
 
 /**
@@ -209,83 +353,187 @@ function renderSlotDetails(slot) {
             <i class="fa-solid fa-users mr-2 text-slate-400"></i>
             Reservas (${slot.appointments?.length || 0})
         </h4>
+        
+        <!-- Search Box -->
+        <div class="mb-3">
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
+                </div>
+                <input type="text" 
+                       id="reservation-search-${slot._id}" 
+                       onkeyup="filterReservations('${slot._id}')"
+                       placeholder="Buscar reservas..." 
+                       class="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+        </div>
+        
+        <!-- Reservas con scroll -->
+        <div id="reservations-container-${slot._id}" class="bg-white rounded-lg border border-slate-200 p-3 mb-4 max-h-[500px] overflow-y-auto">
     `;
 
     if (!slot.appointments || slot.appointments.length === 0) {
         html += `
-            <div class="text-center py-8 text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+            <div class="text-center py-8 text-slate-400">
                 <i class="fa-regular fa-calendar-xmark text-3xl mb-2"></i>
                 <p>No hay reservas en este slot</p>
             </div>
         `;
     } else {
         html += '<div class="space-y-3">';
-        slot.appointments.forEach(app => {
+        slot.appointments.forEach((app, index) => {
             const statusColor = app.confirmed ? 'green' : 'orange';
-            const statusIcon = app.confirmed ? 'check-circle' : 'clock';
-
-            // Extract extra fields
+            const statusText = app.confirmed ? 'Confirmada' : 'Pendiente';
+            const reservationNumber = index + 1;
+            const reservationDate = new Date(app.start || slot.start);
+            const formattedDate = reservationDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const formattedTime = reservationDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            
+            // Extract extra fields and ensure values are strings
             const extraFields = app.extra || {};
-            const extraInfo = Object.entries(extraFields)
-                .map(([key, value]) => `<div class="text-xs text-slate-500"><span class="font-medium capitalize">${key}:</span> ${value}</div>`)
-                .join('');
+            const origin = typeof app.origin === 'string' ? app.origin : (app.origin?.name || app.origin?.title || 'web');
 
+            const reservationId = `reservation-${app._id || index}`;
+            const searchableText = `${app.user?.firstName || ''} ${app.user?.lastName || ''} ${app.user?.email || ''} ${app.user?.telephone || ''} ${origin}`.toLowerCase();
             html += `
-                <div class="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition">
-                    <div class="flex justify-between items-start mb-2">
-                        <div class="font-semibold text-slate-800">
-                            ${app.user?.firstName || 'Usuario'} ${app.user?.lastName || ''}
+                <div class="reservation-card bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden" data-search-text="${searchableText.replace(/"/g, '&quot;')}">
+                    <!-- Top Section: Badges and Info -->
+                    <div onclick="toggleReservation('${reservationId}')" class="bg-blue-50/30 px-3 py-2 border-b border-slate-200 cursor-pointer hover:bg-blue-50/50 transition">
+                        <!-- First row: Badges -->
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                                    ${reservationNumber}
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-xs font-medium ${app.confirmed ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">
+                                    ${statusText}
+                                </span>
+                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
+                                    <i class="fa-solid fa-users text-xs"></i>
+                                    ${app.seats || 1}
+                                </span>
+                            </div>
+                            <i id="chevron-${reservationId}" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
                         </div>
-                        <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-${statusColor}-100 text-${statusColor}-700 flex items-center">
-                            <i class="fa-solid fa-${statusIcon} mr-1"></i>
-                            ${app.seats} pax
-                        </span>
-                    </div>
-                    <div class="text-xs text-slate-500 space-y-1 mb-2">
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-envelope w-4 text-center mr-2 opacity-70"></i>
-                            ${app.user?.email || 'No email'}
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fa-solid fa-phone w-4 text-center mr-2 opacity-70"></i>
-                            ${app.user?.telephone || 'No teléfono'}
+                        <!-- Second row: Name and origin (always visible) -->
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-user text-slate-400 text-xs"></i>
+                                <h5 class="font-semibold text-slate-800 text-sm m-0">
+                                    ${app.user?.firstName || 'Usuario'} ${app.user?.lastName || ''}
+                                </h5>
+                            </div>
+                            <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                                ${origin}
+                            </span>
                         </div>
                     </div>
                     
-                    ${extraInfo ? `
-                    <div class="bg-slate-50 p-2 rounded border border-slate-100 grid grid-cols-2 gap-1 mb-2">
-                        ${extraInfo}
+                    <!-- Bottom Section: Details (Collapsed by default) -->
+                    <div id="${reservationId}" class="hidden p-3">
+                        
+                        <!-- Info List -->
+                        <div class="space-y-2 mb-3 text-xs">
+                            <div>
+                                <div class="font-medium text-slate-500 mb-0.5">Fecha de la reserva</div>
+                                <div class="text-slate-700">${formattedDate} ${formattedTime}</div>
+                            </div>
+                            <div>
+                                <div class="font-medium text-slate-500 mb-0.5">Nombre</div>
+                                <div class="text-slate-700">${app.user?.firstName || '-'}</div>
+                            </div>
+                            <div>
+                                <div class="font-medium text-slate-500 mb-0.5">Apellidos</div>
+                                <div class="text-slate-700">${app.user?.lastName || '-'}</div>
+                            </div>
+                            <div>
+                                <div class="font-medium text-slate-500 mb-0.5">Correo Electrónico</div>
+                                <div class="text-slate-700">${app.user?.email || 'No email'}</div>
+                            </div>
+                            <div>
+                                <div class="font-medium text-slate-500 mb-0.5">Teléfono</div>
+                                <div class="text-slate-700">${app.user?.telephone || 'No teléfono'}</div>
+                            </div>
+                            ${Object.entries(extraFields).map(([key, value]) => {
+                                // Convert value to string, handling objects
+                                const displayValue = typeof value === 'object' && value !== null 
+                                    ? (value.name || value.title || JSON.stringify(value))
+                                    : String(value || '-');
+                                return `
+                            <div>
+                                <div class="font-medium text-slate-500 mb-0.5">${key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                                <div class="text-slate-700">${displayValue}</div>
+                            </div>
+                            `;
+                            }).join('')}
+                        </div>
                     </div>
-                    ` : ''}
-
-                    <div class="text-xs text-slate-500 space-y-1 border-t border-slate-100 pt-2">
-                         ${app.amount ? `
-                        <div class="flex items-center justify-between">
-                            <span class="flex items-center"><i class="fa-solid fa-euro-sign w-4 text-center mr-2 opacity-70"></i>Importe:</span>
-                            <span class="font-medium">${(app.amount / 100).toFixed(2)}€</span>
-                        </div>
-                        ` : ''}
-                        ${app.paymentId ? `
-                        <div class="flex items-center justify-between" title="ID Pago: ${app.paymentId}">
-                            <span class="flex items-center"><i class="fa-solid fa-receipt w-4 text-center mr-2 opacity-70"></i>Pagado:</span>
-                            <span class="font-medium text-green-600">${app.isPaid ? 'Sí' : 'No'}</span>
-                        </div>
-                        ` : ''}
-                        ${app.order ? `
-                        <div class="flex items-center justify-between">
-                            <span class="flex items-center"><i class="fa-solid fa-hashtag w-4 text-center mr-2 opacity-70"></i>Orden:</span>
-                            <span class="font-medium">#${app.order}</span>
-                        </div>
-                        ` : ''}
+                    
+                    <!-- Action Buttons (Always visible) -->
+                    <div class="flex flex-wrap gap-1 p-2 border-t border-slate-200 bg-slate-50/50">
+                        <button onclick="handleReservationInfo('${app._id}')" 
+                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                title="Información">
+                            <i class="fa-solid fa-info-circle text-xs"></i>
+                        </button>
+                        <button onclick="handleEditReservation('${app._id}')" 
+                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                title="Editar reserva">
+                            <i class="fa-solid fa-edit text-xs"></i>
+                        </button>
+                        <button onclick="handlePrintReservation('${app._id}')" 
+                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                title="Imprimir la reserva">
+                            <i class="fa-solid fa-print text-xs"></i>
+                        </button>
+                        <button onclick="handleReservationNotes('${app._id}')" 
+                                class="p-1.5 text-slate-600 hover:text-yellow-600 hover:bg-yellow-50 rounded transition" 
+                                title="Notas">
+                            <i class="fa-solid fa-sticky-note text-xs"></i>
+                        </button>
+                        <button onclick="handleSendMessage('${app._id}')" 
+                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                title="Enviar un mensaje">
+                            <i class="fa-solid fa-comments text-xs"></i>
+                        </button>
+                        <button onclick="handleCancelReservation('${app._id}')" 
+                                class="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition ml-auto" 
+                                title="Cancelar">
+                            <i class="fa-solid fa-trash text-xs"></i>
+                        </button>
                     </div>
                 </div>
             `;
         });
         html += '</div>';
     }
+    
+    html += `
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="flex flex-col gap-2 pt-2 border-t border-slate-200">
+            <button onclick="handleReserveSlot('${slot._id}')" 
+                    class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-plus"></i>
+                Reservar
+            </button>
+            <button onclick="handleMoreInfo('${slot._id}')" 
+                    class="w-full py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-info-circle"></i>
+                Más info
+            </button>
+            <button onclick="handleDeleteSlot('${slot._id}')" 
+                    class="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-trash"></i>
+                Eliminar
+            </button>
+        </div>
+    `;
 
     return html;
 }
+
 
 /**
  * Render the calendar header with resource information
@@ -293,72 +541,68 @@ function renderSlotDetails(slot) {
  * @returns {string} HTML string
  */
 function renderCalendarHeader(resource) {
+    const resourceName = resource.title || resource.name || 'Recurso';
+    const groupName = resource.subtitle || '';
+    const imgUrl = resource.photo ? `${resource.photo}?w=80&h=80&thumbnail=true` : null;
+    
     return `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <!-- Top Section: Title + Actions -->
-            <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6">
-                <!-- Left: Resource Info -->
-                <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
-                        <i class="fa-solid fa-calendar-days text-xl text-blue-600"></i>
+        <!-- Main Header Card -->
+        <div class="bg-white rounded-lg border border-slate-200 mb-6">
+            <div class="px-6 py-4">
+                <!-- Top Row: Title and Action Buttons -->
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                    <div class="flex-1 flex items-start gap-3">
+                        ${imgUrl ? `
+                        <img src="${imgUrl}" 
+                             alt="${resourceName}" 
+                             class="w-12 h-12 rounded-full object-cover border-2 border-slate-200 shadow-sm flex-shrink-0"
+                             onerror="this.style.display='none'">
+                        ` : ''}
+                        <div class="flex-1">
+                            <h1 class="text-xl font-semibold text-slate-900">${resourceName}</h1>
+                            ${groupName ? `<p class="text-sm text-slate-500 mt-1">${groupName}</p>` : ''}
+                            <!-- Stats Pills - Below title for better association -->
+                            <div class="flex flex-wrap items-center gap-2 mt-3">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                    <i class="fa-solid fa-users text-xs"></i>
+                                    Capacidad: ${resource.seats?.total || 0}
+                                </span>
+                                ${resource.maxAppointmentsPerUser ? `
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                                    <i class="fa-solid fa-user-clock text-xs"></i>
+                                    Máx. usuario: ${resource.maxAppointmentsPerUser}
+                                </span>
+                                ` : ''}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${resource.published ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-slate-50 text-slate-600 border border-slate-200'}">
+                                    <i class="fa-solid fa-${resource.published ? 'check-circle' : 'circle-pause'} text-xs"></i>
+                                    ${resource.published ? 'Activo' : 'Pausado'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <h1 class="text-2xl font-bold text-slate-900">${resource.title || resource.name}</h1>
-                        <p class="text-sm text-slate-500">Gestión de citas y horarios</p>
-                    </div>
-                </div>
-
-                <!-- Right: Action Buttons -->
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="app.backToAdmin()" 
-                            class="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-lg transition font-medium text-sm border border-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-arrow-left"></i>
-                        <span>Volver</span>
-                    </button>
-                    <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium text-sm flex items-center gap-2 shadow-sm">
-                        <i class="fa-solid fa-plus"></i>
-                        <span class="hidden sm:inline">Nueva cita</span>
-                    </button>
-                    <button class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition font-medium text-sm border border-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-calendar-plus"></i>
-                        <span class="hidden sm:inline">Horarios</span>
-                    </button>
-                    <button class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-lg transition font-medium text-sm border border-slate-200 flex items-center gap-2">
-                        <i class="fa-solid fa-search"></i>
-                        <span class="hidden sm:inline">Buscar</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Bottom Section: Stats -->
-            <div class="flex flex-wrap gap-3 pt-4 border-t border-slate-100">
-                <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
-                    <i class="fa-solid fa-users text-slate-400"></i>
-                    <div>
-                        <div class="text-xs text-slate-500">Capacidad</div>
-                        <div class="text-sm font-semibold text-slate-900">${resource.seats?.total || 0} plazas</div>
-                    </div>
-                </div>
-                ${resource.maxAppointmentsPerUser ? `
-                <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
-                    <i class="fa-solid fa-user-clock text-slate-400"></i>
-                    <div>
-                        <div class="text-xs text-slate-500">Máx. por usuario</div>
-                        <div class="text-sm font-semibold text-slate-900">${resource.maxAppointmentsPerUser}</div>
-                    </div>
-                </div>` : ''}
-                <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
-                    <i class="fa-solid fa-${resource.published ? 'check-circle text-green-500' : 'circle-pause text-slate-400'}"></i>
-                    <div>
-                        <div class="text-xs text-slate-500">Estado</div>
-                        <div class="text-sm font-semibold text-slate-900">${resource.published ? 'Activo' : 'Pausado'}</div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-lg">
-                    <i class="fa-solid fa-credit-card text-green-600"></i>
-                    <div>
-                        <div class="text-xs text-green-600">Pago online</div>
-                        <div class="text-sm font-semibold text-green-700">Habilitado</div>
+                    
+                    <!-- Quick Actions - Top right, more visible -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="handleSearchAppointments()" 
+                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-700 border border-slate-200 hover:border-orange-300 transition-all shadow-sm hover:shadow">
+                            <i class="fa-solid fa-search text-sm text-orange-600 group-hover:scale-110 transition-transform"></i>
+                            <span>Buscar citas</span>
+                        </button>
+                        <button onclick="handleManageSchedules()" 
+                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-all shadow-sm hover:shadow">
+                            <i class="fa-solid fa-calendar text-sm text-purple-600 group-hover:scale-110 transition-transform"></i>
+                            <span>Gestionar horarios</span>
+                        </button>
+                        <button id="1" onclick="handleCloneWeek()" 
+                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-700 border border-slate-200 hover:border-teal-300 transition-all shadow-sm hover:shadow">
+                            <i class="fa-solid fa-clone text-sm text-teal-600 group-hover:scale-110 transition-transform"></i>
+                            <span>Clonar Semana</span>
+                        </button>
+                        <button id="2" onclick="handleDeleteWeek()" 
+                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200 hover:border-red-300 transition-all shadow-sm hover:shadow">
+                            <i class="fa-solid fa-trash text-sm text-red-600 group-hover:scale-110 transition-transform"></i>
+                            <span>Eliminar Semana</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -383,46 +627,75 @@ function renderToolbar() {
  */
 function renderWeeklyCalendar(resource, appointmentsData) {
     const currentWeek = getCurrentWeek();
+    const isToday = calendarState.viewMode === 'day' && 
+                    calendarState.currentDate.toDateString() === new Date().toDateString();
 
     return `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <!-- Calendar Controls -->
-            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-                <!-- Navigation -->
-                <div class="flex items-center gap-2">
-                    <button onclick="window.calendar.goToToday()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition font-medium text-sm">
-                        Hoy
-                    </button>
-                    <div class="flex gap-1">
-                        <button onclick="window.calendar.prevPeriod()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-l-lg transition">
-                            <i class="fa-solid fa-chevron-left"></i>
-                        </button>
-                        <button onclick="window.calendar.nextPeriod()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-r-lg transition">
-                            <i class="fa-solid fa-chevron-right"></i>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <!-- Calendar Toolbar - Improved -->
+            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <!-- Left: Navigation + View Mode Toggle + Today Button -->
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Navigation Controls -->
+                        <div class="flex items-center gap-1 bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
+                            <button onclick="window.calendar.prevPeriod()" 
+                                    class="px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-md transition" 
+                                    title="Anterior">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <button onclick="window.calendar.nextPeriod()" 
+                                    class="px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-md transition" 
+                                    title="Siguiente">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- View Mode Toggle -->
+                        <div class="flex items-center bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
+                            <button onclick="window.calendar.changeView('day')" 
+                                    class="${calendarState.viewMode === 'day' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'} px-3 py-1.5 rounded-md transition font-medium text-sm">
+                                <i class="fa-solid fa-calendar-day mr-1.5"></i>Día
+                            </button>
+                            <button onclick="window.calendar.changeView('week')" 
+                                    class="${calendarState.viewMode === 'week' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'} px-3 py-1.5 rounded-md transition font-medium text-sm">
+                                <i class="fa-solid fa-calendar-week mr-1.5"></i>Semana
+                            </button>
+                            <button onclick="window.calendar.changeView('month')" 
+                                    class="${calendarState.viewMode === 'month' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'} px-3 py-1.5 rounded-md transition font-medium text-sm">
+                                <i class="fa-solid fa-calendar-days mr-1.5"></i>Mes
+                            </button>
+                        </div>
+                        
+                        <!-- Today Button -->
+                        <button onclick="window.calendar.goToToday()" 
+                                class="px-4 py-2 ${isToday ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'} rounded-lg transition font-medium text-sm border border-slate-200 shadow-sm">
+                            <i class="fa-solid fa-calendar-check mr-1.5"></i>Hoy
                         </button>
                     </div>
-                    <div class="flex gap-1">
-                        <button onclick="window.calendar.changeView('day')" class="${calendarState.viewMode === 'day' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} px-4 py-2 rounded-lg transition font-medium text-sm">
-                            Día
-                        </button>
-                        <button onclick="window.calendar.changeView('week')" class="${calendarState.viewMode === 'week' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} px-4 py-2 rounded-lg transition font-medium text-sm">
-                            Semana
-                        </button>
-                        <button onclick="window.calendar.changeView('month')" class="${calendarState.viewMode === 'month' ? 'bg-blue-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} px-4 py-2 rounded-lg transition font-medium text-sm">
-                            Mes
-                        </button>
+
+                    <!-- Right: Date Range Display -->
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                            <i class="fa-solid fa-calendar text-blue-600"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 leading-tight">
+                                ${formatWeekRange(currentWeek)}
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-0.5">
+                                ${calendarState.viewMode === 'day' ? 'Vista diaria' : calendarState.viewMode === 'week' ? 'Vista semanal' : 'Vista mensual'}
+                            </p>
+                        </div>
                     </div>
                 </div>
-
-                <!-- Week Range -->
-                <h2 class="text-lg font-semibold text-slate-700">
-                    ${formatWeekRange(currentWeek)}
-                </h2>
             </div>
 
             <!-- Calendar Grid -->
-            <div class="overflow-x-auto">
-                ${renderCalendarGrid(resource, appointmentsData, currentWeek)}
+            <div class="p-6">
+                <div class="overflow-x-auto">
+                    ${renderCalendarGrid(resource, appointmentsData, currentWeek)}
+                </div>
             </div>
         </div>
     `;
@@ -463,13 +736,28 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
     // Map appointments to a lookup structure
     const appointmentMap = mapAppointmentsToGrid(appointmentsData, resource, weekDays);
 
+    // Determine number of columns and visible days based on view mode
+    let numColumns, visibleDays;
+    if (calendarState.viewMode === 'day') {
+        numColumns = 2; // Hora + 1 día
+        visibleDays = weekDays.length > 0 ? [weekDays[0]] : [];
+    } else if (calendarState.viewMode === 'month') {
+        // For month view, show first week (can be expanded later to show full month grid)
+        numColumns = 8; // Hora + 7 días
+        visibleDays = weekDays.slice(0, Math.min(7, weekDays.length));
+    } else {
+        // Week view
+        numColumns = 8; // Hora + 7 días
+        visibleDays = weekDays;
+    }
+
     let html = '<div class="min-w-[800px]">';
 
     // Header row with days
-    html += '<div class="grid grid-cols-8 border-b-2 border-slate-300 bg-slate-50">';
+    html += `<div class="grid grid-cols-${numColumns} border-b-2 border-slate-300 bg-slate-50">`;
     html += '<div class="p-3 text-sm font-semibold text-slate-500 border-r border-slate-200">Hora</div>';
 
-    weekDays.forEach(day => {
+    visibleDays.forEach(day => {
         const dayIsToday = isToday(day);
         const dayKey = formatDateKey(day);
         html += `
@@ -483,10 +771,10 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
 
     // Time slots rows
     timeSlots.forEach(time => {
-        html += '<div class="grid grid-cols-8 border-b border-slate-100 hover:bg-slate-50 transition">';
+        html += `<div class="grid grid-cols-${numColumns} border-b border-slate-100">`;
         html += `<div class="p-3 text-sm text-slate-500 border-r border-slate-200 font-mono">${time}</div>`;
 
-        weekDays.forEach(day => {
+        visibleDays.forEach(day => {
             html += '<div class="p-2 border-r border-slate-200 last:border-r-0 relative" style="min-height: 40px;">';
 
             // Track which virtual settings have been rendered as real slots
@@ -581,10 +869,6 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
                     return slotTitle === vsTitle;
                 });
 
-                // Debug: log what we're looking for
-                if (formatDateKey(day) === '2025-11-24' || formatDateKey(day) === '2025-11-26') {
-                    console.log(`DEBUG: Looking for key: ${slotKey} | Slots at time: ${slotsAtTime.length} | Matched:`, !!slotData);
-                }
 
                 if (slotData) {
                     // Mark this virtual setting as rendered
@@ -734,23 +1018,50 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
  */
 function getCurrentWeek() {
     const today = new Date(calendarState.currentDate);
-    const dayOfWeek = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const days = [];
 
-    const week = [];
-    // If view mode is day, just return that day
     if (calendarState.viewMode === 'day') {
-        week.push(today);
+        // Single day view
+        days.push(new Date(today));
+    } else if (calendarState.viewMode === 'month') {
+        // Month view - get all days of the month
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        // Start from Monday of the week containing the first day
+        const firstDayOfWeek = firstDay.getDay();
+        const mondayOffset = firstDayOfWeek === 0 ? -6 : 1 - firstDayOfWeek;
+        const startDate = new Date(firstDay);
+        startDate.setDate(firstDay.getDate() + mondayOffset);
+        
+        // End on Sunday of the week containing the last day
+        const lastDayOfWeek = lastDay.getDay();
+        const sundayOffset = lastDayOfWeek === 0 ? 0 : 7 - lastDayOfWeek;
+        const endDate = new Date(lastDay);
+        endDate.setDate(lastDay.getDate() + sundayOffset);
+        
+        // Generate all days
+        const current = new Date(startDate);
+        while (current <= endDate) {
+            days.push(new Date(current));
+            current.setDate(current.getDate() + 1);
+        }
     } else {
-        // Default to week view
+        // Week view - Monday to Sunday
+        const dayOfWeek = today.getDay();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+        
         for (let i = 0; i < 7; i++) {
             const day = new Date(monday);
             day.setDate(monday.getDate() + i);
-            week.push(day);
+            days.push(day);
         }
     }
-    return week;
+    
+    return days;
 }
 
 /**
@@ -825,14 +1136,6 @@ function mapAppointmentsToGrid(appointmentsData, resource, visibleDays = []) {
 
     appointmentsData.slots.forEach(slot => {
         const date = new Date(slot.start);
-
-        // Check if slot is in visible days for debugging
-        const isVisible = visibleDays.some(d => d.toDateString() === date.toDateString());
-        if (isVisible) {
-            console.log(`DEBUG: Processing slot: ${slot.title} at ${date.toLocaleString()}`);
-            console.log(`DEBUG: Slot Key: ${formatDateKey(date)}`);
-        }
-
         const dateKey = formatDateKey(date);
 
         // Use exact time with 30-minute precision for grid placement
@@ -858,11 +1161,6 @@ function mapAppointmentsToGrid(appointmentsData, resource, visibleDays = []) {
             // Use date+time as key (no title needed)
             const key = `${dateKey}_${timeKey}`;
 
-            if (isVisible) {
-                console.log(`DEBUG: Creating map key: ${key}`);
-                console.log(`DEBUG: Slot:`, slot.title, `| VS: ${vs.name} | timeKey: ${timeKey}`);
-            }
-
             // Store by date+time, can have multiple slots at same time
             if (!map[key]) {
                 map[key] = [];
@@ -874,8 +1172,6 @@ function mapAppointmentsToGrid(appointmentsData, resource, visibleDays = []) {
                 appointments: slot.appointments || [],
                 vs: vs // Store the matching virtual setting
             });
-        } else if (isVisible) {
-            console.log(`DEBUG: No VS match for slot:`, slot.title, `index: ${slot.index}`);
         }
     });
 
@@ -926,16 +1222,37 @@ function formatDayHeader(date) {
 }
 
 /**
- * Format week range (e.g., "24 – 30 de nov. de 2025")
- * @param {Array<Date>} weekDays - Array of days
+ * Format date range based on view mode
+ * @param {Array<Date>} days - Array of days
  * @returns {string} Formatted string
  */
-function formatWeekRange(weekDays) {
+function formatWeekRange(days) {
     const months = ['ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.', 'jul.', 'ago.', 'sep.', 'oct.', 'nov.', 'dic.'];
-    const start = weekDays[0];
-    const end = weekDays[6];
-
-    return `${start.getDate()} – ${end.getDate()} de ${months[end.getMonth()]} de ${end.getFullYear()}`;
+    
+    if (calendarState.viewMode === 'day') {
+        // Single day view
+        const day = days[0];
+        const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        return `${dayNames[day.getDay()]}, ${day.getDate()} de ${months[day.getMonth()]} de ${day.getFullYear()}`;
+    } else if (calendarState.viewMode === 'month') {
+        // Month view
+        const firstDay = days[0];
+        const lastDay = days[days.length - 1];
+        if (firstDay.getMonth() === lastDay.getMonth()) {
+            return `${months[firstDay.getMonth()]} de ${firstDay.getFullYear()}`;
+        } else {
+            return `${months[firstDay.getMonth()]} – ${months[lastDay.getMonth()]} de ${firstDay.getFullYear()}`;
+        }
+    } else {
+        // Week view
+        const start = days[0];
+        const end = days[days.length - 1];
+        if (start.getMonth() === end.getMonth()) {
+            return `${start.getDate()} – ${end.getDate()} de ${months[end.getMonth()]} de ${end.getFullYear()}`;
+        } else {
+            return `${start.getDate()} de ${months[start.getMonth()]} – ${end.getDate()} de ${months[end.getMonth()]} de ${end.getFullYear()}`;
+        }
+    }
 }
 
 /**
