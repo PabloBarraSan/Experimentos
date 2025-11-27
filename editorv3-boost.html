@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mockup de Editor CMS (Campos Opcionales Completo)</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        /* Fuente principal: Inter */
+        html {
+            font-family: 'Inter', sans-serif;
+        }
+        .drag-handle {
+            cursor: grab;
+        }
+        /* Scroll suave */
+        #main-scroll-container {
+            scroll-behavior: smooth;
+        }
+        /* Ajuste del scroll-margin */
+        section {
+            scroll-margin-top: 160px;
+        }
+        /* Placeholder CKEditor */
+        .ck-editor-placeholder {
+            min-height: 400px;
+            border: 1px solid #e5e7eb;
+            background-color: #f9fafb;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #9ca3af;
+        }
+        /* Estilo activo navegación */
+        .nav-link.active {
+            color: #2185d0;
+            border-bottom-color: #2185d0;
+            background-color: #f0f9ff;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Animación de aparición de campos */
+        .field-wrapper {
+            transition: all 0.3s ease-in-out;
+            overflow: hidden;
+        }
+        .field-wrapper.hidden-field {
+            display: none;
+            opacity: 0;
+            max-height: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .field-wrapper.visible-field {
+            display: block;
+            opacity: 1;
+            max-height: 1000px; /* Altura suficiente para contenidos largos */
+            animation: slideDown 0.3s ease-out;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#2185d0',
+                        'light-gray': '#f9fafb',
+                        'border-gray': '#e5e7eb',
+                        'accent-blue': '#2185d0',
+                        'accent-orange': '#f97316',
+                        'accent-purple': '#8b5cf6',
+                        'accent-green': '#10b981',
+                        'accent-red': '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen flex justify-center p-4 sm:p-6">
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="w-full max-w-6xl bg-gray-50 border border-gray-200 rounded-xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
+
+        <!-- CABECERA (Sticky 1) -->
+        <div class="bg-white border-b border-gray-200 z-30 relative flex flex-col">
+            <div class="flex justify-between items-start gap-4 p-4">
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-xl font-bold text-gray-800 leading-tight">
+                        Editando: Vecinos de Las Mimosas de Altea la Vella
+                    </h2>
+                    <p class="text-xs text-gray-400 mt-1">ID: 8192 • Última edición: Hace 2 min</p>
+                </div>
+                <div class="flex gap-2 items-center flex-shrink-0 ml-2">
+                    <div class="hidden sm:flex items-center text-xs font-bold text-white bg-primary-blue px-3 py-1.5 rounded-full shadow uppercase tracking-wider">
+                        Publicado
+                    </div>
+                    <button class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg shadow hover:bg-green-700 transition duration-150">
+                        <span class="material-icons text-lg">save</span>
+                        <span class="hidden sm:inline">Guardar</span>
+                    </button>
+                    <button class="w-9 h-9 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 border border-transparent hover:border-gray-200 transition duration-150">
+                        <span class="material-icons text-xl">more_vert</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="px-4 sm:px-6">
+                <nav class="flex space-x-1 overflow-x-auto scrollbar-hide" id="anchor-menu">
+                    <a href="#section-content" class="nav-link py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 rounded-t-lg hover:text-primary-blue hover:bg-gray-50 transition duration-150 whitespace-nowrap active">Contenido</a>
+                    <a href="#section-media" class="nav-link py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 rounded-t-lg hover:text-primary-blue hover:bg-gray-50 transition duration-150 whitespace-nowrap">Medios</a>
+                    <a href="#section-relations" class="nav-link py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 rounded-t-lg hover:text-primary-blue hover:bg-gray-50 transition duration-150 whitespace-nowrap">Relaciones</a>
+                    <a href="#section-metadata" class="nav-link py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 rounded-t-lg hover:text-primary-blue hover:bg-gray-50 transition duration-150 whitespace-nowrap">Metadatos</a>
+                    <a href="#section-contact" class="nav-link py-3 px-4 text-sm font-medium border-b-2 border-transparent text-gray-500 rounded-t-lg hover:text-primary-blue hover:bg-gray-50 transition duration-150 whitespace-nowrap">Contacto</a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- CONTENEDOR SCROLLABLE -->
+        <div id="main-scroll-container" class="flex-grow overflow-y-auto p-4 sm:p-8 space-y-10">
+
+            <!-- SECCIÓN 1: CONTENIDO -->
+            <section id="section-content" class="max-w-5xl mx-auto">
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden relative">
+                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="material-icons text-primary-blue">article</span>
+                            <h3 class="font-bold text-gray-800 text-lg">Contenido Principal</h3>
+                        </div>
+                    </div>
+
+                    <div class="p-6 space-y-6">
+                        <!-- Título (Fijo) -->
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <label class="block text-sm font-bold text-gray-700">Título <span class="text-red-500">*</span></label>
+                                <span class="text-xs text-gray-400">Slug: vecinos-las-mimosas</span>
+                            </div>
+                            <div class="flex group">
+                                <input type="text" value="Vecinos de Las Mimosas" class="flex-grow w-full px-4 py-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue outline-none text-gray-900 text-lg font-medium transition">
+                                <button class="px-4 bg-gray-50 border border-gray-300 border-l-0 text-gray-500 rounded-r-lg hover:bg-gray-100 group-focus-within:border-primary-blue group-focus-within:ring-2 group-focus-within:ring-primary-blue/20 transition">
+                                    <span class="material-icons">language</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Subtítulo (Opcional) -->
+                        <div id="field-subtitle" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-bold text-gray-700">Subtítulo</label>
+                                <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('subtitle', false)">Quitar</button>
+                            </div>
+                            <div class="flex group">
+                                <input type="text" placeholder="Opcional" class="flex-grow w-full px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue outline-none text-gray-800 transition">
+                                <button class="px-4 bg-gray-50 border border-gray-300 border-l-0 text-gray-500 rounded-r-lg hover:bg-gray-100 transition">
+                                    <span class="material-icons text-lg">language</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Entradilla (Opcional) -->
+                        <div id="field-lead" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-bold text-gray-700">Entradilla</label>
+                                <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('lead', false)">Quitar</button>
+                            </div>
+                            <div class="flex group">
+                                <textarea rows="3" class="flex-grow w-full px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary-blue/20 focus:border-primary-blue outline-none text-gray-800 resize-none transition"></textarea>
+                                <button class="px-4 bg-gray-50 border border-gray-300 border-l-0 text-gray-500 rounded-r-lg hover:bg-gray-100 transition">
+                                    <span class="material-icons text-lg">language</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Cuerpo (Fijo) -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Cuerpo del Contenido <span class="text-red-500">*</span></label>
+                            <div class="ck-editor-placeholder">
+                                <div class="text-center">
+                                    <span class="material-icons text-4xl text-gray-300 mb-2">edit_note</span>
+                                    <p class="text-sm text-gray-500">Área del Editor de Texto Enriquecido</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Barra de Campos Opcionales -->
+                    <div class="bg-gray-50 px-6 py-3 border-t border-gray-100 flex gap-3 flex-wrap items-center">
+                        <span class="text-xs font-semibold text-gray-400 uppercase mr-2">Añadir campo:</span>
+                        <button id="btn-add-subtitle" onclick="toggleField('subtitle', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Subtítulo
+                        </button>
+                        <button id="btn-add-lead" onclick="toggleField('lead', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Entradilla
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 2: MEDIOS -->
+            <section id="section-media" class="max-w-5xl mx-auto">
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                        <span class="material-icons text-primary-blue">perm_media</span>
+                        <h3 class="font-bold text-gray-800 text-lg">Multimedia</h3>
+                    </div>
+
+                    <div class="p-6 space-y-6">
+                        <!-- Imagen Principal (Fijo) -->
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">Imagen Principal</label>
+                            <div class="aspect-video w-full max-w-md border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-blue-50 hover:border-primary-blue cursor-pointer flex flex-col items-center justify-center text-gray-400 hover:text-primary-blue transition duration-200 group">
+                                <span class="material-icons text-4xl mb-2 group-hover:scale-110 transition-transform">add_photo_alternate</span>
+                                <span class="text-sm font-medium">Seleccionar imagen de cabecera</span>
+                            </div>
+                        </div>
+
+                        <!-- Galería (Opcional) -->
+                        <div id="field-gallery" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-sm font-bold text-gray-700">Galería de Imágenes</label>
+                                <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('gallery', false)">Quitar</button>
+                            </div>
+                            <div class="flex flex-wrap gap-3 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <div class="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-400 cursor-pointer hover:border-primary-blue hover:text-primary-blue hover:bg-white transition">
+                                    <span class="material-icons">add</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vídeos (Opcional) -->
+                        <div id="field-videos" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-sm font-bold text-gray-700">Vídeos</label>
+                                <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('videos', false)">Quitar</button>
+                            </div>
+                            <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <div class="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 cursor-pointer hover:border-primary-blue hover:text-primary-blue hover:bg-white transition">
+                                    <span class="material-icons text-2xl mb-1">movie</span>
+                                    <span class="text-xs">Añadir vídeo</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Audios (Opcional - Recuperado) -->
+                        <div id="field-audios" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-sm font-bold text-gray-700">Audios</label>
+                                <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('audios', false)">Quitar</button>
+                            </div>
+                            <div class="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                <div class="w-full h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-row items-center justify-center text-gray-400 cursor-pointer hover:border-primary-blue hover:text-primary-blue hover:bg-white transition gap-2">
+                                    <span class="material-icons text-xl">audiotrack</span>
+                                    <span class="text-xs">Añadir audio</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Barra Opcionales Medios -->
+                    <div class="bg-gray-50 px-6 py-3 border-t border-gray-100 flex gap-3 flex-wrap items-center">
+                        <span class="text-xs font-semibold text-gray-400 uppercase mr-2">Añadir campo:</span>
+                        <button id="btn-add-gallery" onclick="toggleField('gallery', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Galería
+                        </button>
+                        <button id="btn-add-videos" onclick="toggleField('videos', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Vídeos
+                        </button>
+                        <button id="btn-add-audios" onclick="toggleField('audios', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Audios
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 3: RELACIONES (Solo Artículos visible) -->
+            <section id="section-relations" class="max-w-5xl mx-auto">
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                        <span class="material-icons text-primary-blue">hub</span>
+                        <h3 class="font-bold text-gray-800 text-lg">Relaciones y Grupos</h3>
+                    </div>
+                    <div class="p-6 space-y-8">
+                        <!-- Artículos (Siempre visible) -->
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <h4 class="font-bold text-gray-700 flex items-center gap-2 text-sm uppercase tracking-wide"><span class="material-icons text-accent-blue text-lg">library_books</span> Artículos</h4>
+                                <button class="text-xs font-medium text-primary-blue hover:bg-blue-50 px-2 py-1 rounded transition">+ Añadir Grupo</button>
+                            </div>
+                            <div class="group-item border border-gray-200 rounded-lg overflow-hidden transition-all hover:shadow-md">
+                                <div class="bg-gray-50 p-3 flex justify-between items-center cursor-pointer drag-handle toggle-trigger">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-icons text-gray-400 cursor-move">drag_indicator</span>
+                                        <span class="font-semibold text-gray-700">Lecturas Recomendadas</span>
+                                    </div>
+                                    <span class="material-icons text-gray-500 toggle-icon">keyboard_arrow_up</span>
+                                </div>
+                                <div class="content-body p-4 bg-white border-t border-gray-200">
+                                    <input type="text" value="Lecturas Recomendadas" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Enlaces (Opcional) -->
+                        <div id="field-links" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-3">
+                                <h4 class="font-bold text-gray-700 flex items-center gap-2 text-sm uppercase tracking-wide"><span class="material-icons text-accent-orange text-lg">link</span> Enlaces</h4>
+                                <div class="flex gap-3">
+                                    <button class="text-xs font-medium text-primary-blue hover:bg-blue-50 px-2 py-1 rounded transition">+ Añadir Grupo</button>
+                                    <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('links', false)">Quitar</button>
+                                </div>
+                            </div>
+                            <div class="text-gray-400 text-sm italic py-2">No hay grupos de enlaces.</div>
+                        </div>
+
+                        <!-- Tablas (Opcional) -->
+                        <div id="field-tables" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-3">
+                                <h4 class="font-bold text-gray-700 flex items-center gap-2 text-sm uppercase tracking-wide"><span class="material-icons text-accent-red text-lg">table_chart</span> Tablas</h4>
+                                <div class="flex gap-3">
+                                    <button class="text-xs font-medium text-primary-blue hover:bg-blue-50 px-2 py-1 rounded transition">+ Añadir Grupo</button>
+                                    <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('tables', false)">Quitar</button>
+                                </div>
+                            </div>
+                            <div class="text-gray-400 text-sm italic py-2">No hay grupos de tablas.</div>
+                        </div>
+
+                        <!-- Ficheros (Opcional) -->
+                        <div id="field-files" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-3">
+                                <h4 class="font-bold text-gray-700 flex items-center gap-2 text-sm uppercase tracking-wide"><span class="material-icons text-accent-purple text-lg">folder</span> Ficheros</h4>
+                                <div class="flex gap-3">
+                                    <button class="text-xs font-medium text-primary-blue hover:bg-blue-50 px-2 py-1 rounded transition">+ Añadir</button>
+                                    <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('files', false)">Quitar</button>
+                                </div>
+                            </div>
+                            <div class="text-gray-400 text-sm italic py-2">No hay grupos de ficheros.</div>
+                        </div>
+
+                        <!-- Entidades (Opcional) -->
+                        <div id="field-entities" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-3">
+                                <h4 class="font-bold text-gray-700 flex items-center gap-2 text-sm uppercase tracking-wide"><span class="material-icons text-accent-green text-lg">people</span> Entidades</h4>
+                                <div class="flex gap-3">
+                                    <button class="text-xs font-medium text-primary-blue hover:bg-blue-50 px-2 py-1 rounded transition">+ Añadir</button>
+                                    <button class="text-xs text-red-400 hover:text-red-600 hover:underline" onclick="toggleField('entities', false)">Quitar</button>
+                                </div>
+                            </div>
+                            <div class="text-gray-400 text-sm italic py-2">No hay entidades relacionadas.</div>
+                        </div>
+                    </div>
+
+                    <!-- Barra Opcionales Relaciones -->
+                    <div class="bg-gray-50 px-6 py-3 border-t border-gray-100 flex gap-3 flex-wrap items-center">
+                        <span class="text-xs font-semibold text-gray-400 uppercase mr-2">Añadir grupo:</span>
+                        <button id="btn-add-links" onclick="toggleField('links', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Enlaces
+                        </button>
+                        <button id="btn-add-tables" onclick="toggleField('tables', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Tablas
+                        </button>
+                        <button id="btn-add-files" onclick="toggleField('files', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Ficheros
+                        </button>
+                        <button id="btn-add-entities" onclick="toggleField('entities', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 transition shadow-sm">
+                            <span class="material-icons text-sm">add</span> Entidades
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 4: METADATOS -->
+            <section id="section-metadata" class="max-w-5xl mx-auto">
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                        <span class="material-icons text-primary-blue">sell</span>
+                        <h3 class="font-bold text-gray-800 text-lg">Taxonomía y Metadatos</h3>
+                    </div>
+                    <div class="p-6 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Fecha (Fija) -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">Fecha Publicación</label>
+                                <input type="datetime-local" class="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none">
+                            </div>
+                            
+                            <!-- Tipo (Fijo) -->
+                            <div>
+                                <label class="block text-sm font-bold text-gray-700 mb-1">Tipo del Nodo</label>
+                                <div class="flex flex-wrap gap-2 border border-gray-300 rounded-lg p-2 min-h-[42px]">
+                                    <span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-sm flex items-center gap-1 border border-gray-200">Noticia</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fechas Evento (Opcional) -->
+                        <div id="field-dates" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-bold text-gray-700">Fechas de Evento</label>
+                                <button class="text-xs text-red-400 hover:underline" onclick="toggleField('dates', false)">Quitar</button>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <span class="text-gray-400">hasta</span>
+                                <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
+                        </div>
+
+                        <!-- Categorías (Opcional) -->
+                        <div id="field-categories" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-bold text-gray-700">Categorías</label>
+                                <button class="text-xs text-red-400 hover:underline" onclick="toggleField('categories', false)">Quitar</button>
+                            </div>
+                            <div class="border border-gray-300 rounded-lg p-2 min-h-[42px] flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-primary-blue/20 focus-within:border-primary-blue">
+                                <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-sm flex items-center gap-1 border border-blue-100">
+                                    Actualidad <button class="hover:text-blue-900"><span class="material-icons text-xs">close</span></button>
+                                </span>
+                                <input type="text" placeholder="+ Añadir..." class="outline-none text-sm flex-grow min-w-[100px] bg-transparent">
+                            </div>
+                        </div>
+
+                        <!-- Etiquetas (Opcional) -->
+                        <div id="field-tags" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-sm font-bold text-gray-700">Etiquetas</label>
+                                <button class="text-xs text-red-400 hover:underline" onclick="toggleField('tags', false)">Quitar</button>
+                            </div>
+                            <div class="border border-gray-300 rounded-lg p-2 min-h-[42px] flex flex-wrap gap-2 focus-within:ring-2 focus-within:ring-primary-blue/20 focus-within:border-primary-blue">
+                                <input type="text" placeholder="+ Añadir etiquetas..." class="outline-none text-sm flex-grow bg-transparent">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Barra Opcionales Metadata -->
+                    <div class="bg-gray-50 px-6 py-3 border-t border-gray-100 flex gap-3 flex-wrap items-center">
+                        <span class="text-xs font-semibold text-gray-400 uppercase mr-2">Añadir:</span>
+                        <button id="btn-add-dates" onclick="toggleField('dates', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 shadow-sm">
+                            <span class="material-icons text-sm">add</span> Fechas Evento
+                        </button>
+                        <button id="btn-add-categories" onclick="toggleField('categories', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 shadow-sm">
+                            <span class="material-icons text-sm">add</span> Categorías
+                        </button>
+                        <button id="btn-add-tags" onclick="toggleField('tags', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 shadow-sm">
+                            <span class="material-icons text-sm">add</span> Etiquetas
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SECCIÓN 5: CONTACTO -->
+            <section id="section-contact" class="max-w-5xl mx-auto pb-20">
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                    <div class="bg-gray-50/50 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                        <span class="material-icons text-primary-blue">place</span>
+                        <h3 class="font-bold text-gray-800 text-lg">Contacto</h3>
+                    </div>
+                    
+                    <div class="p-6 space-y-6">
+                        
+                        <!-- Dirección Postal (Opcional) -->
+                        <div id="field-address" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-3 border-b border-gray-100 pb-1">
+                                <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide">Dirección Postal</h4>
+                                <button class="text-xs text-red-400 hover:underline" onclick="toggleField('address', false)">Quitar</button>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="sm:col-span-2"><label class="text-xs font-semibold text-gray-500">Calle</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                                <div><label class="text-xs font-semibold text-gray-500">Población</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                                <div><label class="text-xs font-semibold text-gray-500">CP</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                                <div><label class="text-xs font-semibold text-gray-500">Provincia</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                                <div><label class="text-xs font-semibold text-gray-500">País</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                                <div class="sm:col-span-2"><label class="text-xs font-semibold text-gray-500">Info Adicional</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                            </div>
+                        </div>
+
+                        <!-- Mapa/Coords (Opcional) -->
+                        <div id="field-map" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-3 border-b border-gray-100 pb-1">
+                                <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide">Geolocalización</h4>
+                                <button class="text-xs text-red-400 hover:underline" onclick="toggleField('map', false)">Quitar</button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                                <div><label class="text-xs font-semibold text-gray-500">Latitud</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                                <div><label class="text-xs font-semibold text-gray-500">Longitud</label><input type="text" class="w-full px-3 py-2 border border-gray-300 rounded outline-none text-sm"></div>
+                                <div class="flex items-end"><button class="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded text-gray-600 text-sm hover:bg-gray-200 transition">Ubicar</button></div>
+                            </div>
+                            <div class="bg-gray-100 rounded-lg border border-gray-300 h-48 flex items-center justify-center text-gray-400">Mapa Interactivo</div>
+                        </div>
+
+                        <!-- Teléfonos (Opcional) -->
+                        <div id="field-phones" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide">Teléfonos</h4>
+                                <button class="text-xs text-red-400 hover:underline" onclick="toggleField('phones', false)">Quitar</button>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <input type="text" placeholder="Número..." class="w-full px-3 py-2 border border-gray-300 rounded text-sm outline-none">
+                                    <button class="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600"><span class="material-icons text-sm">add</span></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Emails (Opcional) -->
+                        <div id="field-emails" class="field-wrapper hidden-field">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wide">Emails</h4>
+                                <button class="text-xs text-red-400 hover:underline" onclick="toggleField('emails', false)">Quitar</button>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <input type="email" placeholder="Email..." class="w-full px-3 py-2 border border-gray-300 rounded text-sm outline-none">
+                                    <button class="bg-green-500 text-white px-3 py-2 rounded hover:bg-green-600"><span class="material-icons text-sm">add</span></button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Barra Opcionales Contacto -->
+                    <div class="bg-gray-50 px-6 py-3 border-t border-gray-100 flex gap-3 flex-wrap items-center">
+                        <span class="text-xs font-semibold text-gray-400 uppercase mr-2">Añadir:</span>
+                        <button id="btn-add-address" onclick="toggleField('address', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 shadow-sm">
+                            <span class="material-icons text-sm">add</span> Dirección
+                        </button>
+                        <button id="btn-add-map" onclick="toggleField('map', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 shadow-sm">
+                            <span class="material-icons text-sm">add</span> Mapa
+                        </button>
+                        <button id="btn-add-phones" onclick="toggleField('phones', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 shadow-sm">
+                            <span class="material-icons text-sm">add</span> Teléfonos
+                        </button>
+                        <button id="btn-add-emails" onclick="toggleField('emails', true)" class="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary-blue bg-white border border-primary-blue/30 rounded-full hover:bg-blue-50 shadow-sm">
+                            <span class="material-icons text-sm">add</span> Emails
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script>
+        // Lógica para Mostrar/Ocultar campos opcionales
+        function toggleField(fieldId, show) {
+            const field = document.getElementById(`field-${fieldId}`);
+            const btn = document.getElementById(`btn-add-${fieldId}`);
+            
+            if (show) {
+                field.classList.remove('hidden-field');
+                field.classList.add('visible-field');
+                if(btn) btn.style.display = 'none'; 
+            } else {
+                field.classList.remove('visible-field');
+                field.classList.add('hidden-field');
+                if(btn) btn.style.display = 'flex';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const container = document.getElementById('main-scroll-container');
+            const sections = document.querySelectorAll('section');
+            
+            const observerOptions = { root: container, threshold: 0.3 };
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        navLinks.forEach(link => {
+                            link.classList.remove('active', 'text-primary-blue', 'border-primary-blue', 'bg-blue-50');
+                            link.classList.add('border-transparent', 'text-gray-500');
+                        });
+                        const activeLink = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+                        if (activeLink) {
+                            activeLink.classList.remove('border-transparent', 'text-gray-500');
+                            activeLink.classList.add('active', 'text-primary-blue', 'border-primary-blue');
+                            activeLink.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                        }
+                    }
+                });
+            }, observerOptions);
+            sections.forEach(section => observer.observe(section));
+
+            // Toggle Groups
+            document.addEventListener('click', (e) => {
+                if(e.target.closest('.toggle-trigger')) {
+                    const trigger = e.target.closest('.toggle-trigger');
+                    const groupItem = trigger.closest('.group-item');
+                    const content = groupItem.querySelector('.content-body');
+                    const icon = groupItem.querySelector('.toggle-icon');
+                    if(content && icon) {
+                        content.classList.toggle('hidden');
+                        if(content.classList.contains('hidden')) {
+                            icon.textContent = 'keyboard_arrow_down';
+                            icon.classList.add('rotate-180');
+                        } else {
+                            icon.textContent = 'keyboard_arrow_up';
+                            icon.classList.remove('rotate-180');
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ayuntamiento de Paiporta - Reconstrucción DANA</title>
+    
+    <!-- Tailwind CSS (Framework de diseño) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Iconos (Lucide) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Configuración personalizada de Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9', // Azul principal
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        },
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        purple: '#8B5CF6',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos suaves para el scroll */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+        
+        .glass-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Utilidad para ocultar/mostrar tabs */
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .tab-btn.active {
+            border-bottom-color: #0284c7; /* brand-600 */
+            color: #0284c7;
+        }
+
+        /* Ajustes para los gráficos SVG importados */
+        .chart-container svg {
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+        }
+        .treemap-text {
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+    <!-- Header Sticky -->
+    <header class="glass-header sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo Area -->
+                <div class="flex items-center gap-4">
+                    <div class="bg-brand-900 text-white p-2 rounded-lg font-bold text-xl tracking-tighter">
+                        AP
+                    </div>
+                    <div class="hidden md:block">
+                        <h1 class="text-lg font-bold text-slate-900 leading-tight">Ayuntamiento de Paiporta</h1>
+                        <p class="text-xs text-brand-600 font-medium uppercase tracking-wide">Portal de Reconstrucción Post-DANA</p>
+                    </div>
+                </div>
+
+                <!-- Nav -->
+                <nav class="hidden md:flex space-x-8">
+                    <a href="#" class="text-brand-600 font-semibold border-b-2 border-brand-600 px-1 py-4">Inicio</a>
+                    <a href="#" class="text-slate-500 hover:text-brand-600 hover:border-brand-300 border-b-2 border-transparent px-1 py-4 transition">Proyectos</a>
+                    <a href="#" class="text-slate-500 hover:text-brand-600 hover:border-brand-300 border-b-2 border-transparent px-1 py-4 transition">Transparencia</a>
+                </nav>
+
+                <!-- Mobile Menu Button -->
+                <button class="md:hidden text-slate-500 p-2">
+                    <i data-lucide="menu"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="relative bg-brand-900 text-white overflow-hidden">
+        <!-- Background Image with Overlay -->
+        <div class="absolute inset-0 opacity-40">
+            <img src="https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" alt="Reconstrucción" class="w-full h-full object-cover">
+        </div>
+        <div class="absolute inset-0 bg-gradient-to-t from-brand-900 via-transparent to-transparent"></div>
+
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 text-center md:text-left">
+            <span class="inline-block py-1 px-3 rounded-full bg-brand-500/30 border border-brand-400/50 text-brand-100 text-sm font-semibold mb-4 backdrop-blur-sm">
+                Seguimiento en tiempo real
+            </span>
+            <h2 class="text-4xl md:text-5xl font-bold mb-4 tracking-tight">Paiporta Reconstrucción</h2>
+            <p class="text-xl text-brand-100 max-w-2xl font-light">
+                Visualiza el progreso, las inversiones y los contratos destinados a la recuperación de nuestro municipio tras la DANA.
+            </p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-10 pb-20">
+        
+        <!-- KPI Cards (Resumen Ejecutivo) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 fade-in">
+            <!-- Card 1 -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 flex items-center justify-between group hover:-translate-y-1 transition-transform duration-300">
+                <div>
+                    <p class="text-sm font-medium text-slate-500 uppercase">Presupuesto Total</p>
+                    <p class="text-3xl font-bold text-slate-800 mt-1">15.67 M€</p>
+                    <p class="text-xs text-emerald-600 font-medium mt-2 flex items-center">
+                        <i data-lucide="trending-up" class="w-3 h-3 mr-1"></i> Asignado 100%
+                    </p>
+                </div>
+                <div class="h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <i data-lucide="euro" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 flex items-center justify-between group hover:-translate-y-1 transition-transform duration-300">
+                <div>
+                    <p class="text-sm font-medium text-slate-500 uppercase">Proyectos Activos</p>
+                    <p class="text-3xl font-bold text-slate-800 mt-1">12</p>
+                    <p class="text-xs text-orange-600 font-medium mt-2">En ejecución</p>
+                </div>
+                <div class="h-12 w-12 bg-orange-50 rounded-full flex items-center justify-center text-orange-600 group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                    <i data-lucide="hard-hat" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="bg-white rounded-2xl p-6 shadow-lg border border-slate-100 flex items-center justify-between group hover:-translate-y-1 transition-transform duration-300">
+                <div>
+                    <p class="text-sm font-medium text-slate-500 uppercase">Finalizados</p>
+                    <p class="text-3xl font-bold text-slate-800 mt-1">319</p>
+                    <p class="text-xs text-slate-400 font-medium mt-2">Intervenciones completadas</p>
+                </div>
+                <div class="h-12 w-12 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                    <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upper Section: Filters and Map (2 Columns) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+            
+            <!-- Sidebar / Filters -->
+            <aside class="lg:col-span-3 space-y-6">
+                <!-- Sticky Wrapper -->
+                <div class="sticky top-24 space-y-6">
+                    
+                    <!-- Filters Box -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                        <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="filter" class="w-4 h-4 text-brand-500"></i> Filtros
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <!-- Search -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Buscar</label>
+                                <div class="relative">
+                                    <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
+                                    <input type="text" placeholder="Buscar contrato..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-all">
+                                </div>
+                            </div>
+
+                            <!-- Status Dropdown -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Estado</label>
+                                <div class="relative">
+                                    <select class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer appearance-none">
+                                        <option>Todos los estados</option>
+                                        <option>Adjudicada</option>
+                                        <option>Resuelta</option>
+                                        <option>En plazo</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none"></i>
+                                </div>
+                            </div>
+
+                            <!-- Plans Dropdown (Modified from List) -->
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Planes y Programas</label>
+                                <div class="relative">
+                                    <select class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer appearance-none">
+                                        <option value="">Todos los planes</option>
+                                        <option value="limpieza">Plan de Limpieza y Residuos</option>
+                                        <option value="reconstruccion">Plan de Reconstrucción</option>
+                                        <option value="suministros">Plan de Suministros</option>
+                                        <option value="educacion">Plan de Educación</option>
+                                        <option value="sociales">Plan de Servicios Sociales</option>
+                                        <option value="empleo">Plan de Empleo y Formación</option>
+                                        <option value="cultura">Plan de Cultura y Deporte</option>
+                                    </select>
+                                    <i data-lucide="chevron-down" class="absolute right-3 top-3 w-4 h-4 text-slate-400 pointer-events-none"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div> <!-- End Sticky -->
+            </aside>
+
+            <!-- Map Panel -->
+            <div class="lg:col-span-9">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden h-[450px] relative group">
+                    <div class="absolute inset-0 bg-slate-100 flex items-center justify-center">
+                        <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px;"></div>
+                        <div class="text-center">
+                            <i data-lucide="map" class="w-12 h-12 text-slate-300 mx-auto mb-2"></i>
+                            <p class="text-slate-400 font-medium">Mapa Interactivo de Intervenciones</p>
+                            <button class="mt-4 px-4 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-sm font-medium text-slate-600 hover:text-brand-600 hover:border-brand-300 transition">
+                                Explorar Mapa Completo
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Pins -->
+                    <div class="absolute top-1/3 left-1/4 w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-125 transition"></div>
+                    <div class="absolute top-1/2 left-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-125 transition"></div>
+                    <div class="absolute bottom-1/3 right-1/3 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-125 transition"></div>
+                    <!-- Overlay Controls -->
+                    <div class="absolute bottom-4 right-4 flex gap-2">
+                        <button class="bg-white p-2 rounded-lg shadow text-slate-600 hover:text-brand-600"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                        <button class="bg-white p-2 rounded-lg shadow text-slate-600 hover:text-brand-600"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lower Section: Tabs and Full Width Grid -->
+        <section class="space-y-6">
+            
+            <!-- Tabs Navigation -->
+            <div class="flex border-b border-slate-200 mb-6 overflow-x-auto">
+                <button onclick="switchTab('contratos')" id="btn-contratos" class="tab-btn active px-6 py-3 font-semibold border-b-2 border-transparent text-sm whitespace-nowrap transition-colors duration-200">
+                    Contratos
+                </button>
+                <button onclick="switchTab('empresas')" id="btn-empresas" class="tab-btn px-6 py-3 font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors duration-200 text-sm whitespace-nowrap">
+                    Empresas
+                </button>
+                <button onclick="switchTab('areas')" id="btn-areas" class="tab-btn px-6 py-3 font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors duration-200 text-sm whitespace-nowrap">
+                    Áreas de Inversión
+                </button>
+            </div>
+
+            <!-- Tab 1: Contract Grid -->
+            <div id="tab-contratos" class="tab-content active">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    
+                    <!-- Card 1 -->
+                    <article class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer group flex flex-col h-full">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700">
+                                <i data-lucide="briefcase" class="w-3 h-3 mr-1"></i> Empleo
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                                Contratada
+                            </span>
+                        </div>
+                        <h3 class="text-slate-800 font-semibold leading-snug mb-2 group-hover:text-brand-600 transition-colors line-clamp-3">
+                            Suministro vestuario Plan empleo DANA personas desempleadas 2024-2025
+                        </h3>
+                        <div class="mt-auto pt-4 border-t border-slate-100">
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Presupuesto</p>
+                                    <p class="text-lg font-bold text-slate-900">2.568,68 €</p>
+                                </div>
+                                <div class="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+                                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Card 2 -->
+                    <article class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer group flex flex-col h-full">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-50 text-orange-700">
+                                <i data-lucide="school" class="w-3 h-3 mr-1"></i> Educación
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                                Contratada
+                            </span>
+                        </div>
+                        <h3 class="text-slate-800 font-semibold leading-snug mb-2 group-hover:text-brand-600 transition-colors line-clamp-3">
+                            Suministro plásticos, mallazo y puertas invernadero municipal (Aula Jardinería)
+                        </h3>
+                        <div class="mt-auto pt-4 border-t border-slate-100">
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Presupuesto</p>
+                                    <p class="text-lg font-bold text-slate-900">2.760,00 €</p>
+                                </div>
+                                <div class="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+                                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Card 3 -->
+                    <article class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer group flex flex-col h-full">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                                <i data-lucide="trophy" class="w-3 h-3 mr-1"></i> Cultura
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                                Contratada
+                            </span>
+                        </div>
+                        <h3 class="text-slate-800 font-semibold leading-snug mb-2 group-hover:text-brand-600 transition-colors line-clamp-3">
+                            Equipamiento mobiliario oficina L'Horta y Polideportivo Municipal
+                        </h3>
+                        <div class="mt-auto pt-4 border-t border-slate-100">
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Presupuesto</p>
+                                    <p class="text-lg font-bold text-slate-900">1.370,75 €</p>
+                                </div>
+                                <div class="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+                                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                     <!-- Card 4 -->
+                     <article class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer group flex flex-col h-full">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                                <i data-lucide="hammer" class="w-3 h-3 mr-1"></i> Reconstrucción
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                                Contratada
+                            </span>
+                        </div>
+                        <h3 class="text-slate-800 font-semibold leading-snug mb-2 group-hover:text-brand-600 transition-colors line-clamp-3">
+                            Obras de emergencia tras la DANA calle Alfafar
+                        </h3>
+                        <div class="mt-auto pt-4 border-t border-slate-100">
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Presupuesto</p>
+                                    <p class="text-lg font-bold text-slate-900">2.544,80 €</p>
+                                </div>
+                                <div class="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+                                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <!-- Card 5 -->
+                    <article class="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:shadow-md hover:border-brand-200 transition-all cursor-pointer group flex flex-col h-full">
+                        <div class="flex justify-between items-start mb-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                                <i data-lucide="trash-2" class="w-3 h-3 mr-1"></i> Limpieza
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                                Contratada
+                            </span>
+                        </div>
+                        <h3 class="text-slate-800 font-semibold leading-snug mb-2 group-hover:text-brand-600 transition-colors line-clamp-3">
+                            Servicio especial de recogida de residuos voluminosos zonas afectadas
+                        </h3>
+                        <div class="mt-auto pt-4 border-t border-slate-100">
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p class="text-xs text-slate-400 uppercase font-semibold">Presupuesto</p>
+                                    <p class="text-lg font-bold text-slate-900">12.500,00 €</p>
+                                </div>
+                                <div class="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+                                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                </div>
+                
+                <!-- Paginator -->
+                <div class="flex justify-center mt-8">
+                    <nav class="flex items-center gap-2">
+                        <a href="#" class="p-2 rounded-lg border border-slate-200 text-slate-400 cursor-not-allowed"><i data-lucide="chevron-left" class="w-5 h-5"></i></a>
+                        <a href="#" class="px-4 py-2 rounded-lg bg-brand-600 text-white font-medium shadow-sm">1</a>
+                        <a href="#" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">2</a>
+                        <span class="text-slate-400">...</span>
+                        <a href="#" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">27</a>
+                        <a href="#" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition"><i data-lucide="chevron-right" class="w-5 h-5"></i></a>
+                    </nav>
+                </div>
+            </div> <!-- End Tab Contratos -->
+
+            <!-- Tab 2: Empresas (Nuevo Bloque Rediseñado) -->
+            <div id="tab-empresas" class="tab-content">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    
+                    <!-- Header Sección -->
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-2">Empresas con mayor presupuesto adjudicado</h2>
+                        <p class="text-slate-500 max-w-3xl">
+                            Ranking de compañías adjudicatarias ordenado por volumen económico total y número de contratos obtenidos en el proceso de reconstrucción.
+                        </p>
+                    </div>
+
+                    <!-- Botones Toggle -->
+                    <div class="flex gap-2 mb-6">
+                        <button class="px-4 py-2 bg-brand-50 text-brand-700 font-semibold text-sm rounded-lg border border-brand-100 hover:bg-brand-100 transition shadow-sm">
+                            Por presupuesto total
+                        </button>
+                        <button class="px-4 py-2 bg-white text-slate-600 font-medium text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition shadow-sm">
+                            Por número de contratos
+                        </button>
+                    </div>
+
+                    <!-- Tabla / Listado -->
+                    <div class="border rounded-xl overflow-hidden border-slate-200">
+                        
+                        <!-- Encabezado de Tabla -->
+                        <div class="grid grid-cols-12 bg-slate-50 border-b border-slate-200 py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            <div class="col-span-4 md:col-span-4">Empresa</div>
+                            <div class="col-span-4 md:col-span-4 hidden md:block">Distribución</div>
+                            <div class="col-span-4 md:col-span-2 text-right">Presupuesto</div>
+                            <div class="col-span-4 md:col-span-2 text-center">Contratos</div>
+                        </div>
+
+                        <!-- Rows -->
+                        <div class="divide-y divide-slate-100">
+                            
+                            <!-- Item 1 -->
+                            <div class="grid grid-cols-12 items-center py-4 px-4 hover:bg-slate-50 transition">
+                                <div class="col-span-4 font-semibold text-slate-800 text-sm">GRUAS BONET TRANSPORT, SL</div>
+                                <div class="col-span-4 hidden md:flex items-center px-4">
+                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-500 rounded-full" style="width: 100%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 md:col-span-2 text-right font-mono text-slate-600 font-medium text-sm">2.894.992,07 €</div>
+                                <div class="col-span-4 md:col-span-2 flex justify-center">
+                                    <span class="bg-slate-100 text-slate-600 py-1 px-3 rounded-md text-xs font-bold">3</span>
+                                </div>
+                            </div>
+
+                            <!-- Item 2 -->
+                            <div class="grid grid-cols-12 items-center py-4 px-4 hover:bg-slate-50 transition">
+                                <div class="col-span-4 font-semibold text-slate-800 text-sm">COMERMUSIC, SL</div>
+                                <div class="col-span-4 hidden md:flex items-center px-4">
+                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-500 rounded-full" style="width: 28%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 md:col-span-2 text-right font-mono text-slate-600 font-medium text-sm">813.480,00 €</div>
+                                <div class="col-span-4 md:col-span-2 flex justify-center">
+                                    <span class="bg-slate-100 text-slate-600 py-1 px-3 rounded-md text-xs font-bold">1</span>
+                                </div>
+                            </div>
+
+                            <!-- Item 3 -->
+                            <div class="grid grid-cols-12 items-center py-4 px-4 hover:bg-slate-50 transition">
+                                <div class="col-span-4 font-semibold text-slate-800 text-sm">IWINTUKUNA S.L.</div>
+                                <div class="col-span-4 hidden md:flex items-center px-4">
+                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-500 rounded-full" style="width: 27%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 md:col-span-2 text-right font-mono text-slate-600 font-medium text-sm">786.570,00 €</div>
+                                <div class="col-span-4 md:col-span-2 flex justify-center">
+                                    <span class="bg-slate-100 text-slate-600 py-1 px-3 rounded-md text-xs font-bold">1</span>
+                                </div>
+                            </div>
+
+                            <!-- Item 4 -->
+                            <div class="grid grid-cols-12 items-center py-4 px-4 hover:bg-slate-50 transition">
+                                <div class="col-span-4 font-semibold text-slate-800 text-sm text-ellipsis overflow-hidden whitespace-nowrap" title="APLICACIONES DE PINTURAS INDUSTRIALES Y DECORATIVAS, S.L">APLICACIONES DE PINTURAS...</div>
+                                <div class="col-span-4 hidden md:flex items-center px-4">
+                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-500 rounded-full" style="width: 24%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 md:col-span-2 text-right font-mono text-slate-600 font-medium text-sm">689.772,00 €</div>
+                                <div class="col-span-4 md:col-span-2 flex justify-center">
+                                    <span class="bg-slate-100 text-slate-600 py-1 px-3 rounded-md text-xs font-bold">1</span>
+                                </div>
+                            </div>
+
+                            <!-- Item 5 -->
+                            <div class="grid grid-cols-12 items-center py-4 px-4 hover:bg-slate-50 transition">
+                                <div class="col-span-4 font-semibold text-slate-800 text-sm">MAQUIDUERO,SLU</div>
+                                <div class="col-span-4 hidden md:flex items-center px-4">
+                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-500 rounded-full" style="width: 19%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 md:col-span-2 text-right font-mono text-slate-600 font-medium text-sm">558.150,00 €</div>
+                                <div class="col-span-4 md:col-span-2 flex justify-center">
+                                    <span class="bg-slate-100 text-slate-600 py-1 px-3 rounded-md text-xs font-bold">1</span>
+                                </div>
+                            </div>
+
+                             <!-- Item 6 -->
+                             <div class="grid grid-cols-12 items-center py-4 px-4 hover:bg-slate-50 transition">
+                                <div class="col-span-4 font-semibold text-slate-800 text-sm">METALES REUS, S.L</div>
+                                <div class="col-span-4 hidden md:flex items-center px-4">
+                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-500 rounded-full" style="width: 17%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 md:col-span-2 text-right font-mono text-slate-600 font-medium text-sm">491.920,00 €</div>
+                                <div class="col-span-4 md:col-span-2 flex justify-center">
+                                    <span class="bg-slate-100 text-slate-600 py-1 px-3 rounded-md text-xs font-bold">1</span>
+                                </div>
+                            </div>
+
+                             <!-- Item 7 -->
+                             <div class="grid grid-cols-12 items-center py-4 px-4 hover:bg-slate-50 transition">
+                                <div class="col-span-4 font-semibold text-slate-800 text-sm">BIOVALSURO SOCIEDAD LIMITADA</div>
+                                <div class="col-span-4 hidden md:flex items-center px-4">
+                                    <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-500 rounded-full" style="width: 16%"></div>
+                                    </div>
+                                </div>
+                                <div class="col-span-4 md:col-span-2 text-right font-mono text-slate-600 font-medium text-sm">458.030,29 €</div>
+                                <div class="col-span-4 md:col-span-2 flex justify-center">
+                                    <span class="bg-slate-100 text-slate-600 py-1 px-3 rounded-md text-xs font-bold">7</span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                     <!-- Paginator for Empresas -->
+                     <div class="flex justify-center mt-6">
+                        <nav class="flex items-center gap-2">
+                            <a href="#" class="p-2 rounded-lg border border-slate-200 text-slate-400 cursor-not-allowed"><i data-lucide="chevron-left" class="w-5 h-5"></i></a>
+                            <a href="#" class="px-4 py-2 rounded-lg bg-brand-600 text-white font-medium shadow-sm">1</a>
+                            <a href="#" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">2</a>
+                            <span class="text-slate-400">...</span>
+                            <a href="#" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition">32</a>
+                            <a href="#" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-brand-600 transition"><i data-lucide="chevron-right" class="w-5 h-5"></i></a>
+                        </nav>
+                    </div>
+
+                </div>
+            </div> <!-- End Tab Empresas -->
+
+            <!-- Tab 3: Áreas de Inversión (IMPLEMENTADA) -->
+            <div id="tab-areas" class="tab-content">
+                <div class="space-y-6">
+                    
+                    <!-- Sección 1: Fuentes y Destinos -->
+                    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        
+                        <!-- Fuentes de Financiación -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">Fuentes de Financiación</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 rounded-lg bg-blue-50 border-l-4 border-blue-500">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                                        <span class="font-medium text-slate-700 text-sm">Fondos Europeos DANA</span>
+                                    </div>
+                                    <span class="font-bold text-blue-700">14,00 M€</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-lg bg-green-50 border-l-4 border-green-500">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                        <span class="font-medium text-slate-700 text-sm">Administración Central</span>
+                                    </div>
+                                    <span class="font-bold text-green-700">3,05 M€</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-lg bg-orange-50 border-l-4 border-orange-500">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                                        <span class="font-medium text-slate-700 text-sm">Generalitat Valenciana</span>
+                                    </div>
+                                    <span class="font-bold text-orange-700">2,00 M€</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-lg bg-red-50 border-l-4 border-red-500">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                        <span class="font-medium text-slate-700 text-sm">Aportación Municipal</span>
+                                    </div>
+                                    <span class="font-bold text-red-700">1,01 M€</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Destinos de Inversión (Top 5) -->
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">Principales Destinos</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition border border-slate-100">
+                                    <div class="flex items-center gap-2">
+                                        <div class="p-1.5 bg-blue-100 text-blue-600 rounded-md"><i data-lucide="trash-2" class="w-4 h-4"></i></div>
+                                        <span class="font-medium text-slate-700 text-sm">Limpieza y Residuos</span>
+                                    </div>
+                                    <span class="font-bold text-slate-800">11,14 M€</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition border border-slate-100">
+                                    <div class="flex items-center gap-2">
+                                        <div class="p-1.5 bg-red-100 text-red-600 rounded-md"><i data-lucide="package" class="w-4 h-4"></i></div>
+                                        <span class="font-medium text-slate-700 text-sm">Suministros</span>
+                                    </div>
+                                    <span class="font-bold text-slate-800">2,79 M€</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition border border-slate-100">
+                                    <div class="flex items-center gap-2">
+                                        <div class="p-1.5 bg-green-100 text-green-600 rounded-md"><i data-lucide="hammer" class="w-4 h-4"></i></div>
+                                        <span class="font-medium text-slate-700 text-sm">Reconstrucción</span>
+                                    </div>
+                                    <span class="font-bold text-slate-800">1,38 M€</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition border border-slate-100">
+                                    <div class="flex items-center gap-2">
+                                        <div class="p-1.5 bg-purple-100 text-purple-600 rounded-md"><i data-lucide="briefcase" class="w-4 h-4"></i></div>
+                                        <span class="font-medium text-slate-700 text-sm">Empleo y Formación</span>
+                                    </div>
+                                    <span class="font-bold text-slate-800">245,64 K€</span>
+                                </div>
+                                <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition border border-slate-100">
+                                    <div class="flex items-center gap-2">
+                                        <div class="p-1.5 bg-orange-100 text-orange-600 rounded-md"><i data-lucide="school" class="w-4 h-4"></i></div>
+                                        <span class="font-medium text-slate-700 text-sm">Educación</span>
+                                    </div>
+                                    <span class="font-bold text-slate-800">37,91 K€</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Sección 2: Detalle de Progreso por Áreas -->
+                    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-brand-50 text-brand-600 rounded-lg">
+                                <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                            </div>
+                            <h2 class="text-lg font-bold text-slate-800">Ejecución Presupuestaria por Área</h2>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <!-- Card Progreso 1 -->
+                            <div class="p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold text-slate-700 text-sm">Plan de Limpieza</h4>
+                                    <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">46%</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>Ejecutado: <strong>2,28 M</strong></span>
+                                    <span>Total: 11,14 M</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full transition-all duration-1000" style="width: 46%"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Card Progreso 2 -->
+                             <div class="p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold text-slate-700 text-sm">Plan de Educación</h4>
+                                    <span class="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">51%</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>Ejecutado: <strong>35,15 K</strong></span>
+                                    <span>Total: 37,91 K</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div class="bg-green-500 h-2 rounded-full transition-all duration-1000" style="width: 51%"></div>
+                                </div>
+                            </div>
+
+                             <!-- Card Progreso 3 -->
+                             <div class="p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold text-slate-700 text-sm">Servicios Sociales</h4>
+                                    <span class="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">23%</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>Ejecutado: <strong>0,00</strong></span>
+                                    <span>Total: 11,10 K</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div class="bg-orange-500 h-2 rounded-full transition-all duration-1000" style="width: 23%"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Card Progreso 4 -->
+                             <div class="p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold text-slate-700 text-sm">Suministros</h4>
+                                    <span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">17%</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>Ejecutado: <strong>651 K</strong></span>
+                                    <span>Total: 2,79 M</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div class="bg-red-500 h-2 rounded-full transition-all duration-1000" style="width: 17%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Card Progreso 5 -->
+                             <div class="p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold text-slate-700 text-sm">Empleo</h4>
+                                    <span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">18%</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>Ejecutado: <strong>87,78 K</strong></span>
+                                    <span>Total: 245 K</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div class="bg-red-500 h-2 rounded-full transition-all duration-1000" style="width: 18%"></div>
+                                </div>
+                            </div>
+
+                             <!-- Card Progreso 6 -->
+                             <div class="p-4 border border-slate-100 rounded-xl bg-slate-50/50">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-semibold text-slate-700 text-sm">Cultura y Deporte</h4>
+                                    <span class="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded">13%</span>
+                                </div>
+                                <div class="flex justify-between text-xs text-slate-500 mb-1">
+                                    <span>Ejecutado: <strong>2,70 K</strong></span>
+                                    <span>Total: 66,46 K</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div class="bg-red-500 h-2 rounded-full transition-all duration-1000" style="width: 13%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Sección 3: Visualizaciones (Sankey Diagram Importado) -->
+                    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-hidden">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                                <i data-lucide="git-merge" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-800">Flujo de Inversión</h2>
+                                <p class="text-sm text-slate-500">Origen de los fondos y su distribución por planes</p>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container overflow-x-auto">
+                            <!-- SVG CODE FROM USER (SANKEY) -->
+                            <svg width="882" height="400" viewBox="0,0,882,400" style="width: 100%; height: auto; min-width: 600px;"><defs><linearGradient id="gradient-0" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#F59E0B"></stop><stop offset="100%" stop-color="#3B82F6"></stop></linearGradient><linearGradient id="gradient-1" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#F59E0B"></stop><stop offset="100%" stop-color="#9E2B25"></stop></linearGradient><linearGradient id="gradient-2" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#F59E0B"></stop><stop offset="100%" stop-color="#FF6900"></stop></linearGradient><linearGradient id="gradient-3" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#3B82F6"></stop><stop offset="100%" stop-color="#3B82F6"></stop></linearGradient><linearGradient id="gradient-4" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#3B82F6"></stop><stop offset="100%" stop-color="#9E2B25"></stop></linearGradient><linearGradient id="gradient-5" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#3B82F6"></stop><stop offset="100%" stop-color="#FF6900"></stop></linearGradient><linearGradient id="gradient-6" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#10B981"></stop><stop offset="100%" stop-color="#3B82F6"></stop></linearGradient><linearGradient id="gradient-7" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#10B981"></stop><stop offset="100%" stop-color="#9E2B25"></stop></linearGradient><linearGradient id="gradient-8" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#10B981"></stop><stop offset="100%" stop-color="#FF6900"></stop></linearGradient><linearGradient id="gradient-9" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#9E2B25"></stop><stop offset="100%" stop-color="#3B82F6"></stop></linearGradient><linearGradient id="gradient-10" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#9E2B25"></stop><stop offset="100%" stop-color="#9E2B25"></stop></linearGradient><linearGradient id="gradient-11" gradientUnits="userSpaceOnUse" x1="16" x2="866"><stop offset="0%" stop-color="#9E2B25"></stop><stop offset="100%" stop-color="#FF6900"></stop></linearGradient></defs><g stroke="#ccc" stroke-width="0.5"><g class="sankey-node"><rect x="1" y="5" height="251" width="15" rx="3" ry="3" fill="#10B981"></rect></g><g class="sankey-node"><rect x="1" y="266" height="54" width="15" rx="3" ry="3" fill="#F59E0B"></rect></g><g class="sankey-node"><rect x="1" y="331" height="35" width="15" rx="3" ry="3" fill="#9E2B25"></rect></g><g class="sankey-node"><rect x="1" y="376" height="18" width="15" rx="3" ry="3" fill="#3B82F6"></rect></g><g class="sankey-node"><rect x="866" y="5" height="180" width="15" rx="3" ry="3" fill="#3B82F6"></rect></g><g class="sankey-node"><rect x="866" y="384" height="1" width="15" rx="3" ry="3" fill="#9E2B25"></rect></g><g class="sankey-node"><rect x="866" y="195" height="179" width="15" rx="3" ry="3" fill="#FF6900"></rect></g></g><g fill="none" class="sankey-links" stroke-opacity="0.5"><path class="sankey-link" stroke="url(#gradient-0)" stroke-width="2" d="M16,266.697C441,266.697,441,184.91,866,184.91"></path><path class="sankey-link" stroke="url(#gradient-1)" stroke-width="2" d="M16,321.005C441,321.005,441,384.96,866,384.96"></path><path class="sankey-link" stroke="url(#gradient-2)" stroke-width="53" d="M16,294.091C441,294.091,441,294.199,866,294.199"></path><path class="sankey-link" stroke="url(#gradient-3)" stroke-width="2" d="M16,377.006C441,377.006,441,185.493,866,185.493"></path><path class="sankey-link" stroke="url(#gradient-4)" stroke-width="2" d="M16,394.991C441,394.991,441,384.991,866,384.991"></path><path class="sankey-link" stroke="url(#gradient-5)" stroke-width="17" d="M16,386.012C441,386.012,441,365.958,866,365.958"></path><path class="sankey-link" stroke="url(#gradient-6)" stroke-width="179" d="M16,94.713C441,94.713,441,94.713,866,94.713"></path><path class="sankey-link" stroke="url(#gradient-7)" stroke-width="2" d="M16,256.199C441,256.199,441,384.942,866,384.942"></path><path class="sankey-link" stroke="url(#gradient-8)" stroke-width="71" d="M16,220.306C441,220.306,441,231.409,866,231.409"></path><path class="sankey-link" stroke="url(#gradient-9)" stroke-width="2" d="M16,331.041C441,331.041,441,185.426,866,185.426"></path><path class="sankey-link" stroke="url(#gradient-10)" stroke-width="2" d="M16,366.961C441,366.961,441,384.973,866,384.973"></path><path class="sankey-link" stroke="url(#gradient-11)" stroke-width="35" d="M16,349.013C441,349.013,441,339.048,866,339.048"></path></g><g font-family="sans-serif" font-size="12" fill="#475569" font-weight="600"><text x="22" y="130" dy="0.35em">Fondos Europeos</text><text x="22" y="293" dy="0.35em">Admin. Central</text><text x="22" y="348" dy="0.35em">Generalitat</text><text x="22" y="385" dy="0.35em">Municipio</text><text x="860" y="95" dy="0.35em" text-anchor="end">Limpieza y Residuos</text><text x="860" y="384" dy="0.35em" text-anchor="end">Suministros</text><text x="860" y="285" dy="0.35em" text-anchor="end">Educación</text></g></svg>
+                        </div>
+                    </section>
+
+                    <!-- Sección 4: Visualizaciones (Treemap Importado) -->
+                    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 overflow-hidden">
+                        <div class="flex items-center gap-3 mb-6">
+                            <div class="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                                <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-lg font-bold text-slate-800">Categorías CPV</h2>
+                                <p class="text-sm text-slate-500">Desglose de inversión por tipología de gasto</p>
+                            </div>
+                        </div>
+
+                         <div class="chart-container overflow-x-auto">
+                            <!-- SVG CODE FROM USER (TREEMAP) - Slightly cleaned up -->
+                            <svg viewBox="0,0,700,400" width="100%" height="400" style="max-width: 100%; height: auto; min-width: 600px;"><g><g cursor="pointer" transform="translate(0,0)"><rect fill="#4e79a7" fill-opacity="0.8" stroke="#fff" stroke-width="2" width="314" height="400" rx="4"></rect><foreignObject x="8" y="8" width="298" height="384" style="pointer-events: none;"><div class="treemap-text" style="font-family: sans-serif; font-size: 12px; color: white;"> <p style="margin: 0; font-weight: bold;">Servicios de alcantarillado</p> <p style="opacity: 0.9;">7.03 M€</p> </div></foreignObject></g><g cursor="pointer" transform="translate(314,0)"><rect fill="#f28e2c" fill-opacity="0.8" stroke="#fff" stroke-width="2" width="281" height="218" rx="4"></rect><foreignObject x="8" y="8" width="265" height="202" style="pointer-events: none;"><div class="treemap-text" style="font-family: sans-serif; font-size: 12px; color: white;"> <p style="margin: 0; font-weight: bold;">Maquinaria industrial</p> <p style="opacity: 0.9;">3.42 M€</p> </div></foreignObject></g><g cursor="pointer" transform="translate(595,0)"><rect fill="#e15759" fill-opacity="0.8" stroke="#fff" stroke-width="2" width="105" height="218" rx="4"></rect><foreignObject x="8" y="8" width="89" height="202" style="pointer-events: none;"><div class="treemap-text" style="font-family: sans-serif; font-size: 11px; color: white;"> <p style="margin: 0; font-weight: bold;">Construcción</p> <p style="opacity: 0.9;">1.28 M€</p> </div></foreignObject></g><g cursor="pointer" transform="translate(314,218)"><rect fill="#76b7b2" fill-opacity="0.8" stroke="#fff" stroke-width="2" width="177" height="105" rx="4"></rect><foreignObject x="8" y="8" width="161" height="89" style="pointer-events: none;"><div class="treemap-text" style="font-family: sans-serif; font-size: 11px; color: white;"> <p style="margin: 0; font-weight: bold;">Maquinaria minería</p> <p style="opacity: 0.9;">1.03 M€</p> </div></foreignObject></g><g cursor="pointer" transform="translate(314,323)"><rect fill="#59a14f" fill-opacity="0.8" stroke="#fff" stroke-width="2" width="177" height="77" rx="4"></rect><foreignObject x="8" y="8" width="161" height="61" style="pointer-events: none;"><div class="treemap-text" style="font-family: sans-serif; font-size: 11px; color: white;"> <p style="margin: 0; font-weight: bold;">Materiales</p> <p style="opacity: 0.9;">763 K€</p> </div></foreignObject></g><g cursor="pointer" transform="translate(491,218)"><rect fill="#edc949" fill-opacity="0.8" stroke="#fff" stroke-width="2" width="111" height="84" rx="4"></rect><foreignObject x="8" y="8" width="95" height="68" style="pointer-events: none;"><div class="treemap-text" style="font-family: sans-serif; font-size: 10px; color: black;"> <p style="margin: 0; font-weight: bold;">Mantenimiento</p> <p style="opacity: 0.7;">519 K€</p> </div></foreignObject></g><g cursor="pointer" transform="translate(491,302)"><rect fill="#af7aa1" fill-opacity="0.8" stroke="#fff" stroke-width="2" width="83" height="98" rx="4"></rect><foreignObject x="8" y="8" width="67" height="82" style="pointer-events: none;"><div class="treemap-text" style="font-family: sans-serif; font-size: 10px; color: white;"> <p style="margin: 0; font-weight: bold;">Servicios</p> <p style="opacity: 0.9;">455 K€</p> </div></foreignObject></g></g></svg>
+                        </div>
+                    </section>
+
+                </div>
+            </div> <!-- End Tab Areas -->
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-12 py-12">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <div class="flex justify-center items-center gap-2 mb-4">
+                <div class="bg-slate-800 text-white p-1 rounded font-bold text-sm">AP</div>
+                <span class="font-bold text-slate-800">Ayuntamiento de Paiporta</span>
+            </div>
+            <p class="text-slate-500 text-sm max-w-md mx-auto">
+                Para más información sobre los proyectos de reconstrucción, contacte con el Ayuntamiento o visite nuestras oficinas de atención ciudadana.
+            </p>
+            <div class="mt-8 text-xs text-slate-400">
+                &copy; 2024 Portal de Transparencia y Reconstrucción.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        lucide.createIcons();
+
+        function switchTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // Deactivate all buttons
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('active', 'border-brand-600', 'text-brand-600');
+                el.classList.add('border-transparent', 'text-slate-500');
+            });
+
+            // Show selected tab
+            document.getElementById('tab-' + tabId).classList.add('active');
+            
+            // Activate button
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.remove('border-transparent', 'text-slate-500');
+            activeBtn.classList.add('active', 'border-brand-600', 'text-brand-600');
+        }
+    </script>
+</body>
+</html>

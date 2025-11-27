@@ -1,0 +1,4725 @@
+{
+    "groups": [
+        {
+            "_id": "66b36325b50eea01e91a51dd",
+            "name": "TEATRO - CULTURA - TURISMO",
+            "description": {
+                "es": ""
+            },
+            "title": "Turismo",
+            "realmId": "pinto",
+            "type": "turismo_cultura",
+            "web": true,
+            "photo": "https://cdn.digitalvalue.es/pinto/assets/67224144e69d9f340c121413",
+            "combineResources": false
+        }
+    ],
+    "resources": [
+        {
+            "_id": "66b3637cb50eea01e91a51de",
+            "autoConfirmation": true,
+            "useMaskedTurn": false,
+            "seats": {
+                "maxPerUser": 25,
+                "total": 25
+            },
+            "name": "Torre Éboli",
+            "title": "Torre Éboli",
+            "published": true,
+            "type": "booking",
+            "groupId": "66b36325b50eea01e91a51dd",
+            "photo": "https://cdn.digitalvalue.es/pinto/assets/67224144e69d9f340c121413",
+            "realmId": "pinto",
+            "hasConcurrentSlots": true,
+            "maxAppointmentsPerUser": 3,
+            "createdAt": "2024-08-07T12:07:23.999Z",
+            "mandatoryUserFields": [
+                "firstName",
+                "lastName",
+                "email",
+                "telephone"
+            ],
+            "texts": {
+                "fields": {
+                    "und": "<p>El uso de esta entrada comporta la aceptación de las siguientes condiciones:</p><ul><li>Esta entrada debe guardarse hasta el día del evento, no se admiten cambios ni devoluciones de importe, excepto en caso de cancelación del evento, cuyo reembolso del importe se efectuará en la misma tarjeta de crédito utilizada para la compra.</li><li>En el caso de que el descuento requiera una documentación que lo acredite, debe presentarse a la entrada.</li><li>El comprador o portador de la entrada asume toda la responsabilidad en caso de que dicha entrada se presente fotocopiada o falsificada, perdiendo todos los derechos que ésta le otorga para poder acceder al recinto.</li><li>Cualquier entrada que presente indicios de falsificación o de haber sido previamente utilizada autorizará al Organizador a privar a su portador del acceso al servicio</li><li>La Organización no se responsabiliza ni garantiza la autenticidad de las entradas que no sean adquiridas en los puntos de venta oficiales, ya que existe la posibilidad de falsificación y no le permita el acceso al lugar del acto.</li><li>Sólo se considerará válida la primera entrada presentada, en ningún caso se permitirá entrar a quienes posteriormente lo intenten con la misma entrada.</li><li>La posesión de esta entrada no da derecho a utilizar la misma con fines publicitarios, de marketing o de promoción.</li><li>Queda totalmente prohibido filmar, grabar y el uso de cámaras y flashes, así como el acceso al recinto con cualquier objeto que la Organización considere peligroso.</li><li>La Organización se reserva el derecho de admisión. Según la ley, el portador de la entrada autoriza a la Organización a efectuar las revisiones o registros pertinentes para verificar que se cumplen las condiciones de seguridad.</li><li>La Organización podrá verificar la validez de la entrada mediante Smartphone, escáner o listados, pudiendo pedir algún documento de identificación.</li></ul>"
+                }
+            },
+            "webSlotsView": "monthCards",
+            "description": {
+                "und": "<p>Reservas <strong>solo</strong> para público <span style=\"color:hsl(30, 75%, 60%);\"><strong>individual.</strong></span></p><p>Reservas para <span style=\"color:hsl(30, 75%, 60%);\"><strong>grupos</strong></span> llamando al &nbsp;661 620 076 o &nbsp;turismodepinto@ayto-pinto.es</p><p>Cuando por causas no imputables al obligado pago del precio, el servicio no se preste o desarrolle, procederá la devolución del importe correspondiente. En ningún otro caso se contemplará la devolución del importe.</p>"
+            },
+            "kioskSlotsView": "month",
+            "virtualSettings": {
+                "f55754": {
+                    "id": "f55754",
+                    "name": "PRIMER PASE 24/25",
+                    "index": 2,
+                    "seats": 25,
+                    "exceptions": [
+                        {
+                            "id": 4,
+                            "title": "VISITA ESPECIAL ROMANCES",
+                            "type": "holidays",
+                            "from": "2025-02-16",
+                            "until": "2025-02-16",
+                            "seats": 0
+                        },
+                        {
+                            "id": 17,
+                            "title": "Festival Renacentista",
+                            "type": "holidays",
+                            "from": "2025-06-20",
+                            "until": "2025-06-23",
+                            "seats": 0
+                        }
+                    ],
+                    "days": [
+                        0,
+                        1,
+                        3,
+                        5
+                    ],
+                    "from": "2025-01-24",
+                    "until": "2025-06-30",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "startHour": "10:30",
+                    "endHour": "12:00",
+                    "appDuration": 0,
+                    "title": "PRIMER PASE",
+                    "photo": "https://public.digitalvalue.es:8789/pinto/assets/678265287c9e2f5659b15f1e",
+                    "description": ""
+                },
+                "46d14c": {
+                    "id": "46d14c",
+                    "name": "SEGUNDO PASE 24/25",
+                    "index": 3,
+                    "seats": 25,
+                    "exceptions": [
+                        {
+                            "id": 2,
+                            "title": "VISITA ESPECIAL ROMANCES",
+                            "type": "holidays",
+                            "from": "2025-02-16",
+                            "until": "2025-02-16",
+                            "seats": 0
+                        },
+                        {
+                            "id": 2,
+                            "title": "Festival Renacentista",
+                            "type": "holidays",
+                            "from": "2025-06-20",
+                            "until": "2025-06-23",
+                            "seats": 0
+                        }
+                    ],
+                    "days": [
+                        0,
+                        1,
+                        3,
+                        5
+                    ],
+                    "from": "2025-01-24",
+                    "until": "2025-06-30",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "startHour": "12:00",
+                    "endHour": "13:30",
+                    "title": "SEGUNDO PASE",
+                    "photo": "https://public.digitalvalue.es:8789/pinto/assets/678265287c9e2f5659b15f1e"
+                },
+                "f8788a": {
+                    "id": "f8788a",
+                    "name": "MES JULIO PASE 1 24/25",
+                    "index": 2,
+                    "seats": 25,
+                    "exceptions": [],
+                    "from": "2025-07-02",
+                    "until": "2025-07-30",
+                    "startHour": "10:30",
+                    "endHour": "12:00",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "days": [
+                        0,
+                        3
+                    ],
+                    "title": "PRIMER PASE"
+                },
+                "1bf444": {
+                    "id": "1bf444",
+                    "name": "MES JULIO PASE 2 24/25",
+                    "index": 3,
+                    "seats": 25,
+                    "exceptions": [],
+                    "from": "2025-07-02",
+                    "until": "2025-07-30",
+                    "startHour": "12:00",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "endHour": "13:30",
+                    "days": [
+                        0,
+                        3
+                    ],
+                    "title": "SEGUNDO PASE"
+                },
+                "21b70e": {
+                    "id": "21b70e",
+                    "name": "PRIMER PASE 25/26",
+                    "index": 4,
+                    "seats": 25,
+                    "exceptions": [
+                        {
+                            "id": 6,
+                            "title": "HALLOWEEN",
+                            "type": "holidays",
+                            "from": "2025-10-17",
+                            "until": "2025-10-26",
+                            "seats": 0
+                        },
+                        {
+                            "id": 5,
+                            "type": "holidays",
+                            "title": "Día del chocolate",
+                            "from": "2025-09-27",
+                            "until": "2025-09-29",
+                            "seats": 0
+                        },
+                        {
+                            "id": 9,
+                            "type": "holidays",
+                            "title": "FITUR",
+                            "from": "2026-01-19",
+                            "until": "2026-01-25",
+                            "seats": 0
+                        },
+                        {
+                            "id": 4,
+                            "type": "holidays",
+                            "title": "NOCHEBUENA",
+                            "from": "2025-12-24",
+                            "until": "2025-12-25",
+                            "seats": 0
+                        },
+                        {
+                            "id": 4,
+                            "type": "holidays",
+                            "title": "NOCHEVIEJA",
+                            "from": "2025-12-31",
+                            "until": "2026-01-01",
+                            "seats": 0
+                        },
+                        {
+                            "id": 20,
+                            "type": "holidays",
+                            "title": "NAVIDAD 1",
+                            "from": "2025-12-22",
+                            "until": "2025-12-27",
+                            "seats": 0
+                        },
+                        {
+                            "id": 8,
+                            "type": "holidays",
+                            "title": "NAVIDAD 2",
+                            "from": "2025-12-29",
+                            "until": "2026-01-03",
+                            "seats": 0
+                        }
+                    ],
+                    "from": "2025-09-07",
+                    "until": "2026-06-30",
+                    "startHour": "10:30",
+                    "endHour": "12:00",
+                    "days": [
+                        0,
+                        1,
+                        3,
+                        5
+                    ],
+                    "title": "PRIMER PASE",
+                    "resourceId": "66b3637cb50eea01e91a51de"
+                },
+                "df8fbc": {
+                    "id": "df8fbc",
+                    "name": "SEGUNDO PASE 25/26",
+                    "index": 5,
+                    "seats": 25,
+                    "exceptions": [
+                        {
+                            "id": 15,
+                            "title": "HALLOWEEN",
+                            "type": "holidays",
+                            "from": "2025-10-17",
+                            "until": "2025-10-26",
+                            "seats": 0
+                        },
+                        {
+                            "id": 19,
+                            "type": "holidays",
+                            "title": "Día del Chocolate",
+                            "from": "2025-09-27",
+                            "until": "2025-09-29",
+                            "seats": 0
+                        },
+                        {
+                            "id": 13,
+                            "type": "holidays",
+                            "title": "FITUR",
+                            "from": "2026-01-19",
+                            "until": "2026-01-25",
+                            "seats": 0
+                        },
+                        {
+                            "id": 5,
+                            "type": "holidays",
+                            "title": "NOCHEBUENA",
+                            "from": "2025-12-24",
+                            "until": "2025-12-25",
+                            "seats": 0
+                        },
+                        {
+                            "id": 12,
+                            "type": "holidays",
+                            "title": "NOCHEVIEJA",
+                            "from": "2025-12-31",
+                            "until": "2026-01-01",
+                            "seats": 0
+                        },
+                        {
+                            "id": 7,
+                            "type": "holidays",
+                            "title": "NAVIDAD 2",
+                            "from": "2025-12-29",
+                            "until": "2026-01-03",
+                            "seats": 0
+                        },
+                        {
+                            "id": 15,
+                            "type": "holidays",
+                            "title": "NAVIDAD 1",
+                            "from": "2025-12-22",
+                            "until": "2025-12-27",
+                            "seats": 0
+                        }
+                    ],
+                    "from": "2025-09-07",
+                    "until": "2026-06-30",
+                    "startHour": "12:00",
+                    "endHour": "13:30",
+                    "days": [
+                        0,
+                        1,
+                        3,
+                        5
+                    ],
+                    "title": "SEGUNDO PASE",
+                    "resourceId": "66b3637cb50eea01e91a51de"
+                }
+            },
+            "fields": [
+                {
+                    "required": true,
+                    "autocomplete": true,
+                    "type": "text",
+                    "name": "municipio",
+                    "tag": "input",
+                    "label": {
+                        "und": "Municipio"
+                    },
+                    "noprint": true
+                },
+                {
+                    "required": true,
+                    "autocomplete": true,
+                    "type": "text",
+                    "name": "pais",
+                    "tag": "input",
+                    "label": {
+                        "und": "País"
+                    },
+                    "noprint": true
+                },
+                {
+                    "required": true,
+                    "autocomplete": true,
+                    "type": "text",
+                    "name": "provincia",
+                    "tag": "input",
+                    "label": {
+                        "und": "Provincia"
+                    },
+                    "noprint": true
+                },
+                {
+                    "required": false,
+                    "autocomplete": true,
+                    "type": "number",
+                    "name": "adultos",
+                    "tag": "input",
+                    "label": {
+                        "und": "Entrada General"
+                    },
+                    "seats": 1,
+                    "supplement": 400
+                },
+                {
+                    "required": false,
+                    "autocomplete": true,
+                    "type": "number",
+                    "name": "reducida",
+                    "tag": "input",
+                    "label": {
+                        "und": "Entrada Reducida  ( niños de 7 - 12 y jubilados )"
+                    },
+                    "seats": 1,
+                    "supplement": 200
+                },
+                {
+                    "required": false,
+                    "autocomplete": false,
+                    "type": "number",
+                    "name": "gratuita",
+                    "tag": "input",
+                    "label": {
+                        "und": "Gratuita (niños menores de 7 años)"
+                    },
+                    "seats": 1,
+                    "supplement": 0
+                }
+            ],
+            "payments": {
+                "gateway": true,
+                "amount": 0,
+                "tpv": "turismo"
+            },
+            "printDataOnKiosk": false,
+            "qr": true,
+            "subtitle": "Turismo",
+            "hideSeats": false,
+            "maxAdvance": 15000,
+            "minAdvance": 30
+        }
+    ],
+    "slots": [
+        {
+            "_id": "68adbb34b2b37b06270fa99b",
+            "start": "2025-11-16T11:00:00.000Z",
+            "end": "2025-11-16T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 1
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "open",
+            "appointments": [
+                {
+                    "_id": "68adbb34b2b37b06270fa99c",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Elena",
+                        "lastName": "Llamas Perez",
+                        "email": "llamas_com@hotmail.com",
+                        "telephone": "627989155",
+                        "shadow": true
+                    },
+                    "userId": "68adba95ffff77272a3b7a33",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 1,
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-08-26T13:48:36.602Z",
+                    "seats": 3,
+                    "amount": 1000,
+                    "turn": 1,
+                    "maskedTurn": "J 97",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 2833,
+                    "paymentId": "68adbb34b2b37b06270fa99d",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:00:56.295Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:00:56.295Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "68ee59b5e03b527fc9a72beb",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Beatriz",
+                        "lastName": "Torrijos García",
+                        "email": "beatriz.torrijos.garcia@gmail.com",
+                        "telephone": "646479027",
+                        "shadow": true
+                    },
+                    "userId": "68eabcc0fc18257f9a63009c",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Comunidad de Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-14T14:09:56.997Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 2,
+                    "maskedTurn": "A 55",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3642,
+                    "paymentId": "68ee59b5e03b527fc9a72bec"
+                },
+                {
+                    "_id": "6901ed10e03b527fc9a837d8",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Celia",
+                        "lastName": "López López",
+                        "email": "celia19_09@hotmail.com",
+                        "telephone": "+34640883252",
+                        "shadow": true
+                    },
+                    "userId": "68df877380fda31d887a1527",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "reducida": 0,
+                        "gratuita": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-29T10:31:44.420Z",
+                    "seats": 4,
+                    "amount": 800,
+                    "turn": 5,
+                    "maskedTurn": "K 94",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3886,
+                    "paymentId": "6901ed10e03b527fc9a837d9",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:00:35.998Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:00:35.999Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "69032df702ead0242a8c337c",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "ALVARO",
+                        "lastName": "VISO ROMERO",
+                        "email": "alvaroviso@hotmail.com",
+                        "telephone": "619981249",
+                        "shadow": true
+                    },
+                    "userId": "69032d5afc18257f9a684ec2",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 3,
+                        "municipio": "pinto",
+                        "pais": "españa",
+                        "provincia": "madrid"
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-30T09:20:55.850Z",
+                    "seats": 3,
+                    "amount": 1200,
+                    "turn": 6,
+                    "maskedTurn": "X 60",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3896,
+                    "paymentId": "69032df702ead0242a8c337d",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:02:09.218Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:02:09.218Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "6903c1b502ead0242a8c3ef0",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "CARLOS ",
+                        "lastName": "HITA SAINERO",
+                        "email": "carloshita1@gmail.com",
+                        "telephone": "625572107",
+                        "shadow": true
+                    },
+                    "userId": "68e90633fc18257f9a62ad61",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "PINTO",
+                        "pais": "ESPAÑA",
+                        "provincia": "MADRID",
+                        "reducida": 2,
+                        "adultos": 0
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-30T19:51:17.639Z",
+                    "seats": 2,
+                    "amount": 400,
+                    "turn": 7,
+                    "maskedTurn": "R 55",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3908,
+                    "paymentId": "6903c1b502ead0242a8c3ef1",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:01:39.145Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:01:39.145Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "690a6de802ead0242a8c8e0e",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Aroa",
+                        "lastName": "Montalvo gonzalez",
+                        "email": "aroa6@hotmail.com",
+                        "telephone": "609509454",
+                        "shadow": true
+                    },
+                    "userId": "690a6a9596b155733073f696",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid ",
+                        "adultos": 2,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-04T21:19:36.058Z",
+                    "seats": 3,
+                    "amount": 1000,
+                    "turn": 8,
+                    "maskedTurn": "K 26",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4200,
+                    "paymentId": "690a6de802ead0242a8c8e0f",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:02:18.282Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:02:18.282Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "690d306102ead0242a8cb290",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Audry ",
+                        "lastName": "González Pita ",
+                        "email": "audrypita73@gmail.com",
+                        "telephone": "643008730",
+                        "shadow": true
+                    },
+                    "userId": "690c8d5c96b155733074592c",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "San martin de la Vega ",
+                        "pais": "España",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-06T23:33:53.462Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 11,
+                    "maskedTurn": "W 54",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4247,
+                    "paymentId": "690d306102ead0242a8cb291",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:01:05.337Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:01:05.338Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "690f939802ead0242a8ccdf5",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Santiago ",
+                        "lastName": "De Dios Monroy",
+                        "email": "sdediosmonrroy@gmail.com",
+                        "telephone": "616659565",
+                        "shadow": true
+                    },
+                    "userId": "68f26ba0fc18257f9a649cab",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "adultos": 2,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-08T19:01:44.835Z",
+                    "seats": 3,
+                    "amount": 1000,
+                    "turn": 13,
+                    "maskedTurn": "X 05",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4283,
+                    "paymentId": "690f939802ead0242a8ccdf6",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:01:58.352Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:01:58.352Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "6911a51702ead0242a8cd5c8",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Isabel",
+                        "lastName": "Herrero de la Torre",
+                        "email": "mariaish@ucm.es",
+                        "telephone": "657322314",
+                        "shadow": true
+                    },
+                    "userId": "6908e98896b155733073a4fa",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Valdemoro",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-10T08:40:55.063Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 14,
+                    "maskedTurn": "F 34",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4323,
+                    "paymentId": "6911a51702ead0242a8cd5c9",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T11:01:14.251Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T11:01:14.252Z"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68fe79cae03b527fc9a8015d",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Verónica ",
+                        "lastName": "Córdoba Ortego ",
+                        "email": "leritoco@hotmail.com",
+                        "telephone": "630674817",
+                        "shadow": true
+                    },
+                    "userId": "68fe4ce4fc18257f9a674294",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid ",
+                        "adultos": 4
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-26T19:43:06.583Z",
+                    "seats": 4,
+                    "amount": 1600,
+                    "turn": 4,
+                    "maskedTurn": "W 23",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3859,
+                    "paymentId": "68fe79cae03b527fc9a8015e",
+                    "cancel": {
+                        "origin": "admin",
+                        "timestamp": "2025-10-29T08:59:05.708Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "690c8e4d02ead0242a8caa6b",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Audry ",
+                        "lastName": "González Pita ",
+                        "email": "audrypita73@gmail.com",
+                        "telephone": "643008730",
+                        "shadow": true
+                    },
+                    "userId": "690c8d5c96b155733074592c",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "San martin de la Vega ",
+                        "pais": "España",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-06T12:02:21.275Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 9,
+                    "maskedTurn": "B 76",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4224,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-06T12:22:21.320Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "690c991802ead0242a8cae27",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Audry ",
+                        "lastName": "González Pita ",
+                        "email": "audrypita73@gmail.com",
+                        "telephone": "643008730",
+                        "shadow": true
+                    },
+                    "userId": "690c8d5c96b155733074592c",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "San martin de la Vega ",
+                        "pais": "España",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-06T12:48:23.968Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 10,
+                    "maskedTurn": "V 67",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4226,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-06T13:08:24.157Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "690d32c402ead0242a8cb29f",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Audry ",
+                        "lastName": "González Pita ",
+                        "email": "audrypita73@gmail.com",
+                        "telephone": "643008730",
+                        "shadow": true
+                    },
+                    "userId": "690c8d5c96b155733074592c",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "San martin de la Vega ",
+                        "pais": "España",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-06T23:44:04.396Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 12,
+                    "maskedTurn": "Y 44",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4248,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-07T00:04:04.460Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "691263806bc1f0592043adbc",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Mónica ",
+                        "lastName": "Estévez Díaz ",
+                        "email": "moniestevez77@gmail.com",
+                        "telephone": "34 637 134 935 ",
+                        "shadow": true
+                    },
+                    "userId": "68ee8993fc18257f9a63d3a2",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Galicia",
+                        "pais": "España",
+                        "provincia": "Pontevedra ",
+                        "adultos": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-10T22:13:20.135Z",
+                    "seats": 1,
+                    "amount": 400,
+                    "turn": 15,
+                    "maskedTurn": "D 66",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4346,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-10T22:33:20.184Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "6912687e6bc1f0592043add8",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "Monica",
+                        "lastName": "Fernandez  Martínez",
+                        "email": "monicapecas@gmail.com",
+                        "telephone": "+34609694399",
+                        "shadow": true
+                    },
+                    "userId": "68fb98d2fc18257f9a666e2a",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "Spagna",
+                        "provincia": "Madrid",
+                        "adultos": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-10T22:34:38.041Z",
+                    "seats": 1,
+                    "amount": 400,
+                    "turn": 17,
+                    "maskedTurn": "T 01",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4349,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-10T22:54:38.090Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "6917136d034e807065a87e23",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68adbb34b2b37b06270fa99b",
+                    "user": {
+                        "firstName": "turismo",
+                        "lastName": "pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "+34617529020",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "pinyto",
+                        "adultos": 1
+                    },
+                    "origin": {
+                        "channel": "admin"
+                    },
+                    "isPaid": false,
+                    "timestamp": "2025-11-14T11:33:01.800Z",
+                    "seats": 1,
+                    "amount": 400,
+                    "turn": 20,
+                    "maskedTurn": "N 88",
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4391,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-14T11:53:01.903Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68d4e293a4585c064b852901",
+            "start": "2025-11-07T09:30:00.000Z",
+            "end": "2025-11-07T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68d4e293a4585c064b852902",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68d4e293a4585c064b852901",
+                    "user": {
+                        "firstName": "Colegio Buenos Aires",
+                        "lastName": "Pepi Muriel",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-09-25T06:34:59.130Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 1,
+                    "maskedTurn": "J 25"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68d4e2c2a4585c064b852904",
+            "start": "2025-11-07T11:00:00.000Z",
+            "end": "2025-11-07T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68d4e2c2a4585c064b852905",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68d4e2c2a4585c064b852904",
+                    "user": {
+                        "firstName": "Colegio Buenos Aires",
+                        "lastName": "Pepi Muriel",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-09-25T06:35:46.513Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 2,
+                    "maskedTurn": "V 14"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68de47f4d942ce4904675c2d",
+            "start": "2025-11-05T09:30:00.000Z",
+            "end": "2025-11-05T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68de47f4d942ce4904675c2e",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68de47f4d942ce4904675c2d",
+                    "user": {
+                        "firstName": "Colegio Isabel La Católica",
+                        "lastName": "Jesús",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-02T09:37:56.311Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 1,
+                    "maskedTurn": "W 01"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68de481fd942ce4904675c32",
+            "start": "2025-11-05T11:00:00.000Z",
+            "end": "2025-11-05T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68de481fd942ce4904675c33",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68de481fd942ce4904675c32",
+                    "user": {
+                        "firstName": "Colegio Isabel La Católica",
+                        "lastName": "Jesús",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-02T09:38:39.995Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 2,
+                    "maskedTurn": "K 54"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68df6f2dd942ce49046768bd",
+            "start": "2025-11-19T09:30:00.000Z",
+            "end": "2025-11-19T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68df6f2dd942ce49046768be",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68df6f2dd942ce49046768bd",
+                    "user": {
+                        "_id": "66fe67b60cad030aa4515dca",
+                        "username": "turismodepinto",
+                        "firstName": "Colegio Calasanz 3º primaria",
+                        "lastName": "Paloma Castaño",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "devicesIds": [
+                            "62.81.251.132, 217.13.93.68#4/11/2024, 14:04:28"
+                        ],
+                        "shadow": true,
+                        "hasEmail": true,
+                        "hasDevice": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-03T06:37:33.171Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 1,
+                    "maskedTurn": "P 15",
+                    "isPending": false,
+                    "status": "requested",
+                    "order": 3446
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68df6f7ed942ce49046768c6",
+            "start": "2025-11-19T11:00:00.000Z",
+            "end": "2025-11-19T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68df6f7ed942ce49046768c7",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68df6f7ed942ce49046768c6",
+                    "user": {
+                        "firstName": "Colegio Calasanz 4º primaria",
+                        "lastName": "Paloma Castaño ",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-03T06:38:54.421Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 2,
+                    "maskedTurn": "K 14"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68dfbeff23bda97c28560cd9",
+            "start": "2025-11-24T09:30:00.000Z",
+            "end": "2025-11-24T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68dfbeff23bda97c28560cda",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68dfbeff23bda97c28560cd9",
+                    "user": {
+                        "firstName": "Colegio Juan Perez Villamil",
+                        "lastName": "Aroa Galán Puga",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-03T12:18:07.113Z",
+                    "seats": 25,
+                    "turn": 1,
+                    "maskedTurn": "Y 11"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68dfbf3e23bda97c28560cdf",
+            "start": "2025-11-24T11:00:00.000Z",
+            "end": "2025-11-24T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68dfbf3e23bda97c28560ce0",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68dfbf3e23bda97c28560cdf",
+                    "user": {
+                        "firstName": "Colegio Juan Perez Villamil",
+                        "lastName": "Aroa Galán Puga",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-03T12:19:10.638Z",
+                    "seats": 25,
+                    "turn": 2,
+                    "maskedTurn": "R 25"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68e4ba76747c8c3fcbf7d6df",
+            "start": "2025-11-17T09:30:00.000Z",
+            "end": "2025-11-17T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68e4ba76747c8c3fcbf7d6e0",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e4ba76747c8c3fcbf7d6df",
+                    "user": {
+                        "firstName": "Colegio Calasanz",
+                        "lastName": "Infantil 3 grupos",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-07T07:00:06.117Z",
+                    "seats": 25,
+                    "turn": 1,
+                    "maskedTurn": "T 96"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68e4bab2747c8c3fcbf7d6ee",
+            "start": "2025-11-17T11:00:00.000Z",
+            "end": "2025-11-17T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68e4bab2747c8c3fcbf7d6ef",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e4bab2747c8c3fcbf7d6ee",
+                    "user": {
+                        "firstName": "Colegio Calasan Infantil",
+                        "lastName": "3 grupos ",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-07T07:01:06.201Z",
+                    "seats": 25,
+                    "turn": 2,
+                    "maskedTurn": "F 68"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68e57e0f7de0f80286cb86ac",
+            "start": "2025-11-03T11:00:00.000Z",
+            "end": "2025-11-03T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f4c96ee03b527fc9a76ec3",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e57e0f7de0f80286cb86ac",
+                    "user": {
+                        "firstName": "Patricia",
+                        "lastName": "Nicolás Serrano",
+                        "telephone": "+34645531451",
+                        "email": "pnicolasserrano@yahoo.es",
+                        "shadow": true
+                    },
+                    "userId": "68f3fac8fc18257f9a64d7e8",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 1,
+                        "reducida": 1,
+                        "gratuita": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-19T11:20:12.179Z",
+                    "seats": 3,
+                    "amount": 600,
+                    "turn": 3,
+                    "maskedTurn": "Y 02",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3750,
+                    "paymentId": "68f4c96ee03b527fc9a76ec4"
+                },
+                {
+                    "_id": "68f776c5e03b527fc9a79569",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e57e0f7de0f80286cb86ac",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "de Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 22
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T12:04:21.821Z",
+                    "seats": 22,
+                    "turn": 5,
+                    "maskedTurn": "X 99"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68e57e0f7de0f80286cb86ad",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e57e0f7de0f80286cb86ac",
+                    "user": {
+                        "firstName": "Antonio ",
+                        "lastName": "García Menéndez ",
+                        "email": "angarcimen@gmail.com",
+                        "telephone": "+34679117480",
+                        "shadow": true
+                    },
+                    "userId": "68c8fa4380fda31d8874cd9e",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 9
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-07T20:54:39.452Z",
+                    "seats": 9,
+                    "amount": 1800,
+                    "turn": 1,
+                    "maskedTurn": "C 28",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3498,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-07T21:14:39.533Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68e644a8e03b527fc9a6db27",
+            "start": "2025-11-02T11:00:00.000Z",
+            "end": "2025-11-02T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68e644a8e03b527fc9a6db28",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Judit",
+                        "lastName": "MARTIN RINCON",
+                        "email": "j.martin.rincon.1980@gmail.com",
+                        "telephone": "660604894",
+                        "shadow": true
+                    },
+                    "userId": "68e10d5e80fda31d887a717f",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 2,
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid"
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-08T11:02:00.167Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 1,
+                    "maskedTurn": "V 93",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3505,
+                    "paymentId": "68e644a8e03b527fc9a6db29"
+                },
+                {
+                    "_id": "68ea7f83e03b527fc9a6f627",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Natalia",
+                        "lastName": "Alcaide",
+                        "email": "nappan@gmail.com",
+                        "telephone": "686873788",
+                        "shadow": true
+                    },
+                    "userId": "68ea7eb0fc18257f9a62f0d8",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 1,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-11T16:02:11.835Z",
+                    "seats": 2,
+                    "amount": 600,
+                    "turn": 3,
+                    "maskedTurn": "N 04",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3592,
+                    "paymentId": "68ea7f83e03b527fc9a6f628"
+                },
+                {
+                    "_id": "68f51033e03b527fc9a76fe2",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Santiago",
+                        "lastName": "de Dios Monroy ",
+                        "email": "sdediosmonrroy@gmail.com",
+                        "telephone": "616659565",
+                        "shadow": true
+                    },
+                    "userId": "68f26ba0fc18257f9a649cab",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-19T16:22:11.639Z",
+                    "seats": 1,
+                    "amount": 200,
+                    "turn": 8,
+                    "maskedTurn": "T 77",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3751,
+                    "paymentId": "68f51033e03b527fc9a76fe3"
+                },
+                {
+                    "_id": "68f5122ce03b527fc9a76fe9",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Nicolasa",
+                        "lastName": "Donoso Calle",
+                        "email": "sdediosmonrroy@gmail.com",
+                        "telephone": "616659565",
+                        "shadow": true
+                    },
+                    "userId": "68f26ba0fc18257f9a649cab",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-19T16:30:36.272Z",
+                    "seats": 1,
+                    "amount": 200,
+                    "turn": 9,
+                    "maskedTurn": "D 28",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3752,
+                    "paymentId": "68f5122ce03b527fc9a76fea"
+                },
+                {
+                    "_id": "68f5278ce03b527fc9a77038",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Asunción",
+                        "lastName": "Corral Torres",
+                        "telephone": "+34676697393",
+                        "email": "acorraltorres@gmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68f526f2fc18257f9a64fc92",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 3,
+                        "reducida": 1,
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid"
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-19T18:01:48.745Z",
+                    "seats": 4,
+                    "amount": 1400,
+                    "turn": 11,
+                    "maskedTurn": "Z 32",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3754,
+                    "paymentId": "68f5278ce03b527fc9a77039"
+                },
+                {
+                    "_id": "68f775d3e03b527fc9a79548",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "de Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 15
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T12:00:19.427Z",
+                    "seats": 15,
+                    "turn": 15,
+                    "maskedTurn": "V 53"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68f27069e03b527fc9a76933",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "M BELEN",
+                        "lastName": "SANCHEZ ATIENZA",
+                        "email": "belensanchez747@gmail.com",
+                        "telephone": "647140515",
+                        "shadow": true
+                    },
+                    "userId": "68f26e5dfc18257f9a649d65",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "FUENLABRADA",
+                        "pais": "ESPAÑA",
+                        "provincia": "MADRID",
+                        "adultos": 3
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-17T16:35:53.619Z",
+                    "seats": 3,
+                    "amount": 1200,
+                    "turn": 4,
+                    "maskedTurn": "L 89",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3729,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-17T16:55:53.697Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "68f2aeece03b527fc9a76a2d",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Carla",
+                        "lastName": "Navarro López ",
+                        "email": "carlanavaarrooo@gmail.com ",
+                        "telephone": "686322636",
+                        "shadow": true
+                    },
+                    "userId": "68f2ad67fc18257f9a64abc6",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 3,
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid"
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-17T21:02:36.878Z",
+                    "seats": 3,
+                    "amount": 1200,
+                    "turn": 5,
+                    "maskedTurn": "M 34",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3734,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-17T21:22:36.924Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "68f34151e03b527fc9a76ad1",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Ivan",
+                        "lastName": "Romero ",
+                        "email": "ivanrobote1984@gmail.com",
+                        "telephone": "617383667",
+                        "shadow": true
+                    },
+                    "userId": "68f34005fc18257f9a64b474",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "adultos": 2,
+                        "reducida": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-18T07:27:13.718Z",
+                    "seats": 4,
+                    "amount": 1200,
+                    "turn": 6,
+                    "maskedTurn": "Z 18",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3736,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-18T07:47:13.820Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "68f3d4d3e03b527fc9a76d3c",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "LARA",
+                        "lastName": "NAVAS RODRIGUEZ ",
+                        "email": "laraitana@hotmail.com",
+                        "telephone": "660563623",
+                        "shadow": true
+                    },
+                    "userId": "68f3d238fc18257f9a64d120",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 3,
+                        "gratuita": 1,
+                        "municipio": "PINTO",
+                        "pais": "ESPAÑA",
+                        "provincia": "MADRID"
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-18T17:56:35.110Z",
+                    "seats": 4,
+                    "amount": 1200,
+                    "turn": 7,
+                    "maskedTurn": "N 60",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3747,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-18T18:16:35.202Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "68f51436e03b527fc9a76ff2",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Nicolasa",
+                        "lastName": "Donoso Calle",
+                        "email": "donoso.calle@gmail.com",
+                        "telephone": "608857353",
+                        "shadow": true
+                    },
+                    "userId": "68f26ba0fc18257f9a649cab",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-19T16:39:18.368Z",
+                    "seats": 1,
+                    "amount": 200,
+                    "turn": 10,
+                    "maskedTurn": "V 56",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3753,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-19T16:59:18.416Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "68f6912be03b527fc9a788bc",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Cesar",
+                        "lastName": "Garcia Vinssac",
+                        "email": "cvinssac@gmail.com",
+                        "telephone": "657241125",
+                        "shadow": true
+                    },
+                    "userId": "68f07d80fc18257f9a642b33",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Comunidad de Madrid",
+                        "adultos": 2,
+                        "gratuita": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-20T19:44:43.736Z",
+                    "seats": 4,
+                    "amount": 800,
+                    "turn": 12,
+                    "maskedTurn": "C 25",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3771,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-20T20:04:43.857Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "68f744b7e03b527fc9a78efc",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e644a8e03b527fc9a6db27",
+                    "user": {
+                        "firstName": "Vanesa",
+                        "lastName": "Collera Horcajo",
+                        "telephone": "+34682339573",
+                        "email": "vanesacollera3@gmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68f3c819fc18257f9a64cf44",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 3,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-21T08:30:47.449Z",
+                    "seats": 4,
+                    "amount": 1400,
+                    "turn": 13,
+                    "maskedTurn": "V 86",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3776,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-21T08:50:47.506Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68e7609be03b527fc9a6e0fc",
+            "start": "2025-11-02T09:30:00.000Z",
+            "end": "2025-11-02T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68e7609be03b527fc9a6e0fd",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e7609be03b527fc9a6e0fc",
+                    "user": {
+                        "firstName": "Julián ",
+                        "lastName": "Moreno Gonzalez",
+                        "email": "julian.pinto63@gmail.com",
+                        "telephone": "606172436",
+                        "shadow": true
+                    },
+                    "userId": "68e75ef5fc18257f9a6258db",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 1,
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid ",
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-09T07:13:31.416Z",
+                    "seats": 2,
+                    "amount": 600,
+                    "turn": 2,
+                    "maskedTurn": "T 75",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3513,
+                    "paymentId": "68e7609be03b527fc9a6e0fe"
+                },
+                {
+                    "_id": "68f7756ae03b527fc9a79542",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68e7609be03b527fc9a6e0fc",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "de Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 23
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T11:58:34.796Z",
+                    "seats": 23,
+                    "turn": 14,
+                    "maskedTurn": "D 19"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68eca06fe03b527fc9a6facd",
+            "start": "2025-11-09T11:00:00.000Z",
+            "end": "2025-11-09T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68eca06fe03b527fc9a6face",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68eca06fe03b527fc9a6facd",
+                    "user": {
+                        "email": "abeto1975@hotmail.com",
+                        "firstName": "Alberto",
+                        "lastName": "Tello Velasco ",
+                        "telephone": "+34606391448",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-13T06:47:11.085Z",
+                    "seats": 4,
+                    "amount": 800,
+                    "turn": 1,
+                    "maskedTurn": "C 19"
+                },
+                {
+                    "_id": "68f7774de03b527fc9a7956c",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68eca06fe03b527fc9a6facd",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "de Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 21
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T12:06:37.543Z",
+                    "seats": 21,
+                    "turn": 3,
+                    "maskedTurn": "X 05"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68ee31e0e03b527fc9a72879",
+            "start": "2025-11-30T11:00:00.000Z",
+            "end": "2025-11-30T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68ee31e0e03b527fc9a7287a",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68ee31e0e03b527fc9a72879",
+                    "user": {
+                        "firstName": "MONSERRAT ",
+                        "lastName": "FERNANDEZ ALONSO",
+                        "email": "monsevi@hotmail.es",
+                        "telephone": "616637752",
+                        "shadow": true
+                    },
+                    "userId": "68ee2c15fc18257f9a63b5f8",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "VIGO",
+                        "pais": "ESPAÑA",
+                        "provincia": "PONTEVEDRA",
+                        "adultos": 4,
+                        "reducida": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-14T11:20:00.820Z",
+                    "seats": 6,
+                    "amount": 2000,
+                    "turn": 1,
+                    "maskedTurn": "C 27",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3638,
+                    "paymentId": "68ee31e0e03b527fc9a7287b"
+                },
+                {
+                    "_id": "68f15aa8e03b527fc9a75c15",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68ee31e0e03b527fc9a72879",
+                    "user": {
+                        "firstName": "Anastasia",
+                        "lastName": "Fernandez",
+                        "email": "afernandel@yahoo.com",
+                        "telephone": "637881894",
+                        "shadow": true
+                    },
+                    "userId": "68f159a4fc18257f9a646768",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España ",
+                        "provincia": "Madrid",
+                        "adultos": 3
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-16T20:50:48.859Z",
+                    "seats": 3,
+                    "amount": 1200,
+                    "turn": 2,
+                    "maskedTurn": "Z 65",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3720,
+                    "paymentId": "68f15aa8e03b527fc9a75c16"
+                },
+                {
+                    "_id": "6901d74ee03b527fc9a834f3",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68ee31e0e03b527fc9a72879",
+                    "user": {
+                        "firstName": "Verónica ",
+                        "lastName": "Córdoba Ortego",
+                        "email": "leritoco@hotmail.com",
+                        "telephone": "630674817",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 4
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-29T08:58:54.741Z",
+                    "seats": 4,
+                    "amount": 1600,
+                    "turn": 4,
+                    "maskedTurn": "V 58"
+                },
+                {
+                    "_id": "6901e2d9e03b527fc9a8368c",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68ee31e0e03b527fc9a72879",
+                    "user": {
+                        "firstName": "Marta",
+                        "lastName": "Araujo Muñoz",
+                        "email": "marta.araujo.munoz82@gmail.com",
+                        "telephone": "+34650398850",
+                        "shadow": true
+                    },
+                    "userId": "6901e11dfc18257f9a680971",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 11,
+                        "reducida": 1,
+                        "gratuita": 0
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-29T09:48:09.827Z",
+                    "seats": 12,
+                    "amount": 4600,
+                    "turn": 5,
+                    "maskedTurn": "T 78",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3885,
+                    "paymentId": "6901e2d9e03b527fc9a8368d"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68f7877be03b527fc9a79660",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68ee31e0e03b527fc9a72879",
+                    "user": {
+                        "firstName": "Vanesa",
+                        "lastName": "Collera Horcajo",
+                        "email": "vanesacollera3@gmail.com",
+                        "telephone": "+34682339573",
+                        "shadow": true
+                    },
+                    "userId": "68f3c819fc18257f9a64cf44",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 4,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-21T13:15:39.200Z",
+                    "seats": 5,
+                    "amount": 1800,
+                    "turn": 3,
+                    "maskedTurn": "B 50",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3781,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-21T13:35:39.230Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68eeb86ee03b527fc9a72fd1",
+            "start": "2025-11-03T09:30:00.000Z",
+            "end": "2025-11-03T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68eeb86ee03b527fc9a72fd2",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68eeb86ee03b527fc9a72fd1",
+                    "user": {
+                        "firstName": "Antonio ",
+                        "lastName": "García Menéndez ",
+                        "email": "angarcimen@gmail.com",
+                        "telephone": "+34679117480",
+                        "shadow": true
+                    },
+                    "userId": "68c8fa4380fda31d8874cd9e",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 9
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-14T20:54:06.659Z",
+                    "seats": 9,
+                    "amount": 1800,
+                    "turn": 2,
+                    "maskedTurn": "Z 54",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3649,
+                    "paymentId": "68eeb86ee03b527fc9a72fd3"
+                },
+                {
+                    "_id": "68f77618e03b527fc9a7954e",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68eeb86ee03b527fc9a72fd1",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "de Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 16
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T12:01:28.851Z",
+                    "seats": 16,
+                    "turn": 4,
+                    "maskedTurn": "C 62"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68efff84e03b527fc9a748fe",
+            "start": "2025-11-23T11:00:00.000Z",
+            "end": "2025-11-23T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 1
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "open",
+            "appointments": [
+                {
+                    "_id": "68f74f38e03b527fc9a7905d",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Gema",
+                        "lastName": "Oeo Escribano ",
+                        "telephone": "630943547",
+                        "email": "gemaoeo@gmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68f33d8dfc18257f9a64b410",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-21T09:15:36.009Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 2,
+                    "maskedTurn": "X 30",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3777,
+                    "paymentId": "68f74f38e03b527fc9a7905e",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T11:08:29.895Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T11:08:29.895Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "68f9d3cee03b527fc9a7b3a6",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Sandra",
+                        "lastName": "Goyanes Calderon",
+                        "telephone": "+34647613274",
+                        "email": "sandragoyanes@hotmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68f9d2c8fc18257f9a65f425",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 1,
+                        "reducida": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-23T07:05:50.344Z",
+                    "seats": 3,
+                    "amount": 800,
+                    "turn": 4,
+                    "maskedTurn": "K 14",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3799,
+                    "paymentId": "68f9d3cee03b527fc9a7b3a7",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T10:56:04.964Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T10:56:04.967Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "68fb9ab4e03b527fc9a7d0d3",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "OSCAR",
+                        "lastName": "ARGUELLO GARCIA",
+                        "telephone": "+34601056672",
+                        "email": "o.arguello1971@gmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68fb9a20fc18257f9a666ead",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-24T15:26:44.121Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 5,
+                    "maskedTurn": "C 88",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3832,
+                    "paymentId": "68fb9ab4e03b527fc9a7d0d4",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T10:56:15.143Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T10:56:15.143Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "6902681de03b527fc9a83fc4",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Alberto",
+                        "lastName": "Cerezo",
+                        "email": "4c.alberto.cerezo@gmail.com",
+                        "telephone": "667989011",
+                        "shadow": true
+                    },
+                    "userId": "690267effc18257f9a68336b",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 4
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-29T19:16:45.185Z",
+                    "seats": 4,
+                    "amount": 1600,
+                    "turn": 6,
+                    "maskedTurn": "X 65",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3892,
+                    "paymentId": "6902681de03b527fc9a83fc5",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T11:07:24.483Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T11:07:24.483Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "6907160202ead0242a8c5033",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Antonio",
+                        "lastName": "Ruiz Turnes",
+                        "email": "aruizturnes@gmail.com",
+                        "telephone": "636096934",
+                        "shadow": true
+                    },
+                    "userId": "6907151b96b1557330734318",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "reducida": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-02T08:27:46.868Z",
+                    "seats": 4,
+                    "amount": 1200,
+                    "turn": 7,
+                    "maskedTurn": "E 90",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4009,
+                    "paymentId": "6907160202ead0242a8c5034",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T10:57:38.697Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T10:57:38.698Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "69105b3502ead0242a8ccf01",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Virginia ",
+                        "lastName": "Fariza  Sancho",
+                        "email": "virginia.fariza@gmail.com",
+                        "telephone": "630230287",
+                        "shadow": true
+                    },
+                    "userId": "691053e596b155733074f0ac",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España ",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "reducida": 1,
+                        "gratuita": 0
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-09T09:13:25.417Z",
+                    "seats": 3,
+                    "amount": 1000,
+                    "turn": 10,
+                    "maskedTurn": "W 53",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4295,
+                    "paymentId": "69105b3502ead0242a8ccf02",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T10:57:12.683Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T10:57:12.683Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "69106eb202ead0242a8ccf6a",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Antonio",
+                        "lastName": "Ruiz Turnes",
+                        "email": "aruizturnes@gmail.com",
+                        "telephone": "636096934",
+                        "shadow": true
+                    },
+                    "userId": "6907151b96b1557330734318",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 0,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-09T10:36:33.996Z",
+                    "seats": 1,
+                    "amount": 200,
+                    "turn": 11,
+                    "maskedTurn": "X 74",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4301,
+                    "paymentId": "69106eb202ead0242a8ccf6b",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T10:57:28.454Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T10:57:28.454Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "69130ff26bc1f0592043b505",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Mary",
+                        "lastName": "McCarthy Quest",
+                        "email": "novellamcc@gmail.com",
+                        "telephone": "659211023",
+                        "shadow": true
+                    },
+                    "userId": "69130f4296b1557330758e1d",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "reducida": 1,
+                        "gratuita": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-11T10:29:06.889Z",
+                    "seats": 4,
+                    "amount": 1000,
+                    "turn": 12,
+                    "maskedTurn": "L 24",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4355,
+                    "paymentId": "69130ff26bc1f0592043b506",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T11:11:45.314Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T11:11:45.314Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "691f5a33034e807065a8f6d8",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Alberto",
+                        "lastName": "Cerezo Gomez",
+                        "email": "4c.alberto.cerezo@gmail.com",
+                        "telephone": "667989011",
+                        "shadow": true
+                    },
+                    "userId": "691f597996b155733077a1a4",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-20T18:13:07.825Z",
+                    "seats": 1,
+                    "amount": 400,
+                    "turn": 15,
+                    "maskedTurn": "Q 56",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4445,
+                    "paymentId": "691f5a33034e807065a8f6d9",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-23T11:07:11.453Z",
+                        "log": [
+                            {
+                                "date": "2025-11-23T11:07:11.458Z"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68efff84e03b527fc9a748ff",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Anastasia",
+                        "lastName": "Fernandez ",
+                        "telephone": "637881894",
+                        "email": "afernandel@yahoo.com",
+                        "shadow": true
+                    },
+                    "userId": "68effed7fc18257f9a6422bf",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 3
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-15T20:09:40.927Z",
+                    "seats": 3,
+                    "amount": 1200,
+                    "turn": 1,
+                    "maskedTurn": "K 07",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3677,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-15T20:29:40.963Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "6908ea4202ead0242a8c75cd",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Isabel",
+                        "lastName": "Herrero de la Torre",
+                        "telephone": "657322314",
+                        "email": "mariaish@ucm.es",
+                        "shadow": true
+                    },
+                    "userId": "6908e98896b155733073a4fa",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Valdemoro",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-03T17:45:38.678Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 8,
+                    "maskedTurn": "W 66",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4122,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-03T18:05:38.748Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "691df8e5034e807065a8e8d9",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68efff84e03b527fc9a748fe",
+                    "user": {
+                        "firstName": "Pilar",
+                        "lastName": "Moreno Lozano",
+                        "telephone": "+34637336972",
+                        "email": "pilimoreno89@hotmail.com",
+                        "shadow": true
+                    },
+                    "userId": "691df82696b15573307764ba",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Valdemoro",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-19T17:05:41.468Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 14,
+                    "maskedTurn": "S 09",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4433,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-19T17:25:41.657Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f60275e03b527fc9a77a92",
+            "start": "2025-11-26T09:30:00.000Z",
+            "end": "2025-11-26T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68faa63ae03b527fc9a7c1d7",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f60275e03b527fc9a77a92",
+                    "user": {
+                        "firstName": "Francisco Daniel",
+                        "lastName": "Ivezich Vega",
+                        "telephone": "+34611649815",
+                        "email": "francisco897897@gmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68fa7837fc18257f9a662da3",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "reducida": 0,
+                        "adultos": 3,
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid"
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-23T22:03:38.085Z",
+                    "seats": 3,
+                    "amount": 1200,
+                    "turn": 2,
+                    "maskedTurn": "R 99",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3810,
+                    "paymentId": "68faa63ae03b527fc9a7c1d8"
+                },
+                {
+                    "_id": "68ffbea2e03b527fc9a813ec",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f60275e03b527fc9a77a92",
+                    "user": {
+                        "firstName": "francisco",
+                        "lastName": "TOLA",
+                        "email": "ftolag@gmail.com",
+                        "telephone": "687997798",
+                        "shadow": true
+                    },
+                    "userId": "68ffbd0ffc18257f9a67a07b",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "pinto",
+                        "pais": "españa",
+                        "provincia": "madrid",
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-27T18:49:06.134Z",
+                    "seats": 1,
+                    "amount": 200,
+                    "turn": 3,
+                    "maskedTurn": "O 87",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3870,
+                    "paymentId": "68ffbea2e03b527fc9a813ed",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-26T09:31:44.814Z",
+                        "log": [
+                            {
+                                "date": "2025-11-26T09:31:44.819Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "68ffbf1ee03b527fc9a813f4",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f60275e03b527fc9a77a92",
+                    "user": {
+                        "firstName": "francisco",
+                        "lastName": "TOLA",
+                        "email": "ftolag@gmail.com",
+                        "telephone": "687997798",
+                        "shadow": true
+                    },
+                    "userId": "68ffbd0ffc18257f9a67a07b",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "pinto",
+                        "pais": "españa",
+                        "provincia": "madrid",
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-27T18:51:10.449Z",
+                    "seats": 1,
+                    "amount": 200,
+                    "turn": 4,
+                    "maskedTurn": "Z 82",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 3871,
+                    "paymentId": "68ffbf1ee03b527fc9a813f5"
+                },
+                {
+                    "_id": "69244cf5034e807065a92356",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f60275e03b527fc9a77a92",
+                    "user": {
+                        "firstName": "turismo",
+                        "lastName": "de Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 20
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-11-24T12:17:57.957Z",
+                    "seats": 20,
+                    "amount": 4000,
+                    "turn": 7,
+                    "maskedTurn": "Z 81"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68f60275e03b527fc9a77a93",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f60275e03b527fc9a77a92",
+                    "user": {
+                        "firstName": "Vanesa ",
+                        "lastName": "Cansino Flores",
+                        "email": "vanesa.cansino1892@gmail.com",
+                        "telephone": "677366026",
+                        "shadow": true
+                    },
+                    "userId": "68f6003cfc18257f9a651c0b",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "gratuita": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-20T09:35:49.634Z",
+                    "seats": 3,
+                    "amount": 800,
+                    "turn": 1,
+                    "maskedTurn": "S 44",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3762,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-20T09:55:49.710Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f73889e03b527fc9a78ce6",
+            "start": "2025-11-12T09:30:00.000Z",
+            "end": "2025-11-12T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f73889e03b527fc9a78ce7",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f73889e03b527fc9a78ce6",
+                    "user": {
+                        "firstName": "Colegio Nuestra Sra. de la Providencia",
+                        "lastName": "dos clases 4 años",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T07:38:49.752Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 1,
+                    "maskedTurn": "E 80"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f738e3e03b527fc9a78cf2",
+            "start": "2025-11-12T11:00:00.000Z",
+            "end": "2025-11-12T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f738e3e03b527fc9a78cf3",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f738e3e03b527fc9a78cf2",
+                    "user": {
+                        "firstName": "Colegio Nuestra sra. de la Providencia",
+                        "lastName": "2 clases 4 años",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "Madrid",
+                        "provincia": "España",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T07:40:19.176Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 2,
+                    "maskedTurn": "O 54"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f7393ce03b527fc9a78d08",
+            "start": "2025-11-21T09:30:00.000Z",
+            "end": "2025-11-21T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f7393ce03b527fc9a78d09",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f7393ce03b527fc9a78d08",
+                    "user": {
+                        "firstName": "Colegio Nuestra sra. de la Providencia",
+                        "lastName": "dos clases 5 años",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T07:41:48.763Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 1,
+                    "maskedTurn": "D 30"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f739d0e03b527fc9a78d1e",
+            "start": "2025-11-21T11:00:00.000Z",
+            "end": "2025-11-21T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f739d0e03b527fc9a78d1f",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f739d0e03b527fc9a78d1e",
+                    "user": {
+                        "_id": "66fe67b60cad030aa4515dca",
+                        "username": "turismodepinto",
+                        "firstName": "Colegio Nuestra sra. de la Providencia",
+                        "lastName": "dos clases 5 años",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "devicesIds": [
+                            "62.81.251.132, 217.13.93.68#4/11/2024, 14:04:28"
+                        ],
+                        "shadow": true,
+                        "hasEmail": true,
+                        "hasDevice": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T07:44:16.673Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 2,
+                    "maskedTurn": "C 79",
+                    "isPending": false,
+                    "status": "requested",
+                    "order": 3775,
+                    "className": "confirmed"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f77705e03b527fc9a7956a",
+            "start": "2025-11-09T09:30:00.000Z",
+            "end": "2025-11-09T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f77705e03b527fc9a7956b",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f77705e03b527fc9a7956a",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "de Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-21T12:05:25.779Z",
+                    "seats": 25,
+                    "turn": 2,
+                    "maskedTurn": "Z 51"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f826e2e03b527fc9a799a7",
+            "start": "2025-11-23T09:30:00.000Z",
+            "end": "2025-11-23T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 23
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "open",
+            "appointments": [
+                {
+                    "_id": "691c3c62034e807065a8b899",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f826e2e03b527fc9a799a7",
+                    "user": {
+                        "firstName": "Turismo de  Pinto",
+                        "lastName": "Matrimonio mayor",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 2
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-11-18T09:29:06.713Z",
+                    "seats": 2,
+                    "amount": 400,
+                    "turn": 13,
+                    "maskedTurn": "F 07"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68f826e3e03b527fc9a799a8",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f826e2e03b527fc9a799a7",
+                    "user": {
+                        "firstName": "Valeria",
+                        "lastName": "Chacon",
+                        "email": "valeriachacown@gmail.com",
+                        "telephone": "722335538",
+                        "shadow": true
+                    },
+                    "userId": "68f825eefc18257f9a659904",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "adultos": 2,
+                        "reducida": 0,
+                        "gratuita": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-22T00:35:47.037Z",
+                    "seats": 3,
+                    "amount": 800,
+                    "turn": 3,
+                    "maskedTurn": "Z 74",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3782,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-22T00:55:47.126Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "69105ac502ead0242a8ccefe",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f826e2e03b527fc9a799a7",
+                    "user": {
+                        "firstName": "Virginia ",
+                        "lastName": "Fariza  Sancho",
+                        "email": "virginia.fariza@gmail.com",
+                        "telephone": "630230287",
+                        "shadow": true
+                    },
+                    "userId": "691053e596b155733074f0ac",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España ",
+                        "provincia": "Madrid",
+                        "reducida": 1,
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-09T09:11:33.797Z",
+                    "seats": 3,
+                    "amount": 1000,
+                    "turn": 9,
+                    "maskedTurn": "V 53",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4294,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-09T09:31:33.882Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f8a0abe03b527fc9a79ee6",
+            "start": "2025-11-14T09:30:00.000Z",
+            "end": "2025-11-14T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "69009cb6e03b527fc9a8228f",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f8a0abe03b527fc9a79ee6",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "Pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-28T10:36:38.523Z",
+                    "seats": 25,
+                    "turn": 2,
+                    "maskedTurn": "E 67"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68f8a0ace03b527fc9a79ee7",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f8a0abe03b527fc9a79ee6",
+                    "user": {
+                        "firstName": "Javier",
+                        "lastName": "Fernández San Martín",
+                        "email": "jafersa60@gmail.com",
+                        "telephone": "679401832",
+                        "shadow": true
+                    },
+                    "userId": "68f89f1bfc18257f9a65ac9b",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 2,
+                        "adultos": 0
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-22T09:15:24.152Z",
+                    "seats": 2,
+                    "amount": 400,
+                    "turn": 1,
+                    "maskedTurn": "W 88",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3783,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-22T09:35:24.301Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f9c0cce03b527fc9a7ad93",
+            "start": "2025-11-16T09:30:00.000Z",
+            "end": "2025-11-16T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 18
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "open",
+            "appointments": [
+                {
+                    "_id": "69161add034e807065a871e3",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9c0cce03b527fc9a7ad93",
+                    "user": {
+                        "firstName": "Ignacio",
+                        "lastName": "Ortuño Gila",
+                        "email": "ohcanortuno@gmail.com",
+                        "telephone": "+34677532180",
+                        "shadow": true
+                    },
+                    "userId": "6914feb496b155733075fa73",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Boadilla del Monte",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-13T17:52:29.934Z",
+                    "seats": 3,
+                    "amount": 1000,
+                    "turn": 19,
+                    "maskedTurn": "A 54",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4385,
+                    "paymentId": "69161add034e807065a871e4",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T09:30:37.611Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T09:30:37.615Z"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "_id": "69172abf034e807065a88112",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9c0cce03b527fc9a7ad93",
+                    "user": {
+                        "firstName": "Ana",
+                        "lastName": "Contreras",
+                        "email": "anacontreras181518@gmail.com",
+                        "telephone": "722232464",
+                        "shadow": true
+                    },
+                    "userId": "690a7a2096b155733073f9ba",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "gratuita": 1,
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-14T13:12:31.226Z",
+                    "seats": 4,
+                    "amount": 1000,
+                    "turn": 21,
+                    "maskedTurn": "A 23",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4393,
+                    "paymentId": "69172abf034e807065a88113",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-16T09:30:55.746Z",
+                        "log": [
+                            {
+                                "date": "2025-11-16T09:30:55.746Z"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68f9c0cce03b527fc9a7ad94",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9c0cce03b527fc9a7ad93",
+                    "user": {
+                        "firstName": "raquel",
+                        "lastName": "Fernández morales",
+                        "telephone": "+34649574068",
+                        "email": "Rachel__81@hotmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68f9c02efc18257f9a65f032",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Leganes ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "gratuita": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-23T05:44:44.305Z",
+                    "seats": 3,
+                    "amount": 800,
+                    "turn": 3,
+                    "maskedTurn": "K 77",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3798,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-23T06:04:44.396Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "6912677d6bc1f0592043add1",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9c0cce03b527fc9a7ad93",
+                    "user": {
+                        "lastName": "Fernandez  Martínez",
+                        "firstName": "Monica",
+                        "telephone": "+34609694399",
+                        "email": "monicapecas@gmail.com",
+                        "shadow": true
+                    },
+                    "userId": "68fb98d2fc18257f9a666e2a",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "Spagna",
+                        "provincia": "Madrid",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-10T22:30:21.562Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 16,
+                    "maskedTurn": "K 88",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4348,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-10T22:50:21.611Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "69150ef3034e807065a864bb",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9c0cce03b527fc9a7ad93",
+                    "user": {
+                        "firstName": "Elena ",
+                        "lastName": "Martínez Álvarez ",
+                        "email": "melemaral@gmail.com",
+                        "telephone": "659180974",
+                        "shadow": true
+                    },
+                    "userId": "69150e1b96b155733075fd62",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "reducida": 2,
+                        "adultos": 2,
+                        "municipio": "Valdemoro ",
+                        "pais": "España ",
+                        "provincia": "Madrid "
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-12T22:49:23.335Z",
+                    "seats": 4,
+                    "amount": 1200,
+                    "turn": 18,
+                    "maskedTurn": "S 06",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4378,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-12T23:09:23.403Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f9e7fee03b527fc9a7b63f",
+            "start": "2025-11-28T09:30:00.000Z",
+            "end": "2025-11-28T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f9e7fee03b527fc9a7b640",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9e7fee03b527fc9a7b63f",
+                    "user": {
+                        "firstName": "Colegio Isabel La Católica",
+                        "lastName": "Dos clases 1º primaria",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 0,
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-23T08:31:58.261Z",
+                    "seats": 25,
+                    "turn": 1,
+                    "maskedTurn": "R 83"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f9e82ee03b527fc9a7b644",
+            "start": "2025-11-28T11:00:00.000Z",
+            "end": "2025-11-28T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "68f9e82ee03b527fc9a7b645",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9e82ee03b527fc9a7b644",
+                    "user": {
+                        "firstName": "Colegio Isabel la Católica",
+                        "lastName": "Dos clases 1º primaria",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-23T08:32:46.994Z",
+                    "seats": 25,
+                    "amount": 5000,
+                    "turn": 2,
+                    "maskedTurn": "C 00"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "68f9fdefe03b527fc9a7b90f",
+            "start": "2025-11-10T09:30:00.000Z",
+            "end": "2025-11-10T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "690b043102ead0242a8c8fcd",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9fdefe03b527fc9a7b90f",
+                    "user": {
+                        "firstName": "turismo",
+                        "lastName": "de pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-11-05T08:00:49.160Z",
+                    "seats": 25,
+                    "turn": 3,
+                    "maskedTurn": "V 91"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "68f9fdefe03b527fc9a7b910",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9fdefe03b527fc9a7b90f",
+                    "user": {
+                        "firstName": "Juan",
+                        "lastName": "Martinez Ferretti",
+                        "email": "juanmartinezferretti@gmail.com",
+                        "telephone": "54 1158027497",
+                        "shadow": true
+                    },
+                    "userId": "68f9f793fc18257f9a660164",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Ciudad de Buenos Aires",
+                        "pais": "Argentina",
+                        "provincia": "Ciudad Autónoma de Buenos Aires",
+                        "reducida": 1
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-23T10:05:35.542Z",
+                    "seats": 1,
+                    "amount": 200,
+                    "turn": 1,
+                    "maskedTurn": "Z 58",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3802,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-23T10:25:35.644Z"
+                    },
+                    "isCanceled": true
+                },
+                {
+                    "_id": "690348c302ead0242a8c3702",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "68f9fdefe03b527fc9a7b90f",
+                    "user": {
+                        "firstName": "Celia",
+                        "lastName": "López López",
+                        "email": "celia19_09@hotmail.com",
+                        "telephone": "+34640883252",
+                        "shadow": true
+                    },
+                    "userId": "68df877380fda31d887a1527",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "adultos": 2,
+                        "reducida": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-10-30T11:15:15.549Z",
+                    "seats": 4,
+                    "amount": 1200,
+                    "turn": 2,
+                    "maskedTurn": "J 02",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 3897,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-10-30T11:35:15.623Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "69009ce4e03b527fc9a82296",
+            "start": "2025-11-14T11:00:00.000Z",
+            "end": "2025-11-14T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "69009ce4e03b527fc9a82297",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "69009ce4e03b527fc9a82296",
+                    "user": {
+                        "firstName": "Turismo",
+                        "lastName": "Pinto",
+                        "email": "turismodepinto@ayo-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-10-28T10:37:24.859Z",
+                    "seats": 25,
+                    "turn": 3,
+                    "maskedTurn": "L 19"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "690744d702ead0242a8c50ed",
+            "start": "2025-11-30T09:30:00.000Z",
+            "end": "2025-11-30T11:00:00.000Z",
+            "title": "PRIMER PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 19
+            },
+            "index": 4,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "open",
+            "appointments": [
+                {
+                    "_id": "690744d702ead0242a8c50ee",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690744d702ead0242a8c50ed",
+                    "user": {
+                        "firstName": "Raul ",
+                        "lastName": "Medina Bueno ",
+                        "email": "raulmedina999@gmail.com",
+                        "telephone": "654538967",
+                        "shadow": true
+                    },
+                    "userId": "6907435196b1557330734dc7",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Valdemoro ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-02T11:47:35.306Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 6,
+                    "maskedTurn": "T 84",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4021,
+                    "paymentId": "690744d702ead0242a8c50ef"
+                },
+                {
+                    "_id": "692578f5034e807065a93132",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690744d702ead0242a8c50ed",
+                    "user": {
+                        "firstName": "Patricia ",
+                        "lastName": "Pérez Romero ",
+                        "email": "patricia.perezromero1@gmail.com",
+                        "telephone": "646033080",
+                        "shadow": true
+                    },
+                    "userId": "6925769996b1557330788f62",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Madrid ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-25T09:37:55.512Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 7,
+                    "maskedTurn": "X 61",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4468,
+                    "paymentId": "692578f5034e807065a93133"
+                },
+                {
+                    "_id": "69257a31034e807065a93173",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690744d702ead0242a8c50ed",
+                    "user": {
+                        "firstName": "Patricia ",
+                        "lastName": "Pérez Romero ",
+                        "email": "patricia.perezromero1@gmail.com",
+                        "telephone": "646033080",
+                        "shadow": true
+                    },
+                    "userId": "6925769996b1557330788f62",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Madrid ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-25T09:43:13.895Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 9,
+                    "maskedTurn": "O 66",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4470,
+                    "paymentId": "69257a31034e807065a93174"
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "6925798e034e807065a93153",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690744d702ead0242a8c50ed",
+                    "user": {
+                        "firstName": "Patricia ",
+                        "lastName": "Pérez Romero ",
+                        "email": "patricia.perezromero1@gmail.com",
+                        "telephone": "646033080",
+                        "shadow": true
+                    },
+                    "userId": "6925769996b1557330788f62",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Madrid ",
+                        "pais": "España ",
+                        "provincia": "Madrid ",
+                        "adultos": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-25T09:40:30.594Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 8,
+                    "maskedTurn": "N 24",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4469,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-25T10:00:30.643Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "690b048c02ead0242a8c8fdf",
+            "start": "2025-11-10T11:00:00.000Z",
+            "end": "2025-11-10T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 0
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "confirmed",
+            "appointments": [
+                {
+                    "_id": "690b048c02ead0242a8c8fe0",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690b048c02ead0242a8c8fdf",
+                    "user": {
+                        "firstName": "turismo ",
+                        "lastName": "de pinto",
+                        "email": "turismodepinto@ayto-pinto.es",
+                        "telephone": "661620076",
+                        "shadow": true
+                    },
+                    "userId": "66fe67b60cad030aa4515dca",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "gratuita": 25
+                    },
+                    "origin": {
+                        "channel": "admin",
+                        "payment": "admin"
+                    },
+                    "isPaid": true,
+                    "timestamp": "2025-11-05T08:02:20.565Z",
+                    "seats": 25,
+                    "turn": 4,
+                    "maskedTurn": "C 86"
+                }
+            ],
+            "canceledAppointments": [],
+            "pendingAppointments": []
+        },
+        {
+            "_id": "690e2d9502ead0242a8ccb1c",
+            "start": "2025-11-26T11:00:00.000Z",
+            "end": "2025-11-26T12:30:00.000Z",
+            "title": "SEGUNDO PASE",
+            "description": "",
+            "photo": "",
+            "supplement": 0,
+            "seats": {
+                "total": 25,
+                "remaining": 21
+            },
+            "index": 5,
+            "resourceId": "66b3637cb50eea01e91a51de",
+            "realmId": "pinto",
+            "className": "open",
+            "appointments": [
+                {
+                    "_id": "690e2fa402ead0242a8ccb24",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690e2d9502ead0242a8ccb1c",
+                    "user": {
+                        "firstName": "Maria",
+                        "lastName": "Aravena Guzman",
+                        "telephone": "+34650600197",
+                        "email": "maria_soledad_solar@hotmail.com",
+                        "shadow": true
+                    },
+                    "userId": "690e2f6196b155733074b1d1",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid",
+                        "reducida": 2
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-07T17:43:00.311Z",
+                    "seats": 2,
+                    "amount": 400,
+                    "turn": 6,
+                    "maskedTurn": "M 53",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4262,
+                    "paymentId": "690e2fa402ead0242a8ccb25"
+                },
+                {
+                    "_id": "69247ebf034e807065a92602",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690e2d9502ead0242a8ccb1c",
+                    "user": {
+                        "firstName": "Alvaro",
+                        "lastName": "Caceres",
+                        "email": "alvarocaceresmunoz@gmail.com",
+                        "telephone": "661035142",
+                        "shadow": true
+                    },
+                    "userId": "6924673696b15573307859eb",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 2,
+                        "municipio": "Pinto",
+                        "pais": "España",
+                        "provincia": "Madrid"
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-24T15:50:18.103Z",
+                    "seats": 2,
+                    "amount": 800,
+                    "turn": 8,
+                    "maskedTurn": "L 95",
+                    "isPaid": true,
+                    "status": "requested",
+                    "order": 4466,
+                    "paymentId": "69247ebf034e807065a92603",
+                    "annotations": {
+                        "hasArrived": true,
+                        "arrivalTime": "2025-11-26T11:07:04.651Z",
+                        "log": [
+                            {
+                                "date": "2025-11-26T11:07:04.651Z"
+                            }
+                        ]
+                    }
+                }
+            ],
+            "canceledAppointments": [
+                {
+                    "_id": "690e2d9502ead0242a8ccb1d",
+                    "resourceId": "66b3637cb50eea01e91a51de",
+                    "slotId": "690e2d9502ead0242a8ccb1c",
+                    "user": {
+                        "firstName": "Maria ",
+                        "lastName": "Aravena Guzman",
+                        "email": "maria_soledad_solar@hotmail.com",
+                        "telephone": "650600197",
+                        "shadow": true
+                    },
+                    "userId": "690e2c6896b155733074b0f6",
+                    "confirmed": true,
+                    "messages": [],
+                    "extra": {
+                        "adultos": 0,
+                        "reducida": 2,
+                        "municipio": "Pinto ",
+                        "pais": "España",
+                        "provincia": "Madrid "
+                    },
+                    "origin": {
+                        "channel": "web"
+                    },
+                    "timestamp": "2025-11-07T17:34:13.870Z",
+                    "seats": 2,
+                    "amount": 400,
+                    "turn": 5,
+                    "maskedTurn": "Y 70",
+                    "isPaid": false,
+                    "isPending": true,
+                    "status": "requested",
+                    "order": 4261,
+                    "cancel": {
+                        "origin": "updateSlotAndCancelPendingAppointment",
+                        "timestamp": "2025-11-07T17:54:13.969Z"
+                    },
+                    "isCanceled": true
+                }
+            ],
+            "pendingAppointments": []
+        }
+    ],
+    "timer": {
+        "t0": 1764156001884,
+        "t1": 3,
+        "t2": 6,
+        "t3": 14,
+        "t4": 30,
+        "t5": 31
+    }
+}

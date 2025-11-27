@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<!-- saved from url=(0111)https://public.digitalvalue.es/github/zity-components-m/src/apps/contents.html#!/es/v2/6808b397c9f7302ad78fb044 -->
+<html lang="es"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta name="viewport" content="initial-scale=1">
+    <!--meta name="viewport" content="width=device-width, initial-scale=1.0" /-->
+    <title>ZITY</title>
+    <link rel="icon" href="https://public.digitalvalue.es/github/zity-components-m/src/assets/favicon.ico">
+
+    <!-- <link rel="stylesheet" href="https://components.digitalvalue.es/lib/semantic.min.css" /> -->
+
+    <script src="./ZITmockkckkY_files/saved_resource"></script>
+    <link rel="stylesheet" href="./ZITmockkckkY_files/semantic.tw.css">
+    <!-- <link rel="stylesheet" href="../../tailwindcss/tailwind.css" /> -->
+    <link rel="stylesheet" href="./ZITmockkckkY_files/icons.css">
+
+    <link rel="stylesheet" href="./ZITmockkckkY_files/leaflet.css" integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ==" crossorigin="">
+    <link rel="stylesheet" href="./ZITmockkckkY_files/datepicker.css">
+    <link rel="stylesheet" href="./ZITmockkckkY_files/fullcalendar.min.css">
+
+    <script src="./ZITmockkckkY_files/jquery-3.4.1.min.js"></script>
+    <script src="./ZITmockkckkY_files/leaflet.js" integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew==" crossorigin=""></script>
+
+    <!-- Iconos de google para editor 3.0 -->
+    <link rel="stylesheet" href="./ZITmockkckkY_files/icon">
+
+    <!-- <script src="../dist/mithril.js"></script> -->
+    <script src="./ZITmockkckkY_files/mithril.min.js"></script>
+    <script src="./ZITmockkckkY_files/mithril-datepicker.js"></script>
+    <script src="./ZITmockkckkY_files/moment.min.js"></script>
+    <script src="./ZITmockkckkY_files/fullcalendar.min.js"></script>
+    <script src="./ZITmockkckkY_files/es.js"></script>
+
+    <script type="module">
+        import {router} from './contents.js'
+        router(document.body,window)
+    </script>
+
+    <!-- <script src="https://components.digitalvalue.es/dv-components-m/ckeditor-classic.js"></script> -->
+    <!-- <script type="text/javascript" src="https://maps.google.com/maps/api/js"></script> -->
+    <!-- pwa -->
+    <!-- TODO: iconos pwa -->
+    <!-- <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+    <link rel="mask-icon" href="icons/safari-pinned-tab.svg" color="#7d7d7d">
+    <meta name="msapplication-TileImage" content="mstile-144x144.png">
+    <meta name="msapplication-TileColor" content="#ffffff"> -->
+    <meta name="theme-color" content="#ffffff">
+
+    <style>
+        .fadeIn {
+            animation: fade-in 0.5s;
+        }
+
+        @keyframes MoveUpDown {
+            0%, 100% {
+                bottom: 0;
+            }
+            50% {
+                bottom: 100px;
+            }
+        }
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .fadeOut {
+            animation: fade-out 0.5s;
+        }
+
+        @keyframes fade-out {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .vertical-divider {
+            border: 1px solid lightblue;
+            height: auto;
+        }
+
+        body {
+            display: flex !important;
+            flex-direction: column !important;
+            font-family: Lato,'Helvetica Neue',Arial,Helvetica,sans-serif;
+        }
+
+        footer {
+            margin-top: auto !important;
+            color: rgba(255, 255, 255, .9);
+        }
+
+        @media only screen and (max-width: 992px) {
+
+            /* Faltaría centrar el divider*/
+            [class="vertical-divider"] {
+                width: 100%;
+            }
+
+            [class="row"] {
+                margin-top: 25px;
+            }
+
+            [class="column"] {
+                margin-top: 25px;
+            }
+
+        }
+
+        .vertical-divider{
+            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        /* .row {
+            margin-top: 15px;
+        } */
+
+        /* .ui.segment {
+            border: 0px !important;
+        }
+
+        .ui.button:not(.circular) {
+            border-radius: 0 !important;
+            background-color: "black" !important;
+            padding: 0.5em 1em 0.5em 1em !important;
+        } */
+
+        .button.current-date {
+            width: 40px;
+            height: 40px;
+            background-color: white;
+            border: 1px solid rgba(34,36,38,.15);
+            border-radius: .28571429rem;
+            overflow: hidden;
+            color: white;
+        }
+
+        [draggable="true"] {
+            /*
+        To prevent user selecting inside the drag source
+        */
+            user-select: none;
+            -moz-user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+        }
+
+    </style>
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.hidden{display:none}.outline{outline-style:solid}.transition{transition-property:color, background-color, border-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}</style></head>
+
+<body><header style="background-color: rgb(45, 45, 45); display: flex; flex-flow: wrap; align-items: center; padding: 1rem;"><img src="./ZITmockkckkY_files/contenido.jpeg" alt="Editor de Contenidos" style="min-height: 40px; max-height: 40px; max-width: 100%;"><div style="color: rgb(255, 255, 255); word-break: break-all; margin-left: 10px;">EDITOR DE CONTENIDOS</div></header><nav style="border-bottom: 8px solid rgb(246, 74, 89); background-color: rgb(28, 25, 23);"><ul class="ui inverted fluid stackable menu" style="margin: 0px; padding-left: 0px; border-radius: 0px; flex-flow: wrap; background-color: rgb(28, 25, 23); box-shadow: rgb(222, 222, 222) 0px 2px 3px; z-index: 1000;"><li class="item"><a href="https://public.digitalvalue.es/github/zity-components-m/src/apps/"><img src="./ZITmockkckkY_files/logo-zity-pie.png" style="width: auto; height: 20px; margin: auto;"></a></li><a href="https://public.digitalvalue.es/github/zity-components-m/src/apps/" class="item" style="opacity: 0.7;">Panel de Servicios</a><li class="item"><a href="https://public.digitalvalue.es/github/zity-components-m/src/apps/contents.html#!./" style="color: white;">Editor de Contenidos</a></li><li class="right menu" style="display: flex; flex-wrap: wrap;"><div class="item" style="">admin.altea</div><div class="item" style="">altea</div><div class="item" style=""><div class="ui icon button large basic inverted" style=""><i class="green user icon"></i></div></div><div class="ui inverted basic icon dropdown button" style="margin: 0.5rem;"><span class="text" style="margin-right: 10px;">ES</span><i class="globe icon"></i><div class="bottom left menu transition hidden" style="z-index: 20;"><a class="item selected" style="display: flex; gap: 10px;"><img src="./ZITmockkckkY_files/espana.png" alt=" Castellano" style="display: inline; object-fit: contain;"><strong> Castellano</strong></a><a class="item" style="display: flex; gap: 10px;"><img src="./ZITmockkckkY_files/catala.png" alt=" Català" style="display: inline; object-fit: contain;"><div class="content"> Català</div></a></div></div></li></ul></nav><main style="display: flex; flex-grow: 1; overflow: hidden;"><div style="flex: 1 1 0%; width: 100vw; display: inline-flex; overflow: hidden;"><div style="padding: 0px; margin: 0px; position: relative; overflow: hidden auto; width: 0px; flex-shrink: 0; background-color: rgb(29, 35, 39); transition: width 0.3s ease-out;"><div style="z-index: 1; position: absolute; top: 0px; right: 0px; text-align: right;"></div><nav style="border: none; box-shadow: none; outline: none; background-color: rgb(29, 35, 39);"><ul class="ui vertical fluid inverted large menu zity-lateral-menu" style="background-color: rgb(29, 35, 39); margin-top: 0px; border-radius: 8px; padding: 10px 0px; border: none; box-shadow: none; outline: none;"><li class="item" style="margin-bottom: 12px; background-color: rgb(29, 35, 39) !important; border-bottom: none !important; box-shadow: none !important;"><div style="display: flex; gap: 10px; align-content: center; align-items: center; font-weight: bold; font-size: 1.1em; margin-bottom: 8px; background-color: rgb(29, 35, 39); border-bottom: none;"><img src="./ZITmockkckkY_files/contenido_white.png" title="Sección contenidos" style="max-width: 100%; width: 40px; height: auto;"><span>Contenidos</span></div><ul style="margin: 0px 0px 0px 26px; padding: 0px; border-left: 3px solid rgb(68, 75, 80); list-style: none; background: none; min-height: 10px;"><li title="Ver colección alteacultural" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">alteacultural</li><li title="Ver colección areas" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">areas</li><li title="Ver colección articulos" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">articulos</li><li title="Ver colección asociaciones" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">asociaciones</li><li title="Ver colección avisos" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">avisos</li><li title="Ver colección bicaltea" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">bicaltea</li><li title="Ver colección carteles" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">carteles</li><li title="Ver colección descriptor" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">descriptor</li><li title="Ver colección entidades" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">entidades</li><li title="Ver colección eventos" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">eventos</li><li title="Ver colección files" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">files</li><li title="Ver colección menus" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">menus</li><li title="Ver colección noticias" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">noticias</li><li title="Ver colección paginas" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">paginas</li><li title="Ver colección procesos" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">procesos</li><li title="Ver colección vocabularios" style="margin: 0px 0px 1px; padding: 4px 0px 4px 14px; font-size: 1em; color: rgb(187, 187, 187); font-weight: normal; cursor: pointer; background: none; border: none; border-radius: 4px; transition: background 0.2s;">vocabularios</li></ul></li><li title="Ver multimedia" class="item hoverable" style="background-color: rgb(29, 35, 39); cursor: pointer; border-radius: 4px; margin: 2px 0px; padding: 6px 12px; display: flex; align-items: center; gap: 10px; border-bottom: none; box-shadow: none;"><img src="./ZITmockkckkY_files/documentos_white.png" title="Sección documentos" style="max-width: 100%; width: 40px; height: auto;"><span>Multimedia</span></li><li title="Edición avanzada por menú" class="item hoverable" style="background-color: rgb(29, 35, 39); cursor: pointer; border-radius: 4px; margin: 2px 0px; padding: 6px 12px; display: flex; align-items: center; gap: 10px; border-bottom: none; box-shadow: none;"><img src="./ZITmockkckkY_files/menu_white.png" title="Sección menús" style="max-width: 100%; width: 40px; height: auto;"><span>Edición por Menú</span></li></ul></nav></div><div style="display: flex; width: 100%;"><style>
+                    #modal > .content {
+                        padding: 1.5rem;
+                    }
+
+                    #modal > .header {
+                        font-size: 1.3rem;
+                        font-weight: bold;
+                    }
+                </style><style>ul {padding-inline-start: 16px;}</style><div style="width: 100vw; display: inline-flex; padding: 0px; background-color: rgb(249, 250, 251);"><div style="padding: 10px; margin: 0px; position: relative; overflow: hidden auto; flex-grow: 0; flex-shrink: 0; width: 400px; background-color: rgb(36, 48, 63); font-size: 14px;"><div style="z-index: 1; position: sticky; top: 0px; right: 0px; text-align: right;"></div><div style="display: flex; justify-content: flex-end; border-bottom: 1px solid rgb(71, 85, 105); margin-bottom: 10px; background: rgb(36, 48, 63); position: sticky; top: -11px; z-index: 10;"><span style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: pointer; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s; flex: 1 1 0%;"><i class="left arrow icon" style="height: 100%; margin: auto 0px;"></i>Volver</span></div><li style="list-style: none; user-select: none; opacity: 1;"><span><div><div id="block-" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; font-weight: bold; color: rgb(226, 232, 240); background-color: rgb(59, 130, 246); transition: background-color 0.3s;"><div style="cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 5px 3px; border-radius: 5px; margin-right: 5px;"><i class="small icon chevron down" style="color: rgb(226, 232, 240); margin: 0px !important;"></i></div><i class="small folder icon open" style="color: rgb(226, 232, 240);"></i><div style="color: inherit;">Web Municipal</div></div></div></span><ul style="border-left: 1px solid rgb(71, 85, 105); padding-left: 4px; margin-left: 12px;"><li style="list-style: none; user-select: none; opacity: 1;"><div id="block-0" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s;"><i class="chevron right small icon" style="opacity: 0;"></i><i class="small folder outline icon" style="color: rgb(226, 232, 240);"></i><u>Altea</u></div></li><li style="list-style: none; user-select: none; opacity: 1;"><span><div><div id="block-1" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s;"><div style="cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 5px 3px; border-radius: 5px; margin-right: 5px;"><i class="small icon chevron right" style="color: rgb(226, 232, 240); margin: 0px !important;"></i></div><i class="small folder icon " style="color: rgb(226, 232, 240);"></i><div style="color: inherit;">Áreas</div></div></div></span></li><li style="list-style: none; user-select: none; opacity: 1;"><span><div><div id="block-2" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s;"><div style="cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 5px 3px; border-radius: 5px; margin-right: 5px;"><i class="small icon chevron right" style="color: rgb(226, 232, 240); margin: 0px !important;"></i></div><i class="small folder icon " style="color: rgb(226, 232, 240);"></i><div style="color: inherit;">Ayuntamiento</div></div></div></span></li><li style="list-style: none; user-select: none; opacity: 1;"><span><div><div id="block-3" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s;"><div style="cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 5px 3px; border-radius: 5px; margin-right: 5px;"><i class="small icon chevron right" style="color: rgb(226, 232, 240); margin: 0px !important;"></i></div><i class="small folder icon " style="color: rgb(226, 232, 240);"></i><div style="color: inherit;">Ciudadanía</div></div></div></span></li><li style="list-style: none; user-select: none; opacity: 1;"><div id="block-4" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s;"><i class="chevron right small icon" style="opacity: 0;"></i><i class="small folder outline icon" style="color: rgb(226, 232, 240);"></i><u>Actualidad</u></div></li><li style="list-style: none; user-select: none; opacity: 1;"><span><div><div id="block-5" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s;"><div style="cursor: pointer; display: flex; justify-content: center; align-items: center; padding: 5px 3px; border-radius: 5px; margin-right: 5px;"><i class="small icon chevron right" style="color: rgb(226, 232, 240); margin: 0px !important;"></i></div><i class="small folder icon " style="color: rgb(226, 232, 240);"></i><div style="color: inherit;">Transparencia</div></div></div></span></li><li style="list-style: none; user-select: none; opacity: 1;"><div id="block-6" draggable="true" style="margin: 3px 5px; display: flex; gap: 5px; align-items: center; padding: 7px 4px; cursor: grab; border-radius: 5px; color: rgb(229, 231, 235); background-color: rgb(36, 48, 63); transition: background-color 0.3s;"><i class="chevron right small icon" style="opacity: 0;"></i><i class="small folder outline icon" style="color: rgb(226, 232, 240);"></i><u>Cita Previa</u></div></li></ul></li></div><div class="splitter-bar" style="cursor: ew-resize; width: 6px; position: sticky; background-color: rgb(221, 221, 221); transition: 0.4s; border-radius: 2px; flex-shrink: 0;"></div><div style="flex-shrink: 1; flex-grow: 1; overflow: hidden auto; position: relative;"><div style="display: flex; flex-direction: column;"><div style="display: flex; background-color: white; border: 1px solid rgb(233, 233, 233); flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; padding: 1rem; margin-bottom: 1rem;"><div style="display: flex; flex-direction: column; gap: 5px;"><div style="display: flex;"><div class="ui big header" style="margin: 0px;">Editando: Web Municipal</div></div><div style="display: flex; gap: 5px; color: gray; flex-wrap: wrap;"></div></div><div style="display: flex; flex-wrap: wrap;"><div class="ui left icon labeled green button"><i class="save icon"></i>Guardar Menú</div></div></div><div style="display: flex; flex-wrap: wrap; gap: 1rem; padding: 0rem 3rem;"><style>
+                        .ui.form .two.fields > .field {
+                            flex: 1 0 200px !important;
+                        }
+                    </style><div style="display: flex; flex-direction: column; gap: 1rem; flex: 2 1 0%;"><div style="display: flex; flex-flow: column wrap; align-items: flex-start; background-color: white; border: 1px solid rgb(226, 232, 240); border-radius: 1rem; padding: 1rem; gap: 1.5rem;"><div style="display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid rgb(226, 232, 240); width: 100%; padding-bottom: 5px;"><div class="ui header" style="margin: 0px;">Datos del Menú</div><p style="color: gray;">Define el título y subtítulo que se mostrarán en el menú</p></div><div class="ui form" style="width: 100%;"><div class="two fields" style="flex-wrap: wrap; gap: 10px;"><div class="field"><label for="1xy87g0eq9">Título</label><div class="ui right labeled input"><div class="ui input"><input id="1xy87g0eq9" type="input" placeholder="Introduce el título"></div><div class="ui white label"><span title="Traducir"><i class="globe icon"></i></span></div></div></div><div class="field"><label for="1xy87g0hzk">Subtítulo</label><div class="ui right labeled input"><div class="ui input"><input id="1xy87g0hzk" type="input" placeholder="Introduce el subtítulo"></div><div class="ui white label"><span title="Traducir"><i class="globe icon"></i></span></div></div></div></div></div></div><div style="display: flex; flex-flow: column wrap; align-items: flex-start; background-color: white; border: 1px solid rgb(226, 232, 240); border-radius: 1rem; padding: 1rem; gap: 1.5rem;"><div style="display: flex; flex-direction: column; width: 100%; gap: 3px; padding-bottom: 5px; border-bottom: 1px solid rgb(226, 232, 240); align-items: baseline; position: relative;"><div style="display: flex; gap: 5px; align-items: flex-start;"><i class="external alternate icon"></i><h2 class="ui header" style="margin: 0px; font-size: 1.2rem;">Enlaces</h2></div><p style="color: gray;">Configura hacia dónde navegará el usuario al hacer clic en este elemento</p></div><div class="ui form" style="width: 100%;"><div class="two fields" style="flex-wrap: wrap; gap: 10px;"><div class="field"><label for="1xy87g0huh" style="">Enlace externo (href)</label><div class="ui input"><input id="1xy87g0huh" type="text" placeholder="Introduce el enlace externo"></div></div><div class="field"><label for="1xy87g0ibz">Camino (path)</label><div class="ui right labeled input"><div class="ui input"><input id="1xy87g0ibz" type="input" placeholder="Introduce el camino"></div><div class="ui white label"><span title="Traducir"><i class="globe icon"></i></span></div></div></div></div></div></div><div style="display: flex; flex-direction: column; background-color: white; border-radius: 1rem; flex: 1 1 0%; min-width: 350px; border: 1px solid rgb(226, 232, 240); padding: 1rem; gap: 1.5rem;"><div style="display: flex; flex-direction: column; gap: 3px; padding-bottom: 5px; border-bottom: 1px solid rgb(226, 232, 240); align-items: baseline; position: relative;"><div style="display: flex; gap: 5px; align-items: flex-start;"><i class="file outline icon"></i><h2 class="ui header" style="margin: 0px; font-size: 1.2rem;">Nodos relacionados</h2></div><p style="color: gray;">Selecciona o crea un contenido para relacionarlo con el menú</p></div><div style="display: flex; gap: 5px; margin-bottom: 10px; flex-wrap: wrap;"><div style="display: flex; gap: 1rem; flex: 1 1 0%; flex-wrap: wrap;"><div style="flex: 1 1 0%; display: flex; flex-direction: column;"><label>Buscador</label><div class="ui search" style="border-radius: 0px; position: relative;"><div class="ui icon input" style="width: 100%;"><input type="text" placeholder="" class="promp"></div></div></div><div style="flex: 1 1 0%; display: flex; flex-direction: column;"><label>Colección</label><select class="ui dropdown" style="height: 42px;"><option></option><option value="alteacultural">alteacultural</option><option value="areas">areas</option><option value="articulos">articulos</option><option value="asociaciones">asociaciones</option><option value="avisos">avisos</option><option value="bicaltea">bicaltea</option><option value="carteles">carteles</option><option value="descriptor">descriptor</option><option value="entidades">entidades</option><option value="eventos">eventos</option><option value="files">files</option><option value="menus">menus</option><option value="noticias">noticias</option><option value="paginas">paginas</option><option value="procesos">procesos</option><option value="vocabularios">vocabularios</option></select></div></div><div class="ui blue icon labeled button" style="margin-top: auto; height: 42px;"><i class="file icon"></i>Nuevo Artículo</div></div><div>No hay artículos relacionados</div></div></div><div style="display: flex; flex-flow: column wrap; flex: 1 1 0%; align-items: flex-start; background-color: white; border: 1px solid rgb(226, 232, 240); border-radius: 1rem; padding: 1rem; min-width: 300px; gap: 1.5rem;"><div style="display: flex; flex-direction: column; gap: 3px; border-bottom: 1px solid rgb(226, 232, 240); width: 100%; padding-bottom: 5px;"><div class="ui header" style="margin: 0px;">Configuración avanzada</div><p style="color: gray;">Opciones avanzadas del elemento</p></div><div class="ui form" style="width: 100%;"><div class="field"><label for="1xy87g0m5f" style="">Nombre del Icono</label><div class="ui action input"><input id="1xy87g0m5f" type="text" placeholder="Introduce el nombre del icono"><div class="ui button">Seleccionar</div></div></div><div class="field"><label for="1xy87g0n">Target</label><select tabindex="0" id="1xy87g0n" class="ui dropdown" style="padding: 6px; visibility: unset;"><option></option><option>_blank</option><option>_self</option><option>_parent</option><option>_top</option></select></div><div class="field"><label>Estado</label><select class="ui dropdown"><option value="false">Activo</option><option value="true">Inactivo</option></select></div></div></div></div><div style="padding: 10px;"></div><div class="ui accordion"><div tabindex="0" class="title" style="cursor: pointer;"><i class="caret right icon"></i>JSON</div><div class="content transition hidden"><pre style="white-space: break-spaces;">{
+  "_id": "6808b397c9f7302ad78fb044",
+  "title": "Web Municipal",
+  "name": "MainMenu",
+  "owners": [
+    "67dd5e8a9760b2161e602cf1"
+  ],
+  "score": 0,
+  "children": [
+    {
+      "title": "Altea",
+      "path": "/portada"
+    },
+    {
+      "title": {
+        "und": "Áreas",
+        "va": "Àrees"
+      },
+      "children": [
+        {
+          "title": {
+            "und": "Ciclo Hídrico",
+            "va": "Cicle Hídric"
+          },
+          "nodes": [
+            {
+              "id": "686e30379760b2162a569486",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "ciclo-hidrico-icon.png",
+          "subtitle": "Supervisa el abastecimiento, saneamiento y reutilización del agua. Garantiza una gestión eficiente y respetuosa con el medio ambiente.",
+          "path": {
+            "und": "/areas/ciclo-hidrico",
+            "va": "/areas/cicle-hidric"
+          }
+        },
+        {
+          "title": {
+            "und": "Bienestar Social",
+            "va": "Benestar Social"
+          },
+          "nodes": [
+            {
+              "id": "686e30c29760b2163c52ad77",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "icono-servicios-white.png",
+          "path": {
+            "und": "/areas/bienestar-social",
+            "va": "/areas/benestar-social"
+          }
+        },
+        {
+          "title": {
+            "und": "Comercio y Mercados",
+            "va": "Comerç i Mercats"
+          },
+          "iconName": "pm8_comercio-01.png",
+          "href": "https://altea.portaldelcomerciante.com/es/",
+          "subtitle": "Impulsa el comercio local y la modernización de mercados municipales. Fomenta la actividad económica y la proximidad entre comerciantes y ciudadanía."
+        },
+        {
+          "title": {
+            "und": "Comunicación",
+            "va": "Comunicació"
+          },
+          "nodes": [
+            {
+              "id": "686e35599760b211de5833ca",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "MeetingButton.png",
+          "subtitle": "Coordina la información institucional y la relación con medios. Promueve la transparencia y la participación ciudadana a través de canales digitales y tradicionales.",
+          "path": {
+            "und": "/areas/comunicacion",
+            "va": "/areas/comunicacion"
+          }
+        },
+        {
+          "title": {
+            "und": "Cultura",
+            "va": "Cultura"
+          },
+          "nodes": [
+            {
+              "id": "68d67f795671347edec03244",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_cine-03.png",
+          "subtitle": "Organiza y apoya eventos culturales, exposiciones y actividades artísticas. Preserva el patrimonio y promueve la identidad local.",
+          "path": "/areas/cultura"
+        },
+        {
+          "title": {
+            "und": "Deportes",
+            "va": "Esports"
+          },
+          "nodes": [
+            {
+              "id": "686e36bf9760b211db7965cd",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "SportshopButton.png",
+          "subtitle": "Fomenta la práctica deportiva y gestiona instalaciones municipales. Promueve hábitos saludables y el deporte inclusivo para todas las edades.",
+          "path": {
+            "und": "/areas/deportes",
+            "va": "/areas/esports"
+          }
+        },
+        {
+          "title": {
+            "und": "Educación",
+            "va": "Educació"
+          },
+          "nodes": [
+            {
+              "id": "686e3dbe69421a3712208b13",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_educacion-01.png",
+          "subtitle": "Colabora con centros educativos y gestiona programas formativos. Apoya la igualdad de oportunidades y el desarrollo académico.",
+          "path": {
+            "und": "/areas/educacion",
+            "va": "/areas/educacion"
+          }
+        },
+        {
+          "title": {
+            "und": "Fomento de Empleo",
+            "va": "Foment d'Ocupació"
+          },
+          "iconName": "empleo-icono.png",
+          "href": "https://altea.portalemp.com/carta-servicios.html",
+          "subtitle": "Desarrolla políticas activas de empleo y formación. Facilita la inserción laboral y apoya a emprendedores y empresas locales."
+        },
+        {
+          "title": {
+            "und": "Empresa pública",
+            "va": "Empresa pública"
+          },
+          "iconName": "PublicOfficesButton.png",
+          "href": "https://pdmaltea.es/es/",
+          "subtitle": "Supervisa las entidades municipales que prestan servicios públicos. Garantiza su eficiencia, sostenibilidad y orientación al ciudadano."
+        },
+        {
+          "title": {
+            "und": "Fiestas",
+            "va": "Festes"
+          },
+          "nodes": [
+            {
+              "id": "686e41a69760b22aed4e4d4d",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_fiestas-02.png",
+          "path": {
+            "und": "/areas/fiestas",
+            "va": "/areas/festes"
+          }
+        },
+        {
+          "title": "Film Office",
+          "nodes": [
+            {
+              "id": "6874fddb69421a3712208b1d",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "TicketsIcon.png",
+          "subtitle": "Facilita rodajes y producciones audiovisuales en el municipio. Promueve la ciudad como escenario cultural y dinamizador económico.",
+          "path": "/areas/film-office"
+        },
+        {
+          "title": {
+            "und": "Hacienda",
+            "va": "Hisenda"
+          },
+          "iconName": "pm8_economia.png",
+          "href": "https://altea.sedelectronica.es/transparency",
+          "subtitle": "Gestiona el presupuesto, tributos y recursos económicos del ayuntamiento. Asegura una administración transparente y responsable."
+        },
+        {
+          "title": {
+            "und": "Igualdad",
+            "va": "Igualtat"
+          },
+          "nodes": [
+            {
+              "id": "6875ff9169421a3712208b23",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "igualdad-icon.png",
+          "subtitle": "Promueve políticas de equidad entre géneros y colectivos. Lucha contra la discriminación y fomenta la inclusión social.",
+          "path": {
+            "und": "/areas/igualdad",
+            "va": "/areas/igualtat"
+          }
+        },
+        {
+          "title": {
+            "und": "Juventud",
+            "va": "Joventut"
+          },
+          "nodes": [
+            {
+              "id": "6876251369421a3712208b2b",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_juventud.png",
+          "subtitle": "Desarrolla programas para jóvenes en educación, ocio y participación. Apoya su autonomía, creatividad y compromiso social.",
+          "path": {
+            "und": "/areas/juventud",
+            "va": "/areas/joventut"
+          }
+        },
+        {
+          "title": {
+            "und": "Medio Ambiente",
+            "va": "Medi ambient"
+          },
+          "nodes": [
+            {
+              "id": "6876257669421a3712208b2c",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "EnvironmentButton.png",
+          "subtitle": "Protege los recursos naturales y fomenta la sostenibilidad. Impulsa campañas de concienciación y mejora de espacios verdes.",
+          "path": {
+            "und": "/areas/medio-ambiente",
+            "va": "/areas/mig-ambient"
+          }
+        },
+        {
+          "title": {
+            "und": "Nuevas Tecnologías y Redes",
+            "va": "Noves Tecnologies i Xarxes"
+          },
+          "nodes": [
+            {
+              "id": "6876261569421a3712208b2d",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_nuevas-tecnologias-02.png",
+          "path": {
+            "und": "/areas/nuevas-tecnologias-y-redes",
+            "va": "/areas/noves-tecnologias-i-xarxes"
+          }
+        },
+        {
+          "title": {
+            "und": "Participación Ciudadana",
+            "va": "Participació Ciutadana"
+          },
+          "iconName": "AssociationButton.png",
+          "href": "https://participa.altea.es/",
+          "subtitle": "Facilita la implicación vecinal en decisiones públicas. Promueve el diálogo, la escucha activa y la democracia participativa."
+        },
+        {
+          "title": {
+            "und": "Proyectos europeos",
+            "va": "Projectes europeus"
+          },
+          "iconName": "pm8_europa.png",
+          "href": "https://euroaltea.eu/?lang=es",
+          "subtitle": "Gestiona iniciativas financiadas por la Unión Europea. Impulsa la innovación, la sostenibilidad y el desarrollo local."
+        },
+        {
+          "title": {
+            "und": "Recursos humanos",
+            "va": "Recursos humans"
+          },
+          "nodes": [
+            {
+              "id": "6876263969421a3712208b2e",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "rrhh-icon.png",
+          "subtitle": "Administra el personal municipal y fomenta su formación. Garantiza un servicio público profesional y eficiente.",
+          "path": {
+            "und": "/areas/recursos-humanos",
+            "va": "/areas/recursos-humans"
+          }
+        },
+        {
+          "title": {
+            "und": "Sanidad y Bienestar Animal",
+            "va": "Sanitat i Benestar Animal"
+          },
+          "nodes": [
+            {
+              "id": "6876265869421a3712208b2f",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_mascotas.png",
+          "subtitle": "Vigila la salud pública y protege a los animales. Promueve campañas de adopción, tenencia responsable y control sanitario.",
+          "path": {
+            "und": "/areas/sanidad-y-bienestar-animal",
+            "va": "/areas/sanitat-i-benestar-animal"
+          }
+        },
+        {
+          "title": {
+            "und": "Seguridad Ciudadana",
+            "va": "Seguretat Ciutadana"
+          },
+          "nodes": [
+            {
+              "id": "6876267569421a3712208b30",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_seguridad.png",
+          "subtitle": "Coordina la protección de personas y bienes. Colabora con cuerpos policiales y servicios de emergencia para garantizar la convivencia.",
+          "path": {
+            "und": "/areas/seguridad-ciudadana",
+            "va": "/areas/seguretat-ciutadana"
+          }
+        },
+        {
+          "title": {
+            "und": "Turismo",
+            "va": "Turisme"
+          },
+          "nodes": [
+            {
+              "id": "6876268d69421a3712208b31",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_turismo-02.png",
+          "subtitle": "Promociona el municipio como destino turístico. Potencia su patrimonio, gastronomía y oferta cultural para atraer visitantes.",
+          "path": {
+            "und": "/areas/turismo",
+            "va": "/areas/turisme"
+          }
+        },
+        {
+          "title": {
+            "und": "Urbanismo",
+            "va": "Urbanisme"
+          },
+          "nodes": [
+            {
+              "id": "68761c4e69421a3712208b29",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_urbanismo.png",
+          "subtitle": "Planifica el crecimiento ordenado del municipio. Regula el uso del suelo y vela por un desarrollo sostenible y accesible.",
+          "path": {
+            "und": "/areas/urbanismo",
+            "va": "/areas/urbanisme"
+          }
+        },
+        {
+          "title": {
+            "und": "Infraestructuras, actividades y playas",
+            "va": "Infraestructures, activitats i platges"
+          },
+          "nodes": [
+            {
+              "id": "687610f269421a3712208b27",
+              "collection": "areas"
+            }
+          ],
+          "iconName": "pm8_playa-02.png",
+          "subtitle": "Gestiona obras públicas y mejora los servicios urbanos. Asegura la calidad de vida mediante una red eficiente y moderna.",
+          "path": {
+            "und": "/areas/infraestructuras",
+            "va": "/areas/infraestructures"
+          }
+        }
+      ],
+      "path": "/areas"
+    },
+    {
+      "title": {
+        "und": "Ayuntamiento",
+        "va": "Ajuntament"
+      },
+      "children": [
+        {
+          "title": {
+            "und": "Datos estadísticos",
+            "va": "Dades estadístiques"
+          },
+          "href": "https://pegv.gva.es/auto/scpd/web/FM/CAS/ES_FM_03018.pdf",
+          "target": "_blank",
+          "value": ""
+        },
+        {
+          "title": {
+            "und": "Pleno",
+            "va": "Ple"
+          },
+          "nodes": [
+            "6870fcdd69421a3712208b19"
+          ]
+        },
+        {
+          "title": {
+            "und": "Órganos colegiados",
+            "va": "Òrgans col·legiats"
+          },
+          "nodes": [
+            "68789c26f3d0226d854f0c83"
+          ]
+        },
+        {
+          "title": {
+            "und": "Junta de Gobierno",
+            "va": "Junta de Govern"
+          },
+          "nodes": [
+            "6878ccb5f3d0226d854f0c90"
+          ]
+        },
+        {
+          "title": {
+            "und": "Tablón de anuncios",
+            "va": "Tauler d'anuncis"
+          },
+          "href": "https://altea.sedelectronica.es/board"
+        },
+        {
+          "title": {
+            "und": "Perfil del Contratante",
+            "va": "Perfil del Contractant"
+          },
+          "nodes": [
+            {
+              "id": "68e4c288c1198156bf159b06",
+              "collection": "articulos"
+            }
+          ]
+        },
+        {
+          "title": {
+            "und": "Processos de selecció de personal",
+            "es": "Processos de selecció de personal"
+          },
+          "nodes": [
+            "68133cb90c2bd4518f7f5b12"
+          ]
+        },
+        {
+          "title": {
+            "und": "Ordenanzas",
+            "va": "Ordenances"
+          },
+          "nodes": [
+            "68133ccb0c2bd4518f7f5b6c"
+          ]
+        },
+        {
+          "title": "Autoliquidación",
+          "href": "https://www.suma.es/AutoLiquidaciones/?organismo=120"
+        },
+        {
+          "title": {
+            "und": "Información Demográfica",
+            "va": "Informació Demogràfica"
+          },
+          "href": "https://datosunicos.altea.es/#!/altea/demografia"
+        }
+      ],
+      "nodes": []
+    },
+    {
+      "title": {
+        "und": "Ciudadanía",
+        "va": "Ciutadania"
+      },
+      "children": [
+        {
+          "title": {
+            "und": "Altea Mejora",
+            "va": "Altea Millora"
+          },
+          "nodes": [
+            "68133cb70c2bd4518f7f5b07"
+          ],
+          "path": "/altea-millora"
+        },
+        {
+          "title": {
+            "und": "Extensiones telefónicas",
+            "va": "Extensions telefòniques"
+          },
+          "nodes": [
+            "68133cba0c2bd4518f7f5b22"
+          ]
+        },
+        {
+          "title": "Geoportal",
+          "href": "https://geoportal.altea.es/"
+        },
+        {
+          "title": {
+            "und": "Farmacias de Guardia",
+            "va": "Farmàcies de Guàrdia"
+          },
+          "path": "/farmacias-de-guardia",
+          "children": []
+        },
+        {
+          "title": {
+            "und": "Canal Ético",
+            "va": "Canal Ètic"
+          },
+          "href": "https://aranzadilaley.complylaw-canaletico.es/public/6f5c4431db02b3ac80f21e6dc14e4938/formulario#section-formulario"
+        }
+      ]
+    },
+    {
+      "title": {
+        "und": "Actualidad",
+        "va": "Actualitat"
+      },
+      "path": "/noticias"
+    },
+    {
+      "title": {
+        "und": "Transparencia",
+        "va": "Transparència"
+      },
+      "nodes": [],
+      "children": [
+        {
+          "title": {
+            "und": "Junta de Gobierno",
+            "va": "Junta de Govern"
+          },
+          "nodes": [
+            "6878ccb5f3d0226d854f0c90"
+          ]
+        },
+        {
+          "title": {
+            "und": "Órganos colegiados",
+            "va": "Òrgans col·legiats"
+          },
+          "nodes": [
+            "68789c26f3d0226d854f0c83"
+          ]
+        },
+        {
+          "title": {
+            "und": "Altos cargos y personal eventual",
+            "va": "Alts càrrecs i personal eventual"
+          },
+          "nodes": [
+            "68832bb069421a3712208b4d"
+          ]
+        },
+        {
+          "title": {
+            "und": "Grupos políticos municipales",
+            "va": "Grups polítics municipals"
+          },
+          "nodes": [
+            "6891aa36f3d0226d854f0d27"
+          ]
+        },
+        {
+          "title": {
+            "und": "Relación de Puestos de Trabajo (RPT)",
+            "va": "Relació de Llocs de treball (RPT)"
+          },
+          "nodes": [
+            "6880ae7669421a3712208b46"
+          ]
+        },
+        {
+          "title": {
+            "und": "Código de conducta y buen gobierno",
+            "va": "Codi de conducta i bon govern"
+          },
+          "nodes": [
+            "68931380f3d0226d854f0d2e"
+          ]
+        },
+        {
+          "title": {
+            "und": "Resoluciones administrativas y judiciales definitivas",
+            "va": "Resolucions administratives i judicials definitives"
+          },
+          "nodes": [
+            "68931bcdf3d0226d854f0d2f"
+          ]
+        },
+        {
+          "title": {
+            "und": "Subvenciones",
+            "va": "Subvencions"
+          },
+          "nodes": [
+            "6891ef16f3d0226d854f0d2d"
+          ]
+        },
+        {
+          "title": {
+            "und": "Inventario",
+            "va": "Inventari"
+          },
+          "nodes": [
+            "689330dcf3d0226d854f0d31"
+          ]
+        },
+        {
+          "title": {
+            "und": "Cartas de Servicios",
+            "va": "Cartes de Servicis"
+          },
+          "nodes": [
+            "6895bb9bf3d0226d854f0d44"
+          ]
+        },
+        {
+          "title": {
+            "und": "Periodo Medio de Pago (PMP)",
+            "va": "Període Mitja de Pagament (PMP)"
+          },
+          "href": "https://datosunicos.altea.es/#!/"
+        },
+        {
+          "title": {
+            "und": "Información económica y presupuestaria",
+            "va": "Informació econòmica i pressupostària"
+          },
+          "nodes": [
+            "689dc3a0f3d0226d854f0d57"
+          ]
+        },
+        {
+          "title": {
+            "und": "Información Demográfica",
+            "va": "Informació Demogràfica"
+          },
+          "href": "https://datosunicos.altea.es/#!/altea/demografia"
+        },
+        {
+          "title": {
+            "und": "Notas de prensa partidos políticos",
+            "va": "Notes de premsa partits polítics"
+          },
+          "nodes": [
+            "68133cbe0c2bd4518f7f5b36"
+          ]
+        }
+      ]
+    },
+    {
+      "title": {
+        "und": "Cita Previa",
+        "va": "Cita Prèvia"
+      },
+      "path": "/articulos/cita-previa"
+    }
+  ],
+  "updated": "2025-10-16T07:46:35.989Z"
+}</pre></div></div></div></div></div></div></div></main><footer style="background-color: rgb(17, 24, 39); color: rgb(255, 255, 255); padding: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"><a href="https://digitalvalue.es/" target="_blank"><img src="./ZITmockkckkY_files/logo-digital-value.png" style="max-height: 30px;"></a><a href="http://ayuntamientoentumovil.es/" target="_blank"><img src="./ZITmockkckkY_files/ayuntamiento-en-tu-movil.png" style="max-height: 30px;"></a><span style="margin-left: auto; font-size: 14px; color: rgb(214, 214, 214);">Gracias por confiar en <a rel="nofollow me noopener noreferrer" target="_blank" href="http://digitalvalue.es/zity.html">DIGITAL ZITY</a> <a href="mailto:info@ayuntamientoentumovil.com" rel="nofollow me noopener noreferrer">info@ayuntamientoentumovil.es</a>  v2.0</span></footer></body></html>

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es" class="h-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mockup Basado en tu App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Oculta el scrollbar principal */
+        body {
+            overflow: hidden;
+        }
+
+        /* Oculta los iconos por defecto */
+        .icon-hidden {
+            display: none;
+        }
+
+        /* --- LÓGICA DE VISTAS EN MÓVIL --- */
+        
+        /* Por defecto, se muestra la VISTA 1 (Editor) */
+        #menu-tree-sidebar {
+            display: none; /* Oculto por defecto */
+        }
+        #editor-content {
+            display: flex; /* Visible por defecto */
+            flex: 1;
+            flex-direction: column;
+        }
+        
+        /* Cuando el panel móvil se abre */
+        body.mobile-panel-open #menu-tree-sidebar {
+            display: flex; /* Mostrar panel */
+            flex-direction: column;
+            position: fixed;
+            top: 4rem; /* Debajo de la cabecera ZITY */
+            left: 0;
+            width: 100%;
+            height: calc(100vh - 4rem);
+            z-index: 40;
+        }
+        body.mobile-panel-open #editor-content {
+            display: none; /* Ocultar editor */
+        }
+        body.mobile-panel-open #main-header #toggle-panel-button {
+            display: none; /* Ocultar botón 'abrir' */
+        }
+
+        /* --- VISTA ESCRITORIO (md:) --- */
+        @media (min-width: 768px) {
+            /* Anulamos las reglas de "display: none" de móvil */
+            body:not(.mobile-panel-open) #menu-tree-sidebar,
+            body.mobile-panel-open #menu-tree-sidebar {
+                display: flex; /* El panel siempre se muestra */
+                flex-direction: column;
+                position: relative; /* Vuelve al flujo normal */
+                top: 0;
+                width: 400px; /* Ancho normal */
+                height: 100%; /* Ocupa la altura del main */
+                z-index: 1;
+                transition: width 0.3s ease-in-out, padding 0.3s ease-in-out;
+            }
+            body:not(.mobile-panel-open) #editor-content,
+            body.mobile-panel-open #editor-content {
+                display: flex; /* El editor siempre se muestra */
+                flex: 1;
+            }
+            
+            /* Ocultamos la cabecera del panel móvil en escritorio */
+            #panel-header {
+                display: none !important;
+            }
+            
+            /* Lógica de colapso en ESCRITORIO */
+            #menu-tree-sidebar.collapsed {
+                width: 0;
+                padding: 0;
+                overflow: hidden;
+            }
+
+            #editor-content {
+                flex: 1; /* Ocupa el resto del espacio */
+                height: 100%; /* Ocupa toda la altura del 'main' */
+            }
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased h-screen flex flex-col">
+
+    <!-- CABECERA PRINCIPAL (ZITY) -->
+    <header id="main-header" class="bg-gray-800 text-white p-4 flex items-center justify-between h-16 flex-shrink-0 z-50">
+        <div class="flex items-center">
+            <img src="https://placehold.co/100x40/4A5568/E2E8F0?text=ZITY&font=lato" alt="Logo ZITY" class="h-8 mr-4">
+            <div class="h-8 w-px bg-gray-600 mr-4"></div>
+            <h1 class="text-xl font-semibold">Editor de Menús</h1>
+        </div>
+        
+        <!-- Botón de Hamburguesa (Solo visible en móvil para abrir panel) -->
+        <button id="mobile-open-button" class="md:hidden text-white hover:text-gray-300 p-2 rounded-full focus:outline-none">
+            <span class="sr-only">Abrir menú</span>
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+        </button>
+    </header>
+
+    <!-- 
+      CONTENEDOR PRINCIPAL DEL EDITOR
+      Ajustado para ocupar el 100% de la altura restante
+    -->
+    <main class="flex flex-col md:flex-row" style="height: calc(100vh - 4rem);">
+
+        <!-- 
+          PANEL 1: ÁRBOL DE MENÚ
+        -->
+        <aside id="menu-tree-sidebar" class="bg-gray-700 text-gray-200 overflow-y-auto relative">
+            
+            <!-- VISTA 2: Cabecera de Panel (SÓLO MÓVIL) -->
+            <header id="panel-header" class="bg-gray-700 p-4 flex md:hidden items-center h-16 justify-between border-b border-gray-600 sticky top-0 z-10">
+                <!-- BOTÓN "Volver" (Salir de la app) - Color diferenciado (más sutil) -->
+                <button id="back-button" class="flex items-center text-gray-400 hover:text-gray-200 p-2 rounded-lg focus:outline-none transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    <span class="ml-2 font-semibold">Volver</span>
+                </button>
+                
+                <!-- BOTÓN 'X' (Cerrar panel) - Color principal -->
+                <button id="close-panel-button" class="md:hidden text-white hover:text-gray-300 p-2 rounded-full focus:outline-none transition-colors">
+                    <span class="sr-only">Cerrar panel</span>
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </header>
+            
+            <!-- Contenido del Árbol (con padding propio) -->
+            <div class="p-4">
+                <h2 class="text-lg font-bold mb-4">Web Municipal</h2>
+                <ul class="space-y-2">
+                    <li class="bg-blue-600 text-white font-semibold p-2 rounded-md">Web Municipal</li>
+                    <li><a href="#" class="block p-2 rounded-md hover:bg-gray-600 transition-colors">Áreas</a></li>
+                    <li><a href="#" class="block p-2 rounded-md hover:bg-gray-600 transition-colors">Ayuntamiento</a></li>
+                    <li><a href="#" class="block p-2 rounded-md hover:bg-gray-600 transition-colors">Ciudadanía</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- 
+          PANEL 2: EDITOR DE CONTENIDO
+          Ajustado para que el overflow esté aquí
+        -->
+        <div id="editor-content" class="flex-1 flex flex-col overflow-y-auto">
+            
+            <!-- 
+              BARRA DE ACCIONES (Sticky) - MODIFICADA
+              Contiene botones de acción (Eliminar, Guardar) y Etiqueta de Estado
+            -->
+            <div id="action-bar" class="bg-gray-50 border-b border-gray-200 p-3 flex items-center gap-4 sticky top-0 md:top-auto z-10">
+                
+                <!-- Botón de Eliminar (Icono-solo, movido a la izquierda) -->
+                <button title="Eliminar Menú" class="border border-red-600 text-red-600 hover:bg-red-600 hover:text-white font-bold p-2 rounded-lg flex items-center justify-center transition-colors flex-shrink-0">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    <!-- Texto "Eliminar" eliminado -->
+                </button>
+
+                <!-- Botón de Guardar (Principal) -->
+                <button class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center transition-colors flex-shrink-0">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M7.707 10.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V6a1 1 0 10-2 0v5.586L7.707 10.293zM3 4a1 1 0 011-1h12a1 1 0 011 1v1h-2V5H5v14h10v-1h2v1a1 1 0 01-1 1H4a1 1 0 01-1-1V4z"></path></svg>
+                    Guardar Menú
+                </button>
+
+                <!-- Espaciador (empuja la etiqueta a la derecha) -->
+                <div class="flex-grow"></div>
+
+                <!-- Etiqueta de Publicado (NUEVO) -->
+                <div class="flex items-center">
+                    <span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+                        <svg class="w-2 h-2 mr-2 fill-current" viewBox="0 0 8 8">
+                            <circle cx="4" cy="4" r="4" />
+                        </svg>
+                        Publicado
+                    </span>
+                </div>
+
+            </div>
+            
+            <!-- Contenido principal del editor (scrollable) -->
+            <main class="flex-1 p-6 bg-gray-100">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4">Datos del Menú</h2>
+                    <p>Contenido del formulario...</p>
+                    <div class="h-96 bg-gray-50 rounded-lg p-4 mt-6 text-gray-600 flex items-center justify-center">
+                        <p>Zona de edición del menú</p>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-lg mt-6">
+                    <h2 class="text-2xl font-bold mb-4">Enlaces</h2>
+                    <p>Contenido del formulario...</p>
+                    <div class="h-64 bg-gray-50 rounded-lg p-4 mt-6 text-gray-600 flex items-center justify-center">
+                        <p>Formulario de enlaces</p>
+                    </div>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-lg mt-6">
+                    <h2 class="text-2xl font-bold mb-4">Nodos Relacionados</h2>
+                    <p>Contenido del formulario...</p>
+                    <div class="h-96 bg-gray-50 rounded-lg p-4 mt-6 text-gray-600 flex items-center justify-center">
+                        <p>Formulario de nodos</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </main>
+        
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const body = document.body;
+            const sidebar = document.getElementById('menu-tree-sidebar');
+            const editorContent = document.getElementById('editor-content');
+            
+            // Botones de control
+            const mobileOpenButton = document.getElementById('mobile-open-button'); // Botón hamburguesa en cabecera ZITY
+            const backButton = document.getElementById('back-button'); // Botón [<] Volver (Salir app)
+            const closePanelButton = document.getElementById('close-panel-button'); // Botón [X] (Cerrar panel móvil)
+            const togglePanelButton = document.getElementById('toggle-panel-button'); // Botón  / [<] (Editor)
+
+            // Iconos del botón de toggle
+            const iconOpen = document.getElementById('icon-open');
+            const iconCollapse = document.getElementById('icon-collapse');
+
+            const isDesktop = () => window.innerWidth >= 768;
+
+            const updateUI = () => {
+                if (isDesktop()) {
+                    // --- LÓGICA DE ESCRITORIO ---
+                    body.classList.remove('mobile-panel-open'); // Asegurarse que no esté en modo panel móvil
+                    
+                    if (sidebar.classList.contains('collapsed')) {
+                        // Escritorio: Panel Colapsado
+                        iconOpen.classList.remove('icon-hidden');
+                        iconCollapse.classList.add('icon-hidden');
+                    } else {
+                        // Escritorio: Panel Abierto
+                        iconOpen.classList.add('icon-hidden');
+                        iconCollapse.classList.remove('icon-hidden');
+                    }
+                    
+                    // Ocultar botones de control móvil
+                    mobileOpenButton.style.display = 'none';
+
+                } else {
+                    // --- LÓGICA DE MÓVIL ---
+                    sidebar.classList.remove('collapsed'); // Quitar estado de colapso
+                    
+                    // Mostrar botón hamburguesa (si el panel no está abierto)
+                    mobileOpenButton.style.display = 'block';
+
+                    if (body.classList.contains('mobile-panel-open')) {
+                        // Móvil: Panel Abierto
+                        mobileOpenButton.style.display = 'none'; // Ocultar hamburguesa
+                    } else {
+                        // Móvil: Editor Visible
+                        mobileOpenButton.style.display = 'block'; // Mostrar hamburguesa
+                    }
+                }
+            };
+
+            // --- Event Listeners ---
+
+            // Botón  / [<] (en cabecera Editor)
+            togglePanelButton.addEventListener('click', () => {
+                if (isDesktop()) {
+                    // En escritorio: Colapsa/Expande
+                    sidebar.classList.toggle('collapsed');
+                } else {
+                    // En móvil: Muestra el panel
+                    body.classList.add('mobile-panel-open');
+                }
+                updateUI();
+            });
+            
+            // Botón  (en cabecera ZITY - solo móvil)
+            mobileOpenButton.addEventListener('click', () => {
+                if (!isDesktop()) {
+                    body.classList.add('mobile-panel-open');
+                    updateUI();
+                }
+            });
+
+            // Botón [X] (en panel móvil)
+            closePanelButton.addEventListener('click', () => {
+                if (!isDesktop()) {
+                    body.classList.remove('mobile-panel-open');
+                    updateUI();
+                }
+            });
+
+            // Botón [<] Volver (en panel móvil)
+            backButton.addEventListener('click', () => {
+                // No hace nada en este mockup, simula "salir de la app"
+                alert('Simulando "Volver" (salir de la app)...');
+            });
+
+            window.addEventListener('resize', updateUI);
+            updateUI(); // Carga inicial
+        });
+    </script>
+
+</body>
+</html>
+
+
