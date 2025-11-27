@@ -8,7 +8,6 @@ const API_BASE_URL = 'https://public.digitalvalue.es:8867/v2/pinto';
  */
 export async function fetchResources() {
     try {
-        console.log("Fetching resources from API...");
         const response = await fetch(`${API_BASE_URL}/resources`, {
             method: 'GET',
             credentials: 'include',
@@ -19,7 +18,6 @@ export async function fetchResources() {
 
         if (!response.ok) throw new Error('Error fetching resources');
         const data = await response.json();
-        console.log("Resources loaded from API");
         return data;
     } catch (error) {
         console.error("Failed to fetch resources:", error);
@@ -38,7 +36,6 @@ export async function fetchResources() {
 export async function fetchAppointments(resourceId, groupId, start, end) {
     try {
         const url = `${API_BASE_URL}/all?start=${start}&end=${end}&groupIds=${groupId}&resourceIds=${resourceId}`;
-        console.log("Fetching appointments from:", url);
 
         const response = await fetch(url, {
             method: 'GET',
@@ -50,7 +47,6 @@ export async function fetchAppointments(resourceId, groupId, start, end) {
 
         if (!response.ok) throw new Error('Error fetching appointments');
         const data = await response.json();
-        console.log("Appointments loaded from API");
         return data;
     } catch (error) {
         console.error("Failed to fetch appointments:", error);
