@@ -1,6 +1,8 @@
 // Calendar View Module - Handles the calendar view for appointments
 
 import { fetchAppointments, getDateRange } from './api.js';
+import { ScheduleModal } from './components/ScheduleModal.js';
+import { openDialog } from '../../../DView/dialogs.js';
 
 // Calendar State
 const calendarState = {
@@ -55,8 +57,42 @@ window.handleSearchAppointments = function() {
 };
 
 window.handleManageSchedules = function() {
-    // TODO: Implementar gestión de horarios
-    console.log('Gestionar horarios');
+    const resource = calendarState.resource;
+    if (!resource) return;
+    
+    // Convert virtualSettings object to array
+    const virtualSettings = resource.virtualSettings || {};
+    const schedules = Object.values(virtualSettings).map(schedule => ({
+        id: schedule.id,
+        name: schedule.name,
+        index: schedule.index || 0,
+        seats: schedule.seats || 25,
+        days: schedule.days || [],
+        from: schedule.from || '',
+        until: schedule.until || '',
+        startHour: schedule.startHour || '',
+        endHour: schedule.endHour || '',
+        appDuration: schedule.appDuration || 0,
+        supplement: schedule.supplement || 0,
+        exceptions: schedule.exceptions || [],
+        title: schedule.title || schedule.name,
+        photo: schedule.photo || resource.photo || '',
+        description: schedule.description || '',
+        resourceId: schedule.resourceId || resource._id
+    }));
+    
+    // Sort by index
+    schedules.sort((a, b) => (a.index || 0) - (b.index || 0));
+    
+    openDialog(ScheduleModal, {
+        attrs: {
+            resource: resource,
+            schedules: schedules,
+            onClose: () => {
+                // Modal will be closed by openDialog
+            }
+        }
+    });
 };
 
 window.handleCloneWeek = function() {
@@ -584,15 +620,15 @@ function renderCalendarHeader(resource) {
         <div style="background-color: white; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
             <div style="padding: 1rem 1.5rem;">
                 <!-- Top Row: Title and Action Buttons -->
-                <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
-                    <div style="flex: 1; display: flex; align-items: flex-start; gap: 0.75rem;">
+                <div style="display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                    <div style="flex: 1; display: flex; align-items: flex-start; gap: 0.75rem; min-width: 0;">
                         ${imgUrl ? `
                         <img src="${imgUrl}" 
                              alt="${resourceName}" 
                              style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); flex-shrink: 0;"
                              onerror="this.style.display='none'">
                         ` : ''}
-                        <div style="flex: 1;">
+                        <div style="flex: 1; min-width: 0;">
                             <h1 style="font-size: 1.25rem; font-weight: 600; color: #0f172a; margin: 0;">${resourceName}</h1>
                             ${groupName ? `<p style="font-size: 0.875rem; color: #64748b; margin-top: 0.25rem; margin-bottom: 0;">${groupName}</p>` : ''}
                             <!-- Stats Pills - Below title for better association -->
@@ -616,7 +652,7 @@ function renderCalendarHeader(resource) {
                     </div>
                     
                     <!-- Quick Actions - Top right, more visible -->
-                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; align-self: flex-start;">
                         <button onclick="handleSearchAppointments()" 
                                 style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
                                 onmouseenter="this.style.backgroundColor='#fff7ed'; this.style.color='#c2410c'; this.style.borderColor='#fed7aa'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
@@ -676,7 +712,7 @@ function renderWeeklyCalendar(resource, appointmentsData) {
         <div style="background-color: white; border-radius: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; overflow: hidden;">
             <!-- Calendar Toolbar - Improved -->
             <div style="padding: 1rem 1.5rem; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
                     <!-- Left: Navigation + View Mode Toggle + Today Button -->
                     <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
                         <!-- Navigation Controls -->
