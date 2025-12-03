@@ -1,6 +1,6 @@
 // Main Application Logic - Creta Dashboard with Mithril
 
-import { fetchResources } from './api.js';
+import { fetchResources, fetchGroups } from './api.js';
 import { App } from './components/App.js';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { DashboardView } from './views/DashboardView.js';
@@ -11,6 +11,7 @@ import { renderCalendarView } from './calendar-view.js';
 // Make app globally accessible
 window.app = {
     data: [],
+    groups: [],
     groupedData: {},
     currentResource: null,
 
@@ -20,9 +21,11 @@ window.app = {
     init: async function () {
         try {
             this.data = await fetchResources();
+            this.groups = await fetchGroups();
         } catch (error) {
-            console.warn("Failed to load resources", error);
+            console.warn("Failed to load resources or groups", error);
             this.data = [];
+            this.groups = [];
         } finally {
             this.processData();
         }
@@ -35,8 +38,54 @@ window.app = {
      * Process and group data by subtitle
      */
     processData: function () {
+        // Crear un mapa de groupId -> nombre del grupo
+        const groupMap = {};
+        if (this.groups && Array.isArray(this.groups)) {
+            this.groups.forEach(group => {
+                if (group._id && (group.name || group.title)) {
+                    groupMap[group._id] = group.name || group.title;
+                }
+            });
+        }
+        
         this.groupedData = this.data.reduce((acc, item) => {
-            const groupName = item.subtitle && item.subtitle.trim() !== "" ? item.subtitle : "Otros Recursos";
+            // Normalizar el nombre del grupo: trim y verificar que no esté vacío
+            let groupName = null;
+            
+            // 1. Intentar obtener el grupo del subtitle (prioridad más alta)
+            if (item.subtitle) {
+                const trimmedSubtitle = item.subtitle.trim();
+                if (trimmedSubtitle !== "") {
+                    groupName = trimmedSubtitle;
+                }
+            }
+            
+            // 2. Si no hay subtitle, buscar el nombre del grupo usando groupId
+            if (!groupName && item.groupId && groupMap[item.groupId]) {
+                groupName = groupMap[item.groupId];
+            }
+            
+            // 3. Si aún no hay grupo, intentar otros campos posibles
+            if (!groupName) {
+                if (item.group && item.group.trim() !== "") {
+                    groupName = item.group.trim();
+                } else if (item.groupName && item.groupName.trim() !== "") {
+                    groupName = item.groupName.trim();
+                }
+            }
+            
+            // 4. Si aún no hay grupo, asignar a "Otros Recursos"
+            if (!groupName) {
+                groupName = "Otros Recursos";
+                // Debug: mostrar recursos que realmente no tienen grupo
+                console.log("Recurso sin grupo asignado:", {
+                    id: item._id,
+                    name: item.name || item.title,
+                    groupId: item.groupId,
+                    groupFound: item.groupId ? groupMap[item.groupId] : 'N/A'
+                });
+            }
+            
             if (!acc[groupName]) {
                 acc[groupName] = [];
             }

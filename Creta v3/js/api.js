@@ -18,9 +18,38 @@ export async function fetchResources() {
 
         if (!response.ok) throw new Error('Error fetching resources');
         const data = await response.json();
+        // Debug: mostrar estructura de los datos recibidos
+        console.log("Datos recibidos de la API /resources:", data);
+        if (data.length > 0) {
+            console.log("Ejemplo de primer recurso completo:", data[0]);
+            console.log("Campos del primer recurso:", Object.keys(data[0]));
+        }
         return data;
     } catch (error) {
         console.error("Failed to fetch resources:", error);
+        return [];
+    }
+}
+
+/**
+ * Fetch all groups from the API
+ * @returns {Promise<Array>} Array of groups
+ */
+export async function fetchGroups() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/groups`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) throw new Error('Error fetching groups');
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error("Failed to fetch groups:", error);
         return [];
     }
 }

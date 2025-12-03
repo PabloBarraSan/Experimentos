@@ -63,7 +63,8 @@ export const Breadcrumbs = {
             gap: '0.5rem',
             style: {
                 fontSize: '0.875rem',
-                marginBottom: '1rem'
+                marginBottom: '1.5rem',
+                marginTop: '0'
             }
         }, breadcrumbs.map((crumb, index) => {
             const isLast = index === breadcrumbs.length - 1;
@@ -92,7 +93,7 @@ export const Breadcrumbs = {
                         class: `fa-solid fa-${crumb.icon}`,
                         style: { fontSize: '0.75rem' }
                     }),
-                    m(Text, { style: { fontSize: '0.875rem' } }, crumb.label)
+                    m(Text, { fontSize: '0.875rem' }, crumb.label)
                 ]) : m(Text, {
                     style: {
                         fontSize: '0.875rem',

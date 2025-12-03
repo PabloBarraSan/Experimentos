@@ -34,8 +34,10 @@ export const AdminView = {
                 const chartContainer = document.querySelector('#chart-container');
                 if (chartContainer) {
                     initializeChart(stats, chartContainer);
+                } else {
+                    console.warn('Chart container not found in DOM');
                 }
-            }, 100);
+            }, 300);
         } catch (error) {
             console.error('Error loading admin data:', error);
             vnode.state.error = error.message;
@@ -58,7 +60,7 @@ export const AdminView = {
                     class: 'fa-solid fa-circle-notch fa-spin',
                     style: { fontSize: '2.5rem', color: '#2563eb', marginBottom: '1rem' }
                 }),
-                m(Text, { style: { color: '#64748b' } }, 'Cargando datos de administración...')
+                m(Text, { color: '#64748b' }, 'Cargando datos de administración...')
             ]);
         }
 
@@ -84,7 +86,11 @@ export const AdminView = {
 function renderHeader(resource) {
     return m(Segment, {
         type: 'primary',
-        style: { padding: '1.5rem', marginBottom: '1.5rem' }
+        style: { 
+            padding: '1.5rem', 
+            marginBottom: '1.5rem',
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+        }
     }, [
         m(FlexCol, {
             gap: '1rem',
@@ -103,12 +109,10 @@ function renderHeader(resource) {
                     flexWrap: 'wrap'
                 }, [
                     m(H1, {
-                        style: {
-                            fontSize: '1.875rem',
-                            fontWeight: 'bold',
-                            color: '#1e293b',
-                            margin: 0
-                        }
+                        fontSize: '1.875rem',
+                        fontWeight: 'bold',
+                        color: '#1e293b',
+                        margin: 0
                     }, resource.title || resource.name),
                     resource.subtitle && m(Label, {
                         type: 'secondary',
@@ -168,7 +172,10 @@ function renderHeader(resource) {
 function renderContent(resource, stats, appointmentsData) {
     return m(Segment, {
         type: 'primary',
-        style: { padding: '1.5rem' }
+        style: { 
+            padding: '1.5rem',
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+        }
     }, [
         m(Grid, {
             columns: {
@@ -187,7 +194,7 @@ function renderContent(resource, stats, appointmentsData) {
             }, [
                 m(Div, {
                     style: {
-                        borderRadius: '0.5rem',
+                        borderRadius: '0.75rem',
                         overflow: 'hidden',
                         border: '1px solid #e2e8f0',
                         aspectRatio: '16/9',
@@ -195,7 +202,8 @@ function renderContent(resource, stats, appointmentsData) {
                         alignItems: 'center',
                         justifyContent: 'center',
                         backgroundColor: '#f8fafc',
-                        marginBottom: '1rem'
+                        marginBottom: '1.5rem',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
                     }
                 }, [
                     m('img', {
@@ -215,16 +223,18 @@ function renderContent(resource, stats, appointmentsData) {
                     style: {
                         color: '#475569',
                         fontSize: '0.875rem',
-                        lineHeight: '1.5'
+                        lineHeight: '1.6'
                     }
-                }, m.trust(resource.description?.und || '<p>Sin descripción</p>'))
+                }, m.trust(resource.description?.und || '<p style="color: #94a3b8;">Sin descripción</p>'))
             ]),
             
-            // Right Column: Stats, Chart, Buttons
+            // Middle Column: Stats & Chart
             m(FlexCol, {
                 style: {
                     gridColumn: 'span 1',
-                    '@media (min-width: 1024px)': { gridColumn: 'span 2' }
+                    '@media (min-width: 1024px)': { gridColumn: 'span 1' },
+                    display: 'flex',
+                    flexDirection: 'column'
                 },
                 gap: '1.5rem'
             }, [
@@ -235,203 +245,255 @@ function renderContent(resource, stats, appointmentsData) {
                 }, [
                     m(Card, {
                         style: {
-                            backgroundColor: '#f8fafc',
-                            padding: '1rem',
-                            borderRadius: '0.5rem',
+                            backgroundColor: 'white',
+                            padding: '1.25rem',
+                            borderRadius: '0.75rem',
                             border: '1px solid #e2e8f0',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                            transition: 'all 0.2s ease'
+                        },
+                        onmouseenter: (e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                        },
+                        onmouseleave: (e) => {
+                            e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+                            e.currentTarget.style.transform = 'translateY(0)';
                         }
                     }, [
                         m(Text, {
-                            style: {
-                                fontSize: '1.5rem',
-                                fontWeight: 'bold',
-                                color: '#1e293b',
-                                marginBottom: '0.25rem'
-                            }
+                            fontSize: '1.75rem',
+                            fontWeight: 'bold',
+                            color: '#1e293b',
+                            marginBottom: '0.5rem',
+                            margin: 0
                         }, stats.totalSlots),
                         m(SmallText, {
-                            style: {
-                                fontSize: '0.75rem',
-                                color: '#64748b',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }
+                            fontSize: '0.75rem',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            fontWeight: 500,
+                            margin: 0
                         }, 'Slots')
                     ]),
                     m(Card, {
                         style: {
-                            backgroundColor: '#f8fafc',
-                            padding: '1rem',
-                            borderRadius: '0.5rem',
+                            backgroundColor: 'white',
+                            padding: '1.25rem',
+                            borderRadius: '0.75rem',
                             border: '1px solid #e2e8f0',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                            transition: 'all 0.2s ease'
+                        },
+                        onmouseenter: (e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                        },
+                        onmouseleave: (e) => {
+                            e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+                            e.currentTarget.style.transform = 'translateY(0)';
                         }
                     }, [
                         m(Text, {
-                            style: {
-                                fontSize: '1.5rem',
-                                fontWeight: 'bold',
-                                color: '#1e293b',
-                                marginBottom: '0.25rem'
-                            }
+                            fontSize: '1.75rem',
+                            fontWeight: 'bold',
+                            color: '#1e293b',
+                            marginBottom: '0.5rem',
+                            margin: 0
                         }, stats.confirmedAppointments),
                         m(SmallText, {
-                            style: {
-                                fontSize: '0.75rem',
-                                color: '#64748b',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }
+                            fontSize: '0.75rem',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            fontWeight: 500,
+                            margin: 0
                         }, 'Reservas')
                     ]),
                     m(Card, {
                         style: {
-                            backgroundColor: '#f8fafc',
-                            padding: '1rem',
-                            borderRadius: '0.5rem',
+                            backgroundColor: 'white',
+                            padding: '1.25rem',
+                            borderRadius: '0.75rem',
                             border: '1px solid #e2e8f0',
-                            textAlign: 'center'
+                            textAlign: 'center',
+                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                            transition: 'all 0.2s ease'
+                        },
+                        onmouseenter: (e) => {
+                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                        },
+                        onmouseleave: (e) => {
+                            e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
+                            e.currentTarget.style.transform = 'translateY(0)';
                         }
                     }, [
                         m(Text, {
-                            style: {
-                                fontSize: '1.5rem',
-                                fontWeight: 'bold',
-                                color: '#1e293b',
-                                marginBottom: '0.25rem'
-                            }
+                            fontSize: '1.75rem',
+                            fontWeight: 'bold',
+                            color: '#1e293b',
+                            marginBottom: '0.5rem',
+                            margin: 0
                         }, stats.availableSeats),
                         m(SmallText, {
-                            style: {
-                                fontSize: '0.75rem',
-                                color: '#64748b',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }
+                            fontSize: '0.75rem',
+                            color: '#64748b',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            fontWeight: 500,
+                            margin: 0
                         }, 'Disponibles')
                     ])
                 ]),
                 
-                // Chart & Actions Row
-                m(Grid, {
-                    columns: {
-                        mobile: 1,
-                        tablet: 1,
-                        computer: 3
-                    },
-                    style: { gap: '1.5rem' }
+                // Chart
+                m(Segment, {
+                    type: 'primary',
+                    style: {
+                        padding: '1.5rem',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #e2e8f0',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        backgroundColor: 'white',
+                        minHeight: '250px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }
                 }, [
-                    // Chart
-                    m(Div, {
-                        style: {
-                            gridColumn: 'span 1',
-                            '@media (min-width: 768px)': { gridColumn: 'span 2' }
+                    m('div', { 
+                        id: 'chart-container',
+                        style: { 
+                            width: '100%',
+                            minHeight: '200px'
+                        } 
+                    })
+                ])
+            ]),
+            
+            // Right Column: Action Buttons
+            m(FlexCol, {
+                gap: '0.75rem',
+                style: {
+                    gridColumn: 'span 1',
+                    '@media (min-width: 1024px)': { gridColumn: 'span 1' }
+                }
+            }, [
+                m(Button, {
+                    type: 'blue',
+                    fluid: true,
+                    onclick: () => {
+                        const resource = window.app.currentResource;
+                        if (resource && resource._id) {
+                            m.route.set(`/resource/${resource._id}/calendar`);
                         }
-                    }, [
-                        m(Segment, {
-                            type: 'primary',
-                            style: {
-                                padding: '1rem',
-                                borderRadius: '0.5rem',
-                                border: '1px solid #e2e8f0'
-                            }
-                        }, [
-                            m('div', { id: 'chart-container' })
-                        ])
-                    ]),
-                    
-                    // Action Buttons
-                    m(FlexCol, {
-                        gap: '0.5rem',
-                        style: {
-                            gridColumn: 'span 1'
-                        }
-                    }, [
-                        m(Button, {
-                            type: 'blue',
-                            fluid: true,
-                            onclick: () => {
-                                const resource = window.app.currentResource;
-                                if (resource && resource._id) {
-                                    m.route.set(`/resource/${resource._id}/calendar`);
-                                }
-                            },
-                            style: {
-                                justifyContent: 'flex-start',
-                                padding: '0.75rem 1rem'
-                            }
-                        }, [
-                            m(Icon, { icon: 'event', size: 'small', style: { marginRight: '0.75rem' } }),
-                            m(Text, { style: { fontSize: '0.875rem' } }, 'Calendari cites')
-                        ]),
-                        m(Button, {
-                            type: 'default',
-                            fluid: true,
-                            onclick: () => {},
-                            style: {
-                                backgroundColor: '#7c3aed',
-                                color: 'white',
-                                borderColor: '#7c3aed',
-                                justifyContent: 'flex-start',
-                                padding: '0.75rem 1rem'
-                            },
-                            hover: {
-                                backgroundColor: '#6d28d9'
-                            }
-                        }, [
-                            m(Icon, { icon: 'schedule', size: 'small', style: { marginRight: '0.75rem' } }),
-                            m(Text, { style: { fontSize: '0.875rem' } }, 'Gestionar Horaris')
-                        ]),
-                        m(Button, {
-                            type: 'default',
-                            fluid: true,
-                            onclick: () => {},
-                            style: {
-                                backgroundColor: '#b45309',
-                                color: 'white',
-                                borderColor: '#b45309',
-                                justifyContent: 'flex-start',
-                                padding: '0.75rem 1rem'
-                            },
-                            hover: {
-                                backgroundColor: '#92400e'
-                            }
-                        }, [
-                            m(Icon, { icon: 'print', size: 'small', style: { marginRight: '0.75rem' } }),
-                            m(Text, { style: { fontSize: '0.875rem' } }, 'Imprimir reserves')
-                        ]),
-                        m(Button, {
-                            type: 'positive',
-                            fluid: true,
-                            onclick: () => {},
-                            style: {
-                                justifyContent: 'flex-start',
-                                padding: '0.75rem 1rem'
-                            }
-                        }, [
-                            m(Icon, { icon: 'settings', size: 'small', style: { marginRight: '0.75rem' } }),
-                            m(Text, { style: { fontSize: '0.875rem' } }, 'Ajustos del recurs')
-                        ]),
-                        m(Button, {
-                            type: 'default',
-                            fluid: true,
-                            onclick: () => {},
-                            style: {
-                                backgroundColor: '#0d9488',
-                                color: 'white',
-                                borderColor: '#0d9488',
-                                justifyContent: 'flex-start',
-                                padding: '0.75rem 1rem'
-                            },
-                            hover: {
-                                backgroundColor: '#0f766e'
-                            }
-                        }, [
-                            m(Icon, { icon: 'admin_panel_settings', size: 'small', style: { marginRight: '0.75rem' } }),
-                            m(Text, { style: { fontSize: '0.875rem' } }, 'Admin Torns')
-                        ])
-                    ])
+                    },
+                    style: {
+                        justifyContent: 'flex-start',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        transition: 'all 0.2s ease'
+                    },
+                    hover: {
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        transform: 'translateY(-1px)'
+                    }
+                }, [
+                    m(Icon, { icon: 'event', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
+                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Calendari cites')
+                ]),
+                m(Button, {
+                    type: 'default',
+                    fluid: true,
+                    onclick: () => {},
+                    style: {
+                        backgroundColor: '#7c3aed',
+                        color: 'white',
+                        borderColor: '#7c3aed',
+                        justifyContent: 'flex-start',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        transition: 'all 0.2s ease'
+                    },
+                    hover: {
+                        backgroundColor: '#6d28d9',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        transform: 'translateY(-1px)'
+                    }
+                }, [
+                    m(Icon, { icon: 'schedule', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
+                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Gestionar Horaris')
+                ]),
+                m(Button, {
+                    type: 'default',
+                    fluid: true,
+                    onclick: () => {},
+                    style: {
+                        backgroundColor: '#b45309',
+                        color: 'white',
+                        borderColor: '#b45309',
+                        justifyContent: 'flex-start',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        transition: 'all 0.2s ease'
+                    },
+                    hover: {
+                        backgroundColor: '#92400e',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        transform: 'translateY(-1px)'
+                    }
+                }, [
+                    m(Icon, { icon: 'print', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
+                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Imprimir reserves')
+                ]),
+                m(Button, {
+                    type: 'positive',
+                    fluid: true,
+                    onclick: () => {},
+                    style: {
+                        justifyContent: 'flex-start',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        transition: 'all 0.2s ease'
+                    },
+                    hover: {
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        transform: 'translateY(-1px)'
+                    }
+                }, [
+                    m(Icon, { icon: 'settings', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
+                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Ajustos del recurs')
+                ]),
+                m(Button, {
+                    type: 'default',
+                    fluid: true,
+                    onclick: () => {},
+                    style: {
+                        backgroundColor: '#0d9488',
+                        color: 'white',
+                        borderColor: '#0d9488',
+                        justifyContent: 'flex-start',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '0.5rem',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                        transition: 'all 0.2s ease'
+                    },
+                    hover: {
+                        backgroundColor: '#0f766e',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                        transform: 'translateY(-1px)'
+                    }
+                }, [
+                    m(Icon, { icon: 'admin_panel_settings', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
+                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Admin Torns')
                 ])
             ])
         ])
@@ -443,7 +505,10 @@ function renderScheduleGrid(resource, appointmentsData) {
 
     return m(Segment, {
         type: 'primary',
-        style: { padding: '1.5rem' }
+        style: { 
+            padding: '1.5rem',
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
+        }
     }, [
         m(FlexCol, {
             gap: '1.5rem'
@@ -455,12 +520,10 @@ function renderScheduleGrid(resource, appointmentsData) {
                 gap: '1rem'
             }, [
                 m(H2, {
-                    style: {
-                        fontSize: '1.125rem',
-                        fontWeight: 'bold',
-                        color: '#1e293b',
-                        margin: 0
-                    }
+                    fontSize: '1.125rem',
+                    fontWeight: 'bold',
+                    color: '#1e293b',
+                    margin: 0
                 }, [
                     m(Icon, { icon: 'event', size: 'small', style: { marginRight: '0.5rem' } }),
                     'Horarios y Disponibilidad'
@@ -520,7 +583,9 @@ function renderScheduleGrid(resource, appointmentsData) {
                     style: {
                         minWidth: '800px',
                         border: '1px solid #e2e8f0',
-                        borderRadius: '0.5rem'
+                        borderRadius: '0.75rem',
+                        overflow: 'hidden',
+                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
                     }
                 }, m.trust(gridRows))
             ])
@@ -569,8 +634,19 @@ function generateGridRows(resource, appointmentsData) {
 }
 
 function initializeChart(stats, container) {
-    const chartContainer = container.querySelector('#chart-container');
-    if (!chartContainer) return;
+    // Si container es el elemento directamente, usarlo; si no, buscar el contenedor
+    let chartContainer = container;
+    if (container.id !== 'chart-container') {
+        chartContainer = container.querySelector('#chart-container');
+    }
+    
+    if (!chartContainer) {
+        console.warn('Chart container not found');
+        return;
+    }
+    
+    // Limpiar cualquier contenido previo
+    chartContainer.innerHTML = '';
 
     const confirmed = stats.confirmedAppointments || 0;
     const pending = stats.pendingAppointments || 0;
@@ -580,10 +656,10 @@ function initializeChart(stats, container) {
 
     if (!hasData) {
         chartContainer.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; height: 12rem; color: #94a3b8;">
+            <div style="display: flex; align-items: center; justify-content: center; height: 200px; color: #94a3b8;">
                 <div style="text-align: center;">
-                    <i class="fa-solid fa-chart-pie" style="font-size: 2.5rem; margin-bottom: 0.5rem;"></i>
-                    <p style="font-size: 0.875rem;">No hay datos de citas disponibles</p>
+                    <i class="fa-solid fa-chart-pie" style="font-size: 2.5rem; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
+                    <p style="font-size: 0.875rem; color: #94a3b8;">No hay datos de citas disponibles</p>
                 </div>
             </div>
         `;

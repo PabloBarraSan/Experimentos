@@ -95,62 +95,68 @@ export const DetailView = {
             }, [
                 m(FlexRow, {
                     alignItems: 'center',
+                    justifyContent: 'space-between',
                     gap: '1rem'
                 }, [
-                    m(Button, {
-                        type: 'default',
-                        onclick: () => m.route.set('/'),
-                        style: {
-                            width: '40px',
-                            height: '40px',
-                            borderRadius: '50%',
-                            padding: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#f1f5f9',
-                            color: '#64748b'
-                        },
-                        hover: {
-                            backgroundColor: '#e2e8f0',
-                            color: '#475569'
-                        }
+                    m(FlexRow, {
+                        alignItems: 'center',
+                        gap: '1rem'
                     }, [
-                        m(Icon, { icon: 'arrow_back', size: 'small' })
-                    ]),
-                    m(FlexCol, { gap: '0.25rem' }, [
-                        m(SmallText, {
+                        m(Button, {
+                            type: 'default',
+                            onclick: () => m.route.set('/'),
                             style: {
-                                fontSize: '0.75rem',
-                                fontWeight: 'bold',
-                                color: '#2563eb',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                padding: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: '#f1f5f9',
+                                color: '#64748b'
+                            },
+                            hover: {
+                                backgroundColor: '#e2e8f0',
+                                color: '#475569'
                             }
-                        }, groupName),
-                        m(H1, {
-                            style: {
+                        }, [
+                            m(Icon, { icon: 'arrow_back', size: 'small' })
+                        ]),
+                        m(FlexCol, { gap: '0.25rem' }, [
+                            m(SmallText, {
+                                style: {
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    color: '#2563eb',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }
+                            }, groupName),
+                            m(H1, {
                                 fontSize: '1.875rem',
                                 fontWeight: 'bold',
                                 color: '#0f172a',
                                 lineHeight: 1
-                            }
-                        }, resourceName)
+                            }, resourceName)
+                        ])
+                    ]),
+                    m(Button, {
+                        type: 'default',
+                        onclick: () => {},
+                        style: {
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.5rem',
+                            width: 'auto',
+                            alignSelf: 'flex-start'
+                        }
+                    }, [
+                        m(Icon, { icon: 'help', size: 'small', style: { color: '#2563eb' } }),
+                        m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Ayuda')
                     ])
-                ]),
-                m(Button, {
-                    type: 'default',
-                    onclick: () => {},
-                    style: {
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '0.5rem'
-                    }
-                }, [
-                    m(Icon, { icon: 'help', size: 'small', style: { color: '#2563eb' } }),
-                    m(Text, { style: { fontSize: '0.875rem', fontWeight: 500 } }, 'Ayuda')
                 ])
             ]),
             
@@ -218,13 +224,11 @@ export const DetailView = {
                         m(Icon, { icon: card.icon, size: 'large' })
                     ]),
                     m(H2, {
-                        style: {
-                            fontSize: '1.125rem',
-                            fontWeight: 'bold',
-                            color: '#1e293b',
-                            marginBottom: '0.5rem',
-                            transition: 'color 0.3s'
-                        },
+                        fontSize: '1.125rem',
+                        fontWeight: 'bold',
+                        color: '#1e293b',
+                        marginBottom: '0.5rem',
+                        transition: 'color 0.3s',
                         onmouseenter: (e) => {
                             e.currentTarget.style.color = '#2563eb';
                         },

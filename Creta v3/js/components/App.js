@@ -7,10 +7,12 @@ import { Icon } from '../../../DView/elements.js';
 export const App = {
     view: (vnode) => {
         return m(FlexCol, {
-            minHeight: '100vh',
             style: {
+                minHeight: '100vh',
                 fontFamily: "'Inter', sans-serif",
-                color: '#475569'
+                color: '#475569',
+                display: 'flex',
+                flexDirection: 'column'
             }
         }, [
             // Header
@@ -18,15 +20,17 @@ export const App = {
             
             // Main Content
             m(FlexCol, {
-                flex: 1,
                 style: {
-                    maxWidth: '1400px',
+                    flex: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    maxWidth: '1800px',
                     width: '100%',
                     margin: '0 auto',
                     padding: '2rem 1rem'
                 }
             }, [
-                vnode.children
+                m(FlexCol, { gap: '1.5rem', style: { flex: 1 } }, vnode.children)
             ]),
             
             // Footer
@@ -156,7 +160,7 @@ const LanguageDropdown = {
                     backgroundColor: 'rgba(255, 255, 255, 0.1)'
                 }
             }, [
-                m(Text, { style: { fontSize: '0.875rem' } }, 'VA'),
+                m(Text, { fontSize: '0.875rem' }, 'VA'),
                 m('i', { class: 'fa-solid fa-globe' })
             ])
         ])

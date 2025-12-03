@@ -126,14 +126,14 @@ window.toggleReservation = function(reservationId) {
     const chevron = document.getElementById(`chevron-${reservationId}`);
     
     if (content && chevron) {
-        const isHidden = content.classList.contains('hidden');
+        const isHidden = content.style.display === 'none';
         
         if (isHidden) {
-            content.classList.remove('hidden');
+            content.style.display = 'block';
             chevron.classList.remove('fa-chevron-down');
             chevron.classList.add('fa-chevron-up');
         } else {
-            content.classList.add('hidden');
+            content.style.display = 'none';
             chevron.classList.remove('fa-chevron-up');
             chevron.classList.add('fa-chevron-down');
         }
@@ -171,9 +171,9 @@ export async function renderCalendarView(resource, container) {
     calendarState.container = container;
     // Show loading state
     container.innerHTML = `
-        <div class="flex items-center justify-center py-12">
-            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-blue-600"></i>
-            <p class="ml-4 text-slate-500">Cargando calendario...</p>
+        <div style="display: flex; align-items: center; justify-content: center; padding: 3rem 0;">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2.5rem; color: #2563eb;"></i>
+            <p style="margin-left: 1rem; color: #64748b;">Cargando calendario...</p>
         </div>
     `;
 
@@ -205,18 +205,20 @@ export async function renderCalendarView(resource, container) {
  */
 function renderSidebar() {
     return `
-        <div id="slot-sidebar" class="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out z-50 flex flex-col">
-            <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-lg text-slate-800">Detalles del Slot</h3>
-                <button onclick="closeSidebar()" class="text-slate-400 hover:text-slate-600 transition">
-                    <i class="fa-solid fa-times text-xl"></i>
+        <div id="slot-sidebar" style="position: fixed; top: 0; bottom: 0; right: 0; width: 24rem; background-color: white; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: translateX(100%); transition: transform 0.3s ease-in-out; z-index: 50; display: flex; flex-direction: column;">
+            <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background-color: #f8fafc;">
+                <h3 style="font-weight: bold; font-size: 1.125rem; color: #1e293b; margin: 0;">Detalles del Slot</h3>
+                <button onclick="closeSidebar()" style="color: #94a3b8; border: none; background: transparent; cursor: pointer; transition: color 0.2s; padding: 0.25rem;"
+                        onmouseenter="this.style.color='#475569';"
+                        onmouseleave="this.style.color='#94a3b8';">
+                    <i class="fa-solid fa-times" style="font-size: 1.25rem;"></i>
                 </button>
             </div>
-            <div id="sidebar-content" class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div id="sidebar-content" style="flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
                 <!-- Content injected via JS -->
             </div>
         </div>
-        <div id="sidebar-overlay" onclick="closeSidebar()" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden z-40 transition-opacity"></div>
+        <div id="sidebar-overlay" onclick="closeSidebar()" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.2); backdrop-filter: blur(4px); display: none; z-index: 40; transition: opacity 0.2s;"></div>
     `;
 }
 
@@ -235,12 +237,14 @@ window.openSlotDetails = function (slotId) {
     const overlay = document.getElementById('sidebar-overlay');
     const content = document.getElementById('sidebar-content');
 
+    if (!sidebar || !overlay || !content) return;
+
     // Populate content
     content.innerHTML = renderSlotDetails(slot);
 
     // Show sidebar
-    sidebar.classList.remove('translate-x-full');
-    overlay.classList.remove('hidden');
+    sidebar.style.transform = 'translateX(0)';
+    overlay.style.display = 'block';
     document.body.style.overflow = 'hidden'; // Prevent background scrolling
 
     // Add Escape key listener
@@ -259,8 +263,10 @@ window.closeSidebar = function () {
     const sidebar = document.getElementById('slot-sidebar');
     const overlay = document.getElementById('sidebar-overlay');
 
-    sidebar.classList.add('translate-x-full');
-    overlay.classList.add('hidden');
+    if (!sidebar || !overlay) return;
+
+    sidebar.style.transform = 'translateX(100%)';
+    overlay.style.display = 'none';
     document.body.style.overflow = '';
 
     // Remove Escape key listener
@@ -285,25 +291,29 @@ window.openEmptySlotDetails = function (dateStr, settingName, startHour, endHour
 
     // Populate content with a "New Reservation" style
     content.innerHTML = `
-        <div class="bg-green-50 rounded-lg p-4 mb-4 border border-green-100">
-            <h4 class="font-bold text-green-800 text-lg mb-1">Nuevo Turno: ${settingName}</h4>
-            <div class="text-sm text-green-600 mb-2">
-                <i class="fa-regular fa-calendar mr-2"></i>${new Date(dateStr).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        <div style="background-color: #f0fdf4; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #bbf7d0;">
+            <h4 style="font-weight: bold; color: #166534; font-size: 1.125rem; margin-bottom: 0.25rem; margin-top: 0;">Nuevo Turno: ${settingName}</h4>
+            <div style="font-size: 0.875rem; color: #16a34a; margin-bottom: 0.5rem;">
+                <i class="fa-regular fa-calendar" style="margin-right: 0.5rem;"></i>${new Date(dateStr).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </div>
-            <div class="text-sm text-green-600 mb-2">
-                <i class="fa-regular fa-clock mr-2"></i>${startHour} - ${endHour}
+            <div style="font-size: 0.875rem; color: #16a34a; margin-bottom: 0.5rem;">
+                <i class="fa-regular fa-clock" style="margin-right: 0.5rem;"></i>${startHour} - ${endHour}
             </div>
-            <div class="text-xs text-green-700 bg-green-100 rounded px-2 py-1 inline-block">
-                <i class="fa-solid fa-users mr-1"></i>${seats || 0} plazas disponibles
+            <div style="font-size: 0.75rem; color: #15803d; background-color: #dcfce7; border-radius: 0.25rem; padding: 0.25rem 0.5rem; display: inline-block;">
+                <i class="fa-solid fa-users" style="margin-right: 0.25rem;"></i>${seats || 0} plazas disponibles
             </div>
         </div>
         
-        <div class="space-y-3">
-            <button class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button style="width: 100%; padding: 0.75rem; background-color: #2563eb; color: white; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; cursor: pointer;"
+                    onmouseenter="this.style.backgroundColor='#1d4ed8';"
+                    onmouseleave="this.style.backgroundColor='#2563eb';">
                 <i class="fa-solid fa-plus"></i>
                 Crear Reserva
             </button>
-            <button class="w-full py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+            <button style="width: 100%; padding: 0.75rem; background-color: white; border: 1px solid #cbd5e1; color: #334155; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;"
+                    onmouseenter="this.style.backgroundColor='#f1f5f9';"
+                    onmouseleave="this.style.backgroundColor='white';">
                 <i class="fa-solid fa-lock"></i>
                 Bloquear Slot
             </button>
@@ -311,17 +321,19 @@ window.openEmptySlotDetails = function (dateStr, settingName, startHour, endHour
     `;
 
     // Show sidebar
-    sidebar.classList.remove('translate-x-full');
-    overlay.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+    if (sidebar && overlay) {
+        sidebar.style.transform = 'translateX(0)';
+        overlay.style.display = 'block';
+        document.body.style.overflow = 'hidden';
 
-    // Add Escape key listener
-    window.sidebarEscapeHandler = function(e) {
-        if (e.key === 'Escape') {
-            window.closeSidebar();
-        }
-    };
-    document.addEventListener('keydown', window.sidebarEscapeHandler);
+        // Add Escape key listener
+        window.sidebarEscapeHandler = function(e) {
+            if (e.key === 'Escape') {
+                window.closeSidebar();
+            }
+        };
+        document.addEventListener('keydown', window.sidebarEscapeHandler);
+    }
 };
 
 /**
@@ -335,52 +347,54 @@ function renderSlotDetails(slot) {
     const date = new Date(slot.start).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     let html = `
-        <div class="bg-blue-50 rounded-lg p-4 mb-4 border border-blue-100">
-            <h4 class="font-bold text-blue-800 text-lg mb-1">${slot.title || 'Slot'}</h4>
-            <div class="text-sm text-blue-600 mb-2">
-                <i class="fa-regular fa-calendar mr-2"></i>${date}
+        <div style="background-color: #eff6ff; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #bfdbfe;">
+            <h4 style="font-weight: bold; color: #1e40af; font-size: 1.125rem; margin-bottom: 0.25rem; margin-top: 0;">${slot.title || 'Slot'}</h4>
+            <div style="font-size: 0.875rem; color: #2563eb; margin-bottom: 0.5rem;">
+                <i class="fa-regular fa-calendar" style="margin-right: 0.5rem;"></i>${date}
             </div>
-            <div class="text-sm text-blue-600 mb-2">
-                <i class="fa-regular fa-clock mr-2"></i>${startTime} - ${endTime}
+            <div style="font-size: 0.875rem; color: #2563eb; margin-bottom: 0.5rem;">
+                <i class="fa-regular fa-clock" style="margin-right: 0.5rem;"></i>${startTime} - ${endTime}
             </div>
-            <div class="flex items-center justify-between mt-3 bg-white p-2 rounded border border-blue-100">
-                <span class="text-xs font-medium text-slate-500 uppercase">Disponibilidad</span>
-                <span class="font-bold text-blue-700">${slot.seats?.remaining || 0} / ${slot.seats?.total || 0}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; background-color: white; padding: 0.5rem; border-radius: 0.25rem; border: 1px solid #bfdbfe;">
+                <span style="font-size: 0.75rem; font-weight: 500; color: #64748b; text-transform: uppercase;">Disponibilidad</span>
+                <span style="font-weight: bold; color: #1d4ed8;">${slot.seats?.remaining || 0} / ${slot.seats?.total || 0}</span>
             </div>
         </div>
         
-        <h4 class="font-bold text-slate-700 mb-3 flex items-center">
-            <i class="fa-solid fa-users mr-2 text-slate-400"></i>
+        <h4 style="font-weight: bold; color: #334155; margin-bottom: 0.75rem; display: flex; align-items: center; margin-top: 0;">
+            <i class="fa-solid fa-users" style="margin-right: 0.5rem; color: #94a3b8;"></i>
             Reservas (${slot.appointments?.length || 0})
         </h4>
         
         <!-- Search Box -->
-        <div class="mb-3">
-            <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-sm"></i>
+        <div style="margin-bottom: 0.75rem;">
+            <div style="position: relative;">
+                <div style="position: absolute; top: 0; bottom: 0; left: 0; padding-left: 0.75rem; display: flex; align-items: center; pointer-events: none;">
+                    <i class="fa-solid fa-magnifying-glass" style="color: #94a3b8; font-size: 0.875rem;"></i>
                 </div>
                 <input type="text" 
                        id="reservation-search-${slot._id}" 
                        onkeyup="filterReservations('${slot._id}')"
                        placeholder="Buscar reservas..." 
-                       class="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-lg text-sm bg-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition">
+                       style="display: block; width: 100%; padding-left: 2.5rem; padding-right: 0.75rem; padding-top: 0.5rem; padding-bottom: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; background-color: white; transition: all 0.2s;"
+                       onfocus="this.style.outline='none'; this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 1px #3b82f6';"
+                       onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none';">
             </div>
         </div>
         
         <!-- Reservas con scroll -->
-        <div id="reservations-container-${slot._id}" class="bg-white rounded-lg border border-slate-200 p-3 mb-4 max-h-[500px] overflow-y-auto">
+        <div id="reservations-container-${slot._id}" style="background-color: white; border-radius: 0.5rem; border: 1px solid #e2e8f0; padding: 0.75rem; margin-bottom: 1rem; max-height: 500px; overflow-y: auto;">
     `;
 
     if (!slot.appointments || slot.appointments.length === 0) {
         html += `
-            <div class="text-center py-8 text-slate-400">
-                <i class="fa-regular fa-calendar-xmark text-3xl mb-2"></i>
-                <p>No hay reservas en este slot</p>
+            <div style="text-align: center; padding: 2rem 0; color: #94a3b8;">
+                <i class="fa-regular fa-calendar-xmark" style="font-size: 1.875rem; margin-bottom: 0.5rem;"></i>
+                <p style="margin: 0;">No hay reservas en este slot</p>
             </div>
         `;
     } else {
-        html += '<div class="space-y-3">';
+        html += '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
         slot.appointments.forEach((app, index) => {
             const statusColor = app.confirmed ? 'green' : 'orange';
             const statusText = app.confirmed ? 'Confirmada' : 'Pendiente';
@@ -396,63 +410,65 @@ function renderSlotDetails(slot) {
             const reservationId = `reservation-${app._id || index}`;
             const searchableText = `${app.user?.firstName || ''} ${app.user?.lastName || ''} ${app.user?.email || ''} ${app.user?.telephone || ''} ${origin}`.toLowerCase();
             html += `
-                <div class="reservation-card bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden" data-search-text="${searchableText.replace(/"/g, '&quot;')}">
+                <div class="reservation-card" style="background-color: white; border-radius: 0.5rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); overflow: hidden;" data-search-text="${searchableText.replace(/"/g, '&quot;')}">
                     <!-- Top Section: Badges and Info -->
-                    <div onclick="toggleReservation('${reservationId}')" class="bg-blue-50/30 px-3 py-2 border-b border-slate-200 cursor-pointer hover:bg-blue-50/50 transition">
+                    <div onclick="toggleReservation('${reservationId}')" style="background-color: rgba(239, 246, 255, 0.3); padding: 0.5rem 0.75rem; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background-color 0.2s;"
+                         onmouseenter="this.style.backgroundColor='rgba(239, 246, 255, 0.5)';"
+                         onmouseleave="this.style.backgroundColor='rgba(239, 246, 255, 0.3)';">
                         <!-- First row: Badges -->
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="width: 32px; height: 32px; border-radius: 50%; background-color: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.875rem;">
                                     ${reservationNumber}
                                 </div>
-                                <span class="px-2 py-0.5 rounded text-xs font-medium ${app.confirmed ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">
+                                <span style="padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; ${app.confirmed ? 'background-color: #dcfce7; color: #15803d;' : 'background-color: #fed7aa; color: #c2410c;'}">
                                     ${statusText}
                                 </span>
-                                <span class="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 flex items-center gap-1">
-                                    <i class="fa-solid fa-users text-xs"></i>
+                                <span style="padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; background-color: #dbeafe; color: #1d4ed8; display: flex; align-items: center; gap: 0.25rem;">
+                                    <i class="fa-solid fa-users" style="font-size: 0.75rem;"></i>
                                     ${app.seats || 1}
                                 </span>
                             </div>
-                            <i id="chevron-${reservationId}" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform"></i>
+                            <i id="chevron-${reservationId}" class="fa-solid fa-chevron-down" style="color: #94a3b8; font-size: 0.75rem; transition: transform 0.2s;"></i>
                         </div>
                         <!-- Second row: Name and origin (always visible) -->
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-user text-slate-400 text-xs"></i>
-                                <h5 class="font-semibold text-slate-800 text-sm m-0">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <i class="fa-solid fa-user" style="color: #94a3b8; font-size: 0.75rem;"></i>
+                                <h5 style="font-weight: 600; color: #1e293b; font-size: 0.875rem; margin: 0;">
                                     ${app.user?.firstName || 'Usuario'} ${app.user?.lastName || ''}
                                 </h5>
                             </div>
-                            <span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                            <span style="padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; background-color: #f1f5f9; color: #334155;">
                                 ${origin}
                             </span>
                         </div>
                     </div>
                     
                     <!-- Bottom Section: Details (Collapsed by default) -->
-                    <div id="${reservationId}" class="hidden p-3">
+                    <div id="${reservationId}" style="display: none; padding: 0.75rem;">
                         
                         <!-- Info List -->
-                        <div class="space-y-2 mb-3 text-xs">
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.75rem;">
                             <div>
-                                <div class="font-medium text-slate-500 mb-0.5">Fecha de la reserva</div>
-                                <div class="text-slate-700">${formattedDate} ${formattedTime}</div>
+                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Fecha de la reserva</div>
+                                <div style="color: #334155;">${formattedDate} ${formattedTime}</div>
                             </div>
                             <div>
-                                <div class="font-medium text-slate-500 mb-0.5">Nombre</div>
-                                <div class="text-slate-700">${app.user?.firstName || '-'}</div>
+                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Nombre</div>
+                                <div style="color: #334155;">${app.user?.firstName || '-'}</div>
                             </div>
                             <div>
-                                <div class="font-medium text-slate-500 mb-0.5">Apellidos</div>
-                                <div class="text-slate-700">${app.user?.lastName || '-'}</div>
+                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Apellidos</div>
+                                <div style="color: #334155;">${app.user?.lastName || '-'}</div>
                             </div>
                             <div>
-                                <div class="font-medium text-slate-500 mb-0.5">Correo Electrónico</div>
-                                <div class="text-slate-700">${app.user?.email || 'No email'}</div>
+                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Correo Electrónico</div>
+                                <div style="color: #334155;">${app.user?.email || 'No email'}</div>
                             </div>
                             <div>
-                                <div class="font-medium text-slate-500 mb-0.5">Teléfono</div>
-                                <div class="text-slate-700">${app.user?.telephone || 'No teléfono'}</div>
+                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Teléfono</div>
+                                <div style="color: #334155;">${app.user?.telephone || 'No teléfono'}</div>
                             </div>
                             ${Object.entries(extraFields).map(([key, value]) => {
                                 // Convert value to string, handling objects
@@ -461,8 +477,8 @@ function renderSlotDetails(slot) {
                                     : String(value || '-');
                                 return `
                             <div>
-                                <div class="font-medium text-slate-500 mb-0.5">${key.charAt(0).toUpperCase() + key.slice(1)}</div>
-                                <div class="text-slate-700">${displayValue}</div>
+                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">${key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                                <div style="color: #334155;">${displayValue}</div>
                             </div>
                             `;
                             }).join('')}
@@ -470,36 +486,48 @@ function renderSlotDetails(slot) {
                     </div>
                     
                     <!-- Action Buttons (Always visible) -->
-                    <div class="flex flex-wrap gap-1 p-2 border-t border-slate-200 bg-slate-50/50">
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem; border-top: 1px solid #e2e8f0; background-color: rgba(248, 250, 252, 0.5);">
                         <button onclick="handleReservationInfo('${app._id}')" 
-                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
+                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
                                 title="Información">
-                            <i class="fa-solid fa-info-circle text-xs"></i>
+                            <i class="fa-solid fa-info-circle" style="font-size: 0.75rem;"></i>
                         </button>
                         <button onclick="handleEditReservation('${app._id}')" 
-                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
+                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
                                 title="Editar reserva">
-                            <i class="fa-solid fa-edit text-xs"></i>
+                            <i class="fa-solid fa-edit" style="font-size: 0.75rem;"></i>
                         </button>
                         <button onclick="handlePrintReservation('${app._id}')" 
-                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
+                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
                                 title="Imprimir la reserva">
-                            <i class="fa-solid fa-print text-xs"></i>
+                            <i class="fa-solid fa-print" style="font-size: 0.75rem;"></i>
                         </button>
                         <button onclick="handleReservationNotes('${app._id}')" 
-                                class="p-1.5 text-slate-600 hover:text-yellow-600 hover:bg-yellow-50 rounded transition" 
+                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.color='#ca8a04'; this.style.backgroundColor='#fef9c3';"
+                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
                                 title="Notas">
-                            <i class="fa-solid fa-sticky-note text-xs"></i>
+                            <i class="fa-solid fa-sticky-note" style="font-size: 0.75rem;"></i>
                         </button>
                         <button onclick="handleSendMessage('${app._id}')" 
-                                class="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition" 
+                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
+                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
                                 title="Enviar un mensaje">
-                            <i class="fa-solid fa-comments text-xs"></i>
+                            <i class="fa-solid fa-comments" style="font-size: 0.75rem;"></i>
                         </button>
                         <button onclick="handleCancelReservation('${app._id}')" 
-                                class="p-1.5 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition ml-auto" 
+                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer; margin-left: auto;"
+                                onmouseenter="this.style.color='#dc2626'; this.style.backgroundColor='#fee2e2';"
+                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
                                 title="Cancelar">
-                            <i class="fa-solid fa-trash text-xs"></i>
+                            <i class="fa-solid fa-trash" style="font-size: 0.75rem;"></i>
                         </button>
                     </div>
                 </div>
@@ -512,19 +540,25 @@ function renderSlotDetails(slot) {
         </div>
         
         <!-- Action Buttons -->
-        <div class="flex flex-col gap-2 pt-2 border-t border-slate-200">
+        <div style="display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;">
             <button onclick="handleReserveSlot('${slot._id}')" 
-                    class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                    style="width: 100%; padding: 0.625rem; background-color: #2563eb; color: white; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; cursor: pointer;"
+                    onmouseenter="this.style.backgroundColor='#1d4ed8';"
+                    onmouseleave="this.style.backgroundColor='#2563eb';">
                 <i class="fa-solid fa-plus"></i>
                 Reservar
             </button>
             <button onclick="handleMoreInfo('${slot._id}')" 
-                    class="w-full py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                    style="width: 100%; padding: 0.625rem; background-color: white; border: 1px solid #cbd5e1; color: #334155; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;"
+                    onmouseenter="this.style.backgroundColor='#f1f5f9';"
+                    onmouseleave="this.style.backgroundColor='white';">
                 <i class="fa-solid fa-info-circle"></i>
                 Más info
             </button>
             <button onclick="handleDeleteSlot('${slot._id}')" 
-                    class="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg font-medium transition shadow-sm flex items-center justify-center gap-2">
+                    style="width: 100%; padding: 0.625rem; background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;"
+                    onmouseenter="this.style.backgroundColor='#fee2e2';"
+                    onmouseleave="this.style.backgroundColor='#fef2f2';">
                 <i class="fa-solid fa-trash"></i>
                 Eliminar
             </button>
@@ -547,34 +581,34 @@ function renderCalendarHeader(resource) {
     
     return `
         <!-- Main Header Card -->
-        <div class="bg-white rounded-lg border border-slate-200 mb-6">
-            <div class="px-6 py-4">
+        <div style="background-color: white; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
+            <div style="padding: 1rem 1.5rem;">
                 <!-- Top Row: Title and Action Buttons -->
-                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                    <div class="flex-1 flex items-start gap-3">
+                <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="flex: 1; display: flex; align-items: flex-start; gap: 0.75rem;">
                         ${imgUrl ? `
                         <img src="${imgUrl}" 
                              alt="${resourceName}" 
-                             class="w-12 h-12 rounded-full object-cover border-2 border-slate-200 shadow-sm flex-shrink-0"
+                             style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); flex-shrink: 0;"
                              onerror="this.style.display='none'">
                         ` : ''}
-                        <div class="flex-1">
-                            <h1 class="text-xl font-semibold text-slate-900">${resourceName}</h1>
-                            ${groupName ? `<p class="text-sm text-slate-500 mt-1">${groupName}</p>` : ''}
+                        <div style="flex: 1;">
+                            <h1 style="font-size: 1.25rem; font-weight: 600; color: #0f172a; margin: 0;">${resourceName}</h1>
+                            ${groupName ? `<p style="font-size: 0.875rem; color: #64748b; margin-top: 0.25rem; margin-bottom: 0;">${groupName}</p>` : ''}
                             <!-- Stats Pills - Below title for better association -->
-                            <div class="flex flex-wrap items-center gap-2 mt-3">
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                                    <i class="fa-solid fa-users text-xs"></i>
+                            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
+                                <span style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
+                                    <i class="fa-solid fa-users" style="font-size: 0.75rem;"></i>
                                     Capacidad: ${resource.seats?.total || 0}
                                 </span>
                                 ${resource.maxAppointmentsPerUser ? `
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                                    <i class="fa-solid fa-user-clock text-xs"></i>
+                                <span style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background-color: #faf5ff; color: #7c3aed; border: 1px solid #e9d5ff;">
+                                    <i class="fa-solid fa-user-clock" style="font-size: 0.75rem;"></i>
                                     Máx. usuario: ${resource.maxAppointmentsPerUser}
                                 </span>
                                 ` : ''}
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${resource.published ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-slate-50 text-slate-600 border border-slate-200'}">
-                                    <i class="fa-solid fa-${resource.published ? 'check-circle' : 'circle-pause'} text-xs"></i>
+                                <span style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; ${resource.published ? 'background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;' : 'background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0;'}">
+                                    <i class="fa-solid fa-${resource.published ? 'check-circle' : 'circle-pause'}" style="font-size: 0.75rem;"></i>
                                     ${resource.published ? 'Activo' : 'Pausado'}
                                 </span>
                             </div>
@@ -582,25 +616,33 @@ function renderCalendarHeader(resource) {
                     </div>
                     
                     <!-- Quick Actions - Top right, more visible -->
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
                         <button onclick="handleSearchAppointments()" 
-                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-orange-50 text-slate-700 hover:text-orange-700 border border-slate-200 hover:border-orange-300 transition-all shadow-sm hover:shadow">
-                            <i class="fa-solid fa-search text-sm text-orange-600 group-hover:scale-110 transition-transform"></i>
+                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.backgroundColor='#fff7ed'; this.style.color='#c2410c'; this.style.borderColor='#fed7aa'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
+                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
+                            <i class="fa-solid fa-search" style="font-size: 0.875rem; color: #ea580c;"></i>
                             <span>Buscar citas</span>
                         </button>
                         <button onclick="handleManageSchedules()" 
-                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-all shadow-sm hover:shadow">
-                            <i class="fa-solid fa-calendar text-sm text-purple-600 group-hover:scale-110 transition-transform"></i>
+                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.backgroundColor='#faf5ff'; this.style.color='#7c3aed'; this.style.borderColor='#e9d5ff'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
+                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
+                            <i class="fa-solid fa-calendar" style="font-size: 0.875rem; color: #7c3aed;"></i>
                             <span>Gestionar horarios</span>
                         </button>
                         <button id="1" onclick="handleCloneWeek()" 
-                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-700 border border-slate-200 hover:border-teal-300 transition-all shadow-sm hover:shadow">
-                            <i class="fa-solid fa-clone text-sm text-teal-600 group-hover:scale-110 transition-transform"></i>
+                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.backgroundColor='#f0fdfa'; this.style.color='#0d9488'; this.style.borderColor='#99f6e4'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
+                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
+                            <i class="fa-solid fa-clone" style="font-size: 0.875rem; color: #14b8a6;"></i>
                             <span>Clonar Semana</span>
                         </button>
                         <button id="2" onclick="handleDeleteWeek()" 
-                                class="group inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-white hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200 hover:border-red-300 transition-all shadow-sm hover:shadow">
-                            <i class="fa-solid fa-trash text-sm text-red-600 group-hover:scale-110 transition-transform"></i>
+                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
+                                onmouseenter="this.style.backgroundColor='#fef2f2'; this.style.color='#dc2626'; this.style.borderColor='#fecaca'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
+                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
+                            <i class="fa-solid fa-trash" style="font-size: 0.875rem; color: #ef4444;"></i>
                             <span>Eliminar Semana</span>
                         </button>
                     </div>
@@ -631,59 +673,71 @@ function renderWeeklyCalendar(resource, appointmentsData) {
                     calendarState.currentDate.toDateString() === new Date().toDateString();
 
     return `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div style="background-color: white; border-radius: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; overflow: hidden;">
             <!-- Calendar Toolbar - Improved -->
-            <div class="px-6 py-4 bg-slate-50 border-b border-slate-200">
-                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div style="padding: 1rem 1.5rem; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
                     <!-- Left: Navigation + View Mode Toggle + Today Button -->
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;">
                         <!-- Navigation Controls -->
-                        <div class="flex items-center gap-1 bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
+                        <div style="display: flex; align-items: center; gap: 0.25rem; background-color: white; border-radius: 0.5rem; padding: 0.25rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
                             <button onclick="window.calendar.prevPeriod()" 
-                                    class="px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-md transition" 
+                                    style="padding: 0.5rem 0.75rem; color: #475569; border-radius: 0.375rem; transition: all 0.2s; cursor: pointer; border: none; background: transparent;"
+                                    onmouseenter="this.style.backgroundColor='#f1f5f9';"
+                                    onmouseleave="this.style.backgroundColor='transparent';"
                                     title="Anterior">
                                 <i class="fa-solid fa-chevron-left"></i>
                             </button>
                             <button onclick="window.calendar.nextPeriod()" 
-                                    class="px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-md transition" 
+                                    style="padding: 0.5rem 0.75rem; color: #475569; border-radius: 0.375rem; transition: all 0.2s; cursor: pointer; border: none; background: transparent;"
+                                    onmouseenter="this.style.backgroundColor='#f1f5f9';"
+                                    onmouseleave="this.style.backgroundColor='transparent';"
                                     title="Siguiente">
                                 <i class="fa-solid fa-chevron-right"></i>
                             </button>
                         </div>
                         
                         <!-- View Mode Toggle -->
-                        <div class="flex items-center bg-white rounded-lg p-1 border border-slate-200 shadow-sm">
+                        <div style="display: flex; align-items: center; background-color: white; border-radius: 0.5rem; padding: 0.25rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
                             <button onclick="window.calendar.changeView('day')" 
-                                    class="${calendarState.viewMode === 'day' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'} px-3 py-1.5 rounded-md transition font-medium text-sm">
-                                <i class="fa-solid fa-calendar-day mr-1.5"></i>Día
+                                    style="padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-weight: 500; font-size: 0.875rem; cursor: pointer; border: none; ${calendarState.viewMode === 'day' ? 'background-color: #2563eb; color: white; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);' : 'color: #475569; background-color: transparent;'}"
+                                    onmouseenter="${calendarState.viewMode !== 'day' ? "this.style.backgroundColor='#f1f5f9';" : ''}"
+                                    onmouseleave="${calendarState.viewMode !== 'day' ? "this.style.backgroundColor='transparent';" : ''}">
+                                <i class="fa-solid fa-calendar-day" style="margin-right: 0.375rem;"></i>Día
                             </button>
                             <button onclick="window.calendar.changeView('week')" 
-                                    class="${calendarState.viewMode === 'week' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'} px-3 py-1.5 rounded-md transition font-medium text-sm">
-                                <i class="fa-solid fa-calendar-week mr-1.5"></i>Semana
+                                    style="padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-weight: 500; font-size: 0.875rem; cursor: pointer; border: none; ${calendarState.viewMode === 'week' ? 'background-color: #2563eb; color: white; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);' : 'color: #475569; background-color: transparent;'}"
+                                    onmouseenter="${calendarState.viewMode !== 'week' ? "this.style.backgroundColor='#f1f5f9';" : ''}"
+                                    onmouseleave="${calendarState.viewMode !== 'week' ? "this.style.backgroundColor='transparent';" : ''}">
+                                <i class="fa-solid fa-calendar-week" style="margin-right: 0.375rem;"></i>Semana
                             </button>
                             <button onclick="window.calendar.changeView('month')" 
-                                    class="${calendarState.viewMode === 'month' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'} px-3 py-1.5 rounded-md transition font-medium text-sm">
-                                <i class="fa-solid fa-calendar-days mr-1.5"></i>Mes
+                                    style="padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-weight: 500; font-size: 0.875rem; cursor: pointer; border: none; ${calendarState.viewMode === 'month' ? 'background-color: #2563eb; color: white; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);' : 'color: #475569; background-color: transparent;'}"
+                                    onmouseenter="${calendarState.viewMode !== 'month' ? "this.style.backgroundColor='#f1f5f9';" : ''}"
+                                    onmouseleave="${calendarState.viewMode !== 'month' ? "this.style.backgroundColor='transparent';" : ''}">
+                                <i class="fa-solid fa-calendar-days" style="margin-right: 0.375rem;"></i>Mes
                             </button>
                         </div>
                         
                         <!-- Today Button -->
                         <button onclick="window.calendar.goToToday()" 
-                                class="px-4 py-2 ${isToday ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'} rounded-lg transition font-medium text-sm border border-slate-200 shadow-sm">
-                            <i class="fa-solid fa-calendar-check mr-1.5"></i>Hoy
+                                style="padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.2s; font-weight: 500; font-size: 0.875rem; cursor: pointer; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); ${isToday ? 'background-color: #2563eb; color: white;' : 'background-color: white; color: #334155;'}"
+                                onmouseenter="${!isToday ? "this.style.backgroundColor='#f1f5f9';" : ''}"
+                                onmouseleave="${!isToday ? "this.style.backgroundColor='white';" : ''}">
+                            <i class="fa-solid fa-calendar-check" style="margin-right: 0.375rem;"></i>Hoy
                         </button>
                     </div>
 
                     <!-- Right: Date Range Display -->
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                            <i class="fa-solid fa-calendar text-blue-600"></i>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <div style="width: 40px; height: 40px; border-radius: 0.5rem; background-color: white; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+                            <i class="fa-solid fa-calendar" style="color: #2563eb;"></i>
                         </div>
                         <div>
-                            <h2 class="text-xl font-bold text-slate-900 leading-tight">
+                            <h2 style="font-size: 1.25rem; font-weight: bold; color: #0f172a; line-height: 1.25; margin: 0;">
                                 ${formatWeekRange(currentWeek)}
                             </h2>
-                            <p class="text-xs text-slate-500 mt-0.5">
+                            <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.125rem; margin-bottom: 0;">
                                 ${calendarState.viewMode === 'day' ? 'Vista diaria' : calendarState.viewMode === 'week' ? 'Vista semanal' : 'Vista mensual'}
                             </p>
                         </div>
@@ -692,8 +746,8 @@ function renderWeeklyCalendar(resource, appointmentsData) {
             </div>
 
             <!-- Calendar Grid -->
-            <div class="p-6">
-                <div class="overflow-x-auto">
+            <div style="padding: 1.5rem;">
+                <div style="overflow-x: auto;">
                     ${renderCalendarGrid(resource, appointmentsData, currentWeek)}
                 </div>
             </div>
@@ -751,19 +805,19 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
         visibleDays = weekDays;
     }
 
-    let html = '<div class="min-w-[800px]">';
+    let html = '<div style="min-width: 800px;">';
 
     // Header row with days
-    html += `<div class="grid grid-cols-${numColumns} border-b-2 border-slate-300 bg-slate-50">`;
-    html += '<div class="p-3 text-sm font-semibold text-slate-500 border-r border-slate-200">Hora</div>';
+    html += `<div style="display: grid; border-bottom: 2px solid #cbd5e1; background-color: #f8fafc; grid-template-columns: 100px repeat(${numColumns - 1}, minmax(0, 1fr));">`;
+    html += '<div style="padding: 0.75rem; font-size: 0.875rem; font-weight: 600; color: #64748b; border-right: 1px solid #e2e8f0;">Hora</div>';
 
     visibleDays.forEach(day => {
         const dayIsToday = isToday(day);
         const dayKey = formatDateKey(day);
         html += `
-            <div class="p-3 text-center border-r border-slate-200 last:border-r-0 ${dayIsToday ? 'bg-blue-50' : ''}">
-                <div class="text-xs font-semibold text-slate-500">${formatDayHeader(day)}</div>
-                <div class="text-sm font-bold ${dayIsToday ? 'text-blue-600' : 'text-slate-700'}">${day.getDate()}</div>
+            <div style="padding: 0.75rem; text-align: center; border-right: 1px solid #e2e8f0; ${dayIsToday ? 'background-color: #eff6ff;' : ''}">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #64748b;">${formatDayHeader(day)}</div>
+                <div style="font-size: 0.875rem; font-weight: bold; ${dayIsToday ? 'color: #2563eb;' : 'color: #334155;'}">${day.getDate()}</div>
             </div>
         `;
     });
@@ -771,11 +825,11 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
 
     // Time slots rows
     timeSlots.forEach(time => {
-        html += `<div class="grid grid-cols-${numColumns} border-b border-slate-100">`;
-        html += `<div class="p-3 text-sm text-slate-500 border-r border-slate-200 font-mono">${time}</div>`;
+        html += `<div style="display: grid; border-bottom: 1px solid #f1f5f9; grid-template-columns: 100px repeat(${numColumns - 1}, minmax(0, 1fr));">`;
+        html += `<div style="padding: 0.75rem; font-size: 0.875rem; color: #64748b; border-right: 1px solid #e2e8f0; font-family: monospace;">${time}</div>`;
 
         visibleDays.forEach(day => {
-            html += '<div class="p-2 border-r border-slate-200 last:border-r-0 relative" style="min-height: 40px;">';
+            html += '<div style="padding: 0.5rem; border-right: 1px solid #e2e8f0; position: relative; min-height: 40px;">';
 
             // Track which virtual settings have been rendered as real slots
             const renderedVirtualSettings = new Set();
@@ -888,14 +942,15 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
 
                     html += `
                         <div onclick="openSlotDetails('${slot._id}')"
-                             class="${color} text-xs p-2 rounded cursor-pointer hover:opacity-80 transition shadow-sm border absolute top-0 left-2 right-2"
-                             style="height: ${slotHeight}px; z-index: 10;">
-                            <div class="font-medium truncate" title="${vs.name}">${vs.name || vs.title}</div>
-                            <div class="text-xs opacity-75 flex justify-between items-center mt-1">
+                             style="font-size: 0.75rem; padding: 0.5rem; border-radius: 0.25rem; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); border: 1px solid; position: absolute; top: 0; left: 0.5rem; right: 0.5rem; height: ${slotHeight}px; z-index: 10; ${color};"
+                             onmouseenter="this.style.opacity='0.8';"
+                             onmouseleave="this.style.opacity='1';">
+                            <div style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${vs.name}">${vs.name || vs.title}</div>
+                            <div style="font-size: 0.75rem; opacity: 0.75; display: flex; justify-content: space-between; align-items: center; margin-top: 0.25rem;">
                                 <span>${availability}</span>
                                 ${slot.appointments?.length ? `<i class="fa-solid fa-user-check"></i>` : ''}
                             </div>
-                            <div class="text-xs opacity-60 mt-1">${vs.startHour} - ${vs.endHour}</div>
+                            <div style="font-size: 0.75rem; opacity: 0.6; margin-top: 0.25rem;">${vs.startHour} - ${vs.endHour}</div>
                         </div>
                     `;
                 }
@@ -993,11 +1048,12 @@ function renderCalendarGrid(resource, appointmentsData, weekDays) {
 
                 html += `
                     <div onclick="openEmptySlotDetails('${dateStr}', '${settingName}', '${startHour}', '${endHour}', ${seats})"
-                         class="bg-slate-50 border border-slate-100 text-xs p-2 rounded hover:bg-green-50 hover:border-green-200 transition cursor-pointer group absolute top-0 left-2 right-2"
-                         style="height: ${slotHeight}px; z-index: 10;">
-                        <div class="text-slate-400 group-hover:text-green-600 font-medium truncate">${vs.name}</div>
-                        <div class="text-xs text-slate-300 group-hover:text-green-500 mt-1">Disponible</div>
-                        <div class="text-xs text-slate-400 group-hover:text-green-500 mt-1">${startHour} - ${endHour}</div>
+                         style="background-color: #f8fafc; border: 1px solid #f1f5f9; font-size: 0.75rem; padding: 0.5rem; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer; position: absolute; top: 0; left: 0.5rem; right: 0.5rem; height: ${slotHeight}px; z-index: 10;"
+                         onmouseenter="this.style.backgroundColor='#f0fdf4'; this.style.borderColor='#bbf7d0'; this.querySelectorAll('div').forEach(el => { if(el.style.color === 'rgb(148, 163, 184)') el.style.color='#16a34a'; if(el.style.color === 'rgb(203, 213, 225)') el.style.color='#22c55e'; });"
+                         onmouseleave="this.style.backgroundColor='#f8fafc'; this.style.borderColor='#f1f5f9'; this.querySelectorAll('div').forEach(el => { if(el.style.color === 'rgb(16, 163, 74)') el.style.color='#94a3b8'; if(el.style.color === 'rgb(34, 197, 94)') el.style.color='#cbd5e1'; });">
+                        <div style="color: #94a3b8; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${vs.name}</div>
+                        <div style="font-size: 0.75rem; color: #cbd5e1; margin-top: 0.25rem;">Disponible</div>
+                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">${startHour} - ${endHour}</div>
                     </div>
                 `;
             });
@@ -1181,19 +1237,19 @@ function mapAppointmentsToGrid(appointmentsData, resource, visibleDays = []) {
 /**
  * Get slot color based on availability
  * @param {Object} slot - Slot data
- * @returns {string} Tailwind CSS classes
+ * @returns {string} Inline CSS styles
  */
 function getSlotColor(slot) {
-    if (!slot) return 'bg-green-100 text-green-700 border border-green-200';
+    if (!slot) return 'background-color: #dcfce7; color: #15803d; border-color: #bbf7d0;';
 
     const { total, remaining } = slot;
 
     if (remaining === 0) {
-        return 'bg-red-100 text-red-700 border border-red-200';
+        return 'background-color: #fee2e2; color: #b91c1c; border-color: #fecaca;';
     } else if (remaining < total) {
-        return 'bg-blue-100 text-blue-700 border border-blue-200';
+        return 'background-color: #dbeafe; color: #1d4ed8; border-color: #bfdbfe;';
     } else {
-        return 'bg-green-100 text-green-700 border border-green-200';
+        return 'background-color: #dcfce7; color: #15803d; border-color: #bbf7d0;';
     }
 }
 
