@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorteig Inscripcions Aplec</title>
+    <style>
+        /* Estils generals del cos de la pàgina */
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        /* Estils de la capçalera */
+        .header {
+            width: 100%;
+            background-color: #ffffff;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-bottom: 4px solid #f8b411;
+        }
+
+        .header img#logo {
+            max-width: 200px;
+            height: auto;
+            margin-bottom: 10px;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: #f8b411;
+            font-size: 2.2em;
+        }
+
+        #dataHora {
+            font-size: 0.9em;
+            color: #555;
+            margin-top: 5px;
+        }
+
+        /* Estils del contingut principal */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #numeroAleatoriText {
+            font-size: 1.6em;
+            margin-bottom: 25px; /* Augmentat espai */
+            color: #444;
+        }
+
+        #numeroComplert {
+            font-size: 2.4em;
+            font-weight: bold;
+            color: #f8b411;
+            margin: 20px 0;
+        }
+
+        .wheels-container { 
+            display: flex;
+            gap: 25px; /* Espai entre les rodes lleugerament augmentat */
+            margin-bottom: 35px; /* Marge inferior augmentat */
+            justify-content: center;
+        }
+
+        .wheel-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .wheel-label {
+            font-size: 1.1em; /* Mida etiqueta lleugerament augmentada */
+            color: #666;
+            margin-bottom: 10px; /* Marge etiqueta augmentat */
+            font-weight: bold;
+        }
+
+        .wheel-assembly {
+            position: relative;
+            width: 210px; /* Mida de l'assemblatge de la roda augmentada */
+            height: 210px; /* Mida de l'assemblatge de la roda augmentada */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 18px; 
+        }
+
+        .wheel-pointer {
+            position: absolute;
+            top: -10px; /* Ajust per sobre de la roda */
+            font-size: 36px; /* Punter més gran */
+            color: #333;
+            z-index: 10;
+        }
+
+        .wheel-rotator {
+            width: 190px; /* Mida de la roda giratòria augmentada */
+            height: 190px; /* Mida de la roda giratòria augmentada */
+            border-radius: 50%;
+            border: 5px solid #d09000; /* Vora més gruixuda */
+            position: relative;
+            background: conic-gradient(
+                #f8b411 0% 10%, #faca50 10% 20%,
+                #f8b411 20% 30%, #faca50 30% 40%,
+                #f8b411 40% 50%, #faca50 50% 60%,
+                #f8b411 60% 70%, #faca50 70% 80%,
+                #f8b411 80% 90%, #faca50 90% 100%
+            );
+            box-shadow: 0 0 12px rgba(0,0,0,0.15) inset, 0 3px 5px rgba(0,0,0,0.1);
+        }
+
+        .wheel-number-slot {
+            position: absolute;
+            width: 30px; /* Amplada del contenidor del número augmentada */
+            height: 30px; /* Altura del contenidor del número augmentada */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.1em; /* Mida del número a la roda augmentada */
+            font-weight: bold;
+            color: #433000; 
+        }
+        
+        .wheel-center-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 95px; /* Amplada del display central augmentada */
+            height: 95px; /* Altura del display central augmentada */
+            background-color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.8em; /* Mida del número central augmentada */
+            font-weight: bold;
+            color: #f8b411; 
+            border: 4px solid #f8b411; /* Vora display central més gruixuda */
+            box-shadow: 0 0 12px rgba(0,0,0,0.25);
+            z-index: 5; 
+        }
+
+
+        /* Estils del botó */
+        button#generarBtn {
+            background-color: #f8b411;
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            font-size: 1.4em;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        }
+
+        button#generarBtn:hover {
+            background-color: #e0a000;
+        }
+
+        button#generarBtn:active {
+            transform: scale(0.97);
+        }
+        
+        button#generarBtn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        /* Estils del peu de pàgina */
+        .footer {
+            width: 100%;
+            background-color: #ffffff;
+            padding: 15px 0;
+            text-align: center;
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+            margin-top: auto;
+            border-top: 4px solid #f8b411;
+        }
+
+        .footer img#bannerImage {
+            max-width: 90%;
+            max-height: 180px;
+            height: auto;
+            border-radius: 8px;
+        }
+
+        /* Adaptació per a pantalles més petites */
+        @media (max-width: 768px) { 
+            .wheels-container {
+                flex-direction: column; 
+                gap: 20px; /* Reduït per a columna */
+            }
+             .wheel-assembly {
+                width: 150px;  /* Mida ajustada per a mòbils */
+                height: 150px; 
+            }
+            .wheel-rotator {
+                width: 130px; 
+                height: 130px; 
+            }
+            .wheel-center-display {
+                width: 70px;
+                height: 70px;
+                font-size: 2.2em;
+            }
+            .wheel-number-slot {
+                font-size: 1em;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.8em; }
+            #dataHora { font-size: 0.8em; }
+            #numeroAleatoriText { font-size: 1.3em; }
+            button#generarBtn { font-size: 1.2em; padding: 15px 30px; }
+            .footer img#bannerImage { max-height: 100px; }
+             .wheel-assembly {
+                width: 130px; 
+                height: 130px; 
+            }
+            .wheel-rotator {
+                width: 110px; 
+                height: 110px; 
+            }
+            .wheel-center-display {
+                width: 60px;
+                height: 60px;
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <img id="logo" src="https://cdn.digitalvalue.es/vila-real/assets2/5bac7d149da0c50b033f51c2" alt="Logo Aplec">
+        <h1>Sorteig Inscripcions Aplec</h1>
+        <div id="dataHora"></div>
+    </header>
+
+    <main class="main-content">
+        <p id="numeroAleatoriText">Aplec de Nadal</p>
+        <div class="wheels-container">
+            <div class="wheel-column">
+                <p class="wheel-label">Centenes</p>
+                <div class="wheel-assembly">
+                    <div class="wheel-pointer">▼</div>
+                    <div class="wheel-rotator" id="rotator-centenes"></div>
+                    <div class="wheel-center-display" id="center-display-centenes">?</div>
+                </div>
+            </div>
+            <div class="wheel-column">
+                <p class="wheel-label">Desenes</p>
+                <div class="wheel-assembly">
+                    <div class="wheel-pointer">▼</div>
+                    <div class="wheel-rotator" id="rotator-desenes"></div>
+                    <div class="wheel-center-display" id="center-display-desenes">?</div>
+                </div>
+            </div>
+            <div class="wheel-column">
+                <p class="wheel-label">Unitats</p>
+                <div class="wheel-assembly">
+                    <div class="wheel-pointer">▼</div>
+                    <div class="wheel-rotator" id="rotator-unitats"></div>
+                    <div class="wheel-center-display" id="center-display-unitats">?</div>
+                </div>
+            </div>
+        </div>
+        <p id="numeroComplert"></p>
+        <button id="generarBtn">Generar Número</button>
+    </main>
+
+    <footer class="footer">
+        <img id="bannerImage" src="https://cdn.digitalvalue.es/vila-real/assets2/65b7c93ae7db32662406d3bc" alt="Banner Aplec">
+    </footer>
+
+    <script>
+        const rotatorCentenes = document.getElementById('rotator-centenes');
+        const rotatorDesenes = document.getElementById('rotator-desenes');
+        const rotatorUnitats = document.getElementById('rotator-unitats');
+        
+        const centerDisplayCentenes = document.getElementById('center-display-centenes');
+        const centerDisplayDesenes = document.getElementById('center-display-desenes');
+        const centerDisplayUnitats = document.getElementById('center-display-unitats');
+
+        const generarBtn = document.getElementById('generarBtn');
+        const dataHoraDiv = document.getElementById('dataHora');
+        const numeroComplert = document.getElementById('numeroComplert');
+
+        const MIN_NUM = 1;
+        const MAX_NUM = 199;
+        const NUM_SEGMENTS = 10; // Per als dígits 0-9
+        // Radi visual per posicionar els números. Ajustar segons la mida de .wheel-rotator
+        // Si .wheel-rotator és 160px de diàmetre, el seu radi real és 80px.
+        const WHEEL_NUMBER_RADIUS = 60; // px, augmentat per a rodes més grans
+
+        function padZero(num) {
+            return num < 10 ? '0' + num : num;
+        }
+
+        function actualizarDataHora() {
+            const ara = new Date();
+            const dia = padZero(ara.getDate());
+            const mes = padZero(ara.getMonth() + 1);
+            const any = ara.getFullYear();
+            const hores = padZero(ara.getHours());
+            const minuts = padZero(ara.getMinutes());
+            const segons = padZero(ara.getSeconds());
+            dataHoraDiv.textContent = `${dia}/${mes}/${any} ${hores}:${minuts}:${segons}`;
+        }
+
+        function generarNumeroAleatori(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function createWheelNumbers(rotatorElement) {
+            rotatorElement.innerHTML = ''; 
+            const rotatorRadius = rotatorElement.offsetWidth / 2; // Get actual radius
+            const currentWheelNumberRadius = rotatorRadius * 0.75; // Adjust based on actual size, e.g. 75% of radius
+
+            for (let i = 0; i < NUM_SEGMENTS; i++) {
+                const numberSlot = document.createElement('div');
+                numberSlot.className = 'wheel-number-slot';
+                numberSlot.textContent = i;
+
+                const angleRad = (i / NUM_SEGMENTS) * 2 * Math.PI - (Math.PI / 2); 
+                
+                const x = currentWheelNumberRadius * Math.cos(angleRad);
+                const y = currentWheelNumberRadius * Math.sin(angleRad);
+                
+                numberSlot.style.position = 'absolute';
+                numberSlot.style.left = `calc(50% + ${x}px)`;
+                numberSlot.style.top = `calc(50% + ${y}px)`;
+                numberSlot.style.transform = `translate(-50%, -50%) rotate(${angleRad + Math.PI/2}rad)`;
+                
+                rotatorElement.appendChild(numberSlot);
+            }
+        }
+
+        function animarRoda(rotatorElement, centerDisplayElement, digitFinal, animationDuration) {
+            const numSpins = 4; // Nombre de girs complets per efecte, augmentat
+            const degreesPerSegment = 360 / NUM_SEGMENTS;
+            const targetRotation = -(digitFinal * degreesPerSegment) + (numSpins * 360);
+            
+            rotatorElement.style.transition = `transform ${animationDuration / 1000}s cubic-bezier(0.25, 1, 0.5, 1)`; // Easing ajustat
+            rotatorElement.style.transform = `rotate(${targetRotation}deg)`;
+
+            setTimeout(() => {
+                centerDisplayElement.textContent = digitFinal;
+            }, animationDuration);
+        }
+
+        generarBtn.addEventListener('click', () => {
+            generarBtn.disabled = true;
+            numeroComplert.textContent = '';
+            const numeroGenerat = generarNumeroAleatori(MIN_NUM, MAX_NUM);
+
+            const unitats = numeroGenerat % 10;
+            const desenes = Math.floor((numeroGenerat % 100) / 10);
+            const centenes = Math.floor(numeroGenerat / 100);
+            
+            // Reiniciar els displays centrals a '?' just abans de començar l'animació
+            centerDisplayCentenes.textContent = '?';
+            centerDisplayDesenes.textContent = '?';
+            centerDisplayUnitats.textContent = '?';
+
+
+            const spinDuration = 3500; // Durada del gir per a cada roda en ms, augmentada
+            const delayCentenes = 0;
+            const delayDesenes = 500;  // Retard per a la roda de desenes, augmentat
+            const delayUnitats = 1000;  // Retard per a la roda d'unitats, augmentat
+
+            setTimeout(() => animarRoda(rotatorCentenes, centerDisplayCentenes, centenes, spinDuration), delayCentenes);
+            setTimeout(() => animarRoda(rotatorDesenes, centerDisplayDesenes, desenes, spinDuration), delayDesenes);
+            setTimeout(() => animarRoda(rotatorUnitats, centerDisplayUnitats, unitats, spinDuration), delayUnitats);
+
+            const numeroFormatejat = numeroGenerat.toString().padStart(3, '0');
+
+            const totalAnimationTime = Math.max(delayCentenes, delayDesenes, delayUnitats) + spinDuration;
+            setTimeout(() => {
+                numeroComplert.textContent = `Número guanyador: ${numeroFormatejat}`;
+                generarBtn.disabled = false;
+            }, totalAnimationTime + 300); // Marge addicional
+        });
+
+        // Inicialització
+        actualizarDataHora();
+        numeroComplert.textContent = '';
+        setInterval(actualizarDataHora, 1000);
+
+        // Crida createWheelNumbers després que el DOM estigui completament carregat i les mides siguin calculables
+        // O assegurar-se que les mides CSS són fixes i no depenen de càlculs posteriors per a WHEEL_NUMBER_RADIUS
+        // Per a més seguretat, es podria cridar dins de window.onload o amb un petit setTimeout si hi ha problemes de càlcul de mides.
+        createWheelNumbers(rotatorCentenes);
+        createWheelNumbers(rotatorDesenes);
+        createWheelNumbers(rotatorUnitats);
+        
+        // Podem deixar '?' per defecte en els displays centrals si es prefereix
+        // centerDisplayCentenes.textContent = '0'; 
+        // centerDisplayDesenes.textContent = '0';
+        // centerDisplayUnitats.textContent = '0';
+
+    </script>
+
+</body>
+</html>

@@ -5,11 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Creta - Gestión de Reservas</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Mithril -->
+    <script src="https://unpkg.com/mithril/mithril.js"></script>
     <script src="https://unpkg.com/frappe-charts@1.2.4/dist/frappe-charts.min.iife.js"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <!-- Fuente Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
@@ -17,93 +19,14 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 
-<body class="text-slate-600 flex flex-col min-h-screen">
+<body>
 
-    <!-- HEADER NAVIGATION -->
-    <nav class="border-b-8 border-red-500" style="background-color: rgb(28, 25, 23);">
-        <div class="flex flex-wrap items-center justify-between px-4 py-2">
-            <!-- Logo -->
-            <div class="flex items-center gap-4">
-                <a href="https://public.digitalvalue.es/github/zity-components-m/src/apps/">
-                    <img src="https://cdn.digitalvalue.es/alcantir/assets/5cc03ffd1d8c420100aa90fe?w=300" alt="Logo"
-                        class="h-5 w-auto opacity-70 hover:opacity-100 transition">
-                </a>
-                <a href="https://public.digitalvalue.es/github/zity-components-m/src/apps/"
-                    class="text-white text-sm opacity-70 hover:opacity-100 transition hidden sm:block">
-                    Panell de Serveis
-                </a>
-                <a href="#/" class="text-white text-sm font-medium">
-                    CRETA. Citas, Reservas, Entradas, Turnos y Autorizaciones
-                </a>
-            </div>
-
-            <!-- Right Menu -->
-            <div class="flex items-center gap-2 flex-wrap">
-                <div class="text-white text-sm px-3 py-2">admin.pinto</div>
-                <div class="text-white text-sm px-3 py-2">pinto</div>
-                <button
-                    class="bg-transparent border border-white text-white px-3 py-2 rounded hover:bg-white hover:bg-opacity-10 transition">
-                    <i class="fa-solid fa-user text-green-500"></i>
-                </button>
-                <div class="relative group">
-                    <button
-                        class="bg-transparent border border-white text-white px-3 py-2 rounded hover:bg-white hover:bg-opacity-10 transition flex items-center gap-2">
-                        <span class="text-sm">VA</span>
-                        <i class="fa-solid fa-globe"></i>
-                    </button>
-                    <!-- Dropdown (hidden by default) -->
-                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg hidden group-hover:block z-50">
-                        <a href="#" class="flex items-center gap-3 px-4 py-2 hover:bg-slate-100 transition">
-                            <img src="../assets/espana.png" alt="Castellano" class="w-5 h-5 object-contain">
-                            <span class="text-slate-700">Castellano</span>
-                        </a>
-                        <a href="#" class="flex items-center gap-3 px-4 py-2 hover:bg-slate-100 transition">
-                            <img src="../assets/english.png" alt="English" class="w-5 h-5 object-contain">
-                            <span class="text-slate-700">English</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- APP CONTAINER -->
-    <div id="app-container" class="flex-grow max-w-8xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Breadcrumbs container (will be populated by JS) -->
-        <div class="breadcrumbs-container"></div>
-        
-        <!-- Content will be rendered here by route -->
-    </div>
-
-    <!-- FOOTER -->
-    <footer class="bg-gray-900 text-white px-4 py-3 flex items-center gap-3 flex-wrap mt-auto">
-        <a href="https://digitalvalue.es" target="_blank" class="hover:opacity-80 transition">
-            <img src="https://cdn.digitalvalue.es/digital/assets2/5ee2496c3686490100adeaca" alt="Digital Value"
-                class="max-h-8">
-        </a>
-        <a href="http://ayuntamientoentumovil.es/" target="_blank" class="hover:opacity-80 transition">
-            <img src="https://cdn.digitalvalue.es/digital/assets2/5ee2496caa0c5401004cef54"
-                alt="Ayuntamiento en tu móvil" class="max-h-8">
-        </a>
-        <span class="ml-auto text-sm text-gray-300 flex items-center gap-2 flex-wrap">
-            Gràcies per confiar en
-            <a href="http://digitalvalue.es/zity.html" target="_blank" rel="nofollow noopener noreferrer"
-                class="text-white hover:text-blue-400 transition">
-                DIGITAL ZITY
-            </a>
-            <a href="mailto:info@ayuntamientoentumovil.es" rel="nofollow noopener noreferrer"
-                class="text-white hover:text-blue-400 transition">
-                info@ayuntamientoentumovil.es
-            </a>
-            <span class="text-gray-400">v2.0</span>
-        </span>
-    </footer>
+    <!-- APP CONTAINER - Mithril will mount here -->
+    <div id="app"></div>
 
     <!-- JAVASCRIPT APP LOGIC -->
-    <!-- Navigation helpers (must load before modules) -->
-    <script src="js/navigation-helpers.js?v=2.0"></script>
-    <!-- Main app module -->
-    <script type="module" src="js/app.js?v=2.0"></script>
+    <!-- Main app module - DView components will be imported automatically -->
+    <script type="module" src="js/app.js?v=3.0"></script>
 </body>
 
 </html>
