@@ -465,7 +465,7 @@ export const DashboardView = {
                         
                         return m(Tappable, {
                             key: res._id,
-                            onclick: () => m.route.set(`/resource/${res._id}`),
+                            onclick: () => m.route.set(`/resource/${res._id}/admin`),
                             style: {
                                 padding: '1rem',
                                 display: 'flex',

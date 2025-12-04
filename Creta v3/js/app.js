@@ -4,7 +4,6 @@ import { fetchResources, fetchGroups } from './api.js';
 import { App } from './components/App.js';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { DashboardView } from './views/DashboardView.js';
-import { DetailView } from './views/DetailView.js';
 import { AdminView } from './views/AdminView.js';
 import { renderCalendarView } from './calendar-view.js';
 
@@ -106,24 +105,6 @@ window.app = {
                             currentPath: m.route.get()
                         }),
                         m(DashboardView, { app: window.app })
-                    ]);
-                }
-            },
-            '/resource/:id': {
-                onmatch: (args, requestedPath) => {
-                    const resource = window.app.data.find(r => r._id === args.id);
-                    if (!resource) {
-                        return m.route.set('/');
-                    }
-                    window.app.currentResource = resource;
-                },
-                render: () => {
-                    return m(App, [
-                        m(Breadcrumbs, {
-                            currentPath: m.route.get(),
-                            resource: window.app.currentResource
-                        }),
-                        m(DetailView, { resource: window.app.currentResource })
                     ]);
                 }
             },

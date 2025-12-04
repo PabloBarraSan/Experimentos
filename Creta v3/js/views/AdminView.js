@@ -3,6 +3,8 @@
 import { FlexCol, FlexRow, Grid, Tappable, Div } from '../../../DView/layout.js';
 import { H1, H2, Text, SmallText } from '../../../DView/texts.js';
 import { Button, Icon, Card, Label, Segment } from '../../../DView/elements.js';
+import { Input } from '../../../DView/forms.js';
+import { Modal, ModalHeader, ModalContent, ModalFooter } from '../../../DView/dialogs.js';
 import { fetchAppointments, calculateStats, getDateRange } from '../api.js';
 
 export const AdminView = {
@@ -84,6 +86,50 @@ export const AdminView = {
 };
 
 function renderHeader(resource) {
+    // Definir acciones rápidas (botones de DetailView)
+    const quickActions = [
+        {
+            title: "Sala d'espera",
+            icon: "person",
+            onclick: () => {}
+        },
+        {
+            title: "Administrador de torns",
+            icon: "vpn_key",
+            onclick: () => {}
+        },
+        {
+            title: "Sol·licitud de torns",
+            icon: "confirmation_number",
+            onclick: () => {}
+        },
+        {
+            title: "Solicitud de turnos 2",
+            icon: "confirmation_number",
+            onclick: () => {}
+        },
+        {
+            title: "Panell de comandaments",
+            icon: "view_column",
+            onclick: () => {}
+        },
+        {
+            title: "Lector de QR",
+            icon: "qr_code",
+            onclick: () => {}
+        },
+        {
+            title: "Citaprevia web",
+            icon: "language",
+            onclick: () => {}
+        },
+        {
+            title: "App mòbil",
+            icon: "phone_iphone",
+            onclick: () => {}
+        }
+    ];
+
     return m(Segment, {
         type: 'primary',
         style: { 
@@ -92,37 +138,58 @@ function renderHeader(resource) {
             boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
         }
     }, [
-        m(FlexCol, {
+        // Primera fila: Título y botón volver
+        m(FlexRow, {
+            alignItems: 'center',
+            justifyContent: 'space-between',
             gap: '1rem',
-            style: {
-                '@media (min-width: 768px)': {
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                }
-            }
+            flexWrap: 'wrap',
+            style: { marginBottom: '1rem' }
         }, [
-            m(FlexCol, { gap: '0.5rem' }, [
-                m(FlexRow, {
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    flexWrap: 'wrap'
+            m(FlexRow, {
+                alignItems: 'center',
+                gap: '0.75rem',
+                flexWrap: 'wrap'
+            }, [
+                m(Button, {
+                    type: 'default',
+                    onclick: () => m.route.set('/'),
+                    style: {
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: '#f1f5f9',
+                        color: '#64748b',
+                        flexShrink: 0
+                    },
+                    hover: {
+                        backgroundColor: '#e2e8f0',
+                        color: '#475569'
+                    }
                 }, [
+                    m(Icon, { icon: 'arrow_back', size: 'small' })
+                ]),
+                m(FlexCol, { gap: '0.25rem' }, [
+                    resource.subtitle && m(SmallText, {
+                        style: {
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            color: '#2563eb',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            margin: 0
+                        }
+                    }, resource.subtitle),
                     m(H1, {
                         fontSize: '1.875rem',
                         fontWeight: 'bold',
                         color: '#1e293b',
                         margin: 0
-                    }, resource.title || resource.name),
-                    resource.subtitle && m(Label, {
-                        type: 'secondary',
-                        size: 'default',
-                        style: {
-                            fontSize: '0.875rem',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '9999px'
-                        }
-                    }, resource.subtitle)
+                    }, resource.title || resource.name)
                 ])
             ]),
             m(FlexRow, {
@@ -164,6 +231,73 @@ function renderHeader(resource) {
                     m(Icon, { icon: 'credit_card', size: 'small', style: { color: '#22c55e', marginRight: '0.25rem' } }),
                     'Pago'
                 ])
+            ])
+        ]),
+        
+        // Segunda fila: Barra de herramientas compacta con acciones rápidas
+        m(Div, {
+            style: {
+                paddingTop: '1rem',
+                borderTop: '1px solid #e2e8f0'
+            }
+        }, [
+            m(FlexRow, {
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+            }, [
+                m(SmallText, {
+                    style: {
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        fontWeight: 500,
+                        marginRight: '0.5rem',
+                        margin: 0
+                    }
+                }, 'Acciones rápidas:'),
+                ...quickActions.map(action => 
+                    m(Tappable, {
+                        onclick: action.onclick,
+                        style: {
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '0.5rem',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'all 0.2s ease',
+                            fontSize: '0.875rem',
+                            color: '#475569',
+                            whiteSpace: 'nowrap',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                        },
+                        hover: {
+                            backgroundColor: '#e0f2fe',
+                            border: '1px solid #93c5fd',
+                            color: '#2563eb',
+                            transform: 'translateY(-1px)',
+                            boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.1)',
+                            outline: 'none'
+                        },
+                        title: action.title
+                    }, [
+                        m(Icon, { 
+                            icon: action.icon, 
+                            size: 'small',
+                            style: { fontSize: '16px', flexShrink: 0 }
+                        }),
+                        m(Text, {
+                            fontSize: '0.875rem',
+                            margin: 0,
+                            style: {
+                                display: 'inline'
+                            }
+                        }, action.title)
+                    ])
+                )
             ])
         ])
     ]);
@@ -241,29 +375,16 @@ function renderContent(resource, stats, appointmentsData) {
                 // Stats Cards
                 m(Grid, {
                     columns: 3,
-                    style: { gap: '1rem' }
+                    style: { gap: '1.5rem' }
                 }, [
-                    m(Card, {
+                    m(Div, {
                         style: {
-                            backgroundColor: 'white',
-                            padding: '1.25rem',
-                            borderRadius: '0.75rem',
-                            border: '1px solid #e2e8f0',
                             textAlign: 'center',
-                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                            transition: 'all 0.2s ease'
-                        },
-                        onmouseenter: (e) => {
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                        },
-                        onmouseleave: (e) => {
-                            e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
-                            e.currentTarget.style.transform = 'translateY(0)';
+                            padding: '1rem'
                         }
                     }, [
                         m(Text, {
-                            fontSize: '1.75rem',
+                            fontSize: '2rem',
                             fontWeight: 'bold',
                             color: '#1e293b',
                             marginBottom: '0.5rem',
@@ -278,27 +399,14 @@ function renderContent(resource, stats, appointmentsData) {
                             margin: 0
                         }, 'Slots')
                     ]),
-                    m(Card, {
+                    m(Div, {
                         style: {
-                            backgroundColor: 'white',
-                            padding: '1.25rem',
-                            borderRadius: '0.75rem',
-                            border: '1px solid #e2e8f0',
                             textAlign: 'center',
-                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                            transition: 'all 0.2s ease'
-                        },
-                        onmouseenter: (e) => {
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                        },
-                        onmouseleave: (e) => {
-                            e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
-                            e.currentTarget.style.transform = 'translateY(0)';
+                            padding: '1rem'
                         }
                     }, [
                         m(Text, {
-                            fontSize: '1.75rem',
+                            fontSize: '2rem',
                             fontWeight: 'bold',
                             color: '#1e293b',
                             marginBottom: '0.5rem',
@@ -313,27 +421,14 @@ function renderContent(resource, stats, appointmentsData) {
                             margin: 0
                         }, 'Reservas')
                     ]),
-                    m(Card, {
+                    m(Div, {
                         style: {
-                            backgroundColor: 'white',
-                            padding: '1.25rem',
-                            borderRadius: '0.75rem',
-                            border: '1px solid #e2e8f0',
                             textAlign: 'center',
-                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                            transition: 'all 0.2s ease'
-                        },
-                        onmouseenter: (e) => {
-                            e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                        },
-                        onmouseleave: (e) => {
-                            e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(0, 0, 0, 0.05)';
-                            e.currentTarget.style.transform = 'translateY(0)';
+                            padding: '1rem'
                         }
                     }, [
                         m(Text, {
-                            fontSize: '1.75rem',
+                            fontSize: '2rem',
                             fontWeight: 'bold',
                             color: '#1e293b',
                             marginBottom: '0.5rem',
@@ -351,37 +446,35 @@ function renderContent(resource, stats, appointmentsData) {
                 ]),
                 
                 // Chart
-                m(Segment, {
-                    type: 'primary',
+                m(Div, {
                     style: {
-                        padding: '1.5rem',
-                        borderRadius: '0.75rem',
-                        border: '1px solid #e2e8f0',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                        backgroundColor: 'white',
-                        minHeight: '250px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
+                        paddingTop: '1.5rem',
+                        borderTop: '1px solid #f1f5f9',
+                        marginTop: '1rem'
                     }
                 }, [
                     m('div', { 
                         id: 'chart-container',
                         style: { 
                             width: '100%',
-                            minHeight: '200px'
+                            minHeight: '220px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
                         } 
                     })
                 ])
             ]),
             
             // Right Column: Action Buttons
-            m(FlexCol, {
-                gap: '0.75rem',
-                style: {
-                    gridColumn: 'span 1',
-                    '@media (min-width: 1024px)': { gridColumn: 'span 1' }
-                }
+            m(Div, {
+                    style: {
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.25rem',
+                        gridColumn: 'span 1',
+                        width: '100%'
+                    }
             }, [
                 m(Button, {
                     type: 'blue',
@@ -394,18 +487,34 @@ function renderContent(resource, stats, appointmentsData) {
                     },
                     style: {
                         justifyContent: 'flex-start',
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                        transition: 'all 0.2s ease'
+                        padding: '1rem 1.25rem',
+                        borderRadius: '0.75rem',
+                        boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.08)',
+                        transition: 'all 0.2s ease',
+                        border: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.9375rem',
+                        marginBottom: 0
                     },
                     hover: {
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        transform: 'translateY(-1px)'
+                        boxShadow: '0 4px 12px 0 rgba(37, 99, 235, 0.25)',
+                        transform: 'translateY(-2px)'
                     }
                 }, [
-                    m(Icon, { icon: 'event', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
-                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Calendari cites')
+                    m('span', {
+                        class: 'material-icons',
+                        style: {
+                            fontSize: '18px',
+                            marginRight: '0.875rem',
+                            color: 'white',
+                            userSelect: 'none',
+                            opacity: 1
+                        },
+                        oncreate: (vnode) => {
+                            vnode.dom.style.setProperty('color', 'white', 'important');
+                        }
+                    }, 'event'),
+                    m(Text, { fontSize: '0.9375rem', fontWeight: 500, margin: 0 }, 'Calendari cites')
                 ]),
                 m(Button, {
                     type: 'default',
@@ -414,21 +523,36 @@ function renderContent(resource, stats, appointmentsData) {
                     style: {
                         backgroundColor: '#7c3aed',
                         color: 'white',
-                        borderColor: '#7c3aed',
+                        border: 'none',
                         justifyContent: 'flex-start',
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                        transition: 'all 0.2s ease'
+                        padding: '1rem 1.25rem',
+                        borderRadius: '0.75rem',
+                        boxShadow: '0 2px 4px 0 rgba(124, 58, 237, 0.2)',
+                        transition: 'all 0.2s ease',
+                        fontWeight: 500,
+                        fontSize: '0.9375rem',
+                        marginBottom: 0
                     },
                     hover: {
                         backgroundColor: '#6d28d9',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        transform: 'translateY(-1px)'
+                        boxShadow: '0 4px 12px 0 rgba(124, 58, 237, 0.3)',
+                        transform: 'translateY(-2px)'
                     }
                 }, [
-                    m(Icon, { icon: 'schedule', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
-                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Gestionar Horaris')
+                    m('span', {
+                        class: 'material-icons',
+                        style: {
+                            fontSize: '18px',
+                            marginRight: '0.875rem',
+                            color: 'white',
+                            userSelect: 'none',
+                            opacity: 1
+                        },
+                        oncreate: (vnode) => {
+                            vnode.dom.style.setProperty('color', 'white', 'important');
+                        }
+                    }, 'schedule'),
+                    m(Text, { fontSize: '0.9375rem', fontWeight: 500, margin: 0 }, 'Gestionar Horaris')
                 ]),
                 m(Button, {
                     type: 'default',
@@ -437,21 +561,36 @@ function renderContent(resource, stats, appointmentsData) {
                     style: {
                         backgroundColor: '#b45309',
                         color: 'white',
-                        borderColor: '#b45309',
+                        border: 'none',
                         justifyContent: 'flex-start',
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                        transition: 'all 0.2s ease'
+                        padding: '1rem 1.25rem',
+                        borderRadius: '0.75rem',
+                        boxShadow: '0 2px 4px 0 rgba(180, 83, 9, 0.2)',
+                        transition: 'all 0.2s ease',
+                        fontWeight: 500,
+                        fontSize: '0.9375rem',
+                        marginBottom: 0
                     },
                     hover: {
                         backgroundColor: '#92400e',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        transform: 'translateY(-1px)'
+                        boxShadow: '0 4px 12px 0 rgba(180, 83, 9, 0.3)',
+                        transform: 'translateY(-2px)'
                     }
                 }, [
-                    m(Icon, { icon: 'print', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
-                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Imprimir reserves')
+                    m('span', {
+                        class: 'material-icons',
+                        style: {
+                            fontSize: '18px',
+                            marginRight: '0.875rem',
+                            color: 'white',
+                            userSelect: 'none',
+                            opacity: 1
+                        },
+                        oncreate: (vnode) => {
+                            vnode.dom.style.setProperty('color', 'white', 'important');
+                        }
+                    }, 'print'),
+                    m(Text, { fontSize: '0.9375rem', fontWeight: 500, margin: 0 }, 'Imprimir reserves')
                 ]),
                 m(Button, {
                     type: 'positive',
@@ -459,41 +598,34 @@ function renderContent(resource, stats, appointmentsData) {
                     onclick: () => {},
                     style: {
                         justifyContent: 'flex-start',
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                        transition: 'all 0.2s ease'
+                        padding: '1rem 1.25rem',
+                        borderRadius: '0.75rem',
+                        boxShadow: '0 2px 4px 0 rgba(34, 197, 94, 0.2)',
+                        transition: 'all 0.2s ease',
+                        border: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.9375rem',
+                        marginBottom: 0
                     },
                     hover: {
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        transform: 'translateY(-1px)'
+                        boxShadow: '0 4px 12px 0 rgba(34, 197, 94, 0.3)',
+                        transform: 'translateY(-2px)'
                     }
                 }, [
-                    m(Icon, { icon: 'settings', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
-                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Ajustos del recurs')
-                ]),
-                m(Button, {
-                    type: 'default',
-                    fluid: true,
-                    onclick: () => {},
-                    style: {
-                        backgroundColor: '#0d9488',
-                        color: 'white',
-                        borderColor: '#0d9488',
-                        justifyContent: 'flex-start',
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                        transition: 'all 0.2s ease'
-                    },
-                    hover: {
-                        backgroundColor: '#0f766e',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        transform: 'translateY(-1px)'
-                    }
-                }, [
-                    m(Icon, { icon: 'admin_panel_settings', size: 'small', style: { marginRight: '0.75rem', color: 'white' } }),
-                    m(Text, { fontSize: '0.875rem', fontWeight: 500 }, 'Admin Torns')
+                    m('span', {
+                        class: 'material-icons',
+                        style: {
+                            fontSize: '18px',
+                            marginRight: '0.875rem',
+                            color: 'white',
+                            userSelect: 'none',
+                            opacity: 1
+                        },
+                        oncreate: (vnode) => {
+                            vnode.dom.style.setProperty('color', 'white', 'important');
+                        }
+                    }, 'settings'),
+                    m(Text, { fontSize: '0.9375rem', fontWeight: 500, margin: 0 }, 'Ajustos del recurs')
                 ])
             ])
         ])
@@ -501,8 +633,6 @@ function renderContent(resource, stats, appointmentsData) {
 }
 
 function renderScheduleGrid(resource, appointmentsData) {
-    const gridRows = generateGridRows(resource, appointmentsData);
-
     return m(Segment, {
         type: 'primary',
         style: { 
@@ -510,9 +640,56 @@ function renderScheduleGrid(resource, appointmentsData) {
             boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
         }
     }, [
-        m(FlexCol, {
+        m(ReservationsView, { resource, appointmentsData })
+    ]);
+}
+
+// Reservations View Component
+const ReservationsView = {
+    oninit: (vnode) => {
+        vnode.state.searchTerm = '';
+        vnode.state.filterStatus = 'all'; // 'all', 'confirmed', 'pending', 'canceled'
+        vnode.state.allReservations = extractReservations(vnode.attrs.appointmentsData);
+        vnode.state.currentPage = 1;
+        vnode.state.itemsPerPage = 20;
+        vnode.state.selectedReservation = null;
+    },
+    
+    view: (vnode) => {
+        const { resource, appointmentsData } = vnode.attrs;
+        const state = vnode.state;
+        
+        // Filter reservations
+        let filteredReservations = state.allReservations.filter(reservation => {
+            // Search filter
+            const searchLower = state.searchTerm.toLowerCase();
+            const matchesSearch = !state.searchTerm || 
+                reservation.userName.toLowerCase().includes(searchLower) ||
+                reservation.email?.toLowerCase().includes(searchLower) ||
+                reservation.telephone?.includes(searchLower) ||
+                reservation.turn?.toString().includes(searchLower) ||
+                reservation.maskedTurn?.toLowerCase().includes(searchLower);
+            
+            // Status filter
+            const matchesStatus = state.filterStatus === 'all' || 
+                reservation.status === state.filterStatus;
+            
+            return matchesSearch && matchesStatus;
+        });
+        
+        return m(FlexCol, {
             gap: '1.5rem'
         }, [
+            // Reservation Sidebar
+            state.selectedReservation && m(ReservationSidebar, {
+                reservation: state.selectedReservation,
+                onClose: () => {
+                    state.selectedReservation = null;
+                    m.redraw();
+                }
+            }),
+            
+            // Header
             m(FlexRow, {
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -525,113 +702,804 @@ function renderScheduleGrid(resource, appointmentsData) {
                     color: '#1e293b',
                     margin: 0
                 }, [
-                    m(Icon, { icon: 'event', size: 'small', style: { marginRight: '0.5rem' } }),
-                    'Horarios y Disponibilidad'
+                    m(Icon, { icon: 'list', size: 'small', style: { marginRight: '0.5rem' } }),
+                    'Reservas'
                 ]),
-                m(Segment, {
-                    type: 'secondary',
+                m(SmallText, {
+                    fontSize: '0.875rem',
+                    color: '#64748b',
+                    margin: 0
+                }, `${filteredReservations.length} reserva${filteredReservations.length !== 1 ? 's' : ''}`)
+            ]),
+            
+            // Search and Filters
+            m(FlexRow, {
+                gap: '1rem',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+            }, [
+                // Search Input
+                m(Div, {
                     style: {
-                        padding: '0.25rem',
-                        display: 'flex',
-                        gap: '0.25rem',
-                        backgroundColor: '#f1f5f9',
-                        borderRadius: '0.5rem'
+                        flex: 1,
+                        minWidth: '250px',
+                        position: 'relative'
                     }
+                }, [
+                    m('span', {
+                        class: 'material-icons',
+                        style: {
+                            position: 'absolute',
+                            left: '0.75rem',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: '18px',
+                            color: '#94a3b8',
+                            pointerEvents: 'none'
+                        }
+                    }, 'search'),
+                    m(Input, {
+                        placeholder: 'Buscar por nombre, email, teléfono o turno...',
+                        value: state.searchTerm,
+                        oninput: (e) => {
+                            state.searchTerm = e.target.value;
+                            state.currentPage = 1; // Reset to first page on search
+                            m.redraw();
+                        },
+                        style: {
+                            width: '100%',
+                            paddingLeft: '2.5rem',
+                            fontSize: '0.875rem'
+                        }
+                    })
+                ]),
+                
+                // Status Filters
+                m(FlexRow, {
+                    gap: '0.5rem',
+                    flexWrap: 'wrap'
+                }, [
+                    m(Button, {
+                        type: state.filterStatus === 'all' ? 'blue' : 'default',
+                        size: 'small',
+                        onclick: () => {
+                            state.filterStatus = 'all';
+                            state.currentPage = 1; // Reset to first page on filter change
+                            m.redraw();
+                        },
+                        style: {
+                            fontSize: '0.875rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '0.5rem'
+                        }
+                    }, 'Todas'),
+                    m(Button, {
+                        type: state.filterStatus === 'confirmed' ? 'blue' : 'default',
+                        size: 'small',
+                        onclick: () => {
+                            state.filterStatus = 'confirmed';
+                            state.currentPage = 1; // Reset to first page on filter change
+                            m.redraw();
+                        },
+                        style: {
+                            fontSize: '0.875rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '0.5rem'
+                        }
+                    }, 'Confirmadas'),
+                    m(Button, {
+                        type: state.filterStatus === 'pending' ? 'blue' : 'default',
+                        size: 'small',
+                        onclick: () => {
+                            state.filterStatus = 'pending';
+                            state.currentPage = 1; // Reset to first page on filter change
+                            m.redraw();
+                        },
+                        style: {
+                            fontSize: '0.875rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '0.5rem'
+                        }
+                    }, 'Pendientes'),
+                    m(Button, {
+                        type: state.filterStatus === 'canceled' ? 'blue' : 'default',
+                        size: 'small',
+                        onclick: () => {
+                            state.filterStatus = 'canceled';
+                            state.currentPage = 1; // Reset to first page on filter change
+                            m.redraw();
+                        },
+                        style: {
+                            fontSize: '0.875rem',
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '0.5rem'
+                        }
+                    }, 'Canceladas')
+                ])
+            ]),
+            
+            // Reservations List
+            filteredReservations.length > 0 ? m(FlexCol, {
+                gap: '0',
+                style: {
+                    marginTop: '1rem',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '0.75rem',
+                    overflow: 'hidden'
+                }
+            }, filteredReservations
+                .slice((state.currentPage - 1) * state.itemsPerPage, state.currentPage * state.itemsPerPage)
+                .map((reservation, index) => 
+                    m(ReservationCard, { 
+                        key: reservation.id || index, 
+                        reservation,
+                        isLast: index === Math.min(state.itemsPerPage - 1, filteredReservations.length - (state.currentPage - 1) * state.itemsPerPage - 1),
+                        onclick: () => {
+                            state.selectedReservation = reservation;
+                            m.redraw();
+                        }
+                    })
+                )
+            ) : m(Div, {
+                style: {
+                    padding: '3rem',
+                    textAlign: 'center',
+                    color: '#94a3b8'
+                }
+            }, [
+                m('span', {
+                    class: 'material-icons',
+                    style: {
+                        fontSize: '3rem',
+                        marginBottom: '1rem',
+                        display: 'block',
+                        color: '#cbd5e1'
+                    }
+                }, 'search_off'),
+                m(Text, {
+                    fontSize: '0.875rem',
+                    margin: 0
+                }, 'No se encontraron reservas')
+            ]),
+            
+            // Pagination Info (moved to bottom)
+            filteredReservations.length > 0 && m(FlexRow, {
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                style: {
+                    padding: '1rem 0',
+                    marginTop: '1rem'
+                }
+            }, [
+                m(SmallText, {
+                    fontSize: '0.875rem',
+                    color: '#64748b',
+                    margin: 0
+                }, `Mostrando ${((state.currentPage - 1) * state.itemsPerPage) + 1}-${Math.min(state.currentPage * state.itemsPerPage, filteredReservations.length)} de ${filteredReservations.length}`),
+                m(FlexRow, {
+                    gap: '0.5rem',
+                    alignItems: 'center'
                 }, [
                     m(Button, {
                         type: 'default',
                         size: 'small',
-                        onclick: () => {},
+                        onclick: () => {
+                            if (state.currentPage > 1) {
+                                state.currentPage--;
+                                m.redraw();
+                            }
+                        },
+                        disabled: state.currentPage === 1,
                         style: {
                             fontSize: '0.875rem',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '0.375rem'
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '0.5rem',
+                            opacity: state.currentPage === 1 ? 0.5 : 1,
+                            cursor: state.currentPage === 1 ? 'not-allowed' : 'pointer'
                         }
-                    }, 'Día'),
+                    }, 'Anterior'),
+                    m(Text, {
+                        fontSize: '0.875rem',
+                        color: '#64748b',
+                        margin: 0
+                    }, `Página ${state.currentPage} de ${Math.ceil(filteredReservations.length / state.itemsPerPage)}`),
                     m(Button, {
                         type: 'default',
                         size: 'small',
-                        onclick: () => {},
+                        onclick: () => {
+                            const maxPage = Math.ceil(filteredReservations.length / state.itemsPerPage);
+                            if (state.currentPage < maxPage) {
+                                state.currentPage++;
+                                m.redraw();
+                            }
+                        },
+                        disabled: state.currentPage >= Math.ceil(filteredReservations.length / state.itemsPerPage),
                         style: {
                             fontSize: '0.875rem',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '0.375rem'
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '0.5rem',
+                            opacity: state.currentPage >= Math.ceil(filteredReservations.length / state.itemsPerPage) ? 0.5 : 1,
+                            cursor: state.currentPage >= Math.ceil(filteredReservations.length / state.itemsPerPage) ? 'not-allowed' : 'pointer'
                         }
-                    }, 'Semana'),
-                    m(Button, {
-                        type: 'blue',
-                        size: 'small',
-                        onclick: () => {},
+                    }, 'Siguiente')
+                ])
+            ])
+        ]);
+    }
+};
+
+// Reservation Card Component
+const ReservationCard = {
+    view: (vnode) => {
+        const { reservation, isLast } = vnode.attrs;
+        const statusColors = {
+            confirmed: { bg: '#dcfce7', text: '#166534', label: 'Confirmada' },
+            pending: { bg: '#fef3c7', text: '#92400e', label: 'Pendiente' },
+            canceled: { bg: '#fee2e2', text: '#991b1b', label: 'Cancelada' }
+        };
+        const status = statusColors[reservation.status] || statusColors.confirmed;
+        
+        return m(Div, {
+            onclick: vnode.attrs.onclick,
+            style: {
+                padding: '0.875rem 1rem',
+                backgroundColor: 'white',
+                borderBottom: isLast ? 'none' : '1px solid #f1f5f9',
+                transition: 'background-color 0.15s ease',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem'
+            },
+            onmouseenter: (e) => {
+                e.currentTarget.style.backgroundColor = '#f8fafc';
+            },
+            onmouseleave: (e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+            }
+        }, [
+            m(FlexRow, {
+                alignItems: 'center',
+                gap: '1rem',
+                flex: 1,
+                style: { minWidth: 0 }
+            }, [
+                m(Label, {
+                    type: reservation.status === 'confirmed' ? 'positive' : 
+                          reservation.status === 'pending' ? 'warning' : 'negative',
+                    size: 'small',
+                    style: {
+                        fontSize: '0.75rem',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '9999px',
+                        flexShrink: 0
+                    }
+                }, status.label),
+                m(FlexCol, {
+                    flex: 1,
+                    gap: '0.25rem',
+                    style: { minWidth: 0 }
+                }, [
+                    m(Text, {
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#1e293b',
+                        margin: 0,
                         style: {
-                            fontSize: '0.875rem',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '0.375rem',
-                            backgroundColor: 'white',
-                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
                         }
-                    }, 'Mes')
+                    }, reservation.userName || 'Sin nombre'),
+                    m(FlexRow, {
+                        gap: '1rem',
+                        flexWrap: 'wrap',
+                        style: { fontSize: '0.75rem', color: '#64748b' }
+                    }, [
+                        reservation.email && m(Text, {
+                            fontSize: '0.75rem',
+                            margin: 0,
+                            style: {
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }
+                        }, reservation.email),
+                        reservation.telephone && m(Text, {
+                            fontSize: '0.75rem',
+                            margin: 0
+                        }, reservation.telephone)
+                    ])
                 ])
             ]),
-            
-            // Grid Visualization
-            m(Div, {
+            m(FlexRow, {
+                alignItems: 'center',
+                gap: '1rem',
+                flexShrink: 0,
+                style: { textAlign: 'right' }
+            }, [
+                m(FlexCol, {
+                    alignItems: 'flex-end',
+                    gap: '0.25rem'
+                }, [
+                    m(Text, {
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                        color: '#1e293b',
+                        margin: 0
+                    }, formatDate(reservation.date)),
+                    reservation.time && m(Text, {
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        margin: 0
+                    }, reservation.time)
+                ]),
+                m(FlexRow, {
+                    gap: '0.5rem',
+                    alignItems: 'center',
+                    flexShrink: 0
+                }, [
+                    reservation.turn && m(Label, {
+                        type: 'tertiary',
+                        size: 'small',
+                        style: {
+                            fontSize: '0.75rem',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '9999px'
+                        }
+                    }, reservation.maskedTurn || reservation.turn),
+                    m(Label, {
+                        type: 'tertiary',
+                        size: 'small',
+                        style: {
+                            fontSize: '0.75rem',
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '9999px'
+                        }
+                    }, `${reservation.seats}p`)
+                ]),
+                m('span', {
+                    class: 'material-icons',
+                    style: {
+                        fontSize: '18px',
+                        color: '#cbd5e1',
+                        flexShrink: 0
+                    }
+                }, 'chevron_right')
+            ])
+        ]);
+    }
+};
+
+// Helper function to extract reservations from appointments data
+function extractReservations(appointmentsData) {
+    if (!appointmentsData || !appointmentsData.slots) {
+        return [];
+    }
+    
+    const reservations = [];
+    
+    appointmentsData.slots.forEach(slot => {
+        // Parse date properly - slot.date can be a timestamp or ISO date string
+        let slotDate = null;
+        try {
+            if (slot.date) {
+                if (typeof slot.date === 'number') {
+                    slotDate = new Date(slot.date);
+                } else if (typeof slot.date === 'string') {
+                    // Handle ISO string format like "2025-10-29T09:48:09.827Z"
+                    slotDate = new Date(slot.date);
+                } else {
+                    slotDate = new Date(slot.date);
+                }
+                // Validate date
+                if (isNaN(slotDate.getTime())) {
+                    console.warn('Invalid slot date:', slot.date);
+                    slotDate = null;
+                }
+            }
+        } catch (e) {
+            console.warn('Error parsing slot date:', slot.date, e);
+            slotDate = null;
+        }
+        
+        // Confirmed appointments
+        if (slot.appointments && slot.appointments.length > 0) {
+            slot.appointments.forEach(app => {
+                // Extract user name with better fallback
+                let userName = '';
+                if (app.user) {
+                    const firstName = (app.user.firstName || '').trim();
+                    const lastName = (app.user.lastName || '').trim();
+                    userName = `${firstName} ${lastName}`.trim();
+                }
+                // Fallback if still empty
+                if (!userName && app.user?.username) {
+                    userName = app.user.username.trim();
+                }
+                if (!userName && app.user?.email) {
+                    userName = app.user.email.split('@')[0].trim();
+                }
+                if (!userName) {
+                    // Debug: log if user object exists but name is missing
+                    if (app.user) {
+                        console.warn('User object exists but no name found:', app.user);
+                    }
+                    userName = 'Sin nombre';
+                }
+                
+                reservations.push({
+                    id: app._id,
+                    userName: userName,
+                    email: app.user?.email,
+                    telephone: app.user?.telephone,
+                    date: slotDate,
+                    time: slot.title || '',
+                    seats: app.seats || 1,
+                    turn: app.turn,
+                    maskedTurn: app.maskedTurn,
+                    status: app.confirmed !== false ? 'confirmed' : 'pending', // Default to confirmed if not explicitly false
+                    isPaid: app.isPaid,
+                    timestamp: app.timestamp,
+                    slot: slot,
+                    appointment: app
+                });
+            });
+        }
+        
+        // Pending appointments
+        if (slot.pendingAppointments && slot.pendingAppointments.length > 0) {
+            slot.pendingAppointments.forEach(app => {
+                // Extract user name with better fallback
+                let userName = '';
+                if (app.user) {
+                    const firstName = app.user.firstName || '';
+                    const lastName = app.user.lastName || '';
+                    userName = `${firstName} ${lastName}`.trim();
+                }
+                if (!userName && app.user?.username) {
+                    userName = app.user.username;
+                }
+                if (!userName && app.user?.email) {
+                    userName = app.user.email.split('@')[0];
+                }
+                if (!userName) {
+                    userName = 'Sin nombre';
+                }
+                
+                reservations.push({
+                    id: app._id,
+                    userName: userName,
+                    email: app.user?.email,
+                    telephone: app.user?.telephone,
+                    date: slotDate,
+                    time: slot.title || '',
+                    seats: app.seats || 1,
+                    turn: app.turn,
+                    maskedTurn: app.maskedTurn,
+                    status: 'pending',
+                    isPaid: app.isPaid,
+                    timestamp: app.timestamp,
+                    slot: slot,
+                    appointment: app
+                });
+            });
+        }
+        
+        // Canceled appointments
+        if (slot.canceledAppointments && slot.canceledAppointments.length > 0) {
+            slot.canceledAppointments.forEach(app => {
+                // Extract user name with better fallback
+                let userName = '';
+                if (app.user) {
+                    const firstName = app.user.firstName || '';
+                    const lastName = app.user.lastName || '';
+                    userName = `${firstName} ${lastName}`.trim();
+                }
+                if (!userName && app.user?.username) {
+                    userName = app.user.username;
+                }
+                if (!userName && app.user?.email) {
+                    userName = app.user.email.split('@')[0];
+                }
+                if (!userName) {
+                    userName = 'Sin nombre';
+                }
+                
+                reservations.push({
+                    id: app._id,
+                    userName: userName,
+                    email: app.user?.email,
+                    telephone: app.user?.telephone,
+                    date: slotDate,
+                    time: slot.title || '',
+                    seats: app.seats || 1,
+                    turn: app.turn,
+                    maskedTurn: app.maskedTurn,
+                    status: 'canceled',
+                    isPaid: app.isPaid,
+                    timestamp: app.timestamp,
+                    slot: slot,
+                    appointment: app
+                });
+            });
+        }
+    });
+    
+    // Sort by date (most recent first)
+    reservations.sort((a, b) => {
+        const dateA = a.timestamp ? new Date(a.timestamp) : (a.date || new Date(0));
+        const dateB = b.timestamp ? new Date(b.timestamp) : (b.date || new Date(0));
+        return dateB - dateA;
+    });
+    
+    return reservations;
+}
+
+// Helper function to format date
+function formatDate(date) {
+    if (!date) return 'Sin fecha';
+    try {
+        let d;
+        if (date instanceof Date) {
+            d = date;
+        } else if (typeof date === 'number') {
+            d = new Date(date);
+        } else if (typeof date === 'string') {
+            d = new Date(date);
+        } else {
+            return 'Sin fecha';
+        }
+        
+        if (isNaN(d.getTime())) {
+            return 'Sin fecha';
+        }
+        
+        const options = { day: '2-digit', month: 'short', year: 'numeric' };
+        return d.toLocaleDateString('es-ES', options);
+    } catch (e) {
+        return 'Sin fecha';
+    }
+}
+
+// Reservation Sidebar Component
+const ReservationSidebar = {
+    view: (vnode) => {
+        const { reservation, onClose } = vnode.attrs;
+        const statusColors = {
+            confirmed: { bg: '#dcfce7', text: '#166534', label: 'Confirmada' },
+            pending: { bg: '#fef3c7', text: '#92400e', label: 'Pendiente' },
+            canceled: { bg: '#fee2e2', text: '#991b1b', label: 'Cancelada' }
+        };
+        const status = statusColors[reservation.status] || statusColors.confirmed;
+        
+        return m(Modal, {
+            size: 'medium',
+            close: onClose
+        }, [
+            m(ModalHeader, [
+                m(FlexRow, {
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '1rem'
+                }, [
+                    m(H2, { marginTop: 0, marginBottom: 0 }, 'Detalles de la Reserva'),
+                    m(Button, {
+                        type: 'default',
+                        onclick: onClose,
+                        style: {
+                            padding: '0.5rem',
+                            borderRadius: '50%',
+                            width: '32px',
+                            height: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }
+                    }, [
+                        m(Icon, { icon: 'close', size: 'small' })
+                    ])
+                ])
+            ]),
+            m(ModalContent, {
                 style: {
-                    overflowX: 'auto'
+                    maxHeight: '70vh',
+                    overflowY: 'auto'
                 }
             }, [
-                m(Div, {
-                    style: {
-                        minWidth: '800px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '0.75rem',
-                        overflow: 'hidden',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+                m(FlexCol, {
+                    gap: '1.5rem'
+                }, [
+                    // Status Badge
+                    m(FlexRow, {
+                        alignItems: 'center',
+                        gap: '0.75rem'
+                    }, [
+                        m(Label, {
+                            type: reservation.status === 'confirmed' ? 'positive' : 
+                                  reservation.status === 'pending' ? 'warning' : 'negative',
+                            size: 'default',
+                            style: {
+                                fontSize: '0.875rem',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '9999px'
+                            }
+                        }, status.label)
+                    ]),
+                    
+                    // User Information
+                    m(Segment, {
+                        type: 'primary',
+                        style: {
+                            padding: '1rem',
+                            backgroundColor: '#f8fafc'
+                        }
+                    }, [
+                        m(H2, {
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            marginBottom: '1rem',
+                            marginTop: 0
+                        }, 'Información del Usuario'),
+                        m(FlexCol, {
+                            gap: '0.75rem'
+                        }, [
+                            m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'person'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0
+                                }, reservation.userName || 'Sin nombre')
+                            ]),
+                            reservation.email && m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'email'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0
+                                }, reservation.email)
+                            ]),
+                            reservation.telephone && m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'phone'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0
+                                }, reservation.telephone)
+                            ])
+                        ])
+                    ]),
+                    
+                    // Reservation Details
+                    m(Segment, {
+                        type: 'primary',
+                        style: {
+                            padding: '1rem',
+                            backgroundColor: '#f8fafc'
+                        }
+                    }, [
+                        m(H2, {
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            marginBottom: '1rem',
+                            marginTop: 0
+                        }, 'Detalles de la Reserva'),
+                        m(FlexCol, {
+                            gap: '0.75rem'
+                        }, [
+                            m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'event'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0
+                                }, formatDate(reservation.date))
+                            ]),
+                            reservation.time && m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'schedule'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0
+                                }, reservation.time)
+                            ]),
+                            reservation.turn && m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'confirmation_number'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0
+                                }, `Turno: ${reservation.maskedTurn || reservation.turn}`)
+                            ]),
+                            m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'event_seat'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0
+                                }, `${reservation.seats} plaza${reservation.seats !== 1 ? 's' : ''}`)
+                            ]),
+                            reservation.isPaid !== undefined && m(FlexRow, {
+                                gap: '0.5rem',
+                                alignItems: 'center'
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: reservation.isPaid ? '#22c55e' : '#ef4444' }
+                                }, 'credit_card'),
+                                m(Text, {
+                                    fontSize: '0.875rem',
+                                    margin: 0,
+                                    color: reservation.isPaid ? '#22c55e' : '#ef4444'
+                                }, reservation.isPaid ? 'Pagado' : 'No pagado')
+                            ])
+                        ])
+                    ])
+                ])
+            ]),
+            m(ModalFooter, [
+                m(Button, {
+                    type: 'default',
+                    onclick: () => {
+                        // TODO: Implementar acciones
+                        console.log('Editar reserva:', reservation.id);
                     }
-                }, m.trust(gridRows))
+                }, 'Editar'),
+                m(Button, {
+                    type: 'negative',
+                    onclick: () => {
+                        if (confirm('¿Estás seguro de que quieres cancelar esta reserva?')) {
+                            // TODO: Implementar cancelación
+                            console.log('Cancelar reserva:', reservation.id);
+                        }
+                    }
+                }, 'Cancelar Reserva'),
+                m(Button, {
+                    type: 'default',
+                    onclick: onClose
+                }, 'Cerrar')
             ])
-        ])
-    ]);
-}
-
-function generateGridRows(resource, appointmentsData) {
-    if (!resource.virtualSettings) {
-        return '<div style="padding: 1rem; text-align: center; color: #64748b;">No hay configuración de horarios disponible</div>';
+        ]);
     }
+};
 
-    const virtualSettings = Object.values(resource.virtualSettings);
-    const numCols = virtualSettings.length + 1;
-
-    // Create header row
-    let html = `<div style="display: grid; grid-template-columns: repeat(${numCols}, minmax(0, 1fr)); background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; font-size: 0.875rem; font-weight: 500; color: #64748b;">
-        <div style="padding: 0.75rem; border-right: 1px solid #e2e8f0;">Hora</div>`;
-
-    virtualSettings.forEach(vs => {
-        html += `<div style="padding: 0.75rem; border-right: 1px solid #e2e8f0; text-align: center; last-child: border-right: none;">${vs.name || vs.title}</div>`;
-    });
-
-    html += '</div>';
-
-    // Generate time slots
-    const hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
-
-    hours.forEach(hour => {
-        html += `<div style="display: grid; grid-template-columns: repeat(${numCols}, minmax(0, 1fr)); border-bottom: 1px solid #f1f5f9;">
-            <div style="padding: 0.75rem; font-size: 0.875rem; color: #64748b; border-right: 1px solid #e2e8f0; font-family: monospace;">${hour}</div>`;
-
-        virtualSettings.forEach(() => {
-            const isAvailable = Math.random() > 0.3;
-            html += `<div style="padding: 0.5rem; border-right: 1px solid #e2e8f0;">
-                <div style="${isAvailable ? 'background-color: #dcfce7; color: #166534;' : 'background-color: #dbeafe; color: #1e40af;'} font-size: 0.75rem; padding: 0.5rem; border-radius: 0.25rem; text-align: center; cursor: pointer;">
-                    ${isAvailable ? 'Libre' : 'Reserva'}
-                </div>
-            </div>`;
-        });
-
-        html += '</div>';
-    });
-
-    return html;
-}
 
 function initializeChart(stats, container) {
     // Si container es el elemento directamente, usarlo; si no, buscar el contenedor

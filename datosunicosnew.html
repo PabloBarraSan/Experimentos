@@ -4,361 +4,179 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mockup Contratación Pública</title>
-    <!-- Importamos Fuente e Iconos -->
+    
+    <!-- 1. IMPORTAMOS FUENTES -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- 2. IMPORTAMOS SEMANTIC UI Y FONT AWESOME -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.5.0/semantic.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- 3. DEPENDENCIAS JS (jQuery es obligatorio para Semantic UI) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.5.0/semantic.min.js"></script>
+
     <style>
-        /* --- RESET & VARIABLES --- */
+        /* --- VARIABLES GLOBALES --- */
         :root {
             --primary: #1F77B4;
-            --primary-dark: #155a8a;
-            --secondary: #64748b;
             --bg-body: #f8fafc;
             --bg-white: #ffffff;
-            --border-color: #e2e8f0;
             --text-main: #1e293b;
             --text-light: #64748b;
-            --success-bg: #dcfce7;
-            --success-text: #166534;
-            --info-bg: #e0f2fe;
-            --info-text: #075985;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
-            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1);
-            --radius: 12px;
+            --radius: 8px;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
+        /* --- MODERNIZACIÓN DE SEMANTIC UI (Overrides) --- 
+           Esto moderniza la librería por defecto para que no se vea "vieja" 
+        */
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-body);
-            color: var(--text-main);
-            line-height: 1.5;
             padding: 2rem;
         }
 
-        /* --- LAYOUT --- */
-        .container {
+        /* Forzamos la fuente Inter en todos los componentes de Semantic */
+        .ui.button, .ui.input, .ui.dropdown, .ui.table, .ui.header, .ui.menu {
+            font-family: 'Inter', sans-serif !important;
+        }
+
+        /* Suavizamos las sombras y bordes de Semantic */
+        .ui.button {
+            border-radius: 6px !important;
+            font-weight: 500 !important;
+            box-shadow: none !important; /* Quita el efecto 3D antiguo */
+        }
+
+        .ui.basic.button {
+            background: white !important;
+            border: 1px solid #e2e8f0 !important;
+            color: var(--text-main) !important;
+        }
+        
+        .ui.basic.button:hover {
+            background: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        /* Botón activo estilo "Pill" */
+        .ui.blue.button {
+            background-color: var(--primary) !important;
+            font-weight: 600 !important;
+        }
+
+        .ui.orange.button {
+            background-color: #fffbeb !important;
+            color: #d97706 !important;
+            border-color: #fcd34d !important;
+            box-shadow: none !important;
+        }
+
+        /* Inputs de Semantic más modernos */
+        .ui.input input {
+            border-radius: 6px !important;
+            border-color: #e2e8f0 !important;
+        }
+        .ui.input input:focus {
+            border-color: var(--primary) !important;
+        }
+
+        /* Dropdowns más limpios */
+        .ui.selection.dropdown {
+            border-radius: 6px !important;
+            border-color: #e2e8f0 !important;
+            min-height: auto !important;
+            padding-top: 0.6em !important;
+            padding-bottom: 0.6em !important;
+        }
+
+        /* --- ESTILOS DE LAYOUT (Propios, no de Semantic) --- */
+        .container-wrapper {
             max-width: 1280px;
             margin: 0 auto;
             background-color: var(--bg-white);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-md);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             overflow: hidden;
             padding: 2rem;
         }
 
-        /* --- HEADER SECTION --- */
-        .header-section {
-            margin-bottom: 2.5rem;
+        .header-section { margin-bottom: 2.5rem; }
+        .organo-subtitle { 
+            font-size: 0.875rem; color: var(--text-light); 
+            text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem; 
         }
+        .main-title { font-size: 2rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; margin-top: 0; }
+        .title-underline { width: 80px; height: 4px; background-color: var(--primary); border-radius: 2px; }
 
-        .organo-subtitle {
-            font-size: 0.875rem;
-            color: var(--text-light);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .main-title {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--text-main);
-            margin-bottom: 1rem;
-        }
-
-        .title-underline {
-            width: 80px;
-            height: 4px;
-            background-color: var(--primary);
-            border-radius: 2px;
-        }
-
-        /* --- KPI CARDS GRID --- */
+        /* KPI Cards Grid */
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2.5rem;
         }
-
         .kpi-card {
-            background: white;
-            border: 1px solid var(--border-color);
+            background: white; border: 1px solid #e2e8f0; border-radius: var(--radius);
+            padding: 1.5rem; border-top: 4px solid var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .kpi-label { font-size: 0.85rem; color: var(--text-light); text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem; }
+        .kpi-value { font-size: 1.75rem; font-weight: 700; color: var(--text-main); }
+
+        /* Contenedor de Filtros (Custom wrapper) */
+        .filters-container {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
             border-radius: var(--radius);
             padding: 1.5rem;
-            border-top: 4px solid var(--primary);
-            box-shadow: var(--shadow-sm);
-            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 2rem;
         }
 
-        .kpi-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .kpi-label {
-            font-size: 0.85rem;
-            color: var(--text-light);
-            text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .kpi-value {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--text-main);
-        }
-
-        /* --- FILTERS & TOOLBAR --- */
-        .toolbar {
+        /* Filas de Semantic Grid personalizadas */
+        .custom-filter-row {
             display: flex;
-            flex-wrap: wrap;
             gap: 1rem;
             align-items: center;
-            justify-content: space-between;
-            background-color: #f1f5f9;
-            padding: 1rem;
-            border-radius: var(--radius);
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border-color);
-        }
-
-        .filter-group {
-            display: flex;
             flex-wrap: wrap;
-            gap: 0.75rem;
-            align-items: center;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid var(--border-color);
-            background-color: white;
-            color: var(--text-main);
-            text-decoration: none;
-        }
-
-        .btn:hover {
-            background-color: #f8fafc;
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        .btn.active {
-            background-color: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
-        .btn i {
-            margin-left: 0.5rem;
-            font-size: 0.75rem;
-        }
-
-        .search-wrapper {
-            position: relative;
-            flex-grow: 1;
-            max-width: 300px;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 0.5rem 2.5rem 0.5rem 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 0.875rem;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .search-input:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(31, 119, 180, 0.1);
-        }
-
-        .search-icon {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-light);
-            pointer-events: none;
-        }
-
-        /* --- RESULTS COUNT --- */
-        .results-info {
-            text-align: right;
             margin-bottom: 1rem;
-            font-size: 0.875rem;
-            color: var(--text-light);
+        }
+        .custom-filter-row:last-child { margin-bottom: 0; }
+
+        /* Secondary Menu */
+        .secondary-menu {
+            display: flex; gap: 2rem; margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .menu-item {
+            padding-bottom: 0.75rem; font-weight: 500; color: var(--text-light);
+            text-decoration: none; position: relative; transition: color 0.2s;
+        }
+        .menu-item.active { color: var(--primary); font-weight: 600; }
+        .menu-item.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 0;
+            width: 100%; height: 2px; background-color: var(--primary);
         }
 
-        .badge-count {
-            background-color: var(--text-main);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 0.75rem;
-            margin: 0 4px;
-        }
+        /* Results & Table */
+        .results-info { text-align: right; margin-bottom: 1rem; font-size: 0.875rem; color: var(--text-light); }
+        .badge-count { background-color: var(--text-main); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: 0.75rem; }
+        
+        .table-wrapper { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+        
+        /* Ajuste fino a la tabla de Semantic */
+        .ui.table { border: none !important; margin: 0 !important; }
+        .ui.table thead th { background-color: #f8fafc !important; color: var(--text-light) !important; padding: 1rem !important; }
+        .ui.table tbody td { padding: 1rem !important; border-top: 1px solid #e2e8f0 !important; }
+        .status-badge { padding: 4px 10px; border-radius: 50px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .status-success { background-color: #dcfce7; color: #166534; }
+        .type-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; background-color: #e0f2fe; color: #075985; font-weight: 600; }
 
-        /* --- DATA TABLE --- */
-        .table-container {
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            overflow: hidden;
-            overflow-x: auto; /* Scroll horizontal en movil */
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95rem;
-            min-width: 800px; /* Asegura ancho mínimo */
-        }
-
-        thead th {
-            background-color: #f8fafc;
-            color: var(--text-light);
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            font-weight: 600;
-            letter-spacing: 0.05em;
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        thead th i {
-            margin-left: 4px;
-            color: #cbd5e1;
-            cursor: pointer;
-        }
-
-        tbody tr {
-            border-bottom: 1px solid var(--border-color);
-            transition: background-color 0.2s;
-        }
-
-        tbody tr:last-child {
-            border-bottom: none;
-        }
-
-        tbody tr:hover {
-            background-color: #f1f5f9;
-        }
-
-        td {
-            padding: 1rem;
-            vertical-align: top;
-            color: var(--text-main);
-        }
-
-        /* Estilos específicos de columnas */
-        .col-title {
-            width: 35%;
-            font-weight: 500;
-        }
-
-        .text-clamp {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            color: var(--text-main);
-        }
-
-        .col-money {
-            font-family: 'Consolas', monospace; /* Monospaced para números alineados */
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .col-date {
-            color: var(--text-light);
-            font-size: 0.875rem;
-            white-space: nowrap;
-        }
-
-        /* Status Badges */
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            text-align: center;
-        }
-
-        .status-success {
-            background-color: var(--success-bg);
-            color: var(--success-text);
-        }
-
-        .type-badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            background-color: var(--info-bg);
-            color: var(--info-text);
-            font-weight: 600;
-        }
-
-        /* --- PAGINATION --- */
-        .pagination {
-            display: flex;
-            justify-content: flex-end;
-            padding: 1rem;
-            background-color: #f8fafc;
-            border-top: 1px solid var(--border-color);
-        }
-
-        /* --- RESPONSIVE MEDIA QUERIES --- */
-        @media (max-width: 768px) {
-            body {
-                padding: 1rem;
-            }
-            .container {
-                padding: 1rem;
-            }
-            .toolbar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-            .search-wrapper {
-                max-width: 100%;
-            }
-            .main-title {
-                font-size: 1.5rem;
-            }
-        }
     </style>
 </head>
 <body>
 
-    <div class="container">
+    <div class="container-wrapper">
         
         <!-- Header -->
         <header class="header-section">
@@ -387,129 +205,153 @@
             </div>
         </section>
 
-        <!-- Filters & Tools -->
-        <section class="toolbar">
-            <div class="filter-group">
-                <a href="#" class="btn active">Tots</a>
-                <a href="#" class="btn">En licitació</a>
-                <a href="#" class="btn">Contractat</a>
-                <a href="#" class="btn" style="color: #eab308; border-color: #eab308; background: #fffbeb;">Urgentes</a>
+        <!-- FILTROS REALES CON SEMANTIC UI -->
+        <div class="filters-container">
+            
+            <!-- Fila 1: Buscador y Select -->
+            <div class="custom-filter-row" style="padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0;">
                 
-                <div style="width: 1px; height: 24px; background: #e2e8f0; margin: 0 0.5rem;"></div>
+                <!-- Semantic Input con Icono -->
+                <div class="ui icon input fluid" style="flex-grow: 1;">
+                    <input type="text" placeholder="Buscar por objeto, expediente o adjudicatario...">
+                    <i class="search icon"></i>
+                </div>
 
-                <a href="#" class="btn">
-                    Per activitat <i class="fas fa-chevron-down"></i>
-                </a>
-                <a href="#" class="btn">
-                    Per procediment <i class="fas fa-chevron-down"></i>
-                </a>
-                <a href="#" class="btn">
-                    Per tipus <i class="fas fa-chevron-down"></i>
-                </a>
-                <select class="btn" style="appearance: none; padding-right: 2rem;">
-                    <option>2025</option>
-                    <option>2024</option>
-                    <option>2023</option>
-                </select>
+                <!-- Semantic Selection Dropdown -->
+                <div class="ui selection dropdown" style="min-width: 120px;">
+                    <input type="hidden" name="year">
+                    <i class="dropdown icon"></i>
+                    <div class="default text">Año</div>
+                    <div class="menu">
+                        <div class="item" data-value="2025">2025</div>
+                        <div class="item" data-value="2024">2024</div>
+                        <div class="item" data-value="2023">2023</div>
+                        <div class="item" data-value="all">Todos</div>
+                    </div>
+                </div>
             </div>
 
-            <div class="search-wrapper">
-                <input type="text" class="search-input" placeholder="Buscar contrato...">
-                <i class="fas fa-search search-icon"></i>
+            <!-- Fila 2: Botones y Dropdowns de Acción -->
+            <div class="custom-filter-row">
+                
+                <!-- Semantic Button Group -->
+                <div class="ui buttons">
+                    <button class="ui blue button">Tots</button>
+                    <button class="ui basic button">En licitació</button>
+                    <button class="ui basic button">Contractat</button>
+                    <button class="ui basic orange button">Urgentes</button>
+                </div>
+
+                <div style="flex-grow: 1;"></div> <!-- Spacer -->
+
+                <!-- Semantic Dropdown Buttons -->
+                <div class="ui floating dropdown basic button">
+                    <span class="text">Per activitat</span>
+                    <i class="dropdown icon"></i>
+                    <div class="menu">
+                        <div class="item">Construcción</div>
+                        <div class="item">Suministros</div>
+                        <div class="item">Servicios</div>
+                    </div>
+                </div>
+
+                <div class="ui floating dropdown basic button">
+                    <span class="text">Per procediment</span>
+                    <i class="dropdown icon"></i>
+                    <div class="menu">
+                        <div class="item">Abierto</div>
+                        <div class="item">Menor</div>
+                    </div>
+                </div>
+
+                <div class="ui floating dropdown basic button">
+                    <span class="text">Per tipus</span>
+                    <i class="dropdown icon"></i>
+                    <div class="menu">
+                        <div class="item">Obras</div>
+                        <div class="item">Servicios</div>
+                    </div>
+                </div>
+
             </div>
-        </section>
+        </div>
+
+        <!-- Secondary Menu -->
+        <nav class="secondary-menu">
+            <a href="#" class="menu-item active">Dades</a>
+            <a href="#" class="menu-item">Estadístiques</a>
+            <a href="#" class="menu-item">Actividades</a>
+            <a href="#" class="menu-item">Tipo de procedimiento</a>
+        </nav>
 
         <!-- Table Info -->
         <div class="results-info">
             S’han trobat <span class="badge-count">367</span> resultats
         </div>
 
-        <!-- Data Table -->
-        <div class="table-container">
-            <table>
+        <!-- Semantic UI Table -->
+        <div class="table-wrapper">
+            <table class="ui striped table">
                 <thead>
                     <tr>
-                        <th style="width: 35%;">Objecte del contracte <i class="fas fa-sort"></i></th>
-                        <th style="width: 20%;">Adjudicatari <i class="fas fa-sort"></i></th>
-                        <th style="width: 15%;">Import <i class="fas fa-sort"></i></th>
-                        <th style="width: 10%;">Data <i class="fas fa-sort"></i></th>
-                        <th style="width: 10%;">Estat <i class="fas fa-sort"></i></th>
-                        <th style="width: 10%;">Tipus <i class="fas fa-sort"></i></th>
+                        <th class="five wide">Objecte del contracte</th>
+                        <th class="three wide">Adjudicatari</th>
+                        <th class="two wide">Import</th>
+                        <th class="two wide">Data</th>
+                        <th class="two wide">Estat</th>
+                        <th class="two wide">Tipus</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Fila 1 -->
                     <tr>
-                        <td class="col-title">
-                            <span class="text-clamp">Constituye el objeto de este contrato el suministro de mobiliario urbano, papeleras para el casco antiguo para reposición.</span>
-                        </td>
+                        <td><strong>Suministro mobiliario urbano</strong><br><span style="color:#64748b; font-size:0.9em;">Papeleras para casco antiguo</span></td>
                         <td>Solteco Madera Plástica S.L.</td>
-                        <td class="col-money">3.132 €</td>
-                        <td class="col-date">13 Nov 2025</td>
+                        <td style="font-family: Consolas, monospace; font-weight:700;">3.132 €</td>
+                        <td style="color:#64748b;">13 Nov 2025</td>
                         <td><span class="status-badge status-success">Resolt</span></td>
                         <td><span class="type-badge">Subministrament</span></td>
                     </tr>
-                    
-                    <!-- Fila 2 -->
                     <tr>
-                        <td class="col-title">
-                            <span class="text-clamp">Trabajos de construcción de un nuevo módulo de aseos para las playas, que sea exactamente igual que el existente en la playa.</span>
-                        </td>
-                        <td>Proyectos y equipamientos de madera, SL</td>
-                        <td class="col-money">11.950 €</td>
-                        <td class="col-date">13 Nov 2025</td>
+                        <td><strong>Módulo de aseos playas</strong><br><span style="color:#64748b; font-size:0.9em;">Igual al existente</span></td>
+                        <td>Proyectos y equipamientos, SL</td>
+                        <td style="font-family: Consolas, monospace; font-weight:700;">11.950 €</td>
+                        <td style="color:#64748b;">13 Nov 2025</td>
                         <td><span class="status-badge status-success">Resolt</span></td>
                         <td><span class="type-badge">Obres</span></td>
                     </tr>
-
-                    <!-- Fila 3 -->
                     <tr>
-                        <td class="col-title">
-                            <span class="text-clamp">Alquiler de vestimenta y complementos para la FIESTA DE LOS REYES 2026, conforme a lo previsto en la Ley 9/2017.</span>
-                        </td>
-                        <td>JUNQUERA ORTUÑO, DANIEL</td>
-                        <td class="col-money">3.540 €</td>
-                        <td class="col-date">12 Nov 2025</td>
+                        <td><strong>Vestimenta Fiesta Reyes</strong><br><span style="color:#64748b; font-size:0.9em;">Según Ley 9/2017</span></td>
+                        <td>Junquera Ortuño, Daniel</td>
+                        <td style="font-family: Consolas, monospace; font-weight:700;">3.540 €</td>
+                        <td style="color:#64748b;">12 Nov 2025</td>
                         <td><span class="status-badge status-success">Resolt</span></td>
                         <td><span class="type-badge">Subministrament</span></td>
                     </tr>
-
-                    <!-- Fila 4 -->
-                    <tr>
-                        <td class="col-title">
-                            <span class="text-clamp">Contratación de espectáculos para la FIESTA DE REYES en Altea, conforme a lo previsto en la Ley 9/2017.</span>
-                        </td>
-                        <td>DAVID LOPEZ DE LA REINA</td>
-                        <td class="col-money">5.157 €</td>
-                        <td class="col-date">12 Nov 2025</td>
-                        <td><span class="status-badge status-success">Resolt</span></td>
-                        <td><span class="type-badge">Serveis</span></td>
-                    </tr>
-                     <!-- Fila 5 -->
-                     <tr>
-                        <td class="col-title">
-                            <span class="text-clamp">Servicio códigos Navilens ante la necesidad de ofrecer información accesible en las diferentes rutas históricas.</span>
-                        </td>
-                        <td>NUEVOS SISTEMAS TECNOLOGICOS</td>
-                        <td class="col-money">1.468 €</td>
-                        <td class="col-date">10 Nov 2025</td>
-                        <td><span class="status-badge status-success">Resolt</span></td>
-                        <td><span class="type-badge">Serveis</span></td>
-                    </tr>
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="6">
+                            <div class="ui right floated pagination menu">
+                                <a class="icon item disabled"><i class="left chevron icon"></i></a>
+                                <a class="item active">1</a>
+                                <a class="item">2</a>
+                                <a class="item">3</a>
+                                <a class="icon item"><i class="right chevron icon"></i></a>
+                            </div>
+                        </th>
+                    </tr>
+                </tfoot>
             </table>
-            
-            <!-- Pagination -->
-            <div class="pagination">
-                <div class="btn disabled" style="margin-right: 5px;"><i class="fas fa-chevron-left" style="margin:0;"></i></div>
-                <div class="btn active">1</div>
-                <div class="btn">2</div>
-                <div class="btn">3</div>
-                <div class="btn" style="margin-left: 5px;"><i class="fas fa-chevron-right" style="margin:0;"></i></div>
-            </div>
         </div>
 
     </div>
+
+    <!-- SCRIPT DE INICIALIZACIÓN (Obligatorio para que los dropdowns de Semantic funcionen) -->
+    <script>
+        $(document).ready(function() {
+            $('.ui.dropdown').dropdown();
+        });
+    </script>
 
 </body>
 </html>

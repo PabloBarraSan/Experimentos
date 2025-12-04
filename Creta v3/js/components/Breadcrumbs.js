@@ -1,6 +1,6 @@
 // Breadcrumbs Component using DView
 
-import { FlexRow, Tappable } from '../../../DView/layout.js';
+import { FlexRow, Tappable, Div } from '../../../DView/layout.js';
 import { Text } from '../../../DView/texts.js';
 
 export const Breadcrumbs = {
@@ -22,34 +22,54 @@ export const Breadcrumbs = {
             icon: 'home'
         });
         
-        // If we're on a resource route
+            // If we're on a resource route
         if (pathParts[0] === 'resource' && pathParts[1]) {
             const resourceId = pathParts[1];
+            const subView = pathParts[2]; // 'admin', 'calendar', etc.
             
             if (resource) {
+                // Determine href based on current view
+                let resourceHref = null;
+                if (subView === 'admin') {
+                    // In admin view, resource is not clickable (current page)
+                    resourceHref = null;
+                } else if (subView === 'calendar') {
+                    // In calendar view, clicking resource goes to admin
+                    resourceHref = `/resource/${resourceId}/admin`;
+                } else {
+                    // Default: go to admin view
+                    resourceHref = `/resource/${resourceId}/admin`;
+                }
+                
                 breadcrumbs.push({
                     label: resource.title || resource.name || resource.subtitle || 'Recurso',
-                    href: `/resource/${resourceId}`
+                    href: resourceHref
                 });
             } else {
+                // Same logic for when resource is not available
+                let resourceHref = null;
+                if (subView === 'admin') {
+                    resourceHref = null;
+                } else if (subView === 'calendar') {
+                    resourceHref = `/resource/${resourceId}/admin`;
+                } else {
+                    resourceHref = `/resource/${resourceId}/admin`;
+                }
+                
                 breadcrumbs.push({
                     label: 'Recurso',
-                    href: `/resource/${resourceId}`
+                    href: resourceHref
                 });
             }
             
-            // Sub-views
-            if (pathParts[2] === 'admin') {
-                breadcrumbs.push({
-                    label: 'Administración',
-                    href: null // Current page
-                });
-            } else if (pathParts[2] === 'calendar') {
+            // Sub-views (only show for non-admin views)
+            if (subView === 'calendar') {
                 breadcrumbs.push({
                     label: 'Calendario',
                     href: null // Current page
                 });
             }
+            // Note: We don't add "Administración" level - admin view shows as just "Inicio -> Recurso"
         } else if (pathParts[0] === 'kiosko') {
             breadcrumbs.push({ label: 'Kiosko', href: null });
         } else if (pathParts[0] === 'tv') {
@@ -58,10 +78,11 @@ export const Breadcrumbs = {
             breadcrumbs.push({ label: 'Estadísticas', href: null });
         }
         
-        return m(FlexRow, {
-            alignItems: 'center',
-            gap: '0.5rem',
+        return m(Div, {
             style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
                 fontSize: '0.875rem',
                 marginBottom: '1.5rem',
                 marginTop: '0'
