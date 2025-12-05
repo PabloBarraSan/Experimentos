@@ -1,8 +1,10 @@
 // Calendar View Module - Handles the calendar view for appointments
 
-import { fetchAppointments, getDateRange } from './api.js';
-import { ScheduleModal } from './components/ScheduleModal.js';
+import { fetchAppointments, getDateRange } from '../api.js';
+import { ScheduleModal } from '../components/ScheduleModal.js';
 import { openDialog } from '../../../DView/dialogs.js';
+import { renderSidebarHTML, openSlotDetails, closeSidebar, renderSlotDetails, openEmptySlotDetails } from '../components/SlotSidebar.js';
+import { formatDateKey, formatDayHeader, formatWeekRange, isToday } from '../utils/dateUtils.js';
 
 // Calendar State
 const calendarState = {
@@ -227,7 +229,7 @@ export async function renderCalendarView(resource, container) {
     const headerHtml = renderCalendarHeader(resource);
     const toolbarHtml = renderToolbar();
     const calendarHtml = renderWeeklyCalendar(resource, appointmentsData);
-    const sidebarHtml = renderSidebar();
+    const sidebarHtml = renderSidebarHTML();
 
     container.innerHTML = headerHtml + toolbarHtml + calendarHtml + sidebarHtml;
 
@@ -235,374 +237,8 @@ export async function renderCalendarView(resource, container) {
     window.currentAppointmentsData = appointmentsData;
 }
 
-/**
- * Render the sidebar container (hidden by default)
- * @returns {string} HTML string
- */
-function renderSidebar() {
-    return `
-        <div id="slot-sidebar" style="position: fixed; top: 0; bottom: 0; right: 0; width: 24rem; background-color: white; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transform: translateX(100%); transition: transform 0.3s ease-in-out; z-index: 50; display: flex; flex-direction: column;">
-            <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background-color: #f8fafc;">
-                <h3 style="font-weight: bold; font-size: 1.125rem; color: #1e293b; margin: 0;">Detalles del Slot</h3>
-                <button onclick="closeSidebar()" style="color: #94a3b8; border: none; background: transparent; cursor: pointer; transition: color 0.2s; padding: 0.25rem;"
-                        onmouseenter="this.style.color='#475569';"
-                        onmouseleave="this.style.color='#94a3b8';">
-                    <i class="fa-solid fa-times" style="font-size: 1.25rem;"></i>
-                </button>
-            </div>
-            <div id="sidebar-content" style="flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
-                <!-- Content injected via JS -->
-            </div>
-        </div>
-        <div id="sidebar-overlay" onclick="closeSidebar()" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.2); backdrop-filter: blur(4px); display: none; z-index: 40; transition: opacity 0.2s;"></div>
-    `;
-}
-
-/**
- * Open the sidebar with slot details
- * @param {string} slotId - ID of the clicked slot
- */
-window.openSlotDetails = function (slotId) {
-    const data = window.currentAppointmentsData;
-    if (!data || !data.slots) return;
-
-    const slot = data.slots.find(s => s._id === slotId);
-    if (!slot) return;
-
-    const sidebar = document.getElementById('slot-sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const content = document.getElementById('sidebar-content');
-
-    if (!sidebar || !overlay || !content) return;
-
-    // Populate content
-    content.innerHTML = renderSlotDetails(slot);
-
-    // Show sidebar
-    sidebar.style.transform = 'translateX(0)';
-    overlay.style.display = 'block';
-    document.body.style.overflow = 'hidden'; // Prevent background scrolling
-
-    // Add Escape key listener
-    window.sidebarEscapeHandler = function(e) {
-        if (e.key === 'Escape') {
-            window.closeSidebar();
-        }
-    };
-    document.addEventListener('keydown', window.sidebarEscapeHandler);
-};
-
-/**
- * Close the sidebar
- */
-window.closeSidebar = function () {
-    const sidebar = document.getElementById('slot-sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-
-    if (!sidebar || !overlay) return;
-
-    sidebar.style.transform = 'translateX(100%)';
-    overlay.style.display = 'none';
-    document.body.style.overflow = '';
-
-    // Remove Escape key listener
-    if (window.sidebarEscapeHandler) {
-        document.removeEventListener('keydown', window.sidebarEscapeHandler);
-        window.sidebarEscapeHandler = null;
-    }
-};
-
-/**
- * Open sidebar for an empty slot
- * @param {string} dateStr - YYYY-MM-DD
- * @param {string} settingName - Virtual setting name
- * @param {string} startHour - Start hour HH:MM
- * @param {string} endHour - End hour HH:MM
- * @param {number} seats - Number of seats
- */
-window.openEmptySlotDetails = function (dateStr, settingName, startHour, endHour, seats) {
-    const sidebar = document.getElementById('slot-sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const content = document.getElementById('sidebar-content');
-
-    // Populate content with a "New Reservation" style
-    content.innerHTML = `
-        <div style="background-color: #f0fdf4; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #bbf7d0;">
-            <h4 style="font-weight: bold; color: #166534; font-size: 1.125rem; margin-bottom: 0.25rem; margin-top: 0;">Nuevo Turno: ${settingName}</h4>
-            <div style="font-size: 0.875rem; color: #16a34a; margin-bottom: 0.5rem;">
-                <i class="fa-regular fa-calendar" style="margin-right: 0.5rem;"></i>${new Date(dateStr).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </div>
-            <div style="font-size: 0.875rem; color: #16a34a; margin-bottom: 0.5rem;">
-                <i class="fa-regular fa-clock" style="margin-right: 0.5rem;"></i>${startHour} - ${endHour}
-            </div>
-            <div style="font-size: 0.75rem; color: #15803d; background-color: #dcfce7; border-radius: 0.25rem; padding: 0.25rem 0.5rem; display: inline-block;">
-                <i class="fa-solid fa-users" style="margin-right: 0.25rem;"></i>${seats || 0} plazas disponibles
-            </div>
-        </div>
-        
-        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <button style="width: 100%; padding: 0.75rem; background-color: #2563eb; color: white; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; cursor: pointer;"
-                    onmouseenter="this.style.backgroundColor='#1d4ed8';"
-                    onmouseleave="this.style.backgroundColor='#2563eb';">
-                <i class="fa-solid fa-plus"></i>
-                Crear Reserva
-            </button>
-            <button style="width: 100%; padding: 0.75rem; background-color: white; border: 1px solid #cbd5e1; color: #334155; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;"
-                    onmouseenter="this.style.backgroundColor='#f1f5f9';"
-                    onmouseleave="this.style.backgroundColor='white';">
-                <i class="fa-solid fa-lock"></i>
-                Bloquear Slot
-            </button>
-        </div>
-    `;
-
-    // Show sidebar
-    if (sidebar && overlay) {
-        sidebar.style.transform = 'translateX(0)';
-        overlay.style.display = 'block';
-        document.body.style.overflow = 'hidden';
-
-        // Add Escape key listener
-        window.sidebarEscapeHandler = function(e) {
-            if (e.key === 'Escape') {
-                window.closeSidebar();
-            }
-        };
-        document.addEventListener('keydown', window.sidebarEscapeHandler);
-    }
-};
-
-/**
- * Render details for a specific slot
- * @param {Object} slot - Slot object
- * @returns {string} HTML string
- */
-function renderSlotDetails(slot) {
-    const startTime = new Date(slot.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const endTime = new Date(slot.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const date = new Date(slot.start).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-
-    let html = `
-        <div style="background-color: #eff6ff; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #bfdbfe;">
-            <h4 style="font-weight: bold; color: #1e40af; font-size: 1.125rem; margin-bottom: 0.25rem; margin-top: 0;">${slot.title || 'Slot'}</h4>
-            <div style="font-size: 0.875rem; color: #2563eb; margin-bottom: 0.5rem;">
-                <i class="fa-regular fa-calendar" style="margin-right: 0.5rem;"></i>${date}
-            </div>
-            <div style="font-size: 0.875rem; color: #2563eb; margin-bottom: 0.5rem;">
-                <i class="fa-regular fa-clock" style="margin-right: 0.5rem;"></i>${startTime} - ${endTime}
-            </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.75rem; background-color: white; padding: 0.5rem; border-radius: 0.25rem; border: 1px solid #bfdbfe;">
-                <span style="font-size: 0.75rem; font-weight: 500; color: #64748b; text-transform: uppercase;">Disponibilidad</span>
-                <span style="font-weight: bold; color: #1d4ed8;">${slot.seats?.remaining || 0} / ${slot.seats?.total || 0}</span>
-            </div>
-        </div>
-        
-        <h4 style="font-weight: bold; color: #334155; margin-bottom: 0.75rem; display: flex; align-items: center; margin-top: 0;">
-            <i class="fa-solid fa-users" style="margin-right: 0.5rem; color: #94a3b8;"></i>
-            Reservas (${slot.appointments?.length || 0})
-        </h4>
-        
-        <!-- Search Box -->
-        <div style="margin-bottom: 0.75rem;">
-            <div style="position: relative;">
-                <div style="position: absolute; top: 0; bottom: 0; left: 0; padding-left: 0.75rem; display: flex; align-items: center; pointer-events: none;">
-                    <i class="fa-solid fa-magnifying-glass" style="color: #94a3b8; font-size: 0.875rem;"></i>
-                </div>
-                <input type="text" 
-                       id="reservation-search-${slot._id}" 
-                       onkeyup="filterReservations('${slot._id}')"
-                       placeholder="Buscar reservas..." 
-                       style="display: block; width: 100%; padding-left: 2.5rem; padding-right: 0.75rem; padding-top: 0.5rem; padding-bottom: 0.5rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; background-color: white; transition: all 0.2s;"
-                       onfocus="this.style.outline='none'; this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 1px #3b82f6';"
-                       onblur="this.style.borderColor='#cbd5e1'; this.style.boxShadow='none';">
-            </div>
-        </div>
-        
-        <!-- Reservas con scroll -->
-        <div id="reservations-container-${slot._id}" style="background-color: white; border-radius: 0.5rem; border: 1px solid #e2e8f0; padding: 0.75rem; margin-bottom: 1rem; max-height: 500px; overflow-y: auto;">
-    `;
-
-    if (!slot.appointments || slot.appointments.length === 0) {
-        html += `
-            <div style="text-align: center; padding: 2rem 0; color: #94a3b8;">
-                <i class="fa-regular fa-calendar-xmark" style="font-size: 1.875rem; margin-bottom: 0.5rem;"></i>
-                <p style="margin: 0;">No hay reservas en este slot</p>
-            </div>
-        `;
-    } else {
-        html += '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
-        slot.appointments.forEach((app, index) => {
-            const statusColor = app.confirmed ? 'green' : 'orange';
-            const statusText = app.confirmed ? 'Confirmada' : 'Pendiente';
-            const reservationNumber = index + 1;
-            const reservationDate = new Date(app.start || slot.start);
-            const formattedDate = reservationDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            const formattedTime = reservationDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-            
-            // Extract extra fields and ensure values are strings
-            const extraFields = app.extra || {};
-            const origin = typeof app.origin === 'string' ? app.origin : (app.origin?.name || app.origin?.title || 'web');
-
-            const reservationId = `reservation-${app._id || index}`;
-            const searchableText = `${app.user?.firstName || ''} ${app.user?.lastName || ''} ${app.user?.email || ''} ${app.user?.telephone || ''} ${origin}`.toLowerCase();
-            html += `
-                <div class="reservation-card" style="background-color: white; border-radius: 0.5rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); overflow: hidden;" data-search-text="${searchableText.replace(/"/g, '&quot;')}">
-                    <!-- Top Section: Badges and Info -->
-                    <div onclick="toggleReservation('${reservationId}')" style="background-color: rgba(239, 246, 255, 0.3); padding: 0.5rem 0.75rem; border-bottom: 1px solid #e2e8f0; cursor: pointer; transition: background-color 0.2s;"
-                         onmouseenter="this.style.backgroundColor='rgba(239, 246, 255, 0.5)';"
-                         onmouseleave="this.style.backgroundColor='rgba(239, 246, 255, 0.3)';">
-                        <!-- First row: Badges -->
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <div style="width: 32px; height: 32px; border-radius: 50%; background-color: #dbeafe; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.875rem;">
-                                    ${reservationNumber}
-                                </div>
-                                <span style="padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; ${app.confirmed ? 'background-color: #dcfce7; color: #15803d;' : 'background-color: #fed7aa; color: #c2410c;'}">
-                                    ${statusText}
-                                </span>
-                                <span style="padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; background-color: #dbeafe; color: #1d4ed8; display: flex; align-items: center; gap: 0.25rem;">
-                                    <i class="fa-solid fa-users" style="font-size: 0.75rem;"></i>
-                                    ${app.seats || 1}
-                                </span>
-                            </div>
-                            <i id="chevron-${reservationId}" class="fa-solid fa-chevron-down" style="color: #94a3b8; font-size: 0.75rem; transition: transform 0.2s;"></i>
-                        </div>
-                        <!-- Second row: Name and origin (always visible) -->
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <i class="fa-solid fa-user" style="color: #94a3b8; font-size: 0.75rem;"></i>
-                                <h5 style="font-weight: 600; color: #1e293b; font-size: 0.875rem; margin: 0;">
-                                    ${app.user?.firstName || 'Usuario'} ${app.user?.lastName || ''}
-                                </h5>
-                            </div>
-                            <span style="padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500; background-color: #f1f5f9; color: #334155;">
-                                ${origin}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <!-- Bottom Section: Details (Collapsed by default) -->
-                    <div id="${reservationId}" style="display: none; padding: 0.75rem;">
-                        
-                        <!-- Info List -->
-                        <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; font-size: 0.75rem;">
-                            <div>
-                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Fecha de la reserva</div>
-                                <div style="color: #334155;">${formattedDate} ${formattedTime}</div>
-                            </div>
-                            <div>
-                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Nombre</div>
-                                <div style="color: #334155;">${app.user?.firstName || '-'}</div>
-                            </div>
-                            <div>
-                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Apellidos</div>
-                                <div style="color: #334155;">${app.user?.lastName || '-'}</div>
-                            </div>
-                            <div>
-                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Correo Electrónico</div>
-                                <div style="color: #334155;">${app.user?.email || 'No email'}</div>
-                            </div>
-                            <div>
-                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">Teléfono</div>
-                                <div style="color: #334155;">${app.user?.telephone || 'No teléfono'}</div>
-                            </div>
-                            ${Object.entries(extraFields).map(([key, value]) => {
-                                // Convert value to string, handling objects
-                                const displayValue = typeof value === 'object' && value !== null 
-                                    ? (value.name || value.title || JSON.stringify(value))
-                                    : String(value || '-');
-                                return `
-                            <div>
-                                <div style="font-weight: 500; color: #64748b; margin-bottom: 0.125rem;">${key.charAt(0).toUpperCase() + key.slice(1)}</div>
-                                <div style="color: #334155;">${displayValue}</div>
-                            </div>
-                            `;
-                            }).join('')}
-                        </div>
-                    </div>
-                    
-                    <!-- Action Buttons (Always visible) -->
-                    <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem; border-top: 1px solid #e2e8f0; background-color: rgba(248, 250, 252, 0.5);">
-                        <button onclick="handleReservationInfo('${app._id}')" 
-                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
-                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
-                                title="Información">
-                            <i class="fa-solid fa-info-circle" style="font-size: 0.75rem;"></i>
-                        </button>
-                        <button onclick="handleEditReservation('${app._id}')" 
-                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
-                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
-                                title="Editar reserva">
-                            <i class="fa-solid fa-edit" style="font-size: 0.75rem;"></i>
-                        </button>
-                        <button onclick="handlePrintReservation('${app._id}')" 
-                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
-                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
-                                title="Imprimir la reserva">
-                            <i class="fa-solid fa-print" style="font-size: 0.75rem;"></i>
-                        </button>
-                        <button onclick="handleReservationNotes('${app._id}')" 
-                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.color='#ca8a04'; this.style.backgroundColor='#fef9c3';"
-                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
-                                title="Notas">
-                            <i class="fa-solid fa-sticky-note" style="font-size: 0.75rem;"></i>
-                        </button>
-                        <button onclick="handleSendMessage('${app._id}')" 
-                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.color='#2563eb'; this.style.backgroundColor='#eff6ff';"
-                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
-                                title="Enviar un mensaje">
-                            <i class="fa-solid fa-comments" style="font-size: 0.75rem;"></i>
-                        </button>
-                        <button onclick="handleCancelReservation('${app._id}')" 
-                                style="padding: 0.375rem; color: #475569; border: none; background: transparent; border-radius: 0.25rem; transition: all 0.2s; cursor: pointer; margin-left: auto;"
-                                onmouseenter="this.style.color='#dc2626'; this.style.backgroundColor='#fee2e2';"
-                                onmouseleave="this.style.color='#475569'; this.style.backgroundColor='transparent';"
-                                title="Cancelar">
-                            <i class="fa-solid fa-trash" style="font-size: 0.75rem;"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-    
-    html += `
-        </div>
-        
-        <!-- Action Buttons -->
-        <div style="display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #e2e8f0;">
-            <button onclick="handleReserveSlot('${slot._id}')" 
-                    style="width: 100%; padding: 0.625rem; background-color: #2563eb; color: white; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; cursor: pointer;"
-                    onmouseenter="this.style.backgroundColor='#1d4ed8';"
-                    onmouseleave="this.style.backgroundColor='#2563eb';">
-                <i class="fa-solid fa-plus"></i>
-                Reservar
-            </button>
-            <button onclick="handleMoreInfo('${slot._id}')" 
-                    style="width: 100%; padding: 0.625rem; background-color: white; border: 1px solid #cbd5e1; color: #334155; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;"
-                    onmouseenter="this.style.backgroundColor='#f1f5f9';"
-                    onmouseleave="this.style.backgroundColor='white';">
-                <i class="fa-solid fa-info-circle"></i>
-                Más info
-            </button>
-            <button onclick="handleDeleteSlot('${slot._id}')" 
-                    style="width: 100%; padding: 0.625rem; background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;"
-                    onmouseenter="this.style.backgroundColor='#fee2e2';"
-                    onmouseleave="this.style.backgroundColor='#fef2f2';">
-                <i class="fa-solid fa-trash"></i>
-                Eliminar
-            </button>
-        </div>
-    `;
-
-    return html;
-}
+// Sidebar functions moved to shared component (components/SlotSidebar.js)
+// Functions are exposed globally via SlotSidebar.js for backward compatibility
 
 
 /**
@@ -705,8 +341,8 @@ function renderToolbar() {
  */
 function renderWeeklyCalendar(resource, appointmentsData) {
     const currentWeek = getCurrentWeek();
-    const isToday = calendarState.viewMode === 'day' && 
-                    calendarState.currentDate.toDateString() === new Date().toDateString();
+    const isTodayDate = calendarState.viewMode === 'day' && 
+                    isToday(calendarState.currentDate);
 
     return `
         <div style="background-color: white; border-radius: 0.75rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; overflow: hidden;">
@@ -757,9 +393,9 @@ function renderWeeklyCalendar(resource, appointmentsData) {
                         
                         <!-- Today Button -->
                         <button onclick="window.calendar.goToToday()" 
-                                style="padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.2s; font-weight: 500; font-size: 0.875rem; cursor: pointer; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); ${isToday ? 'background-color: #2563eb; color: white;' : 'background-color: white; color: #334155;'}"
-                                onmouseenter="${!isToday ? "this.style.backgroundColor='#f1f5f9';" : ''}"
-                                onmouseleave="${!isToday ? "this.style.backgroundColor='white';" : ''}">
+                                style="padding: 0.5rem 1rem; border-radius: 0.5rem; transition: all 0.2s; font-weight: 500; font-size: 0.875rem; cursor: pointer; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); ${isTodayDate ? 'background-color: #2563eb; color: white;' : 'background-color: white; color: #334155;'}"
+                                onmouseenter="${!isTodayDate ? "this.style.backgroundColor='#f1f5f9';" : ''}"
+                                onmouseleave="${!isTodayDate ? "this.style.backgroundColor='white';" : ''}">
                             <i class="fa-solid fa-calendar-check" style="margin-right: 0.375rem;"></i>Hoy
                         </button>
                     </div>
@@ -771,7 +407,7 @@ function renderWeeklyCalendar(resource, appointmentsData) {
                         </div>
                         <div>
                             <h2 style="font-size: 1.25rem; font-weight: bold; color: #0f172a; line-height: 1.25; margin: 0;">
-                                ${formatWeekRange(currentWeek)}
+                                ${formatWeekRange(currentWeek, calendarState.viewMode)}
                             </h2>
                             <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.125rem; margin-bottom: 0;">
                                 ${calendarState.viewMode === 'day' ? 'Vista diaria' : calendarState.viewMode === 'week' ? 'Vista semanal' : 'Vista mensual'}
@@ -1294,73 +930,7 @@ function getSlotColor(slot) {
  * @param {Date} date - Date object
  * @returns {string} Formatted date
  */
-function formatDateKey(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-/**
- * Format day header (e.g., "lun. 24/11")
- * @param {Date} date - Date object
- * @returns {string} Formatted string
- */
-function formatDayHeader(date) {
-    const days = ['dom.', 'lun.', 'mar.', 'mié.', 'jue.', 'vie.', 'sáb.'];
-    const day = days[date.getDay()];
-    const dateStr = `${date.getDate()}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-    return `${day} ${dateStr}`;
-}
-
-/**
- * Format date range based on view mode
- * @param {Array<Date>} days - Array of days
- * @returns {string} Formatted string
- */
-function formatWeekRange(days) {
-    const months = ['ene.', 'feb.', 'mar.', 'abr.', 'may.', 'jun.', 'jul.', 'ago.', 'sep.', 'oct.', 'nov.', 'dic.'];
-    
-    if (calendarState.viewMode === 'day') {
-        // Single day view
-        const day = days[0];
-        const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-        return `${dayNames[day.getDay()]}, ${day.getDate()} de ${months[day.getMonth()]} de ${day.getFullYear()}`;
-    } else if (calendarState.viewMode === 'month') {
-        // Month view
-        const firstDay = days[0];
-        const lastDay = days[days.length - 1];
-        if (firstDay.getMonth() === lastDay.getMonth()) {
-            return `${months[firstDay.getMonth()]} de ${firstDay.getFullYear()}`;
-        } else {
-            return `${months[firstDay.getMonth()]} – ${months[lastDay.getMonth()]} de ${firstDay.getFullYear()}`;
-        }
-    } else {
-        // Week view
-        const start = days[0];
-        const end = days[days.length - 1];
-        if (start.getMonth() === end.getMonth()) {
-            return `${start.getDate()} – ${end.getDate()} de ${months[end.getMonth()]} de ${end.getFullYear()}`;
-        } else {
-            return `${start.getDate()} de ${months[start.getMonth()]} – ${end.getDate()} de ${months[end.getMonth()]} de ${end.getFullYear()}`;
-        }
-    }
-}
-
-/**
- * Check if date is today
- * @param {Date} date - Date to check
- * @returns {boolean} True if today
- */
-/**
- * Check if date is today
- * @param {Date} date - Date to check
- * @returns {boolean} True if today
- */
-function isToday(date) {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-}
+// Date utility functions moved to utils/dateUtils.js
 
 /**
  * Check if two time ranges overlap

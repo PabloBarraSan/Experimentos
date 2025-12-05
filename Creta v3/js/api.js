@@ -18,12 +18,6 @@ export async function fetchResources() {
 
         if (!response.ok) throw new Error('Error fetching resources');
         const data = await response.json();
-        // Debug: mostrar estructura de los datos recibidos
-        console.log("Datos recibidos de la API /resources:", data);
-        if (data.length > 0) {
-            console.log("Ejemplo de primer recurso completo:", data[0]);
-            console.log("Campos del primer recurso:", Object.keys(data[0]));
-        }
         return data;
     } catch (error) {
         console.error("Failed to fetch resources:", error);

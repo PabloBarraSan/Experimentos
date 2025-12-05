@@ -5,7 +5,7 @@ import { App } from './components/App.js';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { DashboardView } from './views/DashboardView.js';
 import { AdminView } from './views/AdminView.js';
-import { renderCalendarView } from './calendar-view.js';
+import { renderCalendarView } from './views/CalendarView.js';
 
 // Make app globally accessible
 window.app = {
