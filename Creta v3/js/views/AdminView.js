@@ -561,7 +561,12 @@ function renderContent(resource, stats, appointmentsData) {
                 m(Button, {
                     type: 'positive',
                     fluid: true,
-                    onclick: () => {},
+                    onclick: () => {
+                        const resource = window.app.currentResource;
+                        if (resource && resource._id) {
+                            m.route.set(`/resource/${resource._id}/settings`);
+                        }
+                    },
                     style: {
                         justifyContent: 'flex-start',
                         padding: '1rem 1.25rem',

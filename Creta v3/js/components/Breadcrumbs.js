@@ -25,7 +25,7 @@ export const Breadcrumbs = {
             // If we're on a resource route
         if (pathParts[0] === 'resource' && pathParts[1]) {
             const resourceId = pathParts[1];
-            const subView = pathParts[2]; // 'admin', 'calendar', etc.
+            const subView = pathParts[2]; // 'admin', 'calendar', 'settings', etc.
             
             if (resource) {
                 // Determine href based on current view
@@ -35,6 +35,9 @@ export const Breadcrumbs = {
                     resourceHref = null;
                 } else if (subView === 'calendar') {
                     // In calendar view, clicking resource goes to admin
+                    resourceHref = `/resource/${resourceId}/admin`;
+                } else if (subView === 'settings') {
+                    // In settings view, clicking resource goes to admin
                     resourceHref = `/resource/${resourceId}/admin`;
                 } else {
                     // Default: go to admin view
@@ -52,6 +55,8 @@ export const Breadcrumbs = {
                     resourceHref = null;
                 } else if (subView === 'calendar') {
                     resourceHref = `/resource/${resourceId}/admin`;
+                } else if (subView === 'settings') {
+                    resourceHref = `/resource/${resourceId}/admin`;
                 } else {
                     resourceHref = `/resource/${resourceId}/admin`;
                 }
@@ -66,6 +71,11 @@ export const Breadcrumbs = {
             if (subView === 'calendar') {
                 breadcrumbs.push({
                     label: 'Calendario',
+                    href: null // Current page
+                });
+            } else if (subView === 'settings') {
+                breadcrumbs.push({
+                    label: 'Ajustes',
                     href: null // Current page
                 });
             }

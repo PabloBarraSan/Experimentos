@@ -5,6 +5,7 @@ import { App } from './components/App.js';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
 import { DashboardView } from './views/DashboardView.js';
 import { AdminView } from './views/AdminView.js';
+import { ResourceSettingsView } from './views/ResourceSettingsView.js';
 import { renderCalendarView } from './views/CalendarView.js';
 
 // Make app globally accessible
@@ -141,6 +142,24 @@ window.app = {
                             resource: window.app.currentResource
                         }),
                         m(CalendarViewWrapper, { resource: window.app.currentResource })
+                    ]);
+                }
+            },
+            '/resource/:id/settings': {
+                onmatch: async (args, requestedPath) => {
+                    const resource = window.app.data.find(r => r._id === args.id);
+                    if (!resource) {
+                        return m.route.set('/');
+                    }
+                    window.app.currentResource = resource;
+                },
+                render: () => {
+                    return m(App, [
+                        m(Breadcrumbs, {
+                            currentPath: m.route.get(),
+                            resource: window.app.currentResource
+                        }),
+                        m(ResourceSettingsView, { resource: window.app.currentResource })
                     ]);
                 }
             },

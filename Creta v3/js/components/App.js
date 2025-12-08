@@ -108,10 +108,14 @@ const Header = {
                     flexWrap: 'wrap'
                 }, [
                     m(Text, {
-                        style: { color: 'white', fontSize: '0.875rem', padding: '0.5rem 0.75rem' }
+                        color: 'white',
+                        fontSize: '0.875rem',
+                        padding: '0.5rem 0.75rem'
                     }, 'admin.pinto'),
                     m(Text, {
-                        style: { color: 'white', fontSize: '0.875rem', padding: '0.5rem 0.75rem' }
+                        color: 'white',
+                        fontSize: '0.875rem',
+                        padding: '0.5rem 0.75rem'
                     }, 'pinto'),
                     m(Tappable, {
                         style: {
@@ -216,7 +220,7 @@ const Footer = {
                         flexWrap: 'wrap'
                     }
                 }, [
-                    m(Text, { style: { color: '#d1d5db' } }, 'Gràcies per confiar en'),
+                    m(Text, { color: '#d1d5db' }, 'Gràcies per confiar en'),
                     m('a', {
                         href: 'http://digitalvalue.es/zity.html',
                         target: '_blank',
@@ -234,7 +238,7 @@ const Footer = {
                             textDecoration: 'none'
                         }
                     }, 'info@ayuntamientoentumovil.es'),
-                    m(SmallText, { style: { color: '#9ca3af' } }, 'v3.0')
+                    m(SmallText, { color: '#9ca3af' }, 'v3.0')
                 ])
             ])
         ])

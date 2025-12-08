@@ -136,3 +136,33 @@ export function getDateRange() {
         end: 1769900400000     // 2026-02-01 00:00:00
     };
 }
+
+/**
+ * Update a resource
+ * @param {string} resourceId - Resource ID
+ * @param {Object} data - Resource data to update
+ * @returns {Promise<Object>} Updated resource
+ */
+export async function updateResource(resourceId, data) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/resources/${resourceId}`, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Error updating resource');
+        }
+        
+        const updatedResource = await response.json();
+        return updatedResource;
+    } catch (error) {
+        console.error("Failed to update resource:", error);
+        throw error;
+    }
+}
