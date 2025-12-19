@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Agullent App</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
     <!-- Fuentes Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,197 +13,798 @@
     <!-- Iconos Phosphor -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        agullent: {
-                            DEFAULT: '#374151', // Gris oscuro elegante
-                            light: '#f3f4f6', 
-                        }
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        poppins: ['Poppins', 'sans-serif'],
-                    },
-                    boxShadow: {
-                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-                        'card': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-                    },
-                    animation: {
-                        'slide-in': 'slideIn 0.3s ease-out forwards',
-                        'fade-in': 'fadeIn 0.2s ease-out forwards',
-                    },
-                    keyframes: {
-                        slideIn: {
-                            '0%': { transform: 'translateY(20px)', opacity: '0' },
-                            '100%': { transform: 'translateY(0)', opacity: '1' },
-                        },
-                        fadeIn: {
-                            '0%': { opacity: '0' },
-                            '100%': { opacity: '1' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-
     <style>
+        :root {
+            --agullent: #374151;
+            --agullent-light: #f3f4f6;
+            --neutral-50: #f9fafb;
+            --neutral-100: #f3f4f6;
+            --neutral-200: #e5e7eb;
+            --neutral-300: #d1d5db;
+            --neutral-400: #9ca3af;
+            --neutral-500: #6b7280;
+            --neutral-600: #4b5563;
+            --neutral-700: #374151;
+            --neutral-800: #1f2937;
+            --neutral-900: #111827;
+            --mint-50: #ecfdf3;
+            --mint-100: #d1fae5;
+            --mint-200: #a7f3d0;
+            --mint-500: #10b981;
+            --mint-600: #059669;
+            --sky-50: #eff6ff;
+            --sky-500: #3b82f6;
+            --sky-600: #2563eb;
+            --sunset-50: #fff7ed;
+            --sunset-600: #ea580c;
+            --violet-50: #f5f3ff;
+            --violet-600: #7c3aed;
+            --leaf-50: #ecfdf3;
+            --leaf-600: #16a34a;
+            --error-500: #ef4444;
+            --white: #ffffff;
+            --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-xxl: 24px;
+            --radius-full: 9999px;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
+            margin: 0;
+            padding: 0;
             -webkit-tap-highlight-color: transparent;
             -webkit-touch-callout: none;
-            background-color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            color: var(--neutral-800);
+            background-color: var(--neutral-50);
         }
+
+        .app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .safe-top { padding-top: env(safe-area-inset-top); }
         .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
-        
-        /* Efecto solo al tocar, sin hover */
-        .tap-effect:active { transform: scale(0.97); opacity: 0.8; transition: all 0.1s; }
-        
-        /* Utilidad para ocultar vistas */
         .hidden-view { display: none !important; }
+        .tap-effect { transition: all 0.15s ease; }
+        .tap-effect:active { transform: scale(0.97); opacity: 0.8; }
+
+        /* Layout genérico */
+        .view {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            min-height: 100vh;
+        }
+        .content {
+            flex: 1;
+            padding: 4rem 1rem 2.5rem;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            overflow-y: auto;
+        }
+
+        /* Topbar */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--neutral-100);
+        }
+        .topbar__inner {
+            height: 56px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .topbar__section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .topbar__title {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--neutral-900);
+            letter-spacing: -0.01em;
+            pointer-events: none;
+        }
+        .avatar-button {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            padding: 4px;
+            border: none;
+            background: transparent;
+            border-radius: var(--radius-full);
+        }
+        .avatar-button img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--neutral-100);
+            box-shadow: var(--shadow-sm);
+        }
+        .avatar-badge {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            background: white;
+            border-radius: var(--radius-full);
+            padding: 1px;
+        }
+        .icon-button {
+            position: relative;
+            border: none;
+            background: transparent;
+            padding: 8px;
+            color: var(--neutral-700);
+            border-radius: var(--radius-full);
+        }
+        .icon-button__badge {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            background: var(--error-500);
+            color: white;
+            font-weight: 800;
+            font-size: 9px;
+            height: 14px;
+            width: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--radius-full);
+            border: 2px solid white;
+        }
+
+        /* Grid principal */
+        .tile-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+        .tile {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            height: 112px;
+            background: white;
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--neutral-100);
+            box-shadow: var(--shadow-card);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+        .tile__icon {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+            font-size: 22px;
+        }
+        .tile__label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--neutral-600);
+            text-align: center;
+            line-height: 1.3;
+        }
+        .tile--accent {
+            background: var(--agullent);
+            color: white;
+            border-color: transparent;
+            box-shadow: var(--shadow-lg);
+        }
+        .tile--accent .tile__icon {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            backdrop-filter: blur(6px);
+        }
+        .tile--accent .tile__label { color: white; font-weight: 700; }
+
+        /* Tarjetas y listas */
+        .card {
+            background: white;
+            border: 1px solid var(--neutral-100);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+        }
+        .card__header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: rgba(249,250,251,0.5);
+            border-bottom: 1px solid var(--neutral-50);
+        }
+        .card__title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--neutral-800);
+            letter-spacing: 0.03em;
+        }
+        .list {
+            display: flex;
+            flex-direction: column;
+        }
+        .list__item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            border-top: 1px solid var(--neutral-50);
+        }
+        .list__item:first-child { border-top: none; }
+        .list__icon {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
+            background: var(--neutral-100);
+            color: var(--neutral-600);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+        .list__text {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--neutral-700);
+            text-align: left;
+        }
+        .chevron {
+            color: var(--neutral-300);
+        }
+
+        /* Servicios (reservas) */
+        .service-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .service-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px;
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--neutral-100);
+            background: white;
+            box-shadow: var(--shadow-card);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .service-card:hover { box-shadow: var(--shadow-md); }
+        .service-card__media {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            flex-shrink: 0;
+            border: 1px solid var(--neutral-100);
+            background: var(--neutral-100);
+        }
+        .service-card__media img { width: 100%; height: 100%; object-fit: cover; }
+        .service-card__title {
+            flex: 1;
+            text-align: left;
+            font-weight: 700;
+            color: var(--neutral-800);
+            font-size: 14px;
+            line-height: 1.3;
+        }
+        .service-card__chevron {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-full);
+            background: var(--neutral-50);
+            color: var(--neutral-400);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Botones */
+        .btn {
+            border: none;
+            cursor: pointer;
+            border-radius: 12px;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn--primary {
+            background: var(--mint-600);
+            color: white;
+            padding: 12px 16px;
+            box-shadow: 0 10px 20px -8px rgba(16,185,129,0.35);
+        }
+        .btn--outline {
+            background: white;
+            border: 1px solid var(--neutral-200);
+            color: var(--neutral-700);
+            padding: 10px 14px;
+        }
+        .btn--ghost {
+            background: transparent;
+            color: var(--neutral-700);
+            padding: 8px 10px;
+        }
+        .btn--pill {
+            border-radius: 999px;
+        }
+        .btn--small { padding: 6px 10px; font-size: 12px; font-weight: 600; }
+
+        /* Secciones */
+        .section {
+            margin-bottom: 16px;
+        }
+        .section--spaced { margin-bottom: 24px; }
+        .section__title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--neutral-900);
+            margin: 0 0 4px;
+        }
+        .section__subtitle {
+            font-size: 14px;
+            color: var(--neutral-500);
+            margin: 0;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 16px;
+            padding: 0 16px;
+            border-bottom: 1px solid var(--neutral-100);
+        }
+        .tab {
+            position: relative;
+            padding: 12px 0;
+            border: none;
+            background: transparent;
+            color: var(--neutral-400);
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 2px solid transparent;
+        }
+        .tab--active {
+            color: var(--agullent);
+            border-color: var(--agullent);
+        }
+
+        /* Hero y tarjetas deportes */
+        .hero-card {
+            background: white;
+            border: 1px solid var(--neutral-100);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .sports-grid {
+            display: grid;
+            gap: 16px;
+            padding-bottom: 16px;
+        }
+        .sports-card {
+            background: white;
+            border: 1px solid var(--neutral-100);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+        }
+        .sports-card__media {
+            position: relative;
+            height: 144px;
+        }
+        .sports-card__media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .sports-card__gradient {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.5), transparent);
+        }
+        .sports-card__body {
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sports-card__title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            color: var(--neutral-800);
+            font-size: 18px;
+            margin: 0;
+        }
+
+        /* Booking hero */
+        .booking-hero {
+            position: relative;
+            height: 224px;
+            width: 100%;
+        }
+        .booking-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .booking-hero__gradient {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+        }
+        .booking-hero__text {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            color: white;
+        }
+        .booking-hero__title {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 24px;
+            margin: 0 0 4px;
+        }
+        .booking-hero__subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+            margin: 0;
+        }
+
+        /* Tarjeta de info instalación */
+        .facility-card {
+            background: white;
+            border: 1px solid var(--neutral-100);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .facility-card__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .badge {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid var(--mint-100);
+            background: var(--mint-50);
+            color: #047857;
+        }
+        .facility-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--neutral-600);
+            font-size: 14px;
+        }
+
+        /* Calendario */
+        .panel {
+            background: white;
+            border: 1px solid var(--neutral-100);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            padding: 16px;
+        }
+        .panel__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .panel__title {
+            font-weight: 700;
+            color: var(--neutral-800);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .calendar-nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            justify-content: center;
+            margin: 12px 0 16px;
+        }
+        .calendar-month {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            color: var(--neutral-800);
+        }
+        .calendar-weekdays,
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 8px 0;
+            text-align: center;
+        }
+        .calendar-weekdays span {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--neutral-400);
+        }
+        .calendar-day {
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: var(--neutral-600);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        .calendar-day--muted { color: var(--neutral-300); cursor: default; }
+        .calendar-day--selected {
+            background: var(--agullent);
+            color: white;
+            font-weight: 700;
+            box-shadow: var(--shadow-md);
+        }
+        .calendar-day--available {
+            background: var(--mint-50);
+            color: var(--mint-600);
+            font-weight: 600;
+            box-shadow: inset 0 0 0 1px var(--mint-100);
+        }
+
+        /* Horas */
+        .hour-filters {
+            display: flex;
+            background: var(--neutral-100);
+            padding: 4px;
+            border-radius: 12px;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+        .hour-filters button {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 6px 0;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--neutral-500);
+        }
+        .hour-filters .is-active {
+            background: white;
+            box-shadow: var(--shadow-sm);
+            color: var(--neutral-800);
+        }
+        .hour-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .hour {
+            padding: 10px 0;
+            border: 1px solid var(--neutral-200);
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--neutral-600);
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .hour--selected {
+            background: var(--agullent);
+            color: white;
+            border-color: var(--agullent);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Resumen */
+        .summary {
+            animation: fadeIn 0.2s ease-out forwards;
+        }
+        .summary__header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            margin-left: 4px;
+            font-weight: 700;
+            color: var(--neutral-800);
+        }
+        .summary-card {
+            background: white;
+            border: 1px solid var(--neutral-100);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            overflow: hidden;
+        }
+        .summary-card__head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--neutral-50);
+            background: rgba(249,250,251,0.5);
+        }
+        .summary-card__body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .summary-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            color: var(--neutral-600);
+        }
+        .summary-card__footer {
+            padding: 16px;
+            padding-top: 0;
+        }
+
+        /* Animaciones */
+        .animate-slide-in { animation: slideIn 0.3s ease-out forwards; }
+        .animate-fade-in { animation: fadeIn 0.2s ease-out forwards; }
+        @keyframes slideIn {
+            0% { transform: translateY(20px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
-<body class="text-gray-800 min-h-screen flex flex-col font-sans bg-gray-50 overflow-hidden">
+<body class="app">
 
     <!-- ========================================== -->
     <!-- VISTA 1: HOME (Inicio) -->
     <!-- ========================================== -->
-    <div id="view-home" class="flex flex-col h-full w-full transition-opacity duration-300">
+    <div id="view-home" class="view">
         
         <!-- Header Home -->
-        <header class="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 safe-top">
-            <div class="h-14 px-4 flex items-center justify-between w-full max-w-md mx-auto md:max-w-full">
-                <div class="flex items-center -ml-2">
-                    <button class="relative w-10 h-10 rounded-full p-1 tap-effect">
-                        <img src="https://ui-avatars.com/api/?name=Agullent&background=374151&color=fff&font-size=0.4" alt="Perfil" class="w-full h-full object-cover rounded-full border border-gray-100 shadow-sm">
-                        <div class="absolute bottom-0 right-0 bg-white rounded-full p-[1px]">
-                            <i class="ph-fill ph-check-circle text-blue-500 text-xs"></i>
-                        </div>
+        <header class="topbar safe-top">
+            <div class="topbar__inner">
+                <div class="topbar__section">
+                    <button class="avatar-button tap-effect">
+                        <img src="https://ui-avatars.com/api/?name=Agullent&background=374151&color=fff&font-size=0.4" alt="Perfil">
+                        <span class="avatar-badge"><i class="ph-fill ph-check-circle" style="color: var(--sky-500); font-size: 14px;"></i></span>
                     </button>
                 </div>
-                <div class="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center pointer-events-none">
-                    <h1 class="font-poppins font-bold text-lg text-gray-900 tracking-tight">Agullent</h1>
-                </div>
-                <div class="flex items-center gap-1 -mr-2">
-                    <button class="relative p-2 text-gray-600 tap-effect">
-                        <i class="ph ph-bell text-2xl"></i>
-                        <span class="absolute top-1.5 right-2 bg-red-500 text-white text-[9px] font-bold h-3.5 w-3.5 flex items-center justify-center rounded-full border-2 border-white">2</span>
+                <div class="topbar__title">Agullent</div>
+                <div class="topbar__section">
+                    <button class="icon-button tap-effect">
+                        <i class="ph ph-bell" style="font-size: 22px;"></i>
+                        <span class="icon-button__badge">2</span>
                     </button>
-                    <button class="p-2 text-gray-800 tap-effect">
-                        <i class="ph ph-list text-2xl"></i>
+                    <button class="icon-button tap-effect">
+                        <i class="ph ph-list" style="font-size: 22px; color: var(--neutral-800);"></i>
                     </button>
                 </div>
             </div>
         </header>
 
         <!-- Contenido Home -->
-        <main class="flex-1 pt-16 pb-8 px-4 w-full max-w-md mx-auto md:max-w-full safe-bottom space-y-6 overflow-y-auto no-scrollbar">
+        <main class="content safe-bottom no-scrollbar" style="padding-top: 68px;">
             
             <!-- Grid Principal -->
-            <section class="animate-slide-in">
-                <div class="grid grid-cols-3 gap-3">
-                    <button class="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-card border border-gray-100 tap-effect h-28 active:bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-gray-50 text-gray-700 flex items-center justify-center mb-2">
-                            <i class="ph-duotone ph-newspaper text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-gray-600 text-center leading-tight">Notícies</span>
+            <section class="section animate-slide-in">
+                <div class="tile-grid">
+                    <button class="tile tap-effect">
+                        <span class="tile__icon" style="background: var(--neutral-100); color: var(--neutral-700);"><i class="ph-duotone ph-newspaper"></i></span>
+                        <span class="tile__label">Notícies</span>
                     </button>
-
-                    <button class="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-card border border-gray-100 tap-effect h-28 active:bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-gray-50 text-gray-700 flex items-center justify-center mb-2">
-                            <i class="ph-duotone ph-calendar-blank text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-gray-600 text-center leading-tight">Agenda</span>
+                    <button class="tile tap-effect">
+                        <span class="tile__icon" style="background: var(--neutral-100); color: var(--neutral-700);"><i class="ph-duotone ph-calendar-blank"></i></span>
+                        <span class="tile__label">Agenda</span>
                     </button>
-
-                    <button class="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-card border border-gray-100 tap-effect h-28 active:bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center mb-2">
-                            <i class="ph-duotone ph-megaphone text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-gray-600 text-center leading-tight">T'escolta</span>
+                    <button class="tile tap-effect">
+                        <span class="tile__icon" style="background: var(--sunset-50); color: var(--sunset-600);"><i class="ph-duotone ph-megaphone"></i></span>
+                        <span class="tile__label">T'escolta</span>
                     </button>
-
-                    <button class="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-card border border-gray-100 tap-effect h-28 active:bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center mb-2">
-                            <i class="ph-duotone ph-first-aid text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-gray-600 text-center leading-tight">Farmàcia</span>
+                    <button class="tile tap-effect">
+                        <span class="tile__icon" style="background: var(--leaf-50); color: var(--leaf-600);"><i class="ph-duotone ph-first-aid"></i></span>
+                        <span class="tile__label">Farmàcia</span>
                     </button>
-
-                    <button class="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-card border border-gray-100 tap-effect h-28 active:bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-gray-50 text-gray-700 flex items-center justify-center mb-2">
-                            <i class="ph-duotone ph-phone text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-gray-600 text-center leading-tight">Telèfons</span>
+                    <button class="tile tap-effect">
+                        <span class="tile__icon" style="background: var(--neutral-100); color: var(--neutral-700);"><i class="ph-duotone ph-phone"></i></span>
+                        <span class="tile__label">Telèfons</span>
                     </button>
-
-                    <button class="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-card border border-gray-100 tap-effect h-28 active:bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
-                            <i class="ph-duotone ph-map-pin text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-gray-600 text-center leading-tight">Llocs</span>
+                    <button class="tile tap-effect">
+                        <span class="tile__icon" style="background: var(--sky-50); color: var(--sky-600);"><i class="ph-duotone ph-map-pin"></i></span>
+                        <span class="tile__label">Llocs</span>
                     </button>
-
-                    <button class="flex flex-col items-center justify-center p-3 bg-white rounded-2xl shadow-card border border-gray-100 tap-effect h-28 active:bg-gray-50">
-                        <div class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center mb-2">
-                            <i class="ph-duotone ph-bank text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-semibold text-gray-600 text-center leading-tight">Ajuntament</span>
+                    <button class="tile tap-effect">
+                        <span class="tile__icon" style="background: var(--violet-50); color: var(--violet-600);"><i class="ph-duotone ph-bank"></i></span>
+                        <span class="tile__label">Ajuntament</span>
                     </button>
-
-                    <!-- BOTÓN QUE LLEVA A RESERVAS -->
-                    <button onclick="router.navigate('reservas')" class="flex flex-col items-center justify-center p-3 bg-agullent text-white rounded-2xl shadow-lg shadow-gray-400/30 tap-effect h-28 border border-transparent transform active:scale-95 transition-transform">
-                        <div class="w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center mb-2 backdrop-blur-sm">
-                            <i class="ph-duotone ph-cursor-click text-2xl"></i>
-                        </div>
-                        <span class="text-xs font-bold text-white text-center leading-tight">Reserves</span>
+                    <button onclick="router.navigate('reservas')" class="tile tile--accent tap-effect" style="transform-origin:center;">
+                        <span class="tile__icon"><i class="ph-duotone ph-cursor-click"></i></span>
+                        <span class="tile__label">Reserves</span>
                     </button>
-
                 </div>
             </section>
 
             <!-- Listas de Información -->
-            <section class="space-y-4 pb-4">
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-                    <div class="bg-gray-50/50 px-4 py-3 border-b border-gray-50 flex items-center">
-                        <i class="ph-fill ph-info text-gray-400 mr-2 text-sm"></i>
-                        <h3 class="font-poppins font-semibold text-gray-800 text-sm tracking-wide">Informació</h3>
+            <section class="section section--spaced">
+                <div class="card">
+                    <div class="card__header">
+                        <i class="ph-fill ph-info" style="color: var(--neutral-400); font-size: 14px;"></i>
+                        <h3 class="card__title">Informació</h3>
                     </div>
-                    <div>
-                        <button class="w-full flex items-center p-4 tap-effect active:bg-gray-50">
-                            <div class="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center mr-3">
-                                <i class="ph-fill ph-chart-pie-slice text-sm"></i>
-                            </div>
-                            <span class="text-sm font-medium text-gray-700 flex-1 text-left">Dades Bàsiques</span>
-                            <i class="ph-bold ph-caret-right text-gray-300"></i>
+                    <div class="list">
+                        <button class="list__item tap-effect">
+                            <span class="list__icon"><i class="ph-fill ph-chart-pie-slice" style="font-size: 14px;"></i></span>
+                            <span class="list__text">Dades Bàsiques</span>
+                            <i class="ph-bold ph-caret-right chevron"></i>
                         </button>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
-                    <div class="bg-gray-50/50 px-4 py-3 border-b border-gray-50 flex items-center">
-                        <i class="ph-fill ph-star text-gray-400 mr-2 text-sm"></i>
-                        <h3 class="font-poppins font-semibold text-gray-800 text-sm tracking-wide">Contingut d'interés</h3>
+                <div class="card">
+                    <div class="card__header">
+                        <i class="ph-fill ph-star" style="color: var(--neutral-400); font-size: 14px;"></i>
+                        <h3 class="card__title">Contingut d'interés</h3>
                     </div>
-                    <div class="divide-y divide-gray-50">
-                        <button class="w-full flex items-center p-4 tap-effect active:bg-gray-50">
-                            <div class="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center mr-3">
-                                <i class="ph-fill ph-books text-sm"></i>
-                            </div>
-                            <span class="text-sm font-medium text-gray-700 flex-1 text-left">Biblioteca</span>
-                            <i class="ph-bold ph-caret-right text-gray-300"></i>
+                    <div class="list">
+                        <button class="list__item tap-effect">
+                            <span class="list__icon"><i class="ph-fill ph-books" style="font-size: 14px;"></i></span>
+                            <span class="list__text">Biblioteca</span>
+                            <i class="ph-bold ph-caret-right chevron"></i>
                         </button>
-                        <button class="w-full flex items-center p-4 tap-effect active:bg-gray-50">
-                            <div class="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center mr-3">
-                                <i class="ph-fill ph-mask-happy text-sm"></i>
-                            </div>
-                            <span class="text-sm font-medium text-gray-700 flex-1 text-left">Casa de la Cultura</span>
-                            <i class="ph-bold ph-caret-right text-gray-300"></i>
+                        <button class="list__item tap-effect">
+                            <span class="list__icon"><i class="ph-fill ph-mask-happy" style="font-size: 14px;"></i></span>
+                            <span class="list__text">Casa de la Cultura</span>
+                            <i class="ph-bold ph-caret-right chevron"></i>
                         </button>
                     </div>
                 </div>
@@ -217,103 +815,71 @@
     <!-- ========================================== -->
     <!-- VISTA 2: RESERVAS (Principal) -->
     <!-- ========================================== -->
-    <div id="view-reservas" class="flex flex-col h-full w-full bg-gray-50 hidden-view fixed inset-0 z-[100] animate-slide-in">
+    <div id="view-reservas" class="view hidden-view">
         
-        <!-- Header Reservas -->
-        <header class="bg-white/95 backdrop-blur-md border-b border-gray-100 safe-top sticky top-0 z-20">
-            <div class="h-14 px-4 flex items-center justify-between">
-                <button onclick="router.navigate('home')" class="p-2 -ml-2 text-gray-600 rounded-full tap-effect flex items-center gap-1 active:bg-gray-50">
-                    <i class="ph-bold ph-caret-left text-xl"></i>
-                    <span class="text-sm font-medium">Tornar</span>
+        <header class="topbar safe-top">
+            <div class="topbar__inner">
+                <button onclick="router.navigate('home')" class="icon-button tap-effect" style="color: var(--neutral-600);">
+                    <i class="ph-bold ph-caret-left" style="font-size: 18px; margin-right: 6px;"></i>
+                    <span style="font-size: 14px; font-weight: 600;">Tornar</span>
                 </button>
-                <h1 class="font-poppins font-bold text-lg text-gray-900">Reserves</h1>
-                <div class="w-16"></div> 
+                <h1 class="topbar__title" style="position: static; transform:none;">Reserves</h1>
+                <div style="width:40px;"></div>
             </div>
-            
-            <!-- Tabs -->
-            <div class="flex px-4 gap-6 text-sm font-medium border-b border-gray-100">
-                <button onclick="tabs.switch('reservar')" id="tab-btn-reservar" class="pb-3 border-b-2 border-agullent text-agullent flex items-center gap-2 transition-colors tap-effect">
-                    <i class="ph-fill ph-calendar-plus text-lg"></i>
-                    Reservar
+            <div class="tabs">
+                <button onclick="tabs.switch('reservar')" id="tab-btn-reservar" class="tab tab--active tap-effect">
+                    <i class="ph-fill ph-calendar-plus" style="font-size: 18px;"></i> Reservar
                 </button>
-                <button onclick="tabs.switch('mis-reservas')" id="tab-btn-mis-reservas" class="pb-3 border-b-2 border-transparent text-gray-400 active:text-gray-600 flex items-center gap-2 transition-colors tap-effect">
-                    <i class="ph-fill ph-user text-lg"></i>
-                    Les meues reserves
+                <button onclick="tabs.switch('mis-reservas')" id="tab-btn-mis-reservas" class="tab tap-effect">
+                    <i class="ph-fill ph-user" style="font-size: 18px;"></i> Les meues reserves
                 </button>
             </div>
         </header>
 
-        <!-- Contenido Tabs -->
-        <main class="flex-1 overflow-y-auto safe-bottom p-4">
+        <main class="content safe-bottom no-scrollbar">
             
             <!-- Tab 1: Reservar -->
-            <div id="tab-content-reservar" class="animate-slide-in space-y-4">
-                <div class="bg-white rounded-2xl p-5 shadow-card border border-gray-100 mb-4">
-                    <h2 class="font-poppins font-bold text-lg text-gray-900 mb-1">Sol·licita una cita</h2>
-                    <p class="text-sm text-gray-500">Selecciona entre els serveis disponibles per a reservar.</p>
+            <div id="tab-content-reservar" class="animate-slide-in">
+                <div class="hero-card">
+                    <h2 class="section__title">Sol·licita una cita</h2>
+                    <p class="section__subtitle">Selecciona entre els serveis disponibles per a reservar.</p>
                 </div>
 
-                <!-- Lista de Servicios -->
-                <div class="space-y-3">
-                    
-                    <!-- Item 1: Deportes -->
-                    <button onclick="router.navigate('sports')" class="w-full bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 tap-effect active:border-gray-300 transition-all">
-                        <div class="relative w-12 h-12 flex-shrink-0">
-                            <img src="https://cdn.digitalvalue.es/agullent/assets/679346257c9e2f5659b19e95" class="w-full h-full object-cover rounded-full bg-gray-200 border border-gray-100" alt="Deportes">
+                <div class="section service-list">
+                    <button onclick="router.navigate('sports')" class="service-card tap-effect">
+                        <div class="service-card__media">
+                            <img src="https://cdn.digitalvalue.es/agullent/assets/679346257c9e2f5659b19e95" alt="Deportes">
                         </div>
-                        <div class="flex-1 text-left">
-                            <span class="font-semibold text-gray-800 text-sm active:text-agullent transition-colors block leading-tight">
-                                Reserves Pistes i Sales Esportives
-                            </span>
-                        </div>
-                        <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center active:bg-agullent active:text-white transition-colors">
-                            <i class="ph-bold ph-caret-right text-gray-400"></i>
-                        </div>
+                        <div class="service-card__title">Reserves Pistes i Sales Esportives</div>
+                        <span class="service-card__chevron"><i class="ph-bold ph-caret-right"></i></span>
                     </button>
 
-                    <!-- Item 2 -->
-                    <button class="w-full bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 tap-effect active:border-gray-300 transition-all">
-                        <div class="relative w-12 h-12 flex-shrink-0">
-                            <img src="https://cdn.digitalvalue.es/agullent/assets/67e65395682668e344dbec27" class="w-full h-full object-cover rounded-full bg-gray-200 border border-gray-100" alt="Abonos">
+                    <button class="service-card tap-effect">
+                        <div class="service-card__media">
+                            <img src="https://cdn.digitalvalue.es/agullent/assets/67e65395682668e344dbec27" alt="Abonos">
                         </div>
-                        <div class="flex-1 text-left">
-                            <span class="font-semibold text-gray-800 text-sm active:text-agullent transition-colors block leading-tight">
-                                Abonaments
-                            </span>
-                        </div>
-                        <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center active:bg-agullent active:text-white transition-colors">
-                            <i class="ph-bold ph-caret-right text-gray-400"></i>
-                        </div>
+                        <div class="service-card__title">Abonaments</div>
+                        <span class="service-card__chevron"><i class="ph-bold ph-caret-right"></i></span>
                     </button>
 
-                    <!-- Item 3 -->
-                    <button class="w-full bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 tap-effect active:border-gray-300 transition-all">
-                        <div class="relative w-12 h-12 flex-shrink-0">
-                            <img src="https://cdn.digitalvalue.es/agullent/assets/67f36ac7682668e344dc14e5" class="w-full h-full object-cover rounded-full bg-gray-200 border border-gray-100" alt="Auditorio">
+                    <button class="service-card tap-effect">
+                        <div class="service-card__media">
+                            <img src="https://cdn.digitalvalue.es/agullent/assets/67f36ac7682668e344dc14e5" alt="Auditorio">
                         </div>
-                        <div class="flex-1 text-left">
-                            <span class="font-semibold text-gray-800 text-sm active:text-agullent transition-colors block leading-tight uppercase">
-                                Auditori Josep Mª Bru Casanova
-                            </span>
-                        </div>
-                        <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center active:bg-agullent active:text-white transition-colors">
-                            <i class="ph-bold ph-caret-right text-gray-400"></i>
-                        </div>
+                        <div class="service-card__title" style="text-transform: uppercase;">Auditori Josep Mª Bru Casanova</div>
+                        <span class="service-card__chevron"><i class="ph-bold ph-caret-right"></i></span>
                     </button>
-
                 </div>
             </div>
 
             <!-- Tab 2: Mis Reservas -->
-            <div id="tab-content-mis-reservas" class="hidden-view h-full flex flex-col items-center justify-center text-center p-8 animate-slide-in">
-                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
-                    <i class="ph-duotone ph-calendar-x text-4xl text-gray-300"></i>
+            <div id="tab-content-mis-reservas" class="hidden-view animate-slide-in" style="text-align:center; padding:32px 0;">
+                <div style="width:80px; height:80px; background: var(--neutral-100); border-radius: var(--radius-full); display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                    <i class="ph-duotone ph-calendar-x" style="font-size:36px; color: var(--neutral-300);"></i>
                 </div>
-                <h3 class="font-poppins font-bold text-gray-900 mb-2">No tens reserves</h3>
-                <p class="text-sm text-gray-500">Actualment no tens cap reserva activa ni històrica per mostrar.</p>
-                <button onclick="tabs.switch('reservar')" class="mt-6 px-6 py-2 bg-agullent text-white text-sm font-medium rounded-full shadow-lg shadow-gray-500/20 tap-effect">
-                    Fer una reserva
-                </button>
+                <h3 class="section__title" style="margin-bottom:8px;">No tens reserves</h3>
+                <p class="section__subtitle" style="color: var(--neutral-500);">Actualment no tens cap reserva activa ni històrica per mostrar.</p>
+                <button onclick="tabs.switch('reservar')" class="btn btn--primary btn--pill" style="margin-top:20px;">Fer una reserva</button>
             </div>
 
         </main>
@@ -322,137 +888,112 @@
     <!-- ========================================== -->
     <!-- VISTA 3: DEPORTES (Pistas y Salas) -->
     <!-- ========================================== -->
-    <div id="view-sports" class="flex flex-col h-full w-full bg-gray-50 hidden-view fixed inset-0 z-[150] animate-slide-in">
+    <div id="view-sports" class="view hidden-view">
         
-        <!-- Header Deportes -->
-        <header class="bg-white/95 backdrop-blur-md border-b border-gray-100 safe-top sticky top-0 z-20">
-            <div class="h-14 px-4 flex items-center justify-between">
-                <button onclick="router.navigate('reservas')" class="p-2 -ml-2 text-gray-600 rounded-full tap-effect flex items-center gap-1 active:bg-gray-50">
-                    <i class="ph-bold ph-caret-left text-xl"></i>
-                    <span class="text-sm font-medium">Tornar</span>
+        <header class="topbar safe-top">
+            <div class="topbar__inner">
+                <button onclick="router.navigate('reservas')" class="icon-button tap-effect" style="color: var(--neutral-600);">
+                    <i class="ph-bold ph-caret-left" style="font-size: 18px; margin-right: 6px;"></i>
+                    <span style="font-size: 14px; font-weight: 600;">Tornar</span>
                 </button>
-                <h1 class="font-poppins font-bold text-sm text-gray-900 truncate max-w-[200px]">Pistes i Sales Esportives</h1>
-                <button class="p-2 text-agullent tap-effect">
-                    <i class="ph-fill ph-info text-xl"></i>
+                <h1 class="topbar__title" style="position: static; transform:none; font-size:14px; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Pistes i Sales Esportives</h1>
+                <button class="icon-button tap-effect" style="color: var(--agullent);">
+                    <i class="ph-fill ph-info" style="font-size: 20px;"></i>
                 </button>
             </div>
         </header>
 
-        <!-- Contenido Deportes -->
-        <main class="flex-1 overflow-y-auto safe-bottom p-4">
+        <main class="content safe-bottom no-scrollbar">
             
-            <div class="bg-white rounded-2xl p-4 shadow-card border border-gray-100 mb-4">
-                <h2 class="font-poppins font-bold text-lg text-gray-900 mb-1">Pistes i Sales</h2>
-                <p class="text-sm text-gray-500">Selecciona la instal·lació que vols reservar.</p>
+            <div class="hero-card">
+                <h2 class="section__title">Pistes i Sales</h2>
+                <p class="section__subtitle">Selecciona la instal·lació que vols reservar.</p>
             </div>
 
-            <div class="grid gap-4 pb-4">
+            <div class="sports-grid">
                 
-                <!-- Pista Futbet (CON NAVEGACIÓN A BOOKING) -->
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden tap-effect">
-                    <div class="h-36 overflow-hidden relative">
-                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6dff615cdeed01ba306b5?w=400" alt="Pista Futbet" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div class="sports-card tap-effect">
+                    <div class="sports-card__media">
+                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6dff615cdeed01ba306b5?w=400" alt="Pista Futbet">
+                        <div class="sports-card__gradient"></div>
                     </div>
-                    <div class="p-4 flex items-center justify-between">
-                        <h3 class="font-poppins font-bold text-gray-800 text-lg leading-tight">Pista Futbet</h3>
-                        <button onclick="router.navigate('booking')" class="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md shadow-emerald-200 active:bg-emerald-700 transition-colors">
-                            Reservar
-                        </button>
+                    <div class="sports-card__body">
+                        <h3 class="sports-card__title">Pista Futbet</h3>
+                        <button onclick="router.navigate('booking')" class="btn btn--primary btn--pill btn--small">Reservar</button>
                     </div>
                 </div>
 
-                <!-- Pista Tennis -->
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden tap-effect">
-                    <div class="h-36 overflow-hidden relative">
-                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e05c15cdeed01ba306c6?w=400" alt="Pista Tennis" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div class="sports-card tap-effect">
+                    <div class="sports-card__media">
+                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e05c15cdeed01ba306c6?w=400" alt="Pista Tennis">
+                        <div class="sports-card__gradient"></div>
                     </div>
-                    <div class="p-4 flex items-center justify-between">
-                        <h3 class="font-poppins font-bold text-gray-800 text-lg leading-tight">Pista Tennis</h3>
-                        <button class="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md shadow-emerald-200 active:bg-emerald-700 transition-colors">
-                            Reservar
-                        </button>
+                    <div class="sports-card__body">
+                        <h3 class="sports-card__title">Pista Tennis</h3>
+                        <button class="btn btn--primary btn--pill btn--small">Reservar</button>
                     </div>
                 </div>
 
-                <!-- Pista Frontó -->
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden tap-effect">
-                    <div class="h-36 overflow-hidden relative">
-                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e0e115cdeed01ba306ca?w=400" alt="Pista Frontó" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div class="sports-card tap-effect">
+                    <div class="sports-card__media">
+                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e0e115cdeed01ba306ca?w=400" alt="Pista Frontó">
+                        <div class="sports-card__gradient"></div>
                     </div>
-                    <div class="p-4 flex items-center justify-between">
-                        <h3 class="font-poppins font-bold text-gray-800 text-lg leading-tight">Pista Frontó</h3>
-                        <button class="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md shadow-emerald-200 active:bg-emerald-700 transition-colors">
-                            Reservar
-                        </button>
+                    <div class="sports-card__body">
+                        <h3 class="sports-card__title">Pista Frontó</h3>
+                        <button class="btn btn--primary btn--pill btn--small">Reservar</button>
                     </div>
                 </div>
 
-                <!-- Rocòdrom -->
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden tap-effect">
-                    <div class="h-36 overflow-hidden relative">
-                        <img src="https://public.digitalvalue.es:8789/agullent/assets/67a9d1567c9e2f5659b1d112?w=400" alt="Rocòdrom" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div class="sports-card tap-effect">
+                    <div class="sports-card__media">
+                        <img src="https://public.digitalvalue.es:8789/agullent/assets/67a9d1567c9e2f5659b1d112?w=400" alt="Rocòdrom">
+                        <div class="sports-card__gradient"></div>
                     </div>
-                    <div class="p-4 flex items-center justify-between">
-                        <h3 class="font-poppins font-bold text-gray-800 text-lg leading-tight">Rocòdrom</h3>
-                        <button class="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md shadow-emerald-200 active:bg-emerald-700 transition-colors">
-                            Reservar
-                        </button>
+                    <div class="sports-card__body">
+                        <h3 class="sports-card__title">Rocòdrom</h3>
+                        <button class="btn btn--primary btn--pill btn--small">Reservar</button>
                     </div>
                 </div>
 
-                <!-- Sala 1 -->
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden tap-effect">
-                    <div class="h-36 overflow-hidden relative">
-                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e10e15cdeed01ba306cc?w=400" alt="Sala 1" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div class="sports-card tap-effect">
+                    <div class="sports-card__media">
+                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e10e15cdeed01ba306cc?w=400" alt="Sala 1">
+                        <div class="sports-card__gradient"></div>
                     </div>
-                    <div class="p-4 flex items-center justify-between">
+                    <div class="sports-card__body">
                         <div>
-                            <h3 class="font-poppins font-bold text-gray-800 text-lg leading-tight">Sala 1</h3>
-                            <span class="text-xs text-gray-500 font-medium">Sala Gran</span>
+                            <h3 class="sports-card__title">Sala 1</h3>
+                            <span style="font-size:12px; color: var(--neutral-500); font-weight:600;">Sala Gran</span>
                         </div>
-                        <button class="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md shadow-emerald-200 active:bg-emerald-700 transition-colors">
-                            Reservar
-                        </button>
+                        <button class="btn btn--primary btn--pill btn--small">Reservar</button>
                     </div>
                 </div>
 
-                <!-- Sala 2 -->
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden tap-effect">
-                    <div class="h-36 overflow-hidden relative">
-                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e13f15cdeed01ba306ce?w=400" alt="Sala 2" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <div class="sports-card tap-effect">
+                    <div class="sports-card__media">
+                        <img src="https://cdn.digitalvalue.es/agullent/assets/67c6e13f15cdeed01ba306ce?w=400" alt="Sala 2">
+                        <div class="sports-card__gradient"></div>
                     </div>
-                    <div class="p-4 flex items-center justify-between">
+                    <div class="sports-card__body">
                         <div>
-                            <h3 class="font-poppins font-bold text-gray-800 text-lg leading-tight">Sala 2</h3>
-                            <span class="text-xs text-gray-500 font-medium">Gimnàs</span>
+                            <h3 class="sports-card__title">Sala 2</h3>
+                            <span style="font-size:12px; color: var(--neutral-500); font-weight:600;">Gimnàs</span>
                         </div>
-                        <button class="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md shadow-emerald-200 active:bg-emerald-700 transition-colors">
-                            Reservar
-                        </button>
+                        <button class="btn btn--primary btn--pill btn--small">Reservar</button>
                     </div>
                 </div>
 
-                <!-- Sala 3 -->
-                <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden tap-effect">
-                    <div class="h-36 overflow-hidden relative bg-gray-200">
-                        <div class="w-full h-full flex items-center justify-center bg-gray-200">
-                            <i class="ph-duotone ph-bicycle text-4xl text-gray-400"></i>
+                <div class="sports-card tap-effect">
+                    <div class="sports-card__media" style="background: var(--neutral-200); display:flex; align-items:center; justify-content:center;">
+                        <i class="ph-duotone ph-bicycle" style="font-size: 32px; color: var(--neutral-400);"></i>
                         </div>
-                    </div>
-                    <div class="p-4 flex items-center justify-between">
+                    <div class="sports-card__body">
                         <div>
-                            <h3 class="font-poppins font-bold text-gray-800 text-lg leading-tight">Sala 3</h3>
-                            <span class="text-xs text-gray-500 font-medium">Spinning</span>
+                            <h3 class="sports-card__title">Sala 3</h3>
+                            <span style="font-size:12px; color: var(--neutral-500); font-weight:600;">Spinning</span>
                         </div>
-                        <button class="bg-emerald-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md shadow-emerald-200 active:bg-emerald-700 transition-colors">
-                            Reservar
-                        </button>
+                        <button class="btn btn--primary btn--pill btn--small">Reservar</button>
                     </div>
                 </div>
 
@@ -464,159 +1005,132 @@
     <!-- ========================================== -->
     <!-- VISTA 4: BOOKING DETAIL (Nuevo) -->
     <!-- ========================================== -->
-    <div id="view-booking" class="flex flex-col h-full w-full bg-gray-50 hidden-view fixed inset-0 z-[200] animate-slide-in">
+    <div id="view-booking" class="view hidden-view">
         
-        <!-- Header Booking -->
-        <header class="absolute top-0 left-0 right-0 z-20 p-4 safe-top">
-            <button onclick="router.navigate('sports')" class="w-10 h-10 bg-white/80 backdrop-blur-md text-gray-800 rounded-full flex items-center justify-center shadow-sm tap-effect">
-                <i class="ph-bold ph-arrow-left text-xl"></i>
+        <header style="position:absolute; top:0; left:0; right:0; z-index:20; padding:16px;" class="safe-top">
+            <button onclick="router.navigate('sports')" class="btn btn--outline btn--pill" style="width:40px; height:40px; padding:0; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,0.85); backdrop-filter: blur(6px);">
+                <i class="ph-bold ph-arrow-left" style="font-size:18px; color: var(--neutral-800);"></i>
             </button>
         </header>
 
-        <main class="flex-1 overflow-y-auto safe-bottom">
+        <main class="content safe-bottom no-scrollbar" style="padding:0 0 24px;">
             
-            <!-- Hero Image -->
-            <div class="h-56 w-full relative">
-                <img src="https://cdn.digitalvalue.es/agullent/assets/67c6dff615cdeed01ba306b5?w=400" alt="Pista Futbet" class="w-full h-full object-cover">
-                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                <div class="absolute bottom-4 left-4 text-white">
-                    <h1 class="font-poppins font-bold text-2xl leading-tight">Pista Futbet</h1>
-                    <p class="text-sm opacity-90 flex items-center gap-1"><i class="ph-fill ph-map-pin"></i> Poliesportiu Municipal</p>
+            <div class="booking-hero">
+                <img src="https://cdn.digitalvalue.es/agullent/assets/67c6dff615cdeed01ba306b5?w=400" alt="Pista Futbet">
+                <div class="booking-hero__gradient"></div>
+                <div class="booking-hero__text">
+                    <h1 class="booking-hero__title">Pista Futbet</h1>
+                    <p class="booking-hero__subtitle"><i class="ph-fill ph-map-pin"></i> Poliesportiu Municipal</p>
                 </div>
             </div>
 
-            <div class="p-4 -mt-4 relative z-10 bg-gray-50 rounded-t-3xl min-h-[500px] space-y-6">
+            <div style="padding:16px; margin-top:-20px; position:relative; z-index:10; background: var(--neutral-50); border-top-left-radius: 24px; border-top-right-radius: 24px; min-height:520px; display:flex; flex-direction:column; gap:16px;">
                 
-                <!-- Calendario -->
-                <div class="bg-white rounded-2xl p-4 shadow-card border border-gray-100">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-bold text-gray-800 flex items-center gap-2">
-                            <i class="ph-duotone ph-calendar text-agullent text-xl"></i>
-                            Selecciona la fecha
-                        </h3>
+                <div class="facility-card">
+                    <div class="facility-card__header">
+                        <div>
+                            <p style="font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color: var(--neutral-400); font-weight:700; margin:0;">Instal·lació</p>
+                            <h2 class="section__title" style="margin:2px 0 0; font-size:18px;">Pista Futbet</h2>
                     </div>
-                    
-                    <!-- Mes Navegación -->
-                    <div class="flex items-center justify-between mb-4 px-2">
-                        <button class="p-1 text-gray-400 active:text-gray-800"><i class="ph-bold ph-caret-left text-lg"></i></button>
-                        <span class="font-poppins font-bold text-gray-800">Noviembre 2025</span>
-                        <button class="p-1 text-gray-400 active:text-gray-800"><i class="ph-bold ph-caret-right text-lg"></i></button>
+                        <span class="badge">Disponible</span>
                     </div>
-
-                    <!-- Grid Días Semana -->
-                    <div class="grid grid-cols-7 mb-2">
-                        <div class="text-center text-xs font-medium text-gray-400">L</div>
-                        <div class="text-center text-xs font-medium text-gray-400">M</div>
-                        <div class="text-center text-xs font-medium text-gray-400">X</div>
-                        <div class="text-center text-xs font-medium text-gray-400">J</div>
-                        <div class="text-center text-xs font-medium text-gray-400">V</div>
-                        <div class="text-center text-xs font-medium text-gray-400">S</div>
-                        <div class="text-center text-xs font-medium text-gray-400">D</div>
+                    <div class="facility-meta">
+                        <i class="ph-fill ph-map-pin" style="color: var(--agullent);"></i>
+                        <span>Poliesportiu Municipal, Agullent</span>
                     </div>
-
-                    <!-- Grid Días -->
-                    <div class="grid grid-cols-7 gap-y-2">
-                        <!-- Placeholder days -->
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-300">27</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-300">28</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-300">29</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-300">30</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-300">31</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">1</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">2</div>
-                        
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">3</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">4</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">5</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">6</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">7</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">8</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">9</div>
-
-                        <!-- ... -->
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">24</div>
-                        <div class="h-9 flex items-center justify-center text-sm text-gray-600">25</div>
-                        <div class="h-9 flex flex-col items-center justify-center cursor-pointer tap-effect">
-                            <div class="w-8 h-8 bg-agullent text-white rounded-full flex items-center justify-center text-sm font-bold shadow-md">26</div>
-                            <div class="w-1 h-1 bg-agullent mt-0.5 rounded-full"></div>
+                    <div class="facility-meta">
+                        <i class="ph-fill ph-info" style="color: var(--agullent);"></i>
+                        <span>Gespa artificial · Il·luminació · Vestidors</span>
                         </div>
-                        <div class="h-9 flex flex-col items-center justify-center cursor-pointer tap-effect">
-                            <div class="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-sm font-medium">27</div>
-                            <div class="w-1 h-1 bg-emerald-500 mt-0.5 rounded-full"></div>
+                    <div class="facility-meta">
+                        <i class="ph-fill ph-credit-card" style="color: var(--agullent);"></i>
+                        <span>Preu orientatiu: 1 €/hora</span>
                         </div>
-                        <div class="h-9 flex flex-col items-center justify-center cursor-pointer tap-effect">
-                            <div class="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-sm font-medium">28</div>
-                            <div class="w-1 h-1 bg-emerald-500 mt-0.5 rounded-full"></div>
                         </div>
                         
+                <div class="panel">
+                    <div class="panel__header">
+                        <h3 class="panel__title"><i class="ph-duotone ph-calendar" style="color: var(--agullent); font-size:20px;"></i> Selecciona la fecha</h3>
+                    </div>
+                    <div class="calendar-nav">
+                        <button class="btn btn--ghost" style="padding:6px;"><i class="ph-bold ph-caret-left" style="font-size:16px;"></i></button>
+                        <span class="calendar-month">Noviembre 2025</span>
+                        <button class="btn btn--ghost" style="padding:6px;"><i class="ph-bold ph-caret-right" style="font-size:16px;"></i></button>
+                </div>
+                    <div class="calendar-weekdays">
+                        <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+                    </div>
+                    <div class="calendar-days" style="margin-top:4px; row-gap:10px;">
+                        <div class="calendar-day calendar-day--muted">27</div>
+                        <div class="calendar-day calendar-day--muted">28</div>
+                        <div class="calendar-day calendar-day--muted">29</div>
+                        <div class="calendar-day calendar-day--muted">30</div>
+                        <div class="calendar-day calendar-day--muted">31</div>
+                        <div class="calendar-day">1</div>
+                        <div class="calendar-day">2</div>
+                        <div class="calendar-day">3</div>
+                        <div class="calendar-day">4</div>
+                        <div class="calendar-day">5</div>
+                        <div class="calendar-day">6</div>
+                        <div class="calendar-day">7</div>
+                        <div class="calendar-day">8</div>
+                        <div class="calendar-day">9</div>
+                        <div class="calendar-day">24</div>
+                        <div class="calendar-day">25</div>
+                        <div class="calendar-day calendar-day--selected">26</div>
+                        <div class="calendar-day calendar-day--available">27</div>
+                        <div class="calendar-day calendar-day--available">28</div>
+                    </div>
+                    </div>
+
+                <div class="panel">
+                    <div class="panel__header">
+                        <h3 class="panel__title"><i class="ph-duotone ph-clock" style="color: var(--agullent); font-size:20px;"></i> Selecciona la hora</h3>
+                    </div>
+                    <div class="hour-filters">
+                        <button>Mañana</button>
+                        <button>Tarde</button>
+                        <button class="is-active">Todos</button>
+                    </div>
+                    <div class="hour-grid">
+                        <button class="hour">16:00</button>
+                        <button class="hour">17:00</button>
+                        <button class="hour">18:00</button>
+                        <button class="hour">19:00</button>
+                        <button class="hour">20:00</button>
+                        <button class="hour hour--selected">20:30</button>
+                        <button class="hour">21:00</button>
+                        <button class="hour">22:00</button>
                     </div>
                 </div>
 
-                <!-- Hora -->
-                <div class="bg-white rounded-2xl p-4 shadow-card border border-gray-100">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-bold text-gray-800 flex items-center gap-2">
-                            <i class="ph-duotone ph-clock text-agullent text-xl"></i>
-                            Selecciona la hora
-                        </h3>
-                    </div>
-
-                    <!-- Tabs Horario -->
-                    <div class="bg-gray-100 p-1 rounded-xl flex mb-4">
-                        <button class="flex-1 py-1.5 text-xs font-medium text-gray-500 rounded-lg">Mañana</button>
-                        <button class="flex-1 py-1.5 text-xs font-medium text-gray-500 rounded-lg">Tarde</button>
-                        <button class="flex-1 py-1.5 text-xs font-bold text-gray-800 bg-white shadow-sm rounded-lg">Todos</button>
-                    </div>
-
-                    <!-- Grid Horas -->
-                    <div class="grid grid-cols-4 gap-2">
-                        <button class="py-2 text-xs border border-gray-200 rounded-lg text-gray-600 active:bg-gray-50 tap-effect">16:00</button>
-                        <button class="py-2 text-xs border border-gray-200 rounded-lg text-gray-600 active:bg-gray-50 tap-effect">17:00</button>
-                        <button class="py-2 text-xs border border-gray-200 rounded-lg text-gray-600 active:bg-gray-50 tap-effect">18:00</button>
-                        <button class="py-2 text-xs border border-gray-200 rounded-lg text-gray-600 active:bg-gray-50 tap-effect">19:00</button>
-                        <button class="py-2 text-xs border border-gray-200 rounded-lg text-gray-600 active:bg-gray-50 tap-effect">20:00</button>
-                        <button class="py-2 text-xs bg-agullent text-white font-bold rounded-lg shadow-md tap-effect border border-agullent">20:30</button>
-                        <button class="py-2 text-xs border border-gray-200 rounded-lg text-gray-600 active:bg-gray-50 tap-effect">21:00</button>
-                        <button class="py-2 text-xs border border-gray-200 rounded-lg text-gray-600 active:bg-gray-50 tap-effect">22:00</button>
-                    </div>
-                </div>
-
-                <!-- Resumen Selección -->
-                <div class="animate-fade-in">
-                    <h3 class="font-bold text-gray-800 flex items-center gap-2 mb-3 ml-1">
-                        <i class="ph-duotone ph-hourglass-medium text-agullent text-xl"></i>
+                <div class="summary">
+                    <div class="summary__header">
+                        <i class="ph-duotone ph-hourglass-medium" style="color: var(--agullent); font-size:20px;"></i>
                         Elige una opción
-                    </h3>
-                    
-                    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-                        <!-- Header Card -->
-                        <div class="px-4 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                            <span class="font-bold text-gray-900">Pista Futbet</span>
-                            <span class="bg-gray-900 text-white text-xs font-bold px-2 py-1 rounded-md">1 €</span>
                         </div>
-                        
-                        <!-- Body Card -->
-                        <div class="p-4 space-y-3">
-                            <div class="flex items-center text-sm text-gray-600">
-                                <i class="ph-bold ph-clock mr-3 text-agullent"></i>
+                    <div class="summary-card">
+                        <div class="summary-card__head">
+                            <span style="font-weight:700; color: var(--neutral-900);">Pista Futbet</span>
+                            <span style="background: var(--neutral-900); color:white; font-size:12px; font-weight:700; padding:4px 8px; border-radius:8px;">1 €</span>
+                        </div>
+                        <div class="summary-card__body">
+                            <div class="summary-row">
+                                <i class="ph-bold ph-clock" style="color: var(--agullent);"></i>
                                 <span>20:30 - 21:30</span>
                             </div>
-                            <div class="flex items-center text-sm text-gray-600">
-                                <i class="ph-bold ph-user mr-3 text-agullent"></i>
+                            <div class="summary-row">
+                                <i class="ph-bold ph-user" style="color: var(--agullent);"></i>
                                 <span>1/1</span>
                             </div>
                         </div>
-
-                        <!-- Footer Card (Botón) -->
-                        <div class="p-4 pt-0">
-                            <button class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md shadow-emerald-200 tap-effect active:bg-emerald-700 flex items-center justify-center gap-2">
-                                Reservar <i class="ph-bold ph-arrow-right"></i>
-                            </button>
+                        <div class="summary-card__footer">
+                            <button class="btn btn--primary btn--pill" style="width:100%;">Reservar <i class="ph-bold ph-arrow-right"></i></button>
                         </div>
                     </div>
                 </div>
 
-                <div class="h-6"></div> <!-- Espaciador final -->
+                <div style="height:16px;"></div>
             </div>
         </main>
     </div>
@@ -649,21 +1163,14 @@
                 const contentReservar = document.getElementById('tab-content-reservar');
                 const contentMis = document.getElementById('tab-content-mis-reservas');
 
-                const activeClasses = ['border-agullent', 'text-agullent'];
-                const inactiveClasses = ['border-transparent', 'text-gray-400'];
-
                 if (tabId === 'reservar') {
-                    btnReservar.classList.add(...activeClasses);
-                    btnReservar.classList.remove(...inactiveClasses);
-                    btnMis.classList.remove(...activeClasses);
-                    btnMis.classList.add(...inactiveClasses);
+                    btnReservar.classList.add('tab--active');
+                    btnMis.classList.remove('tab--active');
                     contentReservar.classList.remove('hidden-view');
                     contentMis.classList.add('hidden-view');
                 } else {
-                    btnMis.classList.add(...activeClasses);
-                    btnMis.classList.remove(...inactiveClasses);
-                    btnReservar.classList.remove(...activeClasses);
-                    btnReservar.classList.add(...inactiveClasses);
+                    btnMis.classList.add('tab--active');
+                    btnReservar.classList.remove('tab--active');
                     contentMis.classList.remove('hidden-view');
                     contentReservar.classList.add('hidden-view');
                 }

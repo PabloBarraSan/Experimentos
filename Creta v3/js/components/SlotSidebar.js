@@ -388,3 +388,6 @@ window.closeSidebar = closeSidebar;
 window.renderSlotDetails = renderSlotDetails;
 window.openEmptySlotDetails = openEmptySlotDetails;
 
+
+
+

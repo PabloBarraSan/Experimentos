@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMS Schema Builder - Smart Grouping</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Paleta de Colores Profesional */
+            --bg-body: #f3f4f6;
+            --bg-panel: #ffffff;
+            --bg-element: #ffffff;
+            --bg-element-hover: #f9fafb;
+            --bg-group-header: #f8fafc;
+            
+            --border-color: #e2e8f0;
+            --border-highlight: #94a3b8;
+            
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            
+            --accent-color: #3b82f6;
+            --accent-bg: #eff6ff;
+            --danger-color: #ef4444;
+            --success-color: #10b981;
+
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-primary);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .layout-container {
+            display: flex;
+            flex: 1;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            height: calc(100vh - 3rem);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        /* --- Panel Izquierdo --- */
+        .panel-sidebar {
+            flex: 0 0 380px;
+            background: var(--bg-panel);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Importante para contener el scroll */
+            position: relative;
+            max-height: 100%;
+        }
+
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            z-index: 10;
+            flex-shrink: 0; /* No encoger el header */
+        }
+
+        .panel-header h3 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .schema-tree {
+            flex: 1;
+            overflow-y: auto; /* Activar scroll vertical */
+            min-height: 0;    /* CRUCIAL: Permite al flex item encogerse y activar el scroll */
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            scroll-behavior: smooth;
+        }
+
+        /* Estilización del Scrollbar para que se vea bien */
+        .schema-tree::-webkit-scrollbar {
+            width: 6px;
+        }
+        .schema-tree::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .schema-tree::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+        .schema-tree::-webkit-scrollbar-thumb:hover {
+            background-color: #94a3b8;
+        }
+
+        .schema-group-item {
+            background: var(--bg-group-header);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: all 0.2s ease;
+            flex-shrink: 0; /* Evitar que los grupos se aplasten */
+        }
+        
+        .schema-group-item:focus-within {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px var(--accent-bg);
+        }
+
+        .group-header {
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: grab;
+            background: linear-gradient(to bottom, #ffffff, #f8fafc);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .group-header:active { cursor: grabbing; }
+
+        .group-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-secondary);
+        }
+
+        .group-fields-list {
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            background: white;
+            min-height: 20px;
+        }
+
+        .schema-field-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.6rem 0.8rem;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            cursor: grab;
+            user-select: none;
+            transition: all 0.15s;
+        }
+
+        .schema-field-item:hover {
+            border-color: var(--accent-color);
+            background: var(--accent-bg);
+            transform: translateY(-1px);
+        }
+
+        .field-label {
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .drag-handle-icon {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        .action-icon {
+            font-size: 18px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .action-icon:hover { background: rgba(0,0,0,0.05); color: var(--text-secondary); }
+        .action-icon.delete:hover { background: #fee2e2; color: var(--danger-color); }
+        .action-icon.edit:hover { background: #eff6ff; color: var(--accent-color); }
+
+        /* Footer y Dropdown */
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            background: #fafafa;
+            position: relative;
+            flex-shrink: 0; /* No encoger el footer */
+        }
+
+        .btn-action {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .btn-action:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+            background: white;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+        }
+
+        .btn-save {
+            width: 100%;
+            padding: 0.85rem;
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s;
+        }
+        .btn-save:hover { background-color: #059669; }
+
+        /* Dropdown Menu */
+        .fields-dropdown {
+            position: absolute;
+            bottom: calc(100% - 10px);
+            left: 1rem;
+            right: 1rem;
+            max-height: 350px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-md);
+            display: none;
+            z-index: 50;
+        }
+
+        .fields-dropdown::-webkit-scrollbar { width: 6px; }
+        .fields-dropdown::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+
+        .fields-dropdown.active { display: block; animation: slideUp 0.2s ease-out; }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .dropdown-item {
+            padding: 12px 15px;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .dropdown-item:last-child { border-bottom: none; }
+        .dropdown-item:hover { background-color: #f8fafc; color: var(--accent-color); }
+        
+        /* --- Panel Preview --- */
+        .panel-preview {
+            flex: 1;
+            background: var(--bg-panel);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .preview-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2.5rem;
+            background: #f8fafc;
+        }
+
+        .preview-group-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+        }
+
+        .preview-group-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+        }
+
+        .preview-group-header h4 { 
+            margin: 0; 
+            font-size: 1rem; 
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .preview-group-body {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .preview-field { display: flex; flex-direction: column; gap: 0.6rem; }
+        .preview-label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.01em; }
+        
+        .skeleton-input { height: 42px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; width: 100%; transition: border 0.2s; }
+        .skeleton-input:hover { border-color: #cbd5e1; }
+        
+        .skeleton-textarea { height: 90px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; width: 100%; }
+        
+        .skeleton-image { 
+            height: 140px; 
+            width: 100%; 
+            max-width: 200px; 
+            background: #f8fafc; 
+            border: 2px dashed #cbd5e1; 
+            border-radius: 8px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: #94a3b8;
+        }
+
+        .empty-state {
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-muted);
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            margin: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .badge-count {
+            background: #e2e8f0;
+            color: #64748b;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="layout-container">
+    
+    <!-- Panel Izquierdo: Constructor -->
+    <aside class="panel-sidebar">
+        <div class="panel-header">
+            <h3>Schema Editor</h3>
+            <div style="display: flex; gap: 5px;">
+                <span class="material-icons action-icon" title="Reset to Defaults" onclick="resetToDefault()">restart_alt</span>
+            </div>
+        </div>
+
+        <!-- Área dinámica donde se renderizan los grupos -->
+        <div id="schemaTree" class="schema-tree"></div>
+
+        <div class="sidebar-footer">
+            <div id="fieldsDropdown" class="fields-dropdown"></div>
+
+            <div class="btn-action" onclick="addNewGroup()">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="material-icons" style="color: var(--accent-color);">create_new_folder</span>
+                    <span>Crear Grupo Nuevo</span>
+                </div>
+            </div>
+            
+            <div class="btn-action" id="btnAddField" onclick="toggleFieldDropdown()">
+                 <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="material-icons" style="color: var(--accent-color);">add_circle_outline</span>
+                    <span>Añadir Campo Disponible</span>
+                </div>
+                <span class="material-icons" style="color: var(--text-muted);">keyboard_arrow_up</span>
+            </div>
+            
+            <button class="btn-save" onclick="saveSchema()">
+                <span class="material-icons">save</span>
+                Guardar Configuración
+            </button>
+        </div>
+    </aside>
+
+    <!-- Panel Derecho: Preview -->
+    <main class="panel-preview">
+        <div class="panel-header">
+            <h3>Vista Previa del Formulario CMS</h3>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                 <span style="font-size: 0.8rem; color: var(--text-secondary);">Campos obligatorios (Título, Cuerpo, Fecha) ocultos aquí</span>
+            </div>
+        </div>
+        
+        <div id="previewContent" class="preview-content"></div>
+    </main>
+</div>
+
+<script>
+    // --- Configuración Global ---
+
+    // Etiquetas legibles
+    const fieldLabels = {
+        "title": "Títol Principal",
+        "body": "Cos del Text",
+        "date": "Data de Publicació",
+        "subtitle": "Subtítol",
+        "lead": "Entradeta",
+        "headerImage": "Imatge de Capçalera",
+        "images": "Galeria d'Imatges",
+        "videos": "Vídeos",
+        "audios": "Àudios",
+        "webLinks": "Enllaços Web",
+        "socialShare": "Xarxes Socials",
+        "nodeTypes": "Tipus del Node",
+        "categories": "Categories",
+        "tags": "Etiquetes",
+        "dateRanges": "Dates d'esdeveniment",
+        "linksGroup": "Grup d'Enllaços",
+        "coordinates": "Coordenades",
+        "telephones": "Telèfons",
+        "emails": "Emails",
+        "address": "Direcció",
+        "tablesGroup": "Grup de Taules",
+        "tables": "Taules",
+        "entitiesGroup": "Grup d'Entitats",
+        "nodesGroup": "Grup de Nodes",
+        "filesGroup": "Grup de Fitxers",
+        "files": "Fitxers"
+    };
+
+    // Todos los campos opcionales disponibles
+    const availableFieldsPool = [
+        "subtitle", "lead", "headerImage", "images", "videos", "audios",
+        "webLinks", "socialShare", "nodeTypes", "categories", "tags",
+        "dateRanges", "linksGroup", "coordinates", "telephones", "emails",
+        "address", "tablesGroup", "tables", "entitiesGroup", "nodesGroup",
+        "filesGroup", "files"
+    ];
+
+    // ESTADO: Configuración por defecto inteligente
+    let schemaData = [];
+
+    function initDefaultSchema() {
+        schemaData = [
+            {
+                id: 'group-info',
+                title: 'Informació General',
+                fields: ['subtitle', 'lead']
+            },
+            {
+                id: 'group-media',
+                title: 'Multimedia',
+                fields: ['headerImage', 'images', 'videos', 'audios']
+            },
+            {
+                id: 'group-tax',
+                title: 'Classificació',
+                fields: ['nodeTypes', 'categories', 'tags']
+            },
+            {
+                id: 'group-contact',
+                title: 'Contacte i Ubicació',
+                fields: ['address', 'coordinates', 'telephones', 'emails']
+            },
+            {
+                id: 'group-links',
+                title: 'Enllaços',
+                fields: ['webLinks', 'socialShare', 'linksGroup']
+            },
+            {
+                id: 'group-agenda',
+                title: 'Agenda',
+                fields: ['dateRanges']
+            },
+            {
+                id: 'group-extra',
+                title: 'Dades i Arxius',
+                fields: ['tables', 'tablesGroup', 'files', 'filesGroup']
+            },
+            {
+                id: 'group-rel',
+                title: 'Relacions',
+                fields: ['entitiesGroup', 'nodesGroup']
+            }
+        ];
+        refreshUI();
+    }
+
+    // --- Renderizado ---
+
+    function getLabel(key) { return fieldLabels[key] || key; }
+
+    function renderSchemaTree() {
+        const container = document.getElementById('schemaTree');
+        container.innerHTML = '';
+
+        schemaData.forEach((group, groupIndex) => {
+            const groupEl = document.createElement('div');
+            groupEl.className = 'schema-group-item';
+            
+            // Header del Grupo (Editable y Borrable)
+            let fieldsHtml = '';
+            group.fields.forEach((fieldKey, fieldIndex) => {
+                fieldsHtml += `
+                    <div class="schema-field-item">
+                        <div class="field-label">
+                            <span class="material-icons drag-handle-icon">drag_indicator</span>
+                            ${getLabel(fieldKey)}
+                        </div>
+                        <span class="material-icons action-icon delete" onclick="removeField(${groupIndex}, ${fieldIndex})" title="Eliminar campo">close</span>
+                    </div>
+                `;
+            });
+
+            groupEl.innerHTML = `
+                <div class="group-header">
+                    <div class="group-title">
+                        <span class="material-icons drag-handle-icon">folder_open</span>
+                        <span onclick="editGroupName(${groupIndex})" style="cursor:text;" title="Click para editar nombre">${group.title}</span>
+                        <span class="badge-count">${group.fields.length}</span>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <span class="material-icons action-icon edit" onclick="editGroupName(${groupIndex})">edit</span>
+                        <span class="material-icons action-icon delete" onclick="deleteGroup(${groupIndex})">delete_outline</span>
+                    </div>
+                </div>
+                <div class="group-fields-list">
+                    ${fieldsHtml}
+                    ${group.fields.length === 0 ? '<div style="font-size:0.8rem; color:#94a3b8; text-align:center; padding:5px;">Grupo vacío</div>' : ''}
+                </div>
+            `;
+            container.appendChild(groupEl);
+        });
+    }
+
+    function renderPreview() {
+        const container = document.getElementById('previewContent');
+        container.innerHTML = '';
+
+        if (schemaData.length === 0) {
+             container.innerHTML = '<div class="empty-state">No hay grupos configurados. Añade uno o resetea a los valores por defecto.</div>';
+             return;
+        }
+
+        schemaData.forEach(group => {
+            // Solo renderizar el grupo en preview si tiene campos (opcional, pero queda mejor)
+            if(group.fields.length === 0) return;
+
+            const groupCard = document.createElement('div');
+            groupCard.className = 'preview-group-card';
+            
+            let fieldsPreviewHtml = '';
+            
+            group.fields.forEach(fieldKey => {
+                let inputContent = '<div class="skeleton-input"></div>';
+                
+                // Variaciones visuales según el tipo de campo
+                if(fieldKey.includes('Image') || fieldKey.includes('images')) {
+                    inputContent = `<div class="skeleton-image"><span class="material-icons" style="font-size: 32px;">image</span></div>`;
+                } else if (fieldKey.includes('lead') || fieldKey.includes('body') || fieldKey.includes('address')) {
+                    inputContent = '<div class="skeleton-textarea"></div>';
+                } else if (fieldKey.includes('date') || fieldKey.includes('Ranges')) {
+                    inputContent = '<div style="display:flex; gap:10px;"><div class="skeleton-input"></div><div class="skeleton-input"></div></div>';
+                }
+
+                fieldsPreviewHtml += `
+                    <div class="preview-field">
+                        <div class="preview-label">${getLabel(fieldKey)}</div>
+                        ${inputContent}
+                    </div>
+                `;
+            });
+
+            // Layout especial para galerias o multimedia
+            const isMediaGroup = group.fields.some(f => f.includes('Image') || f.includes('videos'));
+            const bodyStyle = isMediaGroup ? 'display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem;' : '';
+
+            groupCard.innerHTML = `
+                <div class="preview-group-header">
+                    <h4>${group.title}</h4>
+                </div>
+                <div class="preview-group-body" style="${bodyStyle}">
+                    ${fieldsPreviewHtml}
+                </div>
+            `;
+            container.appendChild(groupCard);
+        });
+    }
+
+    function renderFieldsDropdown() {
+        const container = document.getElementById('fieldsDropdown');
+        container.innerHTML = '';
+
+        const usedFields = schemaData.flatMap(g => g.fields);
+        const availableNow = availableFieldsPool.filter(f => !usedFields.includes(f));
+
+        if (availableNow.length === 0) {
+            container.innerHTML = '<div style="padding:15px; text-align:center; color:#94a3b8; font-size:0.9rem;">Todos los campos están en uso.</div>';
+            return;
+        }
+
+        availableNow.forEach(fieldKey => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.innerHTML = `
+                <span>${getLabel(fieldKey)}</span>
+                <span class="material-icons" style="font-size:18px; color:var(--success-color);">add</span>
+            `;
+            item.onclick = () => addFieldToSchema(fieldKey);
+            container.appendChild(item);
+        });
+    }
+
+    // --- Lógica ---
+
+    function refreshUI() {
+        renderSchemaTree();
+        renderPreview();
+        renderFieldsDropdown();
+    }
+
+    function toggleFieldDropdown() {
+        const dropdown = document.getElementById('fieldsDropdown');
+        dropdown.classList.toggle('active');
+        if (dropdown.classList.contains('active')) renderFieldsDropdown();
+    }
+
+    // Cerrar dropdown al hacer click fuera
+    window.onclick = function(event) {
+        if (!event.target.closest('#btnAddField') && !event.target.closest('#fieldsDropdown')) {
+            document.getElementById('fieldsDropdown').classList.remove('active');
+        }
+    }
+
+    // CRUD Operaciones
+    function addNewGroup() {
+        // Usamos un nombre temporal y auto-focus (simulado aquí con prompt para simplicidad)
+        const groupName = prompt("Nombre del nuevo grupo:", "Nuevo Grupo");
+        if (groupName) {
+            schemaData.push({
+                id: `group-${Date.now()}`,
+                title: groupName,
+                fields: []
+            });
+            refreshUI();
+            // Auto scroll al final
+            setTimeout(() => document.getElementById('schemaTree').lastElementChild.scrollIntoView({behavior: "smooth"}), 100);
+        }
+    }
+
+    function editGroupName(index) {
+        const newName = prompt("Editar nombre del grupo:", schemaData[index].title);
+        if (newName) {
+            schemaData[index].title = newName;
+            refreshUI();
+        }
+    }
+
+    function deleteGroup(index) {
+        if(confirm(`¿Estás seguro de eliminar el grupo "${schemaData[index].title}"? Los campos volverán a estar disponibles.`)) {
+            schemaData.splice(index, 1);
+            refreshUI();
+        }
+    }
+
+    function addFieldToSchema(fieldKey) {
+        // Estrategia: Añadir al último grupo disponible, o al primero si no hay último, o crear uno si no hay nada
+        if (schemaData.length === 0) {
+            schemaData.push({ id: `group-${Date.now()}`, title: 'Grupo General', fields: [] });
+        }
+        
+        // Añadir al último grupo (UX común en builders secuenciales)
+        const targetGroup = schemaData[schemaData.length - 1];
+        targetGroup.fields.push(fieldKey);
+        
+        document.getElementById('fieldsDropdown').classList.remove('active');
+        refreshUI();
+    }
+
+    function removeField(groupIndex, fieldIndex) {
+        schemaData[groupIndex].fields.splice(fieldIndex, 1);
+        refreshUI();
+    }
+
+    function resetToDefault() {
+        if(confirm("¿Restaurar la configuración por defecto? Se perderán tus cambios.")) {
+            initDefaultSchema();
+        }
+    }
+
+    function saveSchema() {
+        console.log("Schema guardado:", JSON.stringify(schemaData, null, 2));
+        const btn = document.querySelector('.btn-save');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<span class="material-icons">check</span> Guardado!`;
+        btn.style.backgroundColor = "var(--text-primary)";
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.style.backgroundColor = "var(--success-color)";
+        }, 2000);
+    }
+
+    // Iniciar app
+    initDefaultSchema();
+
+</script>
+
+</body>
+</html>
