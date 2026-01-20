@@ -6,6 +6,113 @@ const TOOLBAR_COMMANDS = [
     { id: 'ordered', label: 'Lista num', command: 'insertOrderedList', icon: 'OL' }
 ];
 
+const FALLBACK_ALLOWED_TAGS = new Set([
+    'p',
+    'br',
+    'b',
+    'strong',
+    'i',
+    'em',
+    'u',
+    'ul',
+    'ol',
+    'li',
+    'div',
+    'span'
+]);
+
+const FALLBACK_BLOCKED_TAGS = new Set([
+    'script',
+    'style',
+    'iframe',
+    'object',
+    'embed',
+    'link',
+    'meta'
+]);
+
+function createActiveState() {
+    return TOOLBAR_COMMANDS.reduce((acc, item) => {
+        acc[item.id] = false;
+        return acc;
+    }, {});
+}
+
+function basicSanitize(html) {
+    if (!html) {
+        return '';
+    }
+
+    if (typeof document === 'undefined') {
+        return String(html).replace(/<[^>]*>/g, '');
+    }
+
+    const template = document.createElement('template');
+    template.innerHTML = html;
+
+    const walker = document.createTreeWalker(
+        template.content,
+        NodeFilter.SHOW_ELEMENT,
+        null
+    );
+
+    const nodesToRemove = [];
+
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const tagName = node.tagName.toLowerCase();
+
+        if (FALLBACK_BLOCKED_TAGS.has(tagName)) {
+            nodesToRemove.push({ node, unwrap: false });
+            continue;
+        }
+
+        if (!FALLBACK_ALLOWED_TAGS.has(tagName)) {
+            nodesToRemove.push({ node, unwrap: true });
+            continue;
+        }
+
+        Array.from(node.attributes).forEach((attr) => {
+            node.removeAttribute(attr.name);
+        });
+    }
+
+    nodesToRemove.forEach(({ node, unwrap }) => {
+        const parent = node.parentNode;
+        if (!parent) {
+            return;
+        }
+
+        if (unwrap) {
+            const fragment = document.createDocumentFragment();
+            while (node.firstChild) {
+                fragment.appendChild(node.firstChild);
+            }
+            parent.replaceChild(fragment, node);
+        } else {
+            parent.removeChild(node);
+        }
+    });
+
+    return template.innerHTML;
+}
+
+function sanitizeHtml(vnode, html) {
+    if (!html) {
+        return '';
+    }
+
+    if (typeof vnode.attrs.sanitize === 'function') {
+        return vnode.attrs.sanitize(html);
+    }
+
+    if (typeof window !== 'undefined' && window.DOMPurify) {
+        return window.DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+    }
+
+    return basicSanitize(html);
+}
+
 function getExternalValue(vnode) {
     return typeof vnode.attrs.value === 'string' ? vnode.attrs.value : '';
 }
@@ -87,7 +194,8 @@ function emitChange(vnode) {
         return;
     }
 
-    const cleaned = normalizeHtml(editorEl.innerHTML);
+    const sanitized = sanitizeHtml(vnode, editorEl.innerHTML);
+    const cleaned = normalizeHtml(sanitized);
     if (cleaned === '' && editorEl.innerHTML !== '') {
         editorEl.innerHTML = '';
     }
@@ -126,13 +234,7 @@ export const NativeRichEditor = {
         vnode.state.isFocused = false;
         vnode.state.editorEl = null;
         vnode.state.savedSelection = null;
-        vnode.state.active = {
-            bold: false,
-            italic: false,
-            underline: false,
-            unordered: false,
-            ordered: false
-        };
+        vnode.state.active = createActiveState();
     },
 
     onupdate: (vnode) => {
@@ -149,7 +251,8 @@ export const NativeRichEditor = {
             return;
         }
 
-        const normalizedExternal = normalizeHtml(externalValue);
+        const sanitizedExternal = sanitizeHtml(vnode, externalValue);
+        const normalizedExternal = normalizeHtml(sanitizedExternal);
         const normalizedDom = normalizeHtml(editorEl.innerHTML);
         const sizeDiff = Math.abs(normalizedExternal.length - normalizedDom.length);
         const isDrastic = !isFocused || sizeDiff > 80;
@@ -162,6 +265,14 @@ export const NativeRichEditor = {
     view: (vnode) => {
         const placeholder = vnode.attrs.placeholder || 'Escribe aqui...';
         const toolbarLabel = vnode.attrs.toolbarLabel || 'Editor';
+        const syncSelectionState = () => {
+            saveSelection(vnode.state);
+            updateActiveState(vnode.state);
+        };
+        const handleInput = () => {
+            syncSelectionState();
+            emitChange(vnode);
+        };
 
         return m('div', { class: 'native-rich-editor' }, [
             m('div', {
@@ -196,35 +307,29 @@ export const NativeRichEditor = {
                     oncreate: (contentVnode) => {
                         vnode.state.editorEl = contentVnode.dom;
                         configureExecCommandDefaults();
-                        const externalValue = normalizeHtml(getExternalValue(vnode));
-                        if (externalValue && externalValue !== normalizeHtml(contentVnode.dom.innerHTML)) {
-                            contentVnode.dom.innerHTML = externalValue;
+                        const externalValue = sanitizeHtml(vnode, getExternalValue(vnode));
+                        const normalizedExternal = normalizeHtml(externalValue);
+                        if (normalizedExternal && normalizedExternal !== normalizeHtml(contentVnode.dom.innerHTML)) {
+                            contentVnode.dom.innerHTML = normalizedExternal;
                         }
                     },
                     onfocus: () => {
                         vnode.state.isFocused = true;
                         configureExecCommandDefaults();
-                        saveSelection(vnode.state);
-                        updateActiveState(vnode.state);
+                        syncSelectionState();
                     },
                     onblur: () => {
                         vnode.state.isFocused = false;
-                        saveSelection(vnode.state);
-                        updateActiveState(vnode.state);
-                        emitChange(vnode);
+                        handleInput();
                     },
                     oninput: () => {
-                        saveSelection(vnode.state);
-                        updateActiveState(vnode.state);
-                        emitChange(vnode);
+                        handleInput();
                     },
                     onkeyup: () => {
-                        saveSelection(vnode.state);
-                        updateActiveState(vnode.state);
+                        syncSelectionState();
                     },
                     onmouseup: () => {
-                        saveSelection(vnode.state);
-                        updateActiveState(vnode.state);
+                        syncSelectionState();
                     },
                     onpaste: (event) => {
                         if (vnode.attrs.plainPaste === false) {
