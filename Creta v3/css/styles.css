@@ -154,3 +154,118 @@ body {
 .toolbar-button .material-icons {
     font-size: 18px;
 }
+
+/* NativeRichEditor */
+.native-rich-editor {
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
+.native-rich-editor__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.native-rich-editor__button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #475569;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.native-rich-editor__button:hover {
+    background: #ffffff;
+    border-color: #e2e8f0;
+    color: #1d4ed8;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.native-rich-editor__button.is-active {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+}
+
+.native-rich-editor__button:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.native-rich-editor__button-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.4rem;
+    background: #e2e8f0;
+    color: #1f2937;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+}
+
+.native-rich-editor__button-label {
+    font-weight: 500;
+}
+
+.native-rich-editor__button.is-active .native-rich-editor__button-icon {
+    background: #bfdbfe;
+    color: #1d4ed8;
+}
+
+.native-rich-editor__surface {
+    background: #ffffff;
+}
+
+.native-rich-editor__content {
+    min-height: 180px;
+    padding: 1rem 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: #1f2937;
+    outline: none;
+    background: #ffffff;
+}
+
+.native-rich-editor__content:empty:before {
+    content: attr(data-placeholder);
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.native-rich-editor__content p {
+    margin: 0 0 0.75rem;
+}
+
+.native-rich-editor__content p:last-child {
+    margin-bottom: 0;
+}
+
+.native-rich-editor__content ul,
+.native-rich-editor__content ol {
+    margin: 0.5rem 0 0.75rem;
+    padding-left: 1.5rem;
+}
+
+@media (max-width: 640px) {
+    .native-rich-editor__button-label {
+        display: none;
+    }
+}
