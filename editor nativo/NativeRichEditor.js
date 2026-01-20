@@ -1,9 +1,15 @@
 const TOOLBAR_COMMANDS = [
-    { id: 'bold', label: 'Negrita', command: 'bold', icon: 'B' },
-    { id: 'italic', label: 'Cursiva', command: 'italic', icon: 'I' },
-    { id: 'underline', label: 'Subrayado', command: 'underline', icon: 'U' },
-    { id: 'unordered', label: 'Lista', command: 'insertUnorderedList', icon: 'UL' },
-    { id: 'ordered', label: 'Lista num', command: 'insertOrderedList', icon: 'OL' }
+    { id: 'h1', label: 'H1', type: 'formatBlock', value: 'h1', icon: 'H1' },
+    { id: 'h2', label: 'H2', type: 'formatBlock', value: 'h2', icon: 'H2' },
+    { id: 'blockquote', label: 'Cita', type: 'formatBlock', value: 'blockquote', icon: '""' },
+    { id: 'bold', label: 'Negrita', type: 'command', command: 'bold', icon: 'B' },
+    { id: 'italic', label: 'Cursiva', type: 'command', command: 'italic', icon: 'I' },
+    { id: 'underline', label: 'Subrayado', type: 'command', command: 'underline', icon: 'U' },
+    { id: 'unordered', label: 'Lista', type: 'command', command: 'insertUnorderedList', icon: 'UL' },
+    { id: 'ordered', label: 'Lista num', type: 'command', command: 'insertOrderedList', icon: 'OL' },
+    { id: 'link', label: 'Enlace', type: 'action', action: 'link', icon: 'Link' },
+    { id: 'image', label: 'Imagen', type: 'action', action: 'image', icon: 'Img' },
+    { id: 'source', label: 'HTML', type: 'toggle', action: 'source', icon: '<>' }
 ];
 
 const FALLBACK_ALLOWED_TAGS = new Set([
@@ -18,7 +24,12 @@ const FALLBACK_ALLOWED_TAGS = new Set([
     'ol',
     'li',
     'div',
-    'span'
+    'span',
+    'h1',
+    'h2',
+    'blockquote',
+    'a',
+    'img'
 ]);
 
 const FALLBACK_BLOCKED_TAGS = new Set([
@@ -31,11 +42,38 @@ const FALLBACK_BLOCKED_TAGS = new Set([
     'meta'
 ]);
 
+const FALLBACK_ALLOWED_ATTRIBUTES = {
+    a: ['href', 'title', 'target', 'rel'],
+    img: ['src', 'alt', 'title'],
+    '*': []
+};
+
+const SAFE_LINK_PATTERN = /^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i;
+const SAFE_IMAGE_PATTERN = /^(https?:|data:image\/|\/|\.\/|\.\.\/)/i;
+
 function createActiveState() {
     return TOOLBAR_COMMANDS.reduce((acc, item) => {
         acc[item.id] = false;
         return acc;
     }, {});
+}
+
+function sanitizeUrl(rawValue, type) {
+    if (!rawValue) {
+        return null;
+    }
+
+    const value = String(rawValue).trim();
+    const lowerValue = value.toLowerCase();
+    if (lowerValue.startsWith('javascript:')) {
+        return null;
+    }
+    const pattern = type === 'image' ? SAFE_IMAGE_PATTERN : SAFE_LINK_PATTERN;
+    if (!pattern.test(value)) {
+        return null;
+    }
+
+    return value;
 }
 
 function basicSanitize(html) {
@@ -72,9 +110,59 @@ function basicSanitize(html) {
             continue;
         }
 
+        const allowedAttributes = FALLBACK_ALLOWED_ATTRIBUTES[tagName] || FALLBACK_ALLOWED_ATTRIBUTES['*'];
         Array.from(node.attributes).forEach((attr) => {
-            node.removeAttribute(attr.name);
+            const attrName = attr.name.toLowerCase();
+            if (!allowedAttributes.includes(attrName)) {
+                node.removeAttribute(attr.name);
+                return;
+            }
+
+            if (attrName === 'href') {
+                const safeUrl = sanitizeUrl(attr.value, 'link');
+                if (!safeUrl) {
+                    node.removeAttribute(attr.name);
+                    return;
+                }
+                node.setAttribute(attr.name, safeUrl);
+                return;
+            }
+
+            if (attrName === 'src') {
+                const safeUrl = sanitizeUrl(attr.value, 'image');
+                if (!safeUrl) {
+                    node.removeAttribute(attr.name);
+                    return;
+                }
+                node.setAttribute(attr.name, safeUrl);
+                return;
+            }
+
+            if (attrName === 'target') {
+                if (attr.value !== '_blank') {
+                    node.removeAttribute(attr.name);
+                }
+                return;
+            }
+
+            if (attrName === 'rel') {
+                const allowedTokens = new Set(['noopener', 'noreferrer', 'nofollow', 'ugc']);
+                const tokens = attr.value
+                    .split(' ')
+                    .map((token) => token.trim().toLowerCase())
+                    .filter((token) => token && allowedTokens.has(token));
+                if (tokens.length === 0) {
+                    node.removeAttribute(attr.name);
+                } else {
+                    node.setAttribute(attr.name, tokens.join(' '));
+                }
+                return;
+            }
         });
+
+        if (tagName === 'a' && node.getAttribute('target') === '_blank' && !node.getAttribute('rel')) {
+            node.setAttribute('rel', 'noopener noreferrer');
+        }
     }
 
     nodesToRemove.forEach(({ node, unwrap }) => {
@@ -107,7 +195,11 @@ function sanitizeHtml(vnode, html) {
     }
 
     if (typeof window !== 'undefined' && window.DOMPurify) {
-        return window.DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+        return window.DOMPurify.sanitize(html, {
+            USE_PROFILES: { html: true },
+            ADD_TAGS: ['h1', 'h2', 'blockquote'],
+            ADD_ATTR: ['target', 'rel']
+        });
     }
 
     return basicSanitize(html);
@@ -174,17 +266,79 @@ function configureExecCommandDefaults() {
     }
 }
 
+function getNormalizedFormatBlockValue() {
+    try {
+        const value = document.queryCommandValue('formatBlock') || '';
+        return value.replace(/[<>]/g, '').toLowerCase();
+    } catch (error) {
+        return '';
+    }
+}
+
+function isSelectionInsideTag(tagName) {
+    const selection = document.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        return false;
+    }
+
+    let node = selection.anchorNode;
+    if (!node) {
+        return false;
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+        node = node.parentNode;
+    }
+
+    while (node && node !== document) {
+        if (node.nodeName && node.nodeName.toLowerCase() === tagName.toLowerCase()) {
+            return true;
+        }
+        node = node.parentNode;
+    }
+
+    return false;
+}
+
 function updateActiveState(state) {
     if (!state.editorEl) {
         return;
     }
 
+    if (state.isSourceView) {
+        Object.keys(state.active).forEach((key) => {
+            state.active[key] = key === 'source';
+        });
+        return;
+    }
+
+    const formatBlockValue = getNormalizedFormatBlockValue();
     TOOLBAR_COMMANDS.forEach((item) => {
-        try {
-            state.active[item.id] = document.queryCommandState(item.command);
-        } catch (error) {
-            state.active[item.id] = false;
+        if (item.type === 'formatBlock') {
+            state.active[item.id] = formatBlockValue === item.value;
+            return;
         }
+
+        if (item.action === 'link') {
+            state.active[item.id] = isSelectionInsideTag('a');
+            return;
+        }
+
+        if (item.type === 'toggle') {
+            state.active[item.id] = state.isSourceView;
+            return;
+        }
+
+        if (item.type === 'command') {
+            try {
+                state.active[item.id] = document.queryCommandState(item.command);
+            } catch (error) {
+                state.active[item.id] = false;
+            }
+            return;
+        }
+
+        state.active[item.id] = false;
     });
 }
 
@@ -199,6 +353,17 @@ function emitChange(vnode) {
     if (cleaned === '' && editorEl.innerHTML !== '') {
         editorEl.innerHTML = '';
     }
+    vnode.state.lastEmittedValue = cleaned;
+
+    if (typeof vnode.attrs.onchange === 'function') {
+        vnode.attrs.onchange(cleaned);
+    }
+}
+
+function emitSourceChange(vnode) {
+    const raw = vnode.state.sourceValue || '';
+    const sanitized = sanitizeHtml(vnode, raw);
+    const cleaned = normalizeHtml(sanitized);
     vnode.state.lastEmittedValue = cleaned;
 
     if (typeof vnode.attrs.onchange === 'function') {
@@ -226,13 +391,123 @@ function applyCommand(vnode, command) {
     emitChange(vnode);
 }
 
+function applyFormatBlock(vnode, tagName) {
+    const { state } = vnode;
+    if (!state.editorEl) {
+        return;
+    }
+
+    state.editorEl.focus();
+    restoreSelection(state);
+
+    try {
+        document.execCommand('formatBlock', false, `<${tagName}>`);
+    } catch (error) {
+        console.warn('NativeRichEditor: formatBlock failed', error);
+    }
+
+    saveSelection(state);
+    updateActiveState(state);
+    emitChange(vnode);
+}
+
+function applyLink(vnode) {
+    const { state } = vnode;
+    if (!state.editorEl) {
+        return;
+    }
+
+    const rawUrl = window.prompt('URL del enlace');
+    if (!rawUrl) {
+        return;
+    }
+
+    const safeUrl = sanitizeUrl(rawUrl, 'link');
+    if (!safeUrl) {
+        return;
+    }
+
+    state.editorEl.focus();
+    restoreSelection(state);
+
+    try {
+        document.execCommand('createLink', false, safeUrl);
+    } catch (error) {
+        console.warn('NativeRichEditor: createLink failed', error);
+    }
+
+    saveSelection(state);
+    updateActiveState(state);
+    emitChange(vnode);
+}
+
+function applyImage(vnode) {
+    const { state } = vnode;
+    if (!state.editorEl) {
+        return;
+    }
+
+    const rawUrl = window.prompt('URL de la imagen');
+    if (!rawUrl) {
+        return;
+    }
+
+    const safeUrl = sanitizeUrl(rawUrl, 'image');
+    if (!safeUrl) {
+        return;
+    }
+
+    state.editorEl.focus();
+    restoreSelection(state);
+
+    try {
+        document.execCommand('insertImage', false, safeUrl);
+    } catch (error) {
+        console.warn('NativeRichEditor: insertImage failed', error);
+    }
+
+    saveSelection(state);
+    updateActiveState(state);
+    emitChange(vnode);
+}
+
+function toggleSourceView(vnode) {
+    const { state } = vnode;
+    state.isSourceView = !state.isSourceView;
+
+    if (state.isSourceView) {
+        const html = state.editorEl ? state.editorEl.innerHTML : state.lastEmittedValue;
+        const sanitized = sanitizeHtml(vnode, html);
+        const normalized = normalizeHtml(sanitized);
+        state.sourceValue = normalized;
+        if (state.sourceEl) {
+            state.sourceEl.value = normalized;
+        }
+        updateActiveState(state);
+        return;
+    }
+
+    const sanitized = sanitizeHtml(vnode, state.sourceValue || '');
+    const normalized = normalizeHtml(sanitized);
+    if (state.editorEl && normalized !== normalizeHtml(state.editorEl.innerHTML)) {
+        state.editorEl.innerHTML = normalized;
+    }
+
+    updateActiveState(state);
+    emitChange(vnode);
+}
+
 export const NativeRichEditor = {
     oninit: (vnode) => {
         const initialValue = getExternalValue(vnode);
         vnode.state.lastExternalValue = initialValue;
         vnode.state.lastEmittedValue = initialValue;
         vnode.state.isFocused = false;
+        vnode.state.isSourceFocused = false;
+        vnode.state.isSourceView = false;
         vnode.state.editorEl = null;
+        vnode.state.sourceEl = null;
+        vnode.state.sourceValue = '';
         vnode.state.savedSelection = null;
         vnode.state.active = createActiveState();
     },
@@ -247,12 +522,29 @@ export const NativeRichEditor = {
 
         vnode.state.lastExternalValue = externalValue;
 
+        const sanitizedExternal = sanitizeHtml(vnode, externalValue);
+        const normalizedExternal = normalizeHtml(sanitizedExternal);
+
+        if (vnode.state.isSourceView) {
+            const sourceEl = vnode.state.sourceEl;
+            const currentSource = sourceEl ? sourceEl.value : vnode.state.sourceValue || '';
+            const normalizedSource = normalizeHtml(sanitizeHtml(vnode, currentSource));
+            const sizeDiff = Math.abs(normalizedExternal.length - normalizedSource.length);
+            const isDrastic = !vnode.state.isSourceFocused || sizeDiff > 80;
+
+            if (isDrastic && normalizedExternal !== normalizedSource) {
+                vnode.state.sourceValue = normalizedExternal;
+                if (sourceEl) {
+                    sourceEl.value = normalizedExternal;
+                }
+            }
+            return;
+        }
+
         if (!editorEl) {
             return;
         }
 
-        const sanitizedExternal = sanitizeHtml(vnode, externalValue);
-        const normalizedExternal = normalizeHtml(sanitizedExternal);
         const normalizedDom = normalizeHtml(editorEl.innerHTML);
         const sizeDiff = Math.abs(normalizedExternal.length - normalizedDom.length);
         const isDrastic = !isFocused || sizeDiff > 80;
@@ -265,6 +557,7 @@ export const NativeRichEditor = {
     view: (vnode) => {
         const placeholder = vnode.attrs.placeholder || 'Escribe aqui...';
         const toolbarLabel = vnode.attrs.toolbarLabel || 'Editor';
+        const isSourceView = vnode.state.isSourceView;
         const syncSelectionState = () => {
             saveSelection(vnode.state);
             updateActiveState(vnode.state);
@@ -273,25 +566,64 @@ export const NativeRichEditor = {
             syncSelectionState();
             emitChange(vnode);
         };
+        const handleSourceInput = () => {
+            emitSourceChange(vnode);
+        };
 
-        return m('div', { class: 'native-rich-editor' }, [
+        return m('div', {
+            class: `native-rich-editor${isSourceView ? ' native-rich-editor--source' : ''}`
+        }, [
             m('div', {
                 class: 'native-rich-editor__toolbar',
                 role: 'toolbar',
                 'aria-label': `${toolbarLabel} toolbar`
             }, TOOLBAR_COMMANDS.map((item) => {
                 const isActive = !!vnode.state.active[item.id];
+                const isDisabled = isSourceView && item.type !== 'toggle';
+                const isSourceButton = item.id === 'source';
                 return m('button', {
                     key: item.id,
                     type: 'button',
-                    class: `native-rich-editor__button${isActive ? ' is-active' : ''}`,
+                    class: `native-rich-editor__button${isActive ? ' is-active' : ''}${isSourceButton ? ' native-rich-editor__button--source' : ''}`,
                     'aria-pressed': isActive ? 'true' : 'false',
+                    disabled: isDisabled,
                     title: item.label,
                     onmousedown: (event) => {
+                        if (isDisabled) {
+                            return;
+                        }
                         event.preventDefault();
                         saveSelection(vnode.state);
                     },
-                    onclick: () => applyCommand(vnode, item.command)
+                    onclick: () => {
+                        if (isDisabled) {
+                            return;
+                        }
+
+                        if (item.type === 'formatBlock') {
+                            applyFormatBlock(vnode, item.value);
+                            return;
+                        }
+
+                        if (item.type === 'command') {
+                            applyCommand(vnode, item.command);
+                            return;
+                        }
+
+                        if (item.action === 'link') {
+                            applyLink(vnode);
+                            return;
+                        }
+
+                        if (item.action === 'image') {
+                            applyImage(vnode);
+                            return;
+                        }
+
+                        if (item.action === 'source') {
+                            toggleSourceView(vnode);
+                        }
+                    }
                 }, [
                     m('span', { class: 'native-rich-editor__button-icon' }, item.icon),
                     m('span', { class: 'native-rich-editor__button-label' }, item.label)
@@ -354,6 +686,25 @@ export const NativeRichEditor = {
                         saveSelection(vnode.state);
                         emitChange(vnode);
                     }
+                }),
+                m('textarea', {
+                    class: 'native-rich-editor__source',
+                    oncreate: (sourceVnode) => {
+                        vnode.state.sourceEl = sourceVnode.dom;
+                        sourceVnode.dom.value = vnode.state.sourceValue || '';
+                    },
+                    onfocus: () => {
+                        vnode.state.isSourceFocused = true;
+                    },
+                    onblur: () => {
+                        vnode.state.isSourceFocused = false;
+                        handleSourceInput();
+                    },
+                    oninput: (event) => {
+                        vnode.state.sourceValue = event.target.value;
+                        handleSourceInput();
+                    },
+                    spellcheck: false
                 })
             ])
         ]);

@@ -32,6 +32,12 @@
     user-select: none;
 }
 
+.native-rich-editor__button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    box-shadow: none;
+}
+
 .native-rich-editor__button:hover {
     background: #ffffff;
     border-color: #e2e8f0;
@@ -64,6 +70,10 @@
     letter-spacing: 0.02em;
 }
 
+.native-rich-editor__button--source {
+    margin-left: auto;
+}
+
 .native-rich-editor__button-label {
     font-weight: 500;
 }
@@ -87,6 +97,16 @@
     background: #ffffff;
 }
 
+.native-rich-editor__content h1 {
+    font-size: 1.5rem;
+    margin: 0 0 0.75rem;
+}
+
+.native-rich-editor__content h2 {
+    font-size: 1.25rem;
+    margin: 0 0 0.75rem;
+}
+
 .native-rich-editor__content:empty:before {
     content: attr(data-placeholder);
     color: #94a3b8;
@@ -105,6 +125,43 @@
 .native-rich-editor__content ol {
     margin: 0.5rem 0 0.75rem;
     padding-left: 1.5rem;
+}
+
+.native-rich-editor__content blockquote {
+    margin: 0 0 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 3px solid #cbd5e1;
+    color: #475569;
+}
+
+.native-rich-editor__content img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0.5rem 0 0.75rem;
+}
+
+.native-rich-editor__source {
+    display: none;
+    width: 100%;
+    min-height: 180px;
+    padding: 1rem 1.25rem;
+    border: none;
+    outline: none;
+    resize: vertical;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+.native-rich-editor--source .native-rich-editor__content {
+    display: none;
+}
+
+.native-rich-editor--source .native-rich-editor__source {
+    display: block;
 }
 
 @media (max-width: 640px) {
