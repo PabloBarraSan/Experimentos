@@ -1,36 +1,24 @@
 /**
  * Componente MonthCalendar - Vista Mensual de Booking
- * Calendario mensual para selección de rangos de fechas
+ * Nivel World-Class: Clean Canvas, Perfect Centering, True Liquid
  */
 
-import { Tokens, PremiumTokens } from '../tokens.js';
+import { Tokens } from '../tokens.js';
 import {
   generateMonthGrid,
   isDateBooked,
   isDayBlocked,
-  isDateInRange,
   startOfDay,
   isSameDay,
-  formatDate,
   getDateRange,
+  addDays,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  toISODateString,
 } from '../core/dates.js';
-import {
-  getPriceForDate,
-  getAveragePrice,
-  calculateRangeTotal,
-  getPriceColor,
-  formatPrice,
-} from '../core/priceUtils.js';
 
-/**
- * Componente MonthCalendar
- * @param {Object} vnode - Props del componente
- * @param {Date} vnode.attrs.currentMonth - Mes actual a mostrar
- * @param {Object} vnode.attrs.data - Datos (bookedDates, blockedDays, minStay, maxStay, dailyRates)
- * @param {Object} vnode.attrs.state - Estado (selectedRange, currentMonth)
- * @param {Object} vnode.attrs.callbacks - Callbacks (onRangeSelect)
- * @param {number} vnode.attrs.numberOfMonths - Número de meses a mostrar (1 o 2, default: 1)
- */
 export const MonthCalendar = {
   oninit: (vnode) => {
     const state = vnode.state;
@@ -38,176 +26,222 @@ export const MonthCalendar = {
     state.selectionStart = null;
     state.isSelecting = false;
     state.hoveredCell = null;
-    state.tooltipInfo = null; // Para tooltip durante hover
+    state.focusedDate = null;
+    state.transitionKey = 0;
+    state.isTransitioning = false;
+    state.hoveredWeek = null;
+    
+    // Gestos swipe
+    state.swipeStartX = null;
+    state.swipeStartY = null;
+    state.swipeThreshold = 50;
+    
+    state.handleTouchStart = (e) => {
+      const touch = e.touches[0];
+      state.swipeStartX = touch.clientX;
+      state.swipeStartY = touch.clientY;
+    };
+    
+    state.handleTouchEnd = null; 
   },
 
   view: (vnode) => {
-    const { currentMonth, data = {}, callbacks = {}, numberOfMonths = 1 } = vnode.attrs;
+    const { currentMonth, data = {}, callbacks = {}, numberOfMonths = 1, locale = 'es-ES', labels = {} } = vnode.attrs;
     const state = vnode.state;
     
     const bookedDates = data.bookedDates || [];
     const blockedDays = data.blockedDays || [];
     const minStay = data.minStay || 1;
-    const maxStay = data.maxStay || 30;
-    const dailyRates = data.dailyRates || null;
+    const maxStay = data.maxStay || 31;
+    const prices = data.prices || {};
+
+    // Configuración Visual Top-Tier
+    const CELL_HEIGHT = '44px'; // Más compacto (antes 48px)
+    const CAPSULE_RADIUS = '22px'; // Mitad exacta de la altura para semicírculos perfectos
     
+    const easeOutCubic = 'cubic-bezier(0.33, 1, 0.68, 1)';
     const selectedRange = vnode.attrs.state?.selectedRange || { start: null, end: null };
     
-    // Generar meses a mostrar
     const monthsToShow = [];
     for (let i = 0; i < numberOfMonths; i++) {
       const monthDate = new Date(currentMonth);
       monthDate.setMonth(currentMonth.getMonth() + i);
       monthsToShow.push(monthDate);
     }
+
+    // Helpers de Fechas y Textos
+    const generateDayNames = (targetLocale) => {
+      const formatter = new Intl.DateTimeFormat(targetLocale, { weekday: 'narrow' }); // "L", "M", "X" (Más minimalista)
+      const base = new Date(2024, 0, 1); 
+      return Array.from({ length: 7 }, (_, index) => formatter.format(addDays(base, index)));
+    };
+
+    const generateMonthNames = (targetLocale) => {
+      const formatter = new Intl.DateTimeFormat(targetLocale, { month: 'long' });
+      return Array.from({ length: 12 }, (_, index) => formatter.format(new Date(2024, index, 1)));
+    };
+
+    const dayNames = Array.isArray(labels.dayNames) && labels.dayNames.length === 7
+      ? labels.dayNames
+      : generateDayNames(locale);
     
-    // Calcular precio promedio para todos los meses
-    let averagePrice = 0;
-    if (dailyRates) {
-      const allDates = [];
-      monthsToShow.forEach(monthDate => {
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
-        const monthStart = new Date(year, month, 1);
-        const monthEnd = new Date(year, month + 1, 0);
-        allDates.push(...getDateRange(monthStart, monthEnd));
-      });
-      if (allDates.length > 0) {
-        const total = allDates.reduce((sum, date) => {
-          return sum + getPriceForDate(date, dailyRates).price;
-        }, 0);
-        averagePrice = Math.round(total / allDates.length);
-      }
+    const monthNames = Array.isArray(labels.monthNames) && labels.monthNames.length === 12
+      ? labels.monthNames
+      : generateMonthNames(locale);
+
+    const formatLongDate = (date) => date.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Lógica de fechas (Today, Unavailable, etc)
+    const today = startOfDay(new Date());
+    
+    if (!state.focusedDate || state.focusedDate.getMonth() !== currentMonth.getMonth()) {
+      state.focusedDate = startOfDay(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
     }
+
+    const isUnavailableDate = (date) => {
+      const dateOnly = startOfDay(date);
+      if (dateOnly < today) return true;
+      return isDateBooked(date, bookedDates);
+    };
     
-    // Nombres de los días de la semana (Lunes a Domingo)
-    const dayNames = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
+    const isPastDate = (date) => startOfDay(date) < today;
+
+    // Lógica de selección inteligente (Clamp)
+    const getFirstUnavailableDateInRange = (startDate, endDate) => {
+      if (!startDate || !endDate) return null;
+      const start = startOfDay(startDate);
+      const end = startOfDay(endDate);
+      const direction = start <= end ? 1 : -1;
+      const current = new Date(start);
+      current.setDate(current.getDate() + direction);
+      while (direction > 0 ? current <= end : current >= end) {
+        if (isUnavailableDate(current)) return new Date(current);
+        current.setDate(current.getDate() + direction);
+      }
+      return null;
+    };
+
+    const clampRangeEnd = (startDate, endDate) => {
+      if (!startDate || !endDate) return endDate;
+      const start = startOfDay(startDate);
+      const end = startOfDay(endDate);
+      const firstUnavailable = getFirstUnavailableDateInRange(start, end);
+      if (!firstUnavailable) return end;
+      
+      const direction = start <= end ? 1 : -1;
+      const clamped = new Date(firstUnavailable);
+      clamped.setDate(clamped.getDate() - direction);
+      return startOfDay(clamped);
+    };
     
-    // Estilos del contenedor principal
+    // --- ESTILOS ---
+    
     const containerStyles = {
       width: '100%',
-      maxWidth: numberOfMonths === 2 ? '1400px' : '800px',
+      maxWidth: '100%',
       margin: '0 auto',
-      padding: Tokens.layout.spacing.lg,
-      backgroundColor: Tokens.colors.surface,
-      borderRadius: Tokens.layout.borderRadius.lg,
-      display: 'flex',
-      flexDirection: 'row',
-      gap: numberOfMonths === 2 ? Tokens.layout.spacing.xl : 0,
-      flexWrap: 'wrap',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", sans-serif',
+      opacity: state.isTransitioning ? 0.4 : 1,
+      transform: state.isTransitioning ? 'translateX(8px)' : 'translateX(0)',
+      transition: `opacity 0.3s ${easeOutCubic}, transform 0.3s ${easeOutCubic}`,
     };
     
-    // Estilos para cada mes individual
     const monthContainerStyles = {
-      flex: numberOfMonths === 2 ? '1 1 calc(50% - 16px)' : '1 1 100%',
-      minWidth: numberOfMonths === 2 ? '400px' : 'auto',
+      width: '100%',
+      maxWidth: '400px', // Ancho máximo controlado para evitar estiramiento excesivo
+      margin: '0 auto',  // Centrado automático
+      padding: '0 16px', // Padding lateral seguro
+      backgroundColor: 'transparent',
     };
     
-    // Estilos del header del mes
+    // Header más limpio
     const monthHeaderStyles = {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: Tokens.layout.spacing.lg,
-      paddingBottom: Tokens.layout.spacing.md,
-      borderBottom: `2px solid ${Tokens.colors.border}`,
+      marginBottom: '24px', // Más aire entre título y grid
+      padding: '0 8px',
+    };
+    
+    const navButtonStyles = {
+      width: '32px',
+      height: '32px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent', // Botones ghost
+      border: 'none',
+      borderRadius: '50%', // Botones circulares
+      cursor: 'pointer',
+      color: '#111827',
+      fontSize: '16px',
+      transition: 'background-color 0.2s',
     };
     
     const monthTitleStyles = {
-      fontSize: Tokens.typography.fontSize['2xl'],
-      fontWeight: Tokens.typography.fontWeight.bold,
-      color: Tokens.colors.textPrimary,
+      fontSize: '16px',
+      fontWeight: '600',
+      color: '#111827',
+      textTransform: 'capitalize',
+      letterSpacing: '-0.01em',
     };
     
-    // Estilos del grid
+    // Grid Setup - Zero Gap
     const gridStyles = {
       display: 'grid',
       gridTemplateColumns: 'repeat(7, 1fr)',
-      gap: '2px',
+      gap: '0px', 
       width: '100%',
+      position: 'relative',
+      // ELIMINADO: paddingLeft: '32px' -> Esto causaba el descentrado
     };
     
-    // Estilos del header de días de la semana
     const dayHeaderStyles = {
-      padding: Tokens.layout.spacing.md,
       textAlign: 'center',
-      fontSize: Tokens.typography.fontSize.sm,
-      fontWeight: Tokens.typography.fontWeight.semibold,
-      color: Tokens.colors.textSecondary,
-      backgroundColor: Tokens.colors.surfaceSecondary,
+      fontSize: '11px',
+      fontWeight: '600',
+      color: '#9CA3AF', // Gris medio para no competir
+      marginBottom: '8px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
     };
-    
-    // Handler para click en celda
+
+    // --- HANDLERS (Simplificados) ---
     const handleCellClick = (cell) => {
-      if (!cell.isCurrentMonth) return;
-      if (isDateBooked(cell.date, bookedDates)) return;
-      if (isDayBlocked(cell.date, blockedDays)) return;
+      if (!cell.isCurrentMonth || isUnavailableDate(cell.date)) return;
       
       const clickedDate = startOfDay(cell.date);
+      state.focusedDate = clickedDate;
       
       if (!state.selectionStart) {
-        // Primer click: establecer inicio
         state.selectionStart = clickedDate;
         state.isSelecting = true;
+        if (callbacks.onSelectionStart) callbacks.onSelectionStart();
         m.redraw();
       } else {
-        // Segundo click: establecer fin y completar selección
         const startDate = state.selectionStart;
-        const endDate = clickedDate;
-        
-        // Asegurar que start < end
-        const actualStart = startDate < endDate ? startDate : endDate;
-        const actualEnd = startDate < endDate ? endDate : startDate;
-        
-        // Validar rango
-        const daysDiff = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24)) + 1;
-        
-        if (daysDiff < minStay) {
-          console.warn(`La estancia mínima es de ${minStay} días`);
-          // Reiniciar selección
-          state.selectionStart = null;
-          state.isSelecting = false;
+        if (clickedDate < startDate) {
+          state.selectionStart = clickedDate;
+          state.isSelecting = true;
           m.redraw();
           return;
         }
         
-        if (daysDiff > maxStay) {
-          console.warn(`La estancia máxima es de ${maxStay} días`);
-          // Reiniciar selección
+        const clampedEnd = clampRangeEnd(startDate, clickedDate);
+        const rangeDates = getDateRange(startDate, clampedEnd);
+        
+        // Validaciones mínimas/máximas
+        if (rangeDates.length < minStay || rangeDates.length > maxStay) {
+          // Feedback visual de error (vibración) podría ir aquí
           state.selectionStart = null;
           state.isSelecting = false;
+          state.hoveredDate = null;
           m.redraw();
           return;
         }
         
-        // Verificar que no haya días ocupados en el rango
-        const rangeDates = [];
-        const current = new Date(actualStart);
-        while (current <= actualEnd) {
-          rangeDates.push(new Date(current));
-          current.setDate(current.getDate() + 1);
-        }
+        if (callbacks.onRangeSelect) callbacks.onRangeSelect(startDate, clampedEnd);
         
-        const hasBookedDate = rangeDates.some(d => isDateBooked(d, bookedDates));
-        if (hasBookedDate) {
-          console.warn('El rango seleccionado incluye días ocupados');
-          // Reiniciar selección
-          state.selectionStart = null;
-          state.isSelecting = false;
-          m.redraw();
-          return;
-        }
-        
-        // Llamar callback
-        if (callbacks.onRangeSelect) {
-          callbacks.onRangeSelect(actualStart, actualEnd);
-        }
-        
-        // Limpiar estado
         state.selectionStart = null;
         state.isSelecting = false;
         state.hoveredDate = null;
@@ -215,289 +249,270 @@ export const MonthCalendar = {
       }
     };
     
-    // Handler para hover en celda
     const handleCellHover = (cell) => {
-      // Hover básico para todas las celdas
-      if (!isDateBooked(cell.date, bookedDates) && !isDayBlocked(cell.date, blockedDays)) {
-        state.hoveredCell = cell;
-      }
+      if (isUnavailableDate(cell.date)) return;
+      state.hoveredCell = cell;
       
-      // Durante selección, actualizar hoveredDate y tooltip
-      if (state.isSelecting && state.selectionStart) {
-        if (!cell.isCurrentMonth) return;
-        if (isDateBooked(cell.date, bookedDates)) return;
-        if (isDayBlocked(cell.date, blockedDays)) return;
-        
-        state.hoveredDate = startOfDay(cell.date);
-        
-        // Calcular tooltip con información de rango
-        if (state.selectionStart && state.hoveredDate) {
-          const rangeStart = state.selectionStart < state.hoveredDate ? state.selectionStart : state.hoveredDate;
-          const rangeEnd = state.selectionStart < state.hoveredDate ? state.hoveredDate : state.selectionStart;
-          
-          if (dailyRates) {
-            const rangeInfo = calculateRangeTotal(rangeStart, rangeEnd, dailyRates);
-            state.tooltipInfo = {
-              nights: rangeInfo.nights,
-              total: rangeInfo.total,
-              currency: rangeInfo.currency,
-            };
-          } else {
-            const nights = Math.ceil((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24)) + 1;
-            state.tooltipInfo = {
-              nights: nights,
-              total: null,
-              currency: null,
-            };
-          }
+      if (state.isSelecting && state.selectionStart && cell.isCurrentMonth) {
+        const proposedHoverDate = startOfDay(cell.date);
+        if (proposedHoverDate >= state.selectionStart) {
+          state.hoveredDate = clampRangeEnd(state.selectionStart, proposedHoverDate);
         }
-      } else {
-        state.tooltipInfo = null;
       }
+      m.redraw();
+    };
+    
+    // Navegación
+    const navigateMonth = (delta) => {
+      const newDate = new Date(currentMonth);
+      newDate.setMonth(newDate.getMonth() + delta);
       
-      m.redraw();
-    };
-    
-    // Handler para salir del hover
-    const handleCellLeave = () => {
-      state.hoveredCell = null;
-      if (state.isSelecting) {
-        state.hoveredDate = null;
-        state.tooltipInfo = null;
+      if (document.startViewTransition) {
+        document.startViewTransition(() => callbacks.onMonthChange && callbacks.onMonthChange(newDate));
+      } else {
+        callbacks.onMonthChange && callbacks.onMonthChange(newDate);
       }
-      m.redraw();
     };
-    
-    // Función para renderizar un mes individual
+
+    // --- RENDER MES ---
     const renderMonth = (monthDate, monthIndex) => {
       const year = monthDate.getFullYear();
       const month = monthDate.getMonth();
       const monthCells = generateMonthGrid(year, month);
       
       return m('div', {
-        key: `month-${monthIndex}`,
+        key: `month-${monthIndex}-${state.transitionKey}`,
         style: monthContainerStyles,
+        ontouchstart: state.handleTouchStart,
+        ontouchend: (!state.handleTouchEnd) ? (e) => { /* lógica swipe */ } : state.handleTouchEnd,
       }, [
-        // Header del mes
-        m('div', { style: monthHeaderStyles }, [
-          m('h2', { style: monthTitleStyles }, 
-            `${monthNames[month]} ${year}`
-          ),
+        // Navigation Header
+        m('div', { key: `header-${monthIndex}`, style: monthHeaderStyles }, [
+          m('button', {
+            key: `nav-prev-${monthIndex}`,
+            style: navButtonStyles,
+            onclick: () => navigateMonth(-1),
+            onmouseenter: (e) => e.target.style.backgroundColor = '#F3F4F6',
+            onmouseleave: (e) => e.target.style.backgroundColor = 'transparent',
+          }, '←'), // Flecha simple ASCII o SVG
+          m('span', { key: `month-title-${monthIndex}`, style: monthTitleStyles }, `${monthNames[month]} ${year}`),
+          m('button', {
+            key: `nav-next-${monthIndex}`,
+            style: navButtonStyles,
+            onclick: () => navigateMonth(1),
+            onmouseenter: (e) => e.target.style.backgroundColor = '#F3F4F6',
+            onmouseleave: (e) => e.target.style.backgroundColor = 'transparent',
+          }, '→'),
         ]),
         
-        // Grid de días de la semana
-        m('div', { style: gridStyles }, [
-          // Headers de días
-          ...dayNames.map((dayName, index) => 
-            m('div', { key: `header-${monthIndex}-${index}`, style: dayHeaderStyles }, dayName)
+        // Grid
+        m('div', { key: `grid-${monthIndex}`, style: gridStyles, role: 'grid' }, [
+          ...dayNames.map((dayName, dayIndex) => 
+            m('div', { key: `day-header-${dayIndex}`, style: dayHeaderStyles }, dayName)
           ),
           
-          // Celdas del mes
           ...monthCells.map((cell, index) => {
-            // Calcular posición en la fila para bordes redondeados
-            const rowIndex = Math.floor(index / 7);
-            const colIndex = index % 7;
-            const isFirstInRow = colIndex === 0;
-            const isLastInRow = colIndex === 6;
+            const { date, isCurrentMonth } = cell;
+            const isToday = isCurrentMonth && isSameDay(date, today);
+            const isOutOfMonth = !isCurrentMonth;
+            const isBooked = isDateBooked(date, bookedDates);
+            const isBlocked = isDayBlocked(date, blockedDays);
             
-            // Recalcular estilos con la posición correcta
-            const cellStyles = (() => {
-              const { date, isCurrentMonth } = cell;
-              const today = new Date();
-              const isToday = isCurrentMonth && isSameDay(date, today);
-              const isBooked = isDateBooked(date, bookedDates);
-              const isBlocked = isDayBlocked(date, blockedDays);
-              const isDisabled = !isCurrentMonth || isBooked || isBlocked;
+            // Determinar Rango Visual
+            let rangeStart = null, rangeEnd = null;
+            
+            if (state.isSelecting && state.selectionStart) {
+              rangeStart = state.selectionStart;
+              rangeEnd = state.hoveredDate || state.selectionStart;
+            } else if (selectedRange.start && selectedRange.end) {
+              rangeStart = selectedRange.start;
+              rangeEnd = selectedRange.end;
+            }
+            
+            let isRangeStart = false, isRangeEnd = false, isRangeMiddle = false;
+            let hasLeft = false, hasRight = false;
+
+            if (rangeStart && rangeEnd && isCurrentMonth) {
+              const t = date.getTime();
+              const tS = startOfDay(rangeStart).getTime();
+              const tE = startOfDay(rangeEnd).getTime();
               
-              // Determinar rango actual (seleccionado o hover)
-              let rangeStart = null;
-              let rangeEnd = null;
+              isRangeStart = t === tS;
+              isRangeEnd = t === tE;
+              isRangeMiddle = t > tS && t < tE;
               
-              if (state.isSelecting && state.selectionStart && state.hoveredDate) {
-                rangeStart = state.selectionStart < state.hoveredDate ? state.selectionStart : state.hoveredDate;
-                rangeEnd = state.selectionStart < state.hoveredDate ? state.hoveredDate : state.selectionStart;
-              } else if (selectedRange.start && selectedRange.end) {
-                rangeStart = selectedRange.start;
-                rangeEnd = selectedRange.end;
-              }
+              // Conectores líquidos
+              const prev = addDays(date, -1);
+              const next = addDays(date, 1);
               
-              // Determinar si es inicio/fin/medio del rango visual
-              let isRangeStart = false;
-              let isRangeEnd = false;
-              let isRangeMiddle = false;
-              
-              if (rangeStart && rangeEnd) {
-                const dateTime = date.getTime();
-                const startTime = startOfDay(rangeStart).getTime();
-                const endTime = startOfDay(rangeEnd).getTime();
-                
-                isRangeStart = dateTime === startTime;
-                isRangeEnd = dateTime === endTime;
-                isRangeMiddle = dateTime > startTime && dateTime < endTime;
-              }
-              
-              // Ajustar bordes redondeados según posición en fila y rango
+              // Solo conectamos si el adyacente está en rango Y en el mismo mes visual
+              const prevInSameMonth = prev.getMonth() === month && prev.getFullYear() === year;
+              const nextInSameMonth = next.getMonth() === month && next.getFullYear() === year;
+
+              hasLeft = prevInSameMonth && (startOfDay(prev).getTime() >= tS && startOfDay(prev).getTime() <= tE) && !isDateBooked(prev, bookedDates);
+              hasRight = nextInSameMonth && (startOfDay(next).getTime() >= tS && startOfDay(next).getTime() <= tE) && !isDateBooked(next, bookedDates);
+            }
+
+            // ESTILOS DINÁMICOS DE CELDA
+            const cellStyle = (() => {
+              // Geometría
               let borderRadius = '0';
-              if (isRangeStart && isRangeEnd) {
-                borderRadius = Tokens.radius.selection;
-              } else if (isRangeStart) {
-                if (isFirstInRow) {
-                  borderRadius = '8px 0 0 8px';
-                } else {
-                  borderRadius = Tokens.radius.selection;
-                }
-              } else if (isRangeEnd) {
-                if (isLastInRow) {
-                  borderRadius = '0 8px 8px 0';
-                } else {
-                  borderRadius = Tokens.radius.selection;
-                }
-              } else if (isRangeMiddle) {
-                borderRadius = '0';
-              }
+              const isInRange = isRangeStart || isRangeEnd || isRangeMiddle;
               
-              // Estilos base
-              const baseStyles = {
-                aspectRatio: '1',
-                minHeight: '70px',
+              if (isInRange) {
+                if (isRangeStart && isRangeEnd) {
+                  borderRadius = '50%'; // Día único seleccionado = Círculo
+                } else {
+                  // Cápsula lógica
+                  const l = (!hasLeft) ? CAPSULE_RADIUS : '0';
+                  const r = (!hasRight) ? CAPSULE_RADIUS : '0';
+                  borderRadius = `${l} ${r} ${r} ${l}`;
+                }
+              } else if (state.hoveredCell && isSameDay(date, state.hoveredCell.date)) {
+                borderRadius = '50%'; // Hover en día suelto = Círculo perfecto (Estilo iOS)
+              }
+
+              // Color y Fondo
+              let bg = 'transparent';
+              let color = '#374151'; // Gris oscuro (casi negro)
+              let fontWeight = '400';
+              let shadow = 'none';
+              let zIndex = 1;
+
+              if (isOutOfMonth) return { opacity: 0, pointerEvents: 'none' }; // Invisible
+              
+              if (isBooked || isBlocked) {
+                color = '#D1D5DB'; // Gris muy claro
+                return { 
+                  color, 
+                  textDecoration: 'line-through',
+                  cursor: 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', height: CELL_HEIGHT 
+                };
+              }
+
+              if (isRangeStart || isRangeEnd) {
+                bg = '#111827'; // Negro Carbón
+                color = '#FFFFFF';
+                fontWeight = '600';
+                zIndex = 10;
+                shadow = '0 4px 6px rgba(0,0,0,0.1)'; // Sombra sutil para elevación
+              } else if (isRangeMiddle) {
+                bg = '#F3F4F6'; // Gris muy pálido, casi blanco
+                color = '#111827';
+              } else if (state.hoveredCell && isSameDay(date, state.hoveredCell.date)) {
+                bg = '#F3F4F6'; // Hover sutil
+              }
+
+              if (isToday && !isInRange) {
+                color = Tokens.colors.primary; // Azul o color de marca para "Hoy"
+                fontWeight = '600';
+              }
+
+              return {
+                height: CELL_HEIGHT,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                cursor: isDisabled ? 'not-allowed' : (state.isSelecting ? 'grab' : 'pointer'),
-                transition: PremiumTokens.transitions.hover,
-                position: 'relative',
+                backgroundColor: bg,
                 borderRadius: borderRadius,
-                border: isToday ? `2px solid ${Tokens.colors.primary}` : 'none',
-                padding: Tokens.layout.spacing.xs,
-              };
-              
-              // Colores según estado
-              if (isDisabled) {
-                return {
-                  ...baseStyles,
-                  backgroundColor: Tokens.colors.cell.disabled,
-                  color: Tokens.colors.textTertiary,
-                  opacity: 0.5,
-                };
-              }
-              
-              if (isRangeStart || isRangeEnd) {
-                return {
-                  ...baseStyles,
-                  backgroundColor: Tokens.colors.cell.selected,
-                  color: Tokens.colors.cell.selectedText,
-                  fontWeight: Tokens.typography.fontWeight.bold,
-                  transform: 'scale(1.05)',
-                };
-              }
-              
-              if (isRangeMiddle) {
-                return {
-                  ...baseStyles,
-                  backgroundColor: Tokens.colors.cell.inRange,
-                  color: Tokens.colors.textPrimary,
-                };
-              }
-              
-              if (isBooked) {
-                return {
-                  ...baseStyles,
-                  backgroundColor: Tokens.colors.cell.booked,
-                  color: Tokens.colors.cell.bookedText,
-                  textDecoration: 'line-through',
-                };
-              }
-              
-              // Estado por defecto
-              const isHovered = state.hoveredCell && isSameDay(cell.date, state.hoveredCell.date) && 
-                               !isDisabled && !isRangeStart && !isRangeEnd && !isRangeMiddle;
-              
-              return {
-                ...baseStyles,
-                backgroundColor: isHovered 
-                  ? Tokens.colors.cell.hover 
-                  : (isCurrentMonth ? Tokens.colors.cell.default : Tokens.colors.surfaceSecondary),
-                color: isCurrentMonth ? Tokens.colors.textPrimary : Tokens.colors.textTertiary,
+                color: color,
+                fontWeight: fontWeight,
+                cursor: 'pointer',
+                position: 'relative',
+                zIndex: zIndex,
+                boxShadow: shadow,
+                transition: 'background-color 0.15s ease, transform 0.1s ease',
+                userSelect: 'none',
+                // Eliminamos márgenes para que se toquen (liquid effect)
+                margin: (isInRange) ? '0' : '1px 0', // Pequeño gap vertical en días normales para que respiren
               };
             })();
+
+            // Children
+            const children = [];
             
-            const dayNumber = cell.date.getDate();
-            
-            // Obtener precio para este día
-            let priceInfo = null;
-            let priceColor = null;
-            if (dailyRates && cell.isCurrentMonth && !isDateBooked(cell.date, bookedDates) && !isDayBlocked(cell.date, blockedDays)) {
-              priceInfo = getPriceForDate(cell.date, dailyRates);
-              const isSelected = (selectedRange.start && isSameDay(cell.date, selectedRange.start)) ||
-                               (selectedRange.end && isSameDay(cell.date, selectedRange.end)) ||
-                               (selectedRange.start && selectedRange.end && isDateInRange(cell.date, selectedRange.start, selectedRange.end));
-              priceColor = getPriceColor(priceInfo.price, averagePrice, isSelected);
+            // Selector de semana (Overlay flotante, no ocupa espacio en grid)
+            const weekStart = startOfWeek(date);
+            const isFirstCol = index % 7 === 0;
+            if (isFirstCol && isCurrentMonth) {
+               children.push(m('div', {
+                 key: `week-selector-${index}`,
+                 style: {
+                   position: 'absolute',
+                   left: '-24px', // Flotando a la izquierda
+                   top: '50%',
+                   transform: 'translateY(-50%)',
+                   fontSize: '10px',
+                   color: state.hoveredWeek === weekStart.getTime() ? '#111827' : 'transparent', // Solo visible en hover
+                   cursor: 'pointer',
+                   padding: '4px',
+                 },
+                 onmouseenter: () => state.hoveredWeek = weekStart.getTime(),
+                 onclick: (e) => { e.stopPropagation(); /* handleWeekClick logic */ }
+               }, '›'));
             }
-            
-            return m('div', {
-              key: `cell-${monthIndex}-${index}`,
-              style: cellStyles,
-              onclick: () => handleCellClick(cell),
-              onmouseenter: () => handleCellHover(cell),
-              onmouseleave: handleCellLeave,
-            }, [
-              m('span', {
+
+            // Día Número
+            children.push(m('span', {
+              key: `day-number-${index}`,
+              style: {
+                fontSize: '15px',
+                lineHeight: '1',
+                zIndex: 2,
+                fontFeatureSettings: '"tnum"', // Tabular numbers para centrado perfecto
+              }
+            }, date.getDate()));
+
+            // Precio (Minimalista)
+            const price = prices[toISODateString(date)];
+            if (price && !isBooked && !isRangeMiddle) {
+              children.push(m('span', {
+                key: `price-${index}`,
                 style: {
-                  fontSize: Tokens.typography.fontSize.base,
-                  fontWeight: cellStyles.fontWeight || Tokens.typography.fontWeight.normal,
-                  lineHeight: 1.2,
-                }
-              }, dayNumber),
-              // Mostrar precio si está disponible
-              ...(priceInfo ? [m('span', {
-                key: `price-${monthIndex}-${index}`,
-                style: {
-                  fontSize: PremiumTokens.typography.priceSize,
-                  color: priceColor,
+                  fontSize: '9px',
                   marginTop: '2px',
-                  fontWeight: Tokens.typography.fontWeight.normal,
-                  lineHeight: 1,
+                  color: (isRangeStart || isRangeEnd) ? 'rgba(255,255,255,0.7)' : '#9CA3AF',
+                  fontWeight: '500',
                 }
-              }, formatPrice(priceInfo.price, priceInfo.currency).replace(/\s/g, ''))] : []),
-            ]);
-          }),
+              }, `${price}€`));
+            }
+
+            // Puntito "Hoy"
+            if (isToday && !isRangeStart && !isRangeEnd && !isRangeMiddle) {
+              children.push(m('div', {
+                key: `today-indicator-${index}`,
+                style: {
+                  position: 'absolute',
+                  bottom: '4px',
+                  width: '4px',
+                  height: '4px',
+                  backgroundColor: Tokens.colors.primary,
+                  borderRadius: '50%',
+                }
+              }));
+            }
+
+            return m('div', {
+              key: `cell-${index}`,
+              style: cellStyle,
+              onmousedown: (e) => e.currentTarget.style.transform = 'scale(0.90)',
+              onmouseup: (e) => e.currentTarget.style.transform = 'scale(1)',
+              onmouseleave: (e) => {
+                handleCellHover({ date: new Date(0), isCurrentMonth: false }); // Clear hover
+                e.currentTarget.style.transform = 'scale(1)';
+              },
+              onmouseenter: () => handleCellHover(cell),
+              onclick: () => handleCellClick(cell),
+            }, children);
+          })
         ]),
       ]);
     };
-    
-    // Construir array de children sin null
-    const children = [
-      // Renderizar cada mes
-      ...monthsToShow.map((monthDate, index) => renderMonth(monthDate, index)),
-    ];
-    
-    // Agregar tooltip si existe
-    if (state.tooltipInfo) {
-      children.push(m('div', {
-        key: 'tooltip',
-        style: {
-          position: 'fixed',
-          bottom: '100px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          backgroundColor: Tokens.colors.textPrimary,
-          color: Tokens.colors.textInverse,
-          padding: `${Tokens.layout.spacing.sm} ${Tokens.layout.spacing.md}`,
-          borderRadius: Tokens.layout.borderRadius.md,
-          fontSize: Tokens.typography.fontSize.sm,
-          fontWeight: Tokens.typography.fontWeight.medium,
-          boxShadow: Tokens.shadows.card,
-          zIndex: Tokens.layout.zIndex.tooltip,
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap',
-        }
-      }, [
-        `${state.tooltipInfo.nights} ${state.tooltipInfo.nights === 1 ? 'noche' : 'noches'}`,
-        state.tooltipInfo.total !== null ? ` • Total: ${formatPrice(state.tooltipInfo.total, state.tooltipInfo.currency)}` : '',
-      ]));
-    }
-    
-    return m('div', { style: containerStyles }, children);
-  },
+
+    return m('div', { style: containerStyles }, [
+      ...monthsToShow.map((d, i) => renderMonth(d, i))
+    ]);
+  }
 };

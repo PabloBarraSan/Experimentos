@@ -158,6 +158,13 @@ export const Tokens = {
     card: '0 4px 16px rgba(0,0,0,0.1)',
   },
   
+  // Sombras premium adicionales
+  premiumShadows: {
+    float: '0 20px 40px -12px rgba(0, 0, 0, 0.12)',
+    soft: '0 4px 12px -2px rgba(0, 0, 0, 0.08)',
+    inner: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.04)',
+  },
+  
   // Configuración por defecto del calendario
   calendar: {
     slotDuration: 30, // minutos
@@ -174,7 +181,6 @@ export const Tokens = {
 export const PremiumTokens = {
   typography: {
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-    priceSize: '11px',
     daySize: '14px',
   },
   shadows: {
