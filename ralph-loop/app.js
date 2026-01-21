@@ -14,7 +14,6 @@ import {
   isDayBlocked,
   startOfDay,
 } from './src/core/dates.js';
-import { calculateRangeTotal, formatPrice } from './src/core/priceUtils.js';
 
 /**
  * Componente raíz de la aplicación
@@ -43,6 +42,21 @@ export const app = {
 
   view: (vnode) => {
     const state = vnode.state;
+
+    const hasSelection = Boolean(state.selectedRange.start && state.selectedRange.end);
+    const formatShortDate = (date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const formatRangeLabel = (start, end) => {
+      if (!start || !end) return '';
+      return start.getTime() === end.getTime()
+        ? formatShortDate(start)
+        : `${formatShortDate(start)} - ${formatShortDate(end)}`;
+    };
+    const rangeNights = hasSelection ? getDateRange(state.selectedRange.start, state.selectedRange.end).length : 0;
+    const nightsLabel = rangeNights === 1 ? 'noche' : 'noches';
+    const rangeLabel = hasSelection ? formatRangeLabel(state.selectedRange.start, state.selectedRange.end) : '';
+    const selectionText = hasSelection
+      ? `Seleccionado: ${rangeLabel} (${rangeNights} ${nightsLabel})`
+      : 'Selecciona tu fecha de inicio y fin para ver el rango.';
     
     // Estilos inline para el contenedor principal
     const containerStyles = {
@@ -52,8 +66,124 @@ export const app = {
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
+      background: 'linear-gradient(180deg, #F8FAFC 0%, #EEF2FF 100%)',
+      padding: `${Tokens.layout.spacing.xl} ${Tokens.layout.spacing.xl} ${hasSelection ? '110px' : Tokens.layout.spacing.xl} ${Tokens.layout.spacing.xl}`, // Espacio para barra fija
+    };
+
+    const cardStyles = {
+      width: '100%',
+      maxWidth: state.isDesktop ? '1200px' : '900px',
+      backgroundColor: Tokens.colors.surface,
+      borderRadius: Tokens.layout.borderRadius.xl,
+      padding: Tokens.layout.spacing['2xl'],
+      boxShadow: '0 30px 60px rgba(15, 23, 42, 0.08)',
+      border: `1px solid ${Tokens.colors.border}`,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: Tokens.layout.spacing.lg,
+    };
+
+    const headerStyles = {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      textAlign: 'center',
+      gap: Tokens.layout.spacing.sm,
+    };
+
+    const badgeStyles = {
+      alignSelf: 'center',
+      padding: `${Tokens.layout.spacing.xs} ${Tokens.layout.spacing.md}`,
+      borderRadius: '999px',
+      backgroundColor: Tokens.colors.primaryLight,
+      color: Tokens.colors.primary,
+      fontSize: Tokens.typography.fontSize.sm,
+      fontWeight: Tokens.typography.fontWeight.semibold,
+      letterSpacing: '0.3px',
+      textTransform: 'uppercase',
+    };
+
+    const titleStyles = {
+      fontSize: Tokens.typography.fontSize['3xl'],
+      fontWeight: Tokens.typography.fontWeight.bold,
+      color: Tokens.colors.textPrimary,
+    };
+
+    const subtitleStyles = {
+      fontSize: Tokens.typography.fontSize.base,
+      color: Tokens.colors.textSecondary,
+      maxWidth: '720px',
+    };
+
+    const selectionStyles = {
+      fontSize: Tokens.typography.fontSize.sm,
+      color: Tokens.colors.textPrimary,
       backgroundColor: Tokens.colors.surfaceSecondary,
-      padding: `${Tokens.layout.spacing.xl} ${Tokens.layout.spacing.xl} ${state.selectedRange.start && state.selectedRange.end ? '100px' : Tokens.layout.spacing.xl} ${Tokens.layout.spacing.xl}`, // Espacio para barra fija
+      border: `1px solid ${Tokens.colors.border}`,
+      padding: `${Tokens.layout.spacing.xs} ${Tokens.layout.spacing.md}`,
+      borderRadius: Tokens.layout.borderRadius.lg,
+    };
+
+    const rulesStyles = {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: Tokens.layout.spacing.sm,
+      justifyContent: 'center',
+    };
+
+    const rulePillStyles = {
+      backgroundColor: Tokens.colors.surfaceSecondary,
+      border: `1px solid ${Tokens.colors.border}`,
+      borderRadius: '999px',
+      padding: `${Tokens.layout.spacing.xs} ${Tokens.layout.spacing.md}`,
+      fontSize: Tokens.typography.fontSize.sm,
+      color: Tokens.colors.textSecondary,
+      fontWeight: Tokens.typography.fontWeight.medium,
+    };
+
+    const legendStyles = {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: Tokens.layout.spacing.sm,
+      justifyContent: 'center',
+    };
+
+    const legendItemStyles = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: Tokens.layout.spacing.xs,
+      padding: `${Tokens.layout.spacing.xs} ${Tokens.layout.spacing.md}`,
+      borderRadius: '999px',
+      border: `1px solid ${Tokens.colors.border}`,
+      backgroundColor: Tokens.colors.surfaceSecondary,
+      fontSize: Tokens.typography.fontSize.sm,
+      color: Tokens.colors.textSecondary,
+    };
+
+    const getLegendSwatchStyles = (color, borderColor = null) => ({
+      width: '12px',
+      height: '12px',
+      borderRadius: '4px',
+      backgroundColor: color,
+      border: borderColor ? `1px solid ${borderColor}` : 'none',
+    });
+
+    const controlsStyles = {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: Tokens.layout.spacing.md,
+      padding: Tokens.layout.spacing.md,
+      borderRadius: Tokens.layout.borderRadius.lg,
+      backgroundColor: Tokens.colors.surfaceSecondary,
+      border: `1px solid ${Tokens.colors.border}`,
+    };
+
+    const controlsRowStyles = {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexWrap: 'wrap',
+      gap: Tokens.layout.spacing.sm,
     };
 
     // Datos de ejemplo para el calendario de booking
@@ -68,21 +198,6 @@ export const app = {
       blockedDays: [0, 6], // Domingos y Sábados bloqueados
       minStay: 1,
       maxStay: 30,
-      // Sistema de precios (Zenith Edition)
-      dailyRates: {
-        default: 100,
-        currency: 'EUR',
-        modifiers: {
-          // Precios específicos por fecha (alta demanda)
-          '2024-01-10': 150,
-          '2024-01-11': 150,
-          '2024-01-12': 140,
-          '2024-01-13': 120,
-          '2024-01-14': 120,
-          // Multiplicador para fines de semana
-          weekend: 1.2, // 20% más caro los fines de semana
-        },
-      },
     };
 
     // Navegación de meses
@@ -168,6 +283,7 @@ export const app = {
       fontWeight: Tokens.typography.fontWeight.medium,
       cursor: 'pointer',
       transition: Tokens.transitions.fast,
+      boxShadow: Tokens.layout.shadow.md,
     };
 
     const buttonHoverStyles = {
@@ -182,6 +298,11 @@ export const app = {
         start: start.toISOString().split('T')[0],
         end: end.toISOString().split('T')[0],
       });
+      m.redraw();
+    };
+
+    const clearSelection = () => {
+      state.selectedRange = { start: null, end: null };
       m.redraw();
     };
 
@@ -204,6 +325,7 @@ export const app = {
       backgroundColor: Tokens.colors.surface,
       color: Tokens.colors.textPrimary,
       border: `1px solid ${Tokens.colors.border}`,
+      boxShadow: 'none',
     };
 
     const presetButtonHoverStyles = {
@@ -212,86 +334,106 @@ export const app = {
       borderColor: Tokens.colors.primary,
     };
 
+    const clearButtonStyles = {
+      ...presetButtonStyles,
+      color: Tokens.colors.primary,
+      borderColor: Tokens.colors.primary,
+      backgroundColor: Tokens.colors.primaryLight,
+    };
+
+    const clearButtonHoverStyles = {
+      ...clearButtonStyles,
+      backgroundColor: Tokens.colors.surface,
+    };
+
+    const legendItems = [
+      { key: 'available', label: 'Disponible', color: Tokens.colors.cell.default, border: Tokens.colors.border },
+      { key: 'selected', label: 'Seleccionado', color: Tokens.colors.cell.selected },
+      { key: 'range', label: 'En rango', color: Tokens.colors.cell.inRange },
+      { key: 'booked', label: 'Ocupado', color: Tokens.colors.cell.booked },
+      { key: 'blocked', label: 'Bloqueado', color: Tokens.colors.cell.disabled },
+    ];
+
     // Construir array de children sin null
     const children = [
-      // Controles de navegación
-      m('div', {
-        key: 'nav-controls',
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: Tokens.layout.spacing.md,
-          marginBottom: Tokens.layout.spacing.md,
-        }
-      }, [
-        m('button', {
-          style: buttonStyles,
-          onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
-          onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
-          onclick: navigatePrevious,
-        }, '◀ Anterior'),
-        m('button', {
-          style: buttonStyles,
-          onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
-          onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
-          onclick: navigateToday,
-        }, 'Hoy'),
-        m('button', {
-          style: buttonStyles,
-          onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
-          onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
-          onclick: navigateNext,
-        }, 'Siguiente ▶'),
-      ]),
-
-      // Botones de presets
-      m('div', {
-        key: 'preset-controls',
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: Tokens.layout.spacing.sm,
-          marginBottom: Tokens.layout.spacing.lg,
-        }
-      }, [
-        m('button', {
-          style: presetButtonStyles,
-          onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
-          onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
-          onclick: selectWeekRange,
-        }, '📅 Semana Completa'),
-        m('button', {
-          style: presetButtonStyles,
-          onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
-          onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
-          onclick: selectWeekendRange,
-        }, '🏖️ Este Fin de Semana'),
-      ]),
-
-      // Calendario mensual (vista dual en desktop)
-      m(MonthCalendar, {
-        key: 'calendar',
-        currentMonth: state.currentMonth,
-        numberOfMonths: state.isDesktop ? 2 : 1,
-        data: bookingData,
-        state: {
-          selectedRange: state.selectedRange,
+      m('div', { key: 'main-card', style: cardStyles }, [
+        m('div', { key: 'header', style: headerStyles }, [
+          m('div', { style: badgeStyles }, 'Ralph Loop'),
+          m('h1', { style: titleStyles }, 'Selecciona tus fechas'),
+          m('p', { style: subtitleStyles }, 'Haz clic en una fecha de inicio, mueve el ratón y selecciona la fecha de fin. El rango se ajusta automáticamente si hay días no disponibles.'),
+          m('div', { style: selectionStyles }, selectionText),
+        ]),
+        m('div', { key: 'rules', style: rulesStyles }, [
+          m('div', { style: rulePillStyles }, `Estancia mínima: ${bookingData.minStay} ${bookingData.minStay === 1 ? 'noche' : 'noches'}`),
+          m('div', { style: rulePillStyles }, `Estancia máxima: ${bookingData.maxStay} ${bookingData.maxStay === 1 ? 'noche' : 'noches'}`),
+        ]),
+        m('div', { key: 'legend', style: legendStyles }, [
+          ...legendItems.map((item) => m('div', { key: item.key, style: legendItemStyles }, [
+            m('span', { style: getLegendSwatchStyles(item.color, item.border) }),
+            item.label,
+          ])),
+        ]),
+        m('div', { key: 'controls', style: controlsStyles }, [
+          m('div', { style: controlsRowStyles }, [
+            m('button', {
+              style: buttonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
+              onclick: navigatePrevious,
+            }, '◀ Anterior'),
+            m('button', {
+              style: buttonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
+              onclick: navigateToday,
+            }, 'Hoy'),
+            m('button', {
+              style: buttonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
+              onclick: navigateNext,
+            }, 'Siguiente ▶'),
+          ]),
+          m('div', { style: controlsRowStyles }, [
+            m('button', {
+              style: presetButtonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
+              onclick: selectWeekRange,
+            }, '📅 Semana Completa'),
+            m('button', {
+              style: presetButtonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
+              onclick: selectWeekendRange,
+            }, '🏖️ Este Fin de Semana'),
+            ...(hasSelection ? [m('button', {
+              style: clearButtonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, clearButtonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, clearButtonStyles),
+              onclick: clearSelection,
+            }, 'Limpiar selección')] : []),
+          ]),
+        ]),
+        m(MonthCalendar, {
+          key: 'calendar',
           currentMonth: state.currentMonth,
-        },
-        callbacks: {
-          onRangeSelect: handleRangeSelect,
-        },
-      }),
+          numberOfMonths: state.isDesktop ? 2 : 1,
+          data: bookingData,
+          state: {
+            selectedRange: state.selectedRange,
+            currentMonth: state.currentMonth,
+          },
+          callbacks: {
+            onRangeSelect: handleRangeSelect,
+          },
+        }),
+      ]),
     ];
 
     // Agregar barra de resumen si hay rango seleccionado
-    if (state.selectedRange.start && state.selectedRange.end) {
-      // Calcular información del rango
-      const rangeInfo = calculateRangeTotal(state.selectedRange.start, state.selectedRange.end, bookingData.dailyRates);
-      const nightsText = rangeInfo.nights === 1 ? 'noche' : 'noches';
-      const rangeText = `${rangeInfo.nights} ${nightsText} • Total: ${formatPrice(rangeInfo.total, rangeInfo.currency)}`;
+    if (hasSelection) {
+      const rangeText = `${rangeNights} ${nightsLabel}`;
       
       children.push(m('div', {
         key: 'summary-bar',
@@ -333,7 +475,7 @@ export const app = {
                 marginRight: Tokens.layout.spacing.xs,
               }
             }, 'Rango: '),
-            `${state.selectedRange.start.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} - ${state.selectedRange.end.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}`,
+            rangeLabel,
           ]),
           m('div', {
             style: {
@@ -354,22 +496,22 @@ export const app = {
             fontWeight: Tokens.typography.fontWeight.semibold,
             cursor: 'pointer',
             transition: Tokens.transitions.fast,
-            boxShadow: Tokens.shadows.md,
+            boxShadow: Tokens.layout.shadow.md,
           },
           onmouseenter: (e) => {
             e.target.style.backgroundColor = Tokens.colors.primaryHover;
             e.target.style.transform = 'translateY(-1px)';
-            e.target.style.boxShadow = Tokens.shadows.lg;
+            e.target.style.boxShadow = Tokens.layout.shadow.lg;
           },
           onmouseleave: (e) => {
             e.target.style.backgroundColor = Tokens.colors.primary;
             e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = Tokens.shadows.md;
+            e.target.style.boxShadow = Tokens.layout.shadow.md;
           },
           onclick: () => {
-            alert(`¡Reserva confirmada!\n${rangeInfo.nights} ${rangeInfo.nights === 1 ? 'noche' : 'noches'}\nTotal: ${formatPrice(rangeInfo.total, rangeInfo.currency)}`);
+            alert(`¡Reserva confirmada!\nRango: ${rangeLabel}\n${rangeNights} ${nightsLabel}`);
           },
-        }, 'Reservar'),
+        }, 'Continuar'),
       ]));
     }
 

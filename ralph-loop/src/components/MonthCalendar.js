@@ -8,23 +8,16 @@ import {
   generateMonthGrid,
   isDateBooked,
   isDayBlocked,
-  isDateInRange,
   startOfDay,
   isSameDay,
   getDateRange,
 } from '../core/dates.js';
-import {
-  getPriceForDate,
-  calculateRangeTotal,
-  getPriceColor,
-  formatPrice,
-} from '../core/priceUtils.js';
 
 /**
  * Componente MonthCalendar
  * @param {Object} vnode - Props del componente
  * @param {Date} vnode.attrs.currentMonth - Mes actual a mostrar
- * @param {Object} vnode.attrs.data - Datos (bookedDates, blockedDays, minStay, maxStay, dailyRates)
+ * @param {Object} vnode.attrs.data - Datos (bookedDates, blockedDays, minStay, maxStay)
  * @param {Object} vnode.attrs.state - Estado (selectedRange, currentMonth)
  * @param {Object} vnode.attrs.callbacks - Callbacks (onRangeSelect)
  * @param {number} vnode.attrs.numberOfMonths - Número de meses a mostrar (1 o 2, default: 1)
@@ -47,7 +40,6 @@ export const MonthCalendar = {
     const blockedDays = data.blockedDays || [];
     const minStay = data.minStay || 1;
     const maxStay = data.maxStay || 30;
-    const dailyRates = data.dailyRates || null;
     
     const selectedRange = vnode.attrs.state?.selectedRange || { start: null, end: null };
     
@@ -59,24 +51,9 @@ export const MonthCalendar = {
       monthsToShow.push(monthDate);
     }
     
-    // Calcular precio promedio para todos los meses
-    let averagePrice = 0;
-    if (dailyRates) {
-      const allDates = [];
-      monthsToShow.forEach(monthDate => {
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
-        const monthStart = new Date(year, month, 1);
-        const monthEnd = new Date(year, month + 1, 0);
-        allDates.push(...getDateRange(monthStart, monthEnd));
-      });
-      if (allDates.length > 0) {
-        const total = allDates.reduce((sum, date) => {
-          return sum + getPriceForDate(date, dailyRates).price;
-        }, 0);
-        averagePrice = Math.round(total / allDates.length);
-      }
-    }
+    const formatShortDate = (date) => {
+      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    };
     
     // Nombres de los días de la semana (Lunes a Domingo)
     const dayNames = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -265,22 +242,12 @@ export const MonthCalendar = {
         if (state.selectionStart && state.hoveredDate) {
           const rangeStart = state.selectionStart < state.hoveredDate ? state.selectionStart : state.hoveredDate;
           const rangeEnd = state.selectionStart < state.hoveredDate ? state.hoveredDate : state.selectionStart;
-          
-          if (dailyRates) {
-            const rangeInfo = calculateRangeTotal(rangeStart, rangeEnd, dailyRates);
-            state.tooltipInfo = {
-              nights: rangeInfo.nights,
-              total: rangeInfo.total,
-              currency: rangeInfo.currency,
-            };
-          } else {
-            const nights = getDateRange(rangeStart, rangeEnd).length;
-            state.tooltipInfo = {
-              nights: nights,
-              total: null,
-              currency: null,
-            };
-          }
+          const nights = getDateRange(rangeStart, rangeEnd).length;
+          state.tooltipInfo = {
+            nights: nights,
+            start: rangeStart,
+            end: rangeEnd,
+          };
         }
       } else {
         state.tooltipInfo = null;
@@ -465,17 +432,6 @@ export const MonthCalendar = {
             
             const dayNumber = cell.date.getDate();
             
-            // Obtener precio para este día
-            let priceInfo = null;
-            let priceColor = null;
-            if (dailyRates && cell.isCurrentMonth && !isDateBooked(cell.date, bookedDates) && !isDayBlocked(cell.date, blockedDays)) {
-              priceInfo = getPriceForDate(cell.date, dailyRates);
-              const isSelected = (selectedRange.start && isSameDay(cell.date, selectedRange.start)) ||
-                               (selectedRange.end && isSameDay(cell.date, selectedRange.end)) ||
-                               (selectedRange.start && selectedRange.end && isDateInRange(cell.date, selectedRange.start, selectedRange.end));
-              priceColor = getPriceColor(priceInfo.price, averagePrice, isSelected);
-            }
-            
             return m('div', {
               key: `cell-${monthIndex}-${index}`,
               style: cellStyles,
@@ -491,17 +447,6 @@ export const MonthCalendar = {
                   lineHeight: 1.2,
                 }
               }, dayNumber),
-              // Mostrar precio si está disponible
-              ...(priceInfo ? [m('span', {
-                key: 'price',
-                style: {
-                  fontSize: PremiumTokens.typography.priceSize,
-                  color: priceColor,
-                  marginTop: '2px',
-                  fontWeight: Tokens.typography.fontWeight.normal,
-                  lineHeight: 1,
-                }
-              }, formatPrice(priceInfo.price, priceInfo.currency).replace(/\s/g, ''))] : []),
             ]);
           }),
         ]),
@@ -516,6 +461,12 @@ export const MonthCalendar = {
     
     // Agregar tooltip si existe
     if (state.tooltipInfo) {
+      const nightsLabel = state.tooltipInfo.nights === 1 ? 'noche' : 'noches';
+      const rangeLabel = (state.tooltipInfo.start && state.tooltipInfo.end)
+        ? (isSameDay(state.tooltipInfo.start, state.tooltipInfo.end)
+          ? formatShortDate(state.tooltipInfo.start)
+          : `${formatShortDate(state.tooltipInfo.start)} - ${formatShortDate(state.tooltipInfo.end)}`)
+        : '';
       children.push(m('div', {
         key: 'tooltip',
         style: {
@@ -535,8 +486,9 @@ export const MonthCalendar = {
           whiteSpace: 'nowrap',
         }
       }, [
-        `${state.tooltipInfo.nights} ${state.tooltipInfo.nights === 1 ? 'noche' : 'noches'}`,
-        state.tooltipInfo.total !== null ? ` • Total: ${formatPrice(state.tooltipInfo.total, state.tooltipInfo.currency)}` : '',
+        rangeLabel,
+        rangeLabel ? ' • ' : '',
+        `${state.tooltipInfo.nights} ${nightsLabel}`,
       ]));
     }
     

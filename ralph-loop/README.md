@@ -8,7 +8,7 @@ Fase Actual: Fase 4: Reglas de Negocio (✅ COMPLETADO)
 
 Progreso General: 85%
 
-Última Actualización: Validación de rangos en tiempo real y ajustes de fechas locales
+Última Actualización: Interfaz refinada y experiencia de selección sin precios
 
 0. Fase 0: Inicialización y Entorno (✅ COMPLETADO)
 
@@ -180,17 +180,17 @@ Resultado: Una barra visual continua y elegante.
 - Navegación automática al mes correspondiente cuando el rango está en otro mes
 - Validación de presets contra bloqueos, reservas y min/max stay
 
-✅ **Pricing y Feedback**
-- Precios diarios con color relativo al promedio
-- Tooltip de rango (noches y total) durante hover
-- Barra de resumen fija con total y CTA de reserva
+✅ **Guía visual y Feedback**
+- Tooltip de rango (noches y fechas) durante hover
+- Barra de resumen fija con rango y CTA
+- Leyenda de estados y reglas visibles
 
 ✅ **Vista Responsiva**
 - Doble mes en desktop, un mes en móvil
 
 8. Próximos Pasos (Opcional)
 
-[x] Mejoras de UX: Tooltips con noches y total durante hover
+[x] Mejoras de UX: Tooltips con noches y rango durante hover
 
 [ ] Internacionalización: Soporte para múltiples idiomas
 
