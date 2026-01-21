@@ -291,7 +291,6 @@ export const app = {
       const rangeText = `${rangeInfo.nights} ${nightsText} • Total: ${formatPrice(rangeInfo.total, rangeInfo.currency)}`;
       
       children.push(m('div', {
-        key: 'summary-bar',
         style: {
           position: 'fixed',
           bottom: 0,

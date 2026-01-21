@@ -492,7 +492,6 @@ export const MonthCalendar = {
               }, dayNumber),
               // Mostrar precio si está disponible
               ...(priceInfo ? [m('span', {
-                key: `price-${monthIndex}-${index}`,
                 style: {
                   fontSize: PremiumTokens.typography.priceSize,
                   color: priceColor,
