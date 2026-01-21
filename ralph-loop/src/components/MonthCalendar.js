@@ -11,12 +11,10 @@ import {
   isDateInRange,
   startOfDay,
   isSameDay,
-  formatDate,
   getDateRange,
 } from '../core/dates.js';
 import {
   getPriceForDate,
-  getAveragePrice,
   calculateRangeTotal,
   getPriceColor,
   formatPrice,
@@ -86,6 +84,40 @@ export const MonthCalendar = {
       'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
     ];
+
+    const isUnavailableDate = (date) => {
+      return isDateBooked(date, bookedDates) || isDayBlocked(date, blockedDays);
+    };
+
+    const getFirstUnavailableDateInRange = (startDate, endDate) => {
+      if (!startDate || !endDate) return null;
+      const start = startOfDay(startDate);
+      const end = startOfDay(endDate);
+      const direction = start <= end ? 1 : -1;
+      const current = new Date(start);
+      current.setDate(current.getDate() + direction);
+      while (direction > 0 ? current <= end : current >= end) {
+        if (isUnavailableDate(current)) {
+          return new Date(current);
+        }
+        current.setDate(current.getDate() + direction);
+      }
+      return null;
+    };
+
+    const clampRangeEnd = (startDate, endDate) => {
+      if (!startDate || !endDate) return endDate;
+      const start = startOfDay(startDate);
+      const end = startOfDay(endDate);
+      const firstUnavailable = getFirstUnavailableDateInRange(start, end);
+      if (!firstUnavailable) {
+        return end;
+      }
+      const direction = start <= end ? 1 : -1;
+      const clamped = new Date(firstUnavailable);
+      clamped.setDate(clamped.getDate() - direction);
+      return startOfDay(clamped);
+    };
     
     // Estilos del contenedor principal
     const containerStyles = {
@@ -144,8 +176,7 @@ export const MonthCalendar = {
     // Handler para click en celda
     const handleCellClick = (cell) => {
       if (!cell.isCurrentMonth) return;
-      if (isDateBooked(cell.date, bookedDates)) return;
-      if (isDayBlocked(cell.date, blockedDays)) return;
+      if (isUnavailableDate(cell.date)) return;
       
       const clickedDate = startOfDay(cell.date);
       
@@ -157,20 +188,22 @@ export const MonthCalendar = {
       } else {
         // Segundo click: establecer fin y completar selección
         const startDate = state.selectionStart;
-        const endDate = clickedDate;
+        const clampedEnd = clampRangeEnd(startDate, clickedDate);
         
         // Asegurar que start < end
-        const actualStart = startDate < endDate ? startDate : endDate;
-        const actualEnd = startDate < endDate ? endDate : startDate;
+        const actualStart = startDate <= clampedEnd ? startDate : clampedEnd;
+        const actualEnd = startDate <= clampedEnd ? clampedEnd : startDate;
         
-        // Validar rango
-        const daysDiff = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24)) + 1;
+        const rangeDates = getDateRange(actualStart, actualEnd);
+        const daysDiff = rangeDates.length;
         
         if (daysDiff < minStay) {
           console.warn(`La estancia mínima es de ${minStay} días`);
           // Reiniciar selección
           state.selectionStart = null;
           state.isSelecting = false;
+          state.hoveredDate = null;
+          state.tooltipInfo = null;
           m.redraw();
           return;
         }
@@ -180,24 +213,21 @@ export const MonthCalendar = {
           // Reiniciar selección
           state.selectionStart = null;
           state.isSelecting = false;
+          state.hoveredDate = null;
+          state.tooltipInfo = null;
           m.redraw();
           return;
         }
         
-        // Verificar que no haya días ocupados en el rango
-        const rangeDates = [];
-        const current = new Date(actualStart);
-        while (current <= actualEnd) {
-          rangeDates.push(new Date(current));
-          current.setDate(current.getDate() + 1);
-        }
-        
-        const hasBookedDate = rangeDates.some(d => isDateBooked(d, bookedDates));
-        if (hasBookedDate) {
-          console.warn('El rango seleccionado incluye días ocupados');
+        // Verificar que no haya días no disponibles en el rango
+        const hasUnavailableDate = rangeDates.some((date) => isUnavailableDate(date));
+        if (hasUnavailableDate) {
+          console.warn('El rango seleccionado incluye días no disponibles');
           // Reiniciar selección
           state.selectionStart = null;
           state.isSelecting = false;
+          state.hoveredDate = null;
+          state.tooltipInfo = null;
           m.redraw();
           return;
         }
@@ -211,6 +241,7 @@ export const MonthCalendar = {
         state.selectionStart = null;
         state.isSelecting = false;
         state.hoveredDate = null;
+        state.tooltipInfo = null;
         m.redraw();
       }
     };
@@ -218,17 +249,17 @@ export const MonthCalendar = {
     // Handler para hover en celda
     const handleCellHover = (cell) => {
       // Hover básico para todas las celdas
-      if (!isDateBooked(cell.date, bookedDates) && !isDayBlocked(cell.date, blockedDays)) {
+      if (!isUnavailableDate(cell.date)) {
         state.hoveredCell = cell;
       }
       
       // Durante selección, actualizar hoveredDate y tooltip
       if (state.isSelecting && state.selectionStart) {
         if (!cell.isCurrentMonth) return;
-        if (isDateBooked(cell.date, bookedDates)) return;
-        if (isDayBlocked(cell.date, blockedDays)) return;
+        if (isUnavailableDate(cell.date)) return;
         
-        state.hoveredDate = startOfDay(cell.date);
+        const proposedHoverDate = startOfDay(cell.date);
+        state.hoveredDate = clampRangeEnd(state.selectionStart, proposedHoverDate);
         
         // Calcular tooltip con información de rango
         if (state.selectionStart && state.hoveredDate) {
@@ -243,7 +274,7 @@ export const MonthCalendar = {
               currency: rangeInfo.currency,
             };
           } else {
-            const nights = Math.ceil((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24)) + 1;
+            const nights = getDateRange(rangeStart, rangeEnd).length;
             state.tooltipInfo = {
               nights: nights,
               total: null,
@@ -305,9 +336,10 @@ export const MonthCalendar = {
               const { date, isCurrentMonth } = cell;
               const today = new Date();
               const isToday = isCurrentMonth && isSameDay(date, today);
+              const isOutOfMonth = !isCurrentMonth;
               const isBooked = isDateBooked(date, bookedDates);
               const isBlocked = isDayBlocked(date, blockedDays);
-              const isDisabled = !isCurrentMonth || isBooked || isBlocked;
+              const isDisabled = isOutOfMonth || isBooked || isBlocked;
               
               // Determinar rango actual (seleccionado o hover)
               let rangeStart = null;
@@ -373,12 +405,30 @@ export const MonthCalendar = {
               };
               
               // Colores según estado
-              if (isDisabled) {
+              if (isOutOfMonth) {
+                return {
+                  ...baseStyles,
+                  backgroundColor: Tokens.colors.surfaceSecondary,
+                  color: Tokens.colors.textTertiary,
+                  opacity: 0.6,
+                };
+              }
+
+              if (isBooked) {
+                return {
+                  ...baseStyles,
+                  backgroundColor: Tokens.colors.cell.booked,
+                  color: Tokens.colors.cell.bookedText,
+                  textDecoration: 'line-through',
+                };
+              }
+
+              if (isBlocked) {
                 return {
                   ...baseStyles,
                   backgroundColor: Tokens.colors.cell.disabled,
                   color: Tokens.colors.textTertiary,
-                  opacity: 0.5,
+                  opacity: 0.6,
                 };
               }
               
@@ -397,15 +447,6 @@ export const MonthCalendar = {
                   ...baseStyles,
                   backgroundColor: Tokens.colors.cell.inRange,
                   color: Tokens.colors.textPrimary,
-                };
-              }
-              
-              if (isBooked) {
-                return {
-                  ...baseStyles,
-                  backgroundColor: Tokens.colors.cell.booked,
-                  color: Tokens.colors.cell.bookedText,
-                  textDecoration: 'line-through',
                 };
               }
               

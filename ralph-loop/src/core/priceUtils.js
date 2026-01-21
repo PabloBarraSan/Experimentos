@@ -3,6 +3,8 @@
  * Motor de cálculo de precios con modificadores y lógica de ofertas
  */
 
+import { parseISODateString, toISODateString } from './dates.js';
+
 /**
  * Obtiene el precio para una fecha específica
  * @param {string|Date} date - Fecha en formato ISO string o Date
@@ -20,8 +22,8 @@ export function getPriceForDate(date, dailyRates = {}) {
   }
 
   // Normalizar fecha a ISO string
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  const dateISO = dateObj.toISOString().split('T')[0];
+  const dateObj = parseISODateString(date);
+  const dateISO = toISODateString(dateObj);
   
   // Precio base
   const basePrice = dailyRates.default || 100;
@@ -29,7 +31,7 @@ export function getPriceForDate(date, dailyRates = {}) {
   
   // Verificar si hay precio específico para esta fecha
   const modifiers = dailyRates.modifiers || {};
-  if (modifiers[dateISO]) {
+  if (Object.prototype.hasOwnProperty.call(modifiers, dateISO)) {
     return {
       price: modifiers[dateISO],
       currency: currency,

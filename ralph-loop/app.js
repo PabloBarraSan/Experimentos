@@ -6,7 +6,14 @@
 
 import { MonthCalendar } from './src/components/MonthCalendar.js';
 import { Tokens } from './src/tokens.js';
-import { getWeekRange, getCurrentWeekendRange } from './src/core/dates.js';
+import { 
+  getWeekRange, 
+  getCurrentWeekendRange, 
+  getDateRange, 
+  isDateBooked, 
+  isDayBlocked,
+  startOfDay,
+} from './src/core/dates.js';
 import { calculateRangeTotal, formatPrice } from './src/core/priceUtils.js';
 
 /**
@@ -57,10 +64,7 @@ export const app = {
         '2024-01-16',
         '2024-01-20',
         '2024-01-25',
-      ].map(date => {
-        const d = new Date(date);
-        return d.toISOString().split('T')[0];
-      }),
+      ],
       blockedDays: [0, 6], // Domingos y Sábados bloqueados
       minStay: 1,
       maxStay: 30,
@@ -101,6 +105,58 @@ export const app = {
       m.redraw();
     };
 
+    const isUnavailableDate = (date) => {
+      return isDateBooked(date, bookingData.bookedDates) || isDayBlocked(date, bookingData.blockedDays);
+    };
+
+    const normalizeRange = (start, end) => {
+      const normalizedStart = startOfDay(start);
+      const normalizedEnd = startOfDay(end);
+      return normalizedStart <= normalizedEnd
+        ? { start: normalizedStart, end: normalizedEnd }
+        : { start: normalizedEnd, end: normalizedStart };
+    };
+
+    const validatePresetRange = (range) => {
+      const normalized = normalizeRange(range.start, range.end);
+      if (isUnavailableDate(normalized.start)) {
+        console.warn('El preset no puede iniciar en un día no disponible');
+        return null;
+      }
+
+      const allDates = getDateRange(normalized.start, normalized.end);
+      const firstUnavailable = allDates.find((date, index) => index > 0 && isUnavailableDate(date));
+      let finalEnd = normalized.end;
+      if (firstUnavailable) {
+        const clamped = new Date(firstUnavailable);
+        clamped.setDate(clamped.getDate() - 1);
+        finalEnd = startOfDay(clamped);
+      }
+
+      const rangeDates = getDateRange(normalized.start, finalEnd);
+      const nights = rangeDates.length;
+      if (nights < bookingData.minStay) {
+        console.warn(`La estancia mínima es de ${bookingData.minStay} días`);
+        return null;
+      }
+      if (nights > bookingData.maxStay) {
+        console.warn(`La estancia máxima es de ${bookingData.maxStay} días`);
+        return null;
+      }
+
+      return { start: normalized.start, end: finalEnd };
+    };
+
+    const applyPresetRange = (range) => {
+      const validatedRange = validatePresetRange(range);
+      if (!validatedRange) return;
+      if (validatedRange.start.getMonth() !== state.currentMonth.getMonth() ||
+          validatedRange.start.getFullYear() !== state.currentMonth.getFullYear()) {
+        state.currentMonth = new Date(validatedRange.start);
+      }
+      handleRangeSelect(validatedRange.start, validatedRange.end);
+    };
+
     // Estilos para los botones de navegación
     const buttonStyles = {
       padding: `${Tokens.layout.spacing.sm} ${Tokens.layout.spacing.md}`,
@@ -133,23 +189,13 @@ export const app = {
     const selectWeekRange = () => {
       const today = new Date();
       const weekRange = getWeekRange(today);
-      // Actualizar el mes actual si el rango está en otro mes
-      if (weekRange.start.getMonth() !== state.currentMonth.getMonth() ||
-          weekRange.start.getFullYear() !== state.currentMonth.getFullYear()) {
-        state.currentMonth = new Date(weekRange.start);
-      }
-      handleRangeSelect(weekRange.start, weekRange.end);
+      applyPresetRange(weekRange);
     };
 
     const selectWeekendRange = () => {
       const today = new Date();
       const weekendRange = getCurrentWeekendRange(today);
-      // Actualizar el mes actual si el rango está en otro mes
-      if (weekendRange.start.getMonth() !== state.currentMonth.getMonth() ||
-          weekendRange.start.getFullYear() !== state.currentMonth.getFullYear()) {
-        state.currentMonth = new Date(weekendRange.start);
-      }
-      handleRangeSelect(weekendRange.start, weekendRange.end);
+      applyPresetRange(weekendRange);
     };
 
     // Estilos para botones de preset

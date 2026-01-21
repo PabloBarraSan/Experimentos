@@ -8,7 +8,7 @@ Fase Actual: Fase 4: Reglas de Negocio (✅ COMPLETADO)
 
 Progreso General: 85%
 
-Última Actualización: Implementación completa del calendario mensual de booking con selección de rangos
+Última Actualización: Validación de rangos en tiempo real y ajustes de fechas locales
 
 0. Fase 0: Inicialización y Entorno (✅ COMPLETADO)
 
@@ -154,12 +154,14 @@ Resultado: Una barra visual continua y elegante.
 - Selección de rangos con feedback visual instantáneo
 - Estilos inline con bordes redondeados continuos
 - Validación de fechas ocupadas y bloqueadas
+- Corte automático del rango cuando encuentra días no disponibles
 
 ✅ **Funciones de Utilidad** (`src/core/dates.js`)
 - `generateMonthGrid()`: Genera 42 celdas del mes
 - `isDateBooked()`: Verifica fechas ocupadas
 - `isDayBlocked()`: Verifica días bloqueados
 - `isDateInRange()`: Verifica si una fecha está en un rango
+- `toISODateString()`: Normaliza fechas locales a YYYY-MM-DD
 
 ✅ **Tokens de Diseño** (`src/tokens.js`)
 - Colores para estados de celdas (default, hover, selected, inRange, disabled, booked)
@@ -176,10 +178,19 @@ Resultado: Una barra visual continua y elegante.
 - Botón "Semana Completa": Selecciona automáticamente de lunes a domingo de la semana actual
 - Botón "Este Fin de Semana": Selecciona automáticamente sábado y domingo de la semana actual
 - Navegación automática al mes correspondiente cuando el rango está en otro mes
+- Validación de presets contra bloqueos, reservas y min/max stay
+
+✅ **Pricing y Feedback**
+- Precios diarios con color relativo al promedio
+- Tooltip de rango (noches y total) durante hover
+- Barra de resumen fija con total y CTA de reserva
+
+✅ **Vista Responsiva**
+- Doble mes en desktop, un mes en móvil
 
 8. Próximos Pasos (Opcional)
 
-[ ] Mejoras de UX: Tooltips con información de disponibilidad
+[x] Mejoras de UX: Tooltips con noches y total durante hover
 
 [ ] Internacionalización: Soporte para múltiples idiomas
 
