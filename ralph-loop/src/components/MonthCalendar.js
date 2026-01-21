@@ -11,6 +11,7 @@ import {
   startOfDay,
   isSameDay,
   getDateRange,
+  addDays,
 } from '../core/dates.js';
 
 /**
@@ -18,8 +19,10 @@ import {
  * @param {Object} vnode - Props del componente
  * @param {Date} vnode.attrs.currentMonth - Mes actual a mostrar
  * @param {Object} vnode.attrs.data - Datos (bookedDates, blockedDays, minStay, maxStay)
+ * @param {string} vnode.attrs.locale - Locale para textos y fechas (ej: "es-ES")
+ * @param {Object} vnode.attrs.labels - Labels personalizados (dayNames, monthNames, status, nights)
  * @param {Object} vnode.attrs.state - Estado (selectedRange, currentMonth)
- * @param {Object} vnode.attrs.callbacks - Callbacks (onRangeSelect)
+ * @param {Object} vnode.attrs.callbacks - Callbacks (onRangeSelect, onMonthChange)
  * @param {number} vnode.attrs.numberOfMonths - Número de meses a mostrar (1 o 2, default: 1)
  */
 export const MonthCalendar = {
@@ -30,10 +33,11 @@ export const MonthCalendar = {
     state.isSelecting = false;
     state.hoveredCell = null;
     state.tooltipInfo = null; // Para tooltip durante hover
+    state.focusedDate = null;
   },
 
   view: (vnode) => {
-    const { currentMonth, data = {}, callbacks = {}, numberOfMonths = 1 } = vnode.attrs;
+    const { currentMonth, data = {}, callbacks = {}, numberOfMonths = 1, locale = 'es-ES', labels = {} } = vnode.attrs;
     const state = vnode.state;
     
     const bookedDates = data.bookedDates || [];
@@ -55,12 +59,53 @@ export const MonthCalendar = {
       return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
     };
     
-    // Nombres de los días de la semana (Lunes a Domingo)
-    const dayNames = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
+    const statusLabels = {
+      available: 'Disponible',
+      booked: 'Ocupado',
+      blocked: 'Bloqueado',
+      selected: 'Seleccionado',
+      inRange: 'En rango',
+      outOfMonth: 'Fuera de mes',
+      ...(labels.status || {}),
+    };
+
+    const nightsLabels = {
+      one: 'noche',
+      many: 'noches',
+      ...(labels.nights || {}),
+    };
+
+    const generateDayNames = (targetLocale) => {
+      const formatter = new Intl.DateTimeFormat(targetLocale, { weekday: 'short' });
+      const base = new Date(2024, 0, 1); // Lunes
+      return Array.from({ length: 7 }, (_, index) => formatter.format(addDays(base, index)));
+    };
+
+    const generateMonthNames = (targetLocale) => {
+      const formatter = new Intl.DateTimeFormat(targetLocale, { month: 'long' });
+      return Array.from({ length: 12 }, (_, index) => formatter.format(new Date(2024, index, 1)));
+    };
+
+    const dayNames = Array.isArray(labels.dayNames) && labels.dayNames.length === 7
+      ? labels.dayNames
+      : generateDayNames(locale);
+    const monthNames = Array.isArray(labels.monthNames) && labels.monthNames.length === 12
+      ? labels.monthNames
+      : generateMonthNames(locale);
+
+    const formatShortDate = (date) => {
+      return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    };
+
+    const formatLongDate = (date) => {
+      return date.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    };
+
+    if (!state.focusedDate ||
+        state.focusedDate.getMonth() !== currentMonth.getMonth() ||
+        state.focusedDate.getFullYear() !== currentMonth.getFullYear()) {
+      state.focusedDate = startOfDay(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
+    }
 
     const isUnavailableDate = (date) => {
       return isDateBooked(date, bookedDates) || isDayBlocked(date, blockedDays);
@@ -156,6 +201,7 @@ export const MonthCalendar = {
       if (isUnavailableDate(cell.date)) return;
       
       const clickedDate = startOfDay(cell.date);
+      state.focusedDate = clickedDate;
       
       if (!state.selectionStart) {
         // Primer click: establecer inicio
@@ -265,6 +311,71 @@ export const MonthCalendar = {
       }
       m.redraw();
     };
+
+    const focusDate = (date) => {
+      const normalized = startOfDay(date);
+      state.focusedDate = normalized;
+      if (callbacks.onMonthChange) {
+        const sameMonth = normalized.getMonth() === currentMonth.getMonth() &&
+          normalized.getFullYear() === currentMonth.getFullYear();
+        if (!sameMonth) {
+          callbacks.onMonthChange(normalized);
+        }
+      }
+      m.redraw();
+    };
+
+    const moveMonth = (date, delta) => {
+      const day = date.getDate();
+      const base = new Date(date);
+      base.setDate(1);
+      base.setMonth(base.getMonth() + delta);
+      const daysInTargetMonth = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+      base.setDate(Math.min(day, daysInTargetMonth));
+      return base;
+    };
+
+    const handleCellKeyDown = (event, cell) => {
+      if (!cell.isCurrentMonth) return;
+      const focused = state.focusedDate || startOfDay(cell.date);
+      let nextDate = null;
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          nextDate = addDays(focused, -1);
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          nextDate = addDays(focused, 1);
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          nextDate = addDays(focused, -7);
+          break;
+        case 'ArrowDown':
+          event.preventDefault();
+          nextDate = addDays(focused, 7);
+          break;
+        case 'PageUp':
+          event.preventDefault();
+          nextDate = moveMonth(focused, -1);
+          break;
+        case 'PageDown':
+          event.preventDefault();
+          nextDate = moveMonth(focused, 1);
+          break;
+        case 'Enter':
+        case ' ':
+          event.preventDefault();
+          handleCellClick(cell);
+          return;
+        default:
+          return;
+      }
+      if (nextDate) {
+        focusDate(nextDate);
+      }
+    };
     
     // Función para renderizar un mes individual
     const renderMonth = (monthDate, monthIndex) => {
@@ -284,10 +395,10 @@ export const MonthCalendar = {
         ]),
         
         // Grid de días de la semana
-        m('div', { style: gridStyles }, [
+        m('div', { style: gridStyles, role: 'grid', 'aria-label': labels.calendarLabel || 'Calendario' }, [
           // Headers de días
           ...dayNames.map((dayName, index) => 
-            m('div', { key: `header-${monthIndex}-${index}`, style: dayHeaderStyles }, dayName)
+            m('div', { key: `header-${monthIndex}-${index}`, style: dayHeaderStyles, role: 'columnheader' }, dayName)
           ),
           
           // Celdas del mes
@@ -432,12 +543,36 @@ export const MonthCalendar = {
             
             const dayNumber = cell.date.getDate();
             
+            const isInRange = isRangeStart || isRangeEnd || isRangeMiddle;
+            const isFocused = state.focusedDate && isSameDay(cell.date, state.focusedDate);
+            const ariaStatus = isOutOfMonth
+              ? statusLabels.outOfMonth
+              : (isBooked
+                ? statusLabels.booked
+                : (isBlocked
+                  ? statusLabels.blocked
+                  : (isRangeStart || isRangeEnd
+                    ? statusLabels.selected
+                    : (isRangeMiddle ? statusLabels.inRange : statusLabels.available))));
+            const ariaLabel = `${formatLongDate(cell.date)}. ${ariaStatus}.`;
+
             return m('div', {
               key: `cell-${monthIndex}-${index}`,
               style: cellStyles,
               onclick: () => handleCellClick(cell),
               onmouseenter: () => handleCellHover(cell),
               onmouseleave: handleCellLeave,
+              onfocus: () => {
+                if (cell.isCurrentMonth) {
+                  state.focusedDate = startOfDay(cell.date);
+                }
+              },
+              onkeydown: (event) => handleCellKeyDown(event, cell),
+              role: 'gridcell',
+              tabindex: cell.isCurrentMonth ? (isFocused ? 0 : -1) : -1,
+              'aria-selected': isInRange ? 'true' : 'false',
+              'aria-disabled': (isOutOfMonth || isBooked || isBlocked) ? 'true' : 'false',
+              'aria-label': ariaLabel,
             }, [
               m('span', {
                 key: 'day',
@@ -461,7 +596,7 @@ export const MonthCalendar = {
     
     // Agregar tooltip si existe
     if (state.tooltipInfo) {
-      const nightsLabel = state.tooltipInfo.nights === 1 ? 'noche' : 'noches';
+      const nightsLabel = state.tooltipInfo.nights === 1 ? nightsLabels.one : nightsLabels.many;
       const rangeLabel = (state.tooltipInfo.start && state.tooltipInfo.end)
         ? (isSameDay(state.tooltipInfo.start, state.tooltipInfo.end)
           ? formatShortDate(state.tooltipInfo.start)

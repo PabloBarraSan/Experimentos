@@ -13,7 +13,94 @@ import {
   isDateBooked, 
   isDayBlocked,
   startOfDay,
+  startOfMonth,
+  endOfMonth,
+  addDays,
 } from './src/core/dates.js';
+
+const translations = {
+  'es-ES': {
+    badge: 'Ralph Loop',
+    title: 'Selecciona tus fechas',
+    subtitle: 'Haz clic en una fecha de inicio, mueve el ratón y selecciona la fecha de fin. Usa las flechas para navegar y Enter para seleccionar.',
+    selectionEmpty: 'Selecciona tu fecha de inicio y fin para ver el rango.',
+    selectionPrefix: 'Seleccionado:',
+    localeLabel: 'Idioma',
+    navPrevious: 'Anterior',
+    navNext: 'Siguiente',
+    today: 'Hoy',
+    presetWeek: 'Semana completa',
+    presetWeekend: 'Este fin de semana',
+    presetMonth: 'Mes completo',
+    presetNext7: 'Próximos 7 días',
+    clearSelection: 'Limpiar selección',
+    minStayLabel: (nights) => `Estancia mínima: ${nights} ${nights === 1 ? 'noche' : 'noches'}`,
+    maxStayLabel: (nights) => `Estancia máxima: ${nights} ${nights === 1 ? 'noche' : 'noches'}`,
+    legend: {
+      available: 'Disponible',
+      selected: 'Seleccionado',
+      inRange: 'En rango',
+      booked: 'Ocupado',
+      blocked: 'Bloqueado',
+    },
+    summaryRangeLabel: 'Rango:',
+    summaryCta: 'Continuar',
+    nights: { one: 'noche', many: 'noches' },
+    alertConfirm: (rangeLabel, nightsText) => `¡Reserva confirmada!\nRango: ${rangeLabel}\n${nightsText}`,
+    calendarLabel: 'Calendario de reserva',
+    status: {
+      available: 'Disponible',
+      booked: 'Ocupado',
+      blocked: 'Bloqueado',
+      selected: 'Seleccionado',
+      inRange: 'En rango',
+      outOfMonth: 'Fuera de mes',
+    },
+  },
+  'en-US': {
+    badge: 'Ralph Loop',
+    title: 'Select your dates',
+    subtitle: 'Click a start date, move the mouse, and select the end date. Use arrow keys to navigate and Enter to select.',
+    selectionEmpty: 'Select your start and end dates to see the range.',
+    selectionPrefix: 'Selected:',
+    localeLabel: 'Language',
+    navPrevious: 'Previous',
+    navNext: 'Next',
+    today: 'Today',
+    presetWeek: 'Full week',
+    presetWeekend: 'This weekend',
+    presetMonth: 'Full month',
+    presetNext7: 'Next 7 days',
+    clearSelection: 'Clear selection',
+    minStayLabel: (nights) => `Minimum stay: ${nights} ${nights === 1 ? 'night' : 'nights'}`,
+    maxStayLabel: (nights) => `Maximum stay: ${nights} ${nights === 1 ? 'night' : 'nights'}`,
+    legend: {
+      available: 'Available',
+      selected: 'Selected',
+      inRange: 'In range',
+      booked: 'Booked',
+      blocked: 'Blocked',
+    },
+    summaryRangeLabel: 'Range:',
+    summaryCta: 'Continue',
+    nights: { one: 'night', many: 'nights' },
+    alertConfirm: (rangeLabel, nightsText) => `Booking confirmed!\nRange: ${rangeLabel}\n${nightsText}`,
+    calendarLabel: 'Booking calendar',
+    status: {
+      available: 'Available',
+      booked: 'Booked',
+      blocked: 'Blocked',
+      selected: 'Selected',
+      inRange: 'In range',
+      outOfMonth: 'Out of month',
+    },
+  },
+};
+
+const localeOptions = [
+  { value: 'es-ES', label: 'ES' },
+  { value: 'en-US', label: 'EN' },
+];
 
 /**
  * Componente raíz de la aplicación
@@ -24,6 +111,8 @@ export const app = {
     state.currentMonth = new Date();
     state.selectedRange = { start: null, end: null };
     state.isDesktop = window.innerWidth >= 1024; // Detectar desktop
+    state.locale = state.locale || 'es-ES';
+    document.documentElement.lang = state.locale.split('-')[0];
     
     // Listener para cambios de tamaño de ventana
     state.handleResize = () => {
@@ -43,8 +132,10 @@ export const app = {
   view: (vnode) => {
     const state = vnode.state;
 
+    const locale = state.locale || 'es-ES';
+    const strings = translations[locale] || translations['es-ES'];
     const hasSelection = Boolean(state.selectedRange.start && state.selectedRange.end);
-    const formatShortDate = (date) => date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    const formatShortDate = (date) => date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
     const formatRangeLabel = (start, end) => {
       if (!start || !end) return '';
       return start.getTime() === end.getTime()
@@ -52,11 +143,11 @@ export const app = {
         : `${formatShortDate(start)} - ${formatShortDate(end)}`;
     };
     const rangeNights = hasSelection ? getDateRange(state.selectedRange.start, state.selectedRange.end).length : 0;
-    const nightsLabel = rangeNights === 1 ? 'noche' : 'noches';
+    const nightsLabel = rangeNights === 1 ? strings.nights.one : strings.nights.many;
     const rangeLabel = hasSelection ? formatRangeLabel(state.selectedRange.start, state.selectedRange.end) : '';
     const selectionText = hasSelection
-      ? `Seleccionado: ${rangeLabel} (${rangeNights} ${nightsLabel})`
-      : 'Selecciona tu fecha de inicio y fin para ver el rango.';
+      ? `${strings.selectionPrefix} ${rangeLabel} (${rangeNights} ${nightsLabel})`
+      : strings.selectionEmpty;
     
     // Estilos inline para el contenedor principal
     const containerStyles = {
@@ -122,6 +213,43 @@ export const app = {
       border: `1px solid ${Tokens.colors.border}`,
       padding: `${Tokens.layout.spacing.xs} ${Tokens.layout.spacing.md}`,
       borderRadius: Tokens.layout.borderRadius.lg,
+    };
+
+    const headerTopStyles = {
+      width: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: Tokens.layout.spacing.md,
+      flexWrap: 'wrap',
+    };
+
+    const localeToggleStyles = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: Tokens.layout.spacing.xs,
+      backgroundColor: Tokens.colors.surfaceSecondary,
+      border: `1px solid ${Tokens.colors.border}`,
+      borderRadius: '999px',
+      padding: '4px',
+    };
+
+    const localeButtonStyles = {
+      padding: `${Tokens.layout.spacing.xs} ${Tokens.layout.spacing.md}`,
+      borderRadius: '999px',
+      border: 'none',
+      backgroundColor: 'transparent',
+      color: Tokens.colors.textSecondary,
+      fontSize: Tokens.typography.fontSize.sm,
+      fontWeight: Tokens.typography.fontWeight.semibold,
+      cursor: 'pointer',
+      transition: Tokens.transitions.fast,
+    };
+
+    const localeButtonActiveStyles = {
+      backgroundColor: Tokens.colors.surface,
+      color: Tokens.colors.textPrimary,
+      boxShadow: Tokens.layout.shadow.sm,
     };
 
     const rulesStyles = {
@@ -217,6 +345,12 @@ export const app = {
 
     const navigateToday = () => {
       state.currentMonth = new Date();
+      m.redraw();
+    };
+
+    const handleLocaleChange = (nextLocale) => {
+      state.locale = nextLocale;
+      document.documentElement.lang = nextLocale.split('-')[0];
       m.redraw();
     };
 
@@ -319,6 +453,18 @@ export const app = {
       applyPresetRange(weekendRange);
     };
 
+    const selectMonthRange = () => {
+      const monthStart = startOfMonth(state.currentMonth);
+      const monthEnd = endOfMonth(state.currentMonth);
+      applyPresetRange({ start: monthStart, end: monthEnd });
+    };
+
+    const selectNext7Range = () => {
+      const today = startOfDay(new Date());
+      const nextEnd = addDays(today, 6);
+      applyPresetRange({ start: today, end: nextEnd });
+    };
+
     // Estilos para botones de preset
     const presetButtonStyles = {
       ...buttonStyles,
@@ -347,25 +493,38 @@ export const app = {
     };
 
     const legendItems = [
-      { key: 'available', label: 'Disponible', color: Tokens.colors.cell.default, border: Tokens.colors.border },
-      { key: 'selected', label: 'Seleccionado', color: Tokens.colors.cell.selected },
-      { key: 'range', label: 'En rango', color: Tokens.colors.cell.inRange },
-      { key: 'booked', label: 'Ocupado', color: Tokens.colors.cell.booked },
-      { key: 'blocked', label: 'Bloqueado', color: Tokens.colors.cell.disabled },
+      { key: 'available', label: strings.legend.available, color: Tokens.colors.cell.default, border: Tokens.colors.border },
+      { key: 'selected', label: strings.legend.selected, color: Tokens.colors.cell.selected },
+      { key: 'range', label: strings.legend.inRange, color: Tokens.colors.cell.inRange },
+      { key: 'booked', label: strings.legend.booked, color: Tokens.colors.cell.booked },
+      { key: 'blocked', label: strings.legend.blocked, color: Tokens.colors.cell.disabled },
     ];
 
     // Construir array de children sin null
     const children = [
       m('div', { key: 'main-card', style: cardStyles }, [
         m('div', { key: 'header', style: headerStyles }, [
-          m('div', { style: badgeStyles }, 'Ralph Loop'),
-          m('h1', { style: titleStyles }, 'Selecciona tus fechas'),
-          m('p', { style: subtitleStyles }, 'Haz clic en una fecha de inicio, mueve el ratón y selecciona la fecha de fin. El rango se ajusta automáticamente si hay días no disponibles.'),
-          m('div', { style: selectionStyles }, selectionText),
+          m('div', { style: headerTopStyles }, [
+            m('div', { style: badgeStyles }, strings.badge),
+            m('div', { style: localeToggleStyles, role: 'group', 'aria-label': strings.localeLabel }, [
+              ...localeOptions.map((option) => {
+                const isActive = locale === option.value;
+                return m('button', {
+                  key: option.value,
+                  style: isActive ? { ...localeButtonStyles, ...localeButtonActiveStyles } : localeButtonStyles,
+                  'aria-pressed': isActive ? 'true' : 'false',
+                  onclick: () => handleLocaleChange(option.value),
+                }, option.label);
+              }),
+            ]),
+          ]),
+          m('h1', { style: titleStyles }, strings.title),
+          m('p', { style: subtitleStyles }, strings.subtitle),
+          m('div', { style: selectionStyles, 'aria-live': 'polite' }, selectionText),
         ]),
         m('div', { key: 'rules', style: rulesStyles }, [
-          m('div', { style: rulePillStyles }, `Estancia mínima: ${bookingData.minStay} ${bookingData.minStay === 1 ? 'noche' : 'noches'}`),
-          m('div', { style: rulePillStyles }, `Estancia máxima: ${bookingData.maxStay} ${bookingData.maxStay === 1 ? 'noche' : 'noches'}`),
+          m('div', { style: rulePillStyles }, strings.minStayLabel(bookingData.minStay)),
+          m('div', { style: rulePillStyles }, strings.maxStayLabel(bookingData.maxStay)),
         ]),
         m('div', { key: 'legend', style: legendStyles }, [
           ...legendItems.map((item) => m('div', { key: item.key, style: legendItemStyles }, [
@@ -380,19 +539,22 @@ export const app = {
               onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
               onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
               onclick: navigatePrevious,
-            }, '◀ Anterior'),
+              'aria-label': strings.navPrevious,
+            }, `◀ ${strings.navPrevious}`),
             m('button', {
               style: buttonStyles,
               onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
               onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
               onclick: navigateToday,
-            }, 'Hoy'),
+              'aria-label': strings.today,
+            }, strings.today),
             m('button', {
               style: buttonStyles,
               onmouseenter: (e) => Object.assign(e.target.style, buttonHoverStyles),
               onmouseleave: (e) => Object.assign(e.target.style, buttonStyles),
               onclick: navigateNext,
-            }, 'Siguiente ▶'),
+              'aria-label': strings.navNext,
+            }, `${strings.navNext} ▶`),
           ]),
           m('div', { style: controlsRowStyles }, [
             m('button', {
@@ -400,25 +562,48 @@ export const app = {
               onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
               onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
               onclick: selectWeekRange,
-            }, '📅 Semana Completa'),
+              'aria-label': strings.presetWeek,
+            }, `📅 ${strings.presetWeek}`),
             m('button', {
               style: presetButtonStyles,
               onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
               onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
               onclick: selectWeekendRange,
-            }, '🏖️ Este Fin de Semana'),
+              'aria-label': strings.presetWeekend,
+            }, `🏖️ ${strings.presetWeekend}`),
+            m('button', {
+              style: presetButtonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
+              onclick: selectMonthRange,
+              'aria-label': strings.presetMonth,
+            }, `🗓️ ${strings.presetMonth}`),
+            m('button', {
+              style: presetButtonStyles,
+              onmouseenter: (e) => Object.assign(e.target.style, presetButtonHoverStyles),
+              onmouseleave: (e) => Object.assign(e.target.style, presetButtonStyles),
+              onclick: selectNext7Range,
+              'aria-label': strings.presetNext7,
+            }, `✨ ${strings.presetNext7}`),
             ...(hasSelection ? [m('button', {
               style: clearButtonStyles,
               onmouseenter: (e) => Object.assign(e.target.style, clearButtonHoverStyles),
               onmouseleave: (e) => Object.assign(e.target.style, clearButtonStyles),
               onclick: clearSelection,
-            }, 'Limpiar selección')] : []),
+              'aria-label': strings.clearSelection,
+            }, strings.clearSelection)] : []),
           ]),
         ]),
         m(MonthCalendar, {
           key: 'calendar',
           currentMonth: state.currentMonth,
           numberOfMonths: state.isDesktop ? 2 : 1,
+          locale: locale,
+          labels: {
+            status: strings.status,
+            nights: strings.nights,
+            calendarLabel: strings.calendarLabel,
+          },
           data: bookingData,
           state: {
             selectedRange: state.selectedRange,
@@ -426,6 +611,10 @@ export const app = {
           },
           callbacks: {
             onRangeSelect: handleRangeSelect,
+            onMonthChange: (nextDate) => {
+              state.currentMonth = new Date(nextDate);
+              m.redraw();
+            },
           },
         }),
       ]),
@@ -474,7 +663,7 @@ export const app = {
                 color: Tokens.colors.textSecondary,
                 marginRight: Tokens.layout.spacing.xs,
               }
-            }, 'Rango: '),
+            }, `${strings.summaryRangeLabel} `),
             rangeLabel,
           ]),
           m('div', {
@@ -509,9 +698,11 @@ export const app = {
             e.target.style.boxShadow = Tokens.layout.shadow.md;
           },
           onclick: () => {
-            alert(`¡Reserva confirmada!\nRango: ${rangeLabel}\n${rangeNights} ${nightsLabel}`);
+            const nightsText = `${rangeNights} ${nightsLabel}`;
+            alert(strings.alertConfirm(rangeLabel, nightsText));
           },
-        }, 'Continuar'),
+          'aria-label': strings.summaryCta,
+        }, strings.summaryCta),
       ]));
     }
 

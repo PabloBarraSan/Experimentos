@@ -6,9 +6,9 @@ Nueva Visión: Crear el selector de fechas más fluido y estético del mercado. 
 
 Fase Actual: Fase 4: Reglas de Negocio (✅ COMPLETADO)
 
-Progreso General: 85%
+Progreso General: 100%
 
-Última Actualización: Interfaz refinada y experiencia de selección sin precios
+Última Actualización: Internacionalización, accesibilidad y nuevos presets completados
 
 0. Fase 0: Inicialización y Entorno (✅ COMPLETADO)
 
@@ -177,6 +177,8 @@ Resultado: Una barra visual continua y elegante.
 ✅ **Presets de Selección Rápida**
 - Botón "Semana Completa": Selecciona automáticamente de lunes a domingo de la semana actual
 - Botón "Este Fin de Semana": Selecciona automáticamente sábado y domingo de la semana actual
+- Botón "Mes Completo": Selecciona el mes actual completo
+- Botón "Próximos 7 días": Selecciona desde hoy hasta 7 días
 - Navegación automática al mes correspondiente cuando el rango está en otro mes
 - Validación de presets contra bloqueos, reservas y min/max stay
 
@@ -185,6 +187,14 @@ Resultado: Una barra visual continua y elegante.
 - Barra de resumen fija con rango y CTA
 - Leyenda de estados y reglas visibles
 
+✅ **Internacionalización**
+- Selector de idioma (ES/EN)
+- Formatos de fecha y textos adaptados al locale
+
+✅ **Accesibilidad**
+- Navegación por teclado (flechas, PageUp/PageDown, Enter)
+- ARIA labels y roles en celdas del calendario
+
 ✅ **Vista Responsiva**
 - Doble mes en desktop, un mes en móvil
 
@@ -192,8 +202,8 @@ Resultado: Una barra visual continua y elegante.
 
 [x] Mejoras de UX: Tooltips con noches y rango durante hover
 
-[ ] Internacionalización: Soporte para múltiples idiomas
+[x] Internacionalización: Soporte para múltiples idiomas
 
-[ ] Accesibilidad: Navegación por teclado y ARIA labels
+[x] Accesibilidad: Navegación por teclado y ARIA labels
 
-[ ] Más presets: "Mes completo", "Próximos 7 días", etc.
+[x] Más presets: "Mes completo", "Próximos 7 días", etc.
