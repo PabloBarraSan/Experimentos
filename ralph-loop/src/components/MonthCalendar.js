@@ -55,10 +55,6 @@ export const MonthCalendar = {
       monthsToShow.push(monthDate);
     }
     
-    const formatShortDate = (date) => {
-      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-    };
-    
     const statusLabels = {
       available: 'Disponible',
       booked: 'Ocupado',
@@ -101,10 +97,17 @@ export const MonthCalendar = {
       return date.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     };
 
-    if (!state.focusedDate ||
-        state.focusedDate.getMonth() !== currentMonth.getMonth() ||
-        state.focusedDate.getFullYear() !== currentMonth.getFullYear()) {
+    const isSameMonth = (dateA, dateB) => {
+      return dateA.getFullYear() === dateB.getFullYear() && dateA.getMonth() === dateB.getMonth();
+    };
+
+    if (!state.focusedDate) {
       state.focusedDate = startOfDay(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
+    } else {
+      const isFocusedInView = monthsToShow.some((monthDate) => isSameMonth(state.focusedDate, monthDate));
+      if (!isFocusedInView) {
+        state.focusedDate = startOfDay(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
+      }
     }
 
     const isUnavailableDate = (date) => {
@@ -403,86 +406,83 @@ export const MonthCalendar = {
           
           // Celdas del mes
           ...monthCells.map((cell, index) => {
-            // Calcular posición en la fila para bordes redondeados
-            const rowIndex = Math.floor(index / 7);
             const colIndex = index % 7;
             const isFirstInRow = colIndex === 0;
             const isLastInRow = colIndex === 6;
             
-            // Recalcular estilos con la posición correcta
-            const cellStyles = (() => {
-              const { date, isCurrentMonth } = cell;
-              const today = new Date();
-              const isToday = isCurrentMonth && isSameDay(date, today);
-              const isOutOfMonth = !isCurrentMonth;
-              const isBooked = isDateBooked(date, bookedDates);
-              const isBlocked = isDayBlocked(date, blockedDays);
-              const isDisabled = isOutOfMonth || isBooked || isBlocked;
+            const { date, isCurrentMonth } = cell;
+            const today = new Date();
+            const isToday = isCurrentMonth && isSameDay(date, today);
+            const isOutOfMonth = !isCurrentMonth;
+            const isBooked = isDateBooked(date, bookedDates);
+            const isBlocked = isDayBlocked(date, blockedDays);
+            const isDisabled = isOutOfMonth || isBooked || isBlocked;
+
+            // Determinar rango actual (seleccionado o hover)
+            let rangeStart = null;
+            let rangeEnd = null;
+            
+            if (state.isSelecting && state.selectionStart && state.hoveredDate) {
+              rangeStart = state.selectionStart < state.hoveredDate ? state.selectionStart : state.hoveredDate;
+              rangeEnd = state.selectionStart < state.hoveredDate ? state.hoveredDate : state.selectionStart;
+            } else if (selectedRange.start && selectedRange.end) {
+              rangeStart = selectedRange.start;
+              rangeEnd = selectedRange.end;
+            }
+            
+            // Determinar si es inicio/fin/medio del rango visual
+            let isRangeStart = false;
+            let isRangeEnd = false;
+            let isRangeMiddle = false;
+            
+            if (rangeStart && rangeEnd) {
+              const dateTime = date.getTime();
+              const startTime = startOfDay(rangeStart).getTime();
+              const endTime = startOfDay(rangeEnd).getTime();
               
-              // Determinar rango actual (seleccionado o hover)
-              let rangeStart = null;
-              let rangeEnd = null;
-              
-              if (state.isSelecting && state.selectionStart && state.hoveredDate) {
-                rangeStart = state.selectionStart < state.hoveredDate ? state.selectionStart : state.hoveredDate;
-                rangeEnd = state.selectionStart < state.hoveredDate ? state.hoveredDate : state.selectionStart;
-              } else if (selectedRange.start && selectedRange.end) {
-                rangeStart = selectedRange.start;
-                rangeEnd = selectedRange.end;
-              }
-              
-              // Determinar si es inicio/fin/medio del rango visual
-              let isRangeStart = false;
-              let isRangeEnd = false;
-              let isRangeMiddle = false;
-              
-              if (rangeStart && rangeEnd) {
-                const dateTime = date.getTime();
-                const startTime = startOfDay(rangeStart).getTime();
-                const endTime = startOfDay(rangeEnd).getTime();
-                
-                isRangeStart = dateTime === startTime;
-                isRangeEnd = dateTime === endTime;
-                isRangeMiddle = dateTime > startTime && dateTime < endTime;
-              }
-              
-              // Ajustar bordes redondeados según posición en fila y rango
-              let borderRadius = '0';
-              if (isRangeStart && isRangeEnd) {
+              isRangeStart = dateTime === startTime;
+              isRangeEnd = dateTime === endTime;
+              isRangeMiddle = dateTime > startTime && dateTime < endTime;
+            }
+            
+            // Ajustar bordes redondeados según posición en fila y rango
+            let borderRadius = '0';
+            if (isRangeStart && isRangeEnd) {
+              borderRadius = Tokens.radius.selection;
+            } else if (isRangeStart) {
+              if (isFirstInRow) {
+                borderRadius = '8px 0 0 8px';
+              } else {
                 borderRadius = Tokens.radius.selection;
-              } else if (isRangeStart) {
-                if (isFirstInRow) {
-                  borderRadius = '8px 0 0 8px';
-                } else {
-                  borderRadius = Tokens.radius.selection;
-                }
-              } else if (isRangeEnd) {
-                if (isLastInRow) {
-                  borderRadius = '0 8px 8px 0';
-                } else {
-                  borderRadius = Tokens.radius.selection;
-                }
-              } else if (isRangeMiddle) {
-                borderRadius = '0';
               }
-              
-              // Estilos base
-              const baseStyles = {
-                aspectRatio: '1',
-                minHeight: '70px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: isDisabled ? 'not-allowed' : (state.isSelecting ? 'grab' : 'pointer'),
-                transition: PremiumTokens.transitions.hover,
-                position: 'relative',
-                borderRadius: borderRadius,
-                border: isToday ? `2px solid ${Tokens.colors.primary}` : 'none',
-                padding: Tokens.layout.spacing.xs,
-              };
-              
-              // Colores según estado
+            } else if (isRangeEnd) {
+              if (isLastInRow) {
+                borderRadius = '0 8px 8px 0';
+              } else {
+                borderRadius = Tokens.radius.selection;
+              }
+            } else if (isRangeMiddle) {
+              borderRadius = '0';
+            }
+            
+            // Estilos base
+            const baseStyles = {
+              aspectRatio: '1',
+              minHeight: '70px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: isDisabled ? 'not-allowed' : (state.isSelecting ? 'grab' : 'pointer'),
+              transition: PremiumTokens.transitions.hover,
+              position: 'relative',
+              borderRadius: borderRadius,
+              border: isToday ? `2px solid ${Tokens.colors.primary}` : 'none',
+              padding: Tokens.layout.spacing.xs,
+            };
+            
+            // Colores según estado
+            const cellStyles = (() => {
               if (isOutOfMonth) {
                 return {
                   ...baseStyles,
