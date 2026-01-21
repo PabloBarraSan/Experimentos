@@ -484,6 +484,7 @@ export const MonthCalendar = {
               onmouseleave: handleCellLeave,
             }, [
               m('span', {
+                key: 'day',
                 style: {
                   fontSize: Tokens.typography.fontSize.base,
                   fontWeight: cellStyles.fontWeight || Tokens.typography.fontWeight.normal,
@@ -492,6 +493,7 @@ export const MonthCalendar = {
               }, dayNumber),
               // Mostrar precio si está disponible
               ...(priceInfo ? [m('span', {
+                key: 'price',
                 style: {
                   fontSize: PremiumTokens.typography.priceSize,
                   color: priceColor,

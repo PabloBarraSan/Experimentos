@@ -216,6 +216,7 @@ export const app = {
     const children = [
       // Controles de navegación
       m('div', {
+        key: 'nav-controls',
         style: {
           display: 'flex',
           alignItems: 'center',
@@ -246,6 +247,7 @@ export const app = {
 
       // Botones de presets
       m('div', {
+        key: 'preset-controls',
         style: {
           display: 'flex',
           alignItems: 'center',
@@ -270,6 +272,7 @@ export const app = {
 
       // Calendario mensual (vista dual en desktop)
       m(MonthCalendar, {
+        key: 'calendar',
         currentMonth: state.currentMonth,
         numberOfMonths: state.isDesktop ? 2 : 1,
         data: bookingData,
@@ -291,6 +294,7 @@ export const app = {
       const rangeText = `${rangeInfo.nights} ${nightsText} • Total: ${formatPrice(rangeInfo.total, rangeInfo.currency)}`;
       
       children.push(m('div', {
+        key: 'summary-bar',
         style: {
           position: 'fixed',
           bottom: 0,
