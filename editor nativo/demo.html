@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NativeRichEditor - Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: #f1f5f9;
+        }
+        .demo-container {
+            background: white;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1e293b;
+            margin-bottom: 1rem;
+        }
+        .info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+        }
+        .output {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        .output h3 {
+            margin-top: 0;
+            color: #475569;
+        }
+        .output pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.875rem;
+        }
+    </style>
+    <script src="https://unpkg.com/mithril/mithril.min.js"></script>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>NativeRichEditor - Componente Demo</h1>
+        
+        <div class="info">
+            <strong>Editor de texto enriquecido</strong> - Prueba las diferentes opciones de formato disponibles en la barra de herramientas.
+        </div>
+
+        <div id="editor-container"></div>
+
+        <div class="output">
+            <h3>Contenido HTML generado:</h3>
+            <pre id="html-output"></pre>
+        </div>
+    </div>
+
+    <script type="module">
+        import { NativeRichEditor } from './NativeRichEditor.js';
+
+        const DemoApp = {
+            view: () => {
+                return m('div', [
+                    m(NativeRichEditor, {
+                        placeholder: 'Escribe tu texto aquí...',
+                        toolbarLabel: 'Editor de contenido',
+                        value: DemoApp.editorValue || '',
+                        onchange: (html) => {
+                            DemoApp.editorValue = html;
+                            m.redraw();
+                            updateOutput(html);
+                        }
+                    })
+                ]);
+            }
+        };
+
+        function updateOutput(html) {
+            const outputEl = document.getElementById('html-output');
+            if (outputEl) {
+                outputEl.textContent = html || '(vacío)';
+            }
+        }
+
+        // Inicializar la aplicación Mithril
+        m.mount(document.getElementById('editor-container'), DemoApp);
+
+        // Función global para acceder desde el módulo
+        window.DemoApp = DemoApp;
+    </script>
+</body>
+</html>

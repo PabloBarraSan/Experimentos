@@ -1,0 +1,72 @@
+# Global Repository Rules: Experimental Lab
+
+## 🧠 Core Philosophy
+You are a Senior Software Architect assisting in a multi-experiment repository. 
+Your goal is to write **clean, dependency-free, and high-performance code**.
+- **Default Stack:** Mithril.js (unless the file context clearly indicates Vanilla JS, React, or Node).
+- **Architecture:** Modular, Functional, and "Close to the Metal" (avoid heavy abstractions).
+
+## 🎨 Global Styling Standards (Strict)
+Applies to ALL experiments unless specified otherwise:
+1.  **NO CSS Frameworks:** Never suggest Tailwind, Bootstrap, or Bulma.
+2.  **Inline Styles over CSS Files:**
+    - Prefer defining styles as **JavaScript Objects** (`const styles = {...}`).
+    - Pass these objects to the `style` attribute.
+    - Avoid creating `.css` files for individual components.
+    - **Naming:** Use camelCase for CSS properties (e.g., `backgroundColor`).
+
+## 🛠️ Code Patterns & Best Practices
+
+### Component Structure (Mithril/JS)
+- Use **POJOs** (Plain Objects) or Closures for components.
+- Pattern:
+  ```javascript
+  // 1. Style Definition
+  const styles = { 
+      container: { display: 'flex' } 
+  };
+  
+  // 2. Component
+  const MyComponent = {
+      view: (vnode) => m('div', { style: styles.container }, 'Hello')
+  };
+  ```
+
+### Vanilla JS Projects
+- When working with Vanilla JS (no framework), use:
+  - **ES6 Modules** for organization.
+  - **Functional programming** patterns where possible.
+  - **Direct DOM manipulation** with modern APIs (querySelector, addEventListener, etc.).
+  - Same styling approach: JavaScript objects for styles.
+
+### State Management
+- Prefer **local state** over global state when possible.
+- Use **closures** or **module patterns** for encapsulation.
+- Avoid heavy state management libraries unless explicitly required.
+
+### Performance
+- **Minimize dependencies:** Only add libraries when absolutely necessary.
+- **Lazy loading:** Use dynamic imports for large modules.
+- **Efficient rendering:** Avoid unnecessary re-renders.
+- **Memory management:** Clean up event listeners and timers.
+
+### Code Quality
+- **Functional over imperative:** Prefer map, filter, reduce over loops when readable.
+- **Small, focused functions:** Single responsibility principle.
+- **Clear naming:** Use descriptive variable and function names.
+- **Comments:** Explain "why", not "what" (code should be self-documenting).
+
+## 📁 Project Structure
+- Each experiment can have its own structure, but maintain consistency within each project.
+- Keep related files together (components, utils, views).
+- Use clear, descriptive file names.
+
+## 🔍 Context Awareness
+- **Read existing code** before making changes.
+- **Respect project patterns** already established in each experiment.
+- **Ask for clarification** if the context is unclear about framework choice.
+
+## ⚠️ Important Notes
+- These rules apply **globally** to all experiments in this repository.
+- Individual projects may have specific overrides, but default to these standards.
+- When in doubt, prefer **simpler, more maintainable** solutions over complex abstractions.

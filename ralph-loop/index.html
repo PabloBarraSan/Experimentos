@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ralph Loop - Zenith Edition | Booking Engine Premium</title>
+    <!-- Fuente Inter para tipografía premium -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Reset mínimo y estilos base del body */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #F9FAFB;
+            color: #111827;
+            overflow-x: hidden;
+        }
+        
+        /* Contenedor principal del playground */
+        #app {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+    <!-- Mithril.js desde CDN -->
+    <script src="https://unpkg.com/mithril/mithril.min.js"></script>
+</head>
+<body>
+    <div id="app"></div>
+
+    <script type="module">
+        // Mock de DView para evitar errores de dependencia
+        // Este mock simula la funcionalidad básica de DView
+        window.DView = window.DView || {
+            // Mock de elementos básicos
+            button: (props, children) => {
+                const button = document.createElement('button');
+                if (props.onclick) button.onclick = props.onclick;
+                if (props.className) button.className = props.className;
+                if (props.style) Object.assign(button.style, props.style);
+                if (typeof children === 'string') {
+                    button.textContent = children;
+                } else if (Array.isArray(children)) {
+                    children.forEach(child => {
+                        if (typeof child === 'string') {
+                            button.appendChild(document.createTextNode(child));
+                        } else {
+                            button.appendChild(child);
+                        }
+                    });
+                }
+                return button;
+            },
+            
+            // Mock de navegación básica
+            navigate: (path) => {
+                console.log('[DView Mock] Navigate to:', path);
+            },
+            
+            // Mock de utilidades
+            formatDate: (date) => {
+                return new Date(date).toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            },
+            
+            formatTime: (date) => {
+                return new Date(date).toLocaleTimeString('es-ES', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+        };
+
+        // Importar y montar la aplicación
+        import { app } from './app.js';
+        
+        // Montar la aplicación en el contenedor
+        m.mount(document.getElementById('app'), app);
+        
+        console.log('🚀 Ralph Loop - Playground inicializado');
+    </script>
+</body>
+</html>
