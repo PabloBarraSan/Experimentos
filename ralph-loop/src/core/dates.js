@@ -231,6 +231,44 @@ export function formatDate(date, locale = 'es-ES') {
 }
 
 /**
+ * Parsea un string ISO "YYYY-MM-DD" como fecha local
+ * @param {string|Date|number} value - Fecha en string ISO, Date o timestamp
+ * @returns {Date} Fecha en zona local
+ */
+export function parseISODateString(value) {
+  if (value instanceof Date) {
+    return new Date(value);
+  }
+  if (typeof value !== 'string') {
+    return new Date(value);
+  }
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return new Date(value);
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  return new Date(year, month, day);
+}
+
+/**
+ * Convierte una fecha a string ISO local (YYYY-MM-DD) sin UTC
+ * @param {string|Date|number} date - Fecha en string ISO, Date o timestamp
+ * @returns {string} Fecha en formato YYYY-MM-DD
+ */
+export function toISODateString(date) {
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return date;
+  }
+  const d = parseISODateString(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Genera un array de 42 celdas para el grid mensual (7x6)
  * Incluye días del mes anterior y siguiente para completar el grid
  * @param {number} year - Año
@@ -302,7 +340,7 @@ export function generateMonthGrid(year, month) {
  * @returns {boolean} true si la fecha está ocupada
  */
 export function isDateBooked(date, bookedDates) {
-  const dateStr = date.toISOString().split('T')[0];
+  const dateStr = toISODateString(date);
   return bookedDates.includes(dateStr);
 }
 

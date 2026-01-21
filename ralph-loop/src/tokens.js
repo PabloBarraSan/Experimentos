@@ -174,7 +174,6 @@ export const Tokens = {
 export const PremiumTokens = {
   typography: {
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-    priceSize: '11px',
     daySize: '14px',
   },
   shadows: {

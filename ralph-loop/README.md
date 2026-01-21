@@ -6,9 +6,9 @@ Nueva Visión: Crear el selector de fechas más fluido y estético del mercado. 
 
 Fase Actual: Fase 4: Reglas de Negocio (✅ COMPLETADO)
 
-Progreso General: 85%
+Progreso General: 100%
 
-Última Actualización: Implementación completa del calendario mensual de booking con selección de rangos
+Última Actualización: Internacionalización, accesibilidad y nuevos presets completados
 
 0. Fase 0: Inicialización y Entorno (✅ COMPLETADO)
 
@@ -154,12 +154,14 @@ Resultado: Una barra visual continua y elegante.
 - Selección de rangos con feedback visual instantáneo
 - Estilos inline con bordes redondeados continuos
 - Validación de fechas ocupadas y bloqueadas
+- Corte automático del rango cuando encuentra días no disponibles
 
 ✅ **Funciones de Utilidad** (`src/core/dates.js`)
 - `generateMonthGrid()`: Genera 42 celdas del mes
 - `isDateBooked()`: Verifica fechas ocupadas
 - `isDayBlocked()`: Verifica días bloqueados
 - `isDateInRange()`: Verifica si una fecha está en un rango
+- `toISODateString()`: Normaliza fechas locales a YYYY-MM-DD
 
 ✅ **Tokens de Diseño** (`src/tokens.js`)
 - Colores para estados de celdas (default, hover, selected, inRange, disabled, booked)
@@ -175,14 +177,33 @@ Resultado: Una barra visual continua y elegante.
 ✅ **Presets de Selección Rápida**
 - Botón "Semana Completa": Selecciona automáticamente de lunes a domingo de la semana actual
 - Botón "Este Fin de Semana": Selecciona automáticamente sábado y domingo de la semana actual
+- Botón "Mes Completo": Selecciona el mes actual completo
+- Botón "Próximos 7 días": Selecciona desde hoy hasta 7 días
 - Navegación automática al mes correspondiente cuando el rango está en otro mes
+- Validación de presets contra bloqueos, reservas y min/max stay
+
+✅ **Guía visual y Feedback**
+- Tooltip de rango (noches y fechas) durante hover
+- Barra de resumen fija con rango y CTA
+- Leyenda de estados y reglas visibles
+
+✅ **Internacionalización**
+- Selector de idioma (ES/EN)
+- Formatos de fecha y textos adaptados al locale
+
+✅ **Accesibilidad**
+- Navegación por teclado (flechas, PageUp/PageDown, Enter)
+- ARIA labels y roles en celdas del calendario
+
+✅ **Vista Responsiva**
+- Doble mes en desktop, un mes en móvil
 
 8. Próximos Pasos (Opcional)
 
-[ ] Mejoras de UX: Tooltips con información de disponibilidad
+[x] Mejoras de UX: Tooltips con noches y rango durante hover
 
-[ ] Internacionalización: Soporte para múltiples idiomas
+[x] Internacionalización: Soporte para múltiples idiomas
 
-[ ] Accesibilidad: Navegación por teclado y ARIA labels
+[x] Accesibilidad: Navegación por teclado y ARIA labels
 
-[ ] Más presets: "Mes completo", "Próximos 7 días", etc.
+[x] Más presets: "Mes completo", "Próximos 7 días", etc.

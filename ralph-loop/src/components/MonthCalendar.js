@@ -8,27 +8,21 @@ import {
   generateMonthGrid,
   isDateBooked,
   isDayBlocked,
-  isDateInRange,
   startOfDay,
   isSameDay,
-  formatDate,
   getDateRange,
+  addDays,
 } from '../core/dates.js';
-import {
-  getPriceForDate,
-  getAveragePrice,
-  calculateRangeTotal,
-  getPriceColor,
-  formatPrice,
-} from '../core/priceUtils.js';
 
 /**
  * Componente MonthCalendar
  * @param {Object} vnode - Props del componente
  * @param {Date} vnode.attrs.currentMonth - Mes actual a mostrar
- * @param {Object} vnode.attrs.data - Datos (bookedDates, blockedDays, minStay, maxStay, dailyRates)
+ * @param {Object} vnode.attrs.data - Datos (bookedDates, blockedDays, minStay, maxStay)
+ * @param {string} vnode.attrs.locale - Locale para textos y fechas (ej: "es-ES")
+ * @param {Object} vnode.attrs.labels - Labels personalizados (dayNames, monthNames, status, nights)
  * @param {Object} vnode.attrs.state - Estado (selectedRange, currentMonth)
- * @param {Object} vnode.attrs.callbacks - Callbacks (onRangeSelect)
+ * @param {Object} vnode.attrs.callbacks - Callbacks (onRangeSelect, onMonthChange)
  * @param {number} vnode.attrs.numberOfMonths - Número de meses a mostrar (1 o 2, default: 1)
  */
 export const MonthCalendar = {
@@ -39,17 +33,17 @@ export const MonthCalendar = {
     state.isSelecting = false;
     state.hoveredCell = null;
     state.tooltipInfo = null; // Para tooltip durante hover
+    state.focusedDate = null;
   },
 
   view: (vnode) => {
-    const { currentMonth, data = {}, callbacks = {}, numberOfMonths = 1 } = vnode.attrs;
+    const { currentMonth, data = {}, callbacks = {}, numberOfMonths = 1, locale = 'es-ES', labels = {} } = vnode.attrs;
     const state = vnode.state;
     
     const bookedDates = data.bookedDates || [];
     const blockedDays = data.blockedDays || [];
     const minStay = data.minStay || 1;
     const maxStay = data.maxStay || 30;
-    const dailyRates = data.dailyRates || null;
     
     const selectedRange = vnode.attrs.state?.selectedRange || { start: null, end: null };
     
@@ -61,31 +55,91 @@ export const MonthCalendar = {
       monthsToShow.push(monthDate);
     }
     
-    // Calcular precio promedio para todos los meses
-    let averagePrice = 0;
-    if (dailyRates) {
-      const allDates = [];
-      monthsToShow.forEach(monthDate => {
-        const year = monthDate.getFullYear();
-        const month = monthDate.getMonth();
-        const monthStart = new Date(year, month, 1);
-        const monthEnd = new Date(year, month + 1, 0);
-        allDates.push(...getDateRange(monthStart, monthEnd));
-      });
-      if (allDates.length > 0) {
-        const total = allDates.reduce((sum, date) => {
-          return sum + getPriceForDate(date, dailyRates).price;
-        }, 0);
-        averagePrice = Math.round(total / allDates.length);
-      }
-    }
+    const formatShortDate = (date) => {
+      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    };
     
-    // Nombres de los días de la semana (Lunes a Domingo)
-    const dayNames = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-    const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-    ];
+    const statusLabels = {
+      available: 'Disponible',
+      booked: 'Ocupado',
+      blocked: 'Bloqueado',
+      selected: 'Seleccionado',
+      inRange: 'En rango',
+      outOfMonth: 'Fuera de mes',
+      ...(labels.status || {}),
+    };
+
+    const nightsLabels = {
+      one: 'noche',
+      many: 'noches',
+      ...(labels.nights || {}),
+    };
+
+    const generateDayNames = (targetLocale) => {
+      const formatter = new Intl.DateTimeFormat(targetLocale, { weekday: 'short' });
+      const base = new Date(2024, 0, 1); // Lunes
+      return Array.from({ length: 7 }, (_, index) => formatter.format(addDays(base, index)));
+    };
+
+    const generateMonthNames = (targetLocale) => {
+      const formatter = new Intl.DateTimeFormat(targetLocale, { month: 'long' });
+      return Array.from({ length: 12 }, (_, index) => formatter.format(new Date(2024, index, 1)));
+    };
+
+    const dayNames = Array.isArray(labels.dayNames) && labels.dayNames.length === 7
+      ? labels.dayNames
+      : generateDayNames(locale);
+    const monthNames = Array.isArray(labels.monthNames) && labels.monthNames.length === 12
+      ? labels.monthNames
+      : generateMonthNames(locale);
+
+    const formatShortDate = (date) => {
+      return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    };
+
+    const formatLongDate = (date) => {
+      return date.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    };
+
+    if (!state.focusedDate ||
+        state.focusedDate.getMonth() !== currentMonth.getMonth() ||
+        state.focusedDate.getFullYear() !== currentMonth.getFullYear()) {
+      state.focusedDate = startOfDay(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1));
+    }
+
+    const isUnavailableDate = (date) => {
+      return isDateBooked(date, bookedDates) || isDayBlocked(date, blockedDays);
+    };
+
+    const getFirstUnavailableDateInRange = (startDate, endDate) => {
+      if (!startDate || !endDate) return null;
+      const start = startOfDay(startDate);
+      const end = startOfDay(endDate);
+      const direction = start <= end ? 1 : -1;
+      const current = new Date(start);
+      current.setDate(current.getDate() + direction);
+      while (direction > 0 ? current <= end : current >= end) {
+        if (isUnavailableDate(current)) {
+          return new Date(current);
+        }
+        current.setDate(current.getDate() + direction);
+      }
+      return null;
+    };
+
+    const clampRangeEnd = (startDate, endDate) => {
+      if (!startDate || !endDate) return endDate;
+      const start = startOfDay(startDate);
+      const end = startOfDay(endDate);
+      const firstUnavailable = getFirstUnavailableDateInRange(start, end);
+      if (!firstUnavailable) {
+        return end;
+      }
+      const direction = start <= end ? 1 : -1;
+      const clamped = new Date(firstUnavailable);
+      clamped.setDate(clamped.getDate() - direction);
+      return startOfDay(clamped);
+    };
     
     // Estilos del contenedor principal
     const containerStyles = {
@@ -144,10 +198,10 @@ export const MonthCalendar = {
     // Handler para click en celda
     const handleCellClick = (cell) => {
       if (!cell.isCurrentMonth) return;
-      if (isDateBooked(cell.date, bookedDates)) return;
-      if (isDayBlocked(cell.date, blockedDays)) return;
+      if (isUnavailableDate(cell.date)) return;
       
       const clickedDate = startOfDay(cell.date);
+      state.focusedDate = clickedDate;
       
       if (!state.selectionStart) {
         // Primer click: establecer inicio
@@ -157,20 +211,22 @@ export const MonthCalendar = {
       } else {
         // Segundo click: establecer fin y completar selección
         const startDate = state.selectionStart;
-        const endDate = clickedDate;
+        const clampedEnd = clampRangeEnd(startDate, clickedDate);
         
         // Asegurar que start < end
-        const actualStart = startDate < endDate ? startDate : endDate;
-        const actualEnd = startDate < endDate ? endDate : startDate;
+        const actualStart = startDate <= clampedEnd ? startDate : clampedEnd;
+        const actualEnd = startDate <= clampedEnd ? clampedEnd : startDate;
         
-        // Validar rango
-        const daysDiff = Math.ceil((actualEnd - actualStart) / (1000 * 60 * 60 * 24)) + 1;
+        const rangeDates = getDateRange(actualStart, actualEnd);
+        const daysDiff = rangeDates.length;
         
         if (daysDiff < minStay) {
           console.warn(`La estancia mínima es de ${minStay} días`);
           // Reiniciar selección
           state.selectionStart = null;
           state.isSelecting = false;
+          state.hoveredDate = null;
+          state.tooltipInfo = null;
           m.redraw();
           return;
         }
@@ -180,24 +236,21 @@ export const MonthCalendar = {
           // Reiniciar selección
           state.selectionStart = null;
           state.isSelecting = false;
+          state.hoveredDate = null;
+          state.tooltipInfo = null;
           m.redraw();
           return;
         }
         
-        // Verificar que no haya días ocupados en el rango
-        const rangeDates = [];
-        const current = new Date(actualStart);
-        while (current <= actualEnd) {
-          rangeDates.push(new Date(current));
-          current.setDate(current.getDate() + 1);
-        }
-        
-        const hasBookedDate = rangeDates.some(d => isDateBooked(d, bookedDates));
-        if (hasBookedDate) {
-          console.warn('El rango seleccionado incluye días ocupados');
+        // Verificar que no haya días no disponibles en el rango
+        const hasUnavailableDate = rangeDates.some((date) => isUnavailableDate(date));
+        if (hasUnavailableDate) {
+          console.warn('El rango seleccionado incluye días no disponibles');
           // Reiniciar selección
           state.selectionStart = null;
           state.isSelecting = false;
+          state.hoveredDate = null;
+          state.tooltipInfo = null;
           m.redraw();
           return;
         }
@@ -211,6 +264,7 @@ export const MonthCalendar = {
         state.selectionStart = null;
         state.isSelecting = false;
         state.hoveredDate = null;
+        state.tooltipInfo = null;
         m.redraw();
       }
     };
@@ -218,38 +272,28 @@ export const MonthCalendar = {
     // Handler para hover en celda
     const handleCellHover = (cell) => {
       // Hover básico para todas las celdas
-      if (!isDateBooked(cell.date, bookedDates) && !isDayBlocked(cell.date, blockedDays)) {
+      if (!isUnavailableDate(cell.date)) {
         state.hoveredCell = cell;
       }
       
       // Durante selección, actualizar hoveredDate y tooltip
       if (state.isSelecting && state.selectionStart) {
         if (!cell.isCurrentMonth) return;
-        if (isDateBooked(cell.date, bookedDates)) return;
-        if (isDayBlocked(cell.date, blockedDays)) return;
+        if (isUnavailableDate(cell.date)) return;
         
-        state.hoveredDate = startOfDay(cell.date);
+        const proposedHoverDate = startOfDay(cell.date);
+        state.hoveredDate = clampRangeEnd(state.selectionStart, proposedHoverDate);
         
         // Calcular tooltip con información de rango
         if (state.selectionStart && state.hoveredDate) {
           const rangeStart = state.selectionStart < state.hoveredDate ? state.selectionStart : state.hoveredDate;
           const rangeEnd = state.selectionStart < state.hoveredDate ? state.hoveredDate : state.selectionStart;
-          
-          if (dailyRates) {
-            const rangeInfo = calculateRangeTotal(rangeStart, rangeEnd, dailyRates);
-            state.tooltipInfo = {
-              nights: rangeInfo.nights,
-              total: rangeInfo.total,
-              currency: rangeInfo.currency,
-            };
-          } else {
-            const nights = Math.ceil((rangeEnd - rangeStart) / (1000 * 60 * 60 * 24)) + 1;
-            state.tooltipInfo = {
-              nights: nights,
-              total: null,
-              currency: null,
-            };
-          }
+          const nights = getDateRange(rangeStart, rangeEnd).length;
+          state.tooltipInfo = {
+            nights: nights,
+            start: rangeStart,
+            end: rangeEnd,
+          };
         }
       } else {
         state.tooltipInfo = null;
@@ -266,6 +310,71 @@ export const MonthCalendar = {
         state.tooltipInfo = null;
       }
       m.redraw();
+    };
+
+    const focusDate = (date) => {
+      const normalized = startOfDay(date);
+      state.focusedDate = normalized;
+      if (callbacks.onMonthChange) {
+        const sameMonth = normalized.getMonth() === currentMonth.getMonth() &&
+          normalized.getFullYear() === currentMonth.getFullYear();
+        if (!sameMonth) {
+          callbacks.onMonthChange(normalized);
+        }
+      }
+      m.redraw();
+    };
+
+    const moveMonth = (date, delta) => {
+      const day = date.getDate();
+      const base = new Date(date);
+      base.setDate(1);
+      base.setMonth(base.getMonth() + delta);
+      const daysInTargetMonth = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+      base.setDate(Math.min(day, daysInTargetMonth));
+      return base;
+    };
+
+    const handleCellKeyDown = (event, cell) => {
+      if (!cell.isCurrentMonth) return;
+      const focused = state.focusedDate || startOfDay(cell.date);
+      let nextDate = null;
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          nextDate = addDays(focused, -1);
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          nextDate = addDays(focused, 1);
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          nextDate = addDays(focused, -7);
+          break;
+        case 'ArrowDown':
+          event.preventDefault();
+          nextDate = addDays(focused, 7);
+          break;
+        case 'PageUp':
+          event.preventDefault();
+          nextDate = moveMonth(focused, -1);
+          break;
+        case 'PageDown':
+          event.preventDefault();
+          nextDate = moveMonth(focused, 1);
+          break;
+        case 'Enter':
+        case ' ':
+          event.preventDefault();
+          handleCellClick(cell);
+          return;
+        default:
+          return;
+      }
+      if (nextDate) {
+        focusDate(nextDate);
+      }
     };
     
     // Función para renderizar un mes individual
@@ -286,10 +395,10 @@ export const MonthCalendar = {
         ]),
         
         // Grid de días de la semana
-        m('div', { style: gridStyles }, [
+        m('div', { style: gridStyles, role: 'grid', 'aria-label': labels.calendarLabel || 'Calendario' }, [
           // Headers de días
           ...dayNames.map((dayName, index) => 
-            m('div', { key: `header-${monthIndex}-${index}`, style: dayHeaderStyles }, dayName)
+            m('div', { key: `header-${monthIndex}-${index}`, style: dayHeaderStyles, role: 'columnheader' }, dayName)
           ),
           
           // Celdas del mes
@@ -305,9 +414,10 @@ export const MonthCalendar = {
               const { date, isCurrentMonth } = cell;
               const today = new Date();
               const isToday = isCurrentMonth && isSameDay(date, today);
+              const isOutOfMonth = !isCurrentMonth;
               const isBooked = isDateBooked(date, bookedDates);
               const isBlocked = isDayBlocked(date, blockedDays);
-              const isDisabled = !isCurrentMonth || isBooked || isBlocked;
+              const isDisabled = isOutOfMonth || isBooked || isBlocked;
               
               // Determinar rango actual (seleccionado o hover)
               let rangeStart = null;
@@ -373,12 +483,30 @@ export const MonthCalendar = {
               };
               
               // Colores según estado
-              if (isDisabled) {
+              if (isOutOfMonth) {
+                return {
+                  ...baseStyles,
+                  backgroundColor: Tokens.colors.surfaceSecondary,
+                  color: Tokens.colors.textTertiary,
+                  opacity: 0.6,
+                };
+              }
+
+              if (isBooked) {
+                return {
+                  ...baseStyles,
+                  backgroundColor: Tokens.colors.cell.booked,
+                  color: Tokens.colors.cell.bookedText,
+                  textDecoration: 'line-through',
+                };
+              }
+
+              if (isBlocked) {
                 return {
                   ...baseStyles,
                   backgroundColor: Tokens.colors.cell.disabled,
                   color: Tokens.colors.textTertiary,
-                  opacity: 0.5,
+                  opacity: 0.6,
                 };
               }
               
@@ -400,15 +528,6 @@ export const MonthCalendar = {
                 };
               }
               
-              if (isBooked) {
-                return {
-                  ...baseStyles,
-                  backgroundColor: Tokens.colors.cell.booked,
-                  color: Tokens.colors.cell.bookedText,
-                  textDecoration: 'line-through',
-                };
-              }
-              
               // Estado por defecto
               const isHovered = state.hoveredCell && isSameDay(cell.date, state.hoveredCell.date) && 
                                !isDisabled && !isRangeStart && !isRangeEnd && !isRangeMiddle;
@@ -424,42 +543,45 @@ export const MonthCalendar = {
             
             const dayNumber = cell.date.getDate();
             
-            // Obtener precio para este día
-            let priceInfo = null;
-            let priceColor = null;
-            if (dailyRates && cell.isCurrentMonth && !isDateBooked(cell.date, bookedDates) && !isDayBlocked(cell.date, blockedDays)) {
-              priceInfo = getPriceForDate(cell.date, dailyRates);
-              const isSelected = (selectedRange.start && isSameDay(cell.date, selectedRange.start)) ||
-                               (selectedRange.end && isSameDay(cell.date, selectedRange.end)) ||
-                               (selectedRange.start && selectedRange.end && isDateInRange(cell.date, selectedRange.start, selectedRange.end));
-              priceColor = getPriceColor(priceInfo.price, averagePrice, isSelected);
-            }
-            
+            const isInRange = isRangeStart || isRangeEnd || isRangeMiddle;
+            const isFocused = state.focusedDate && isSameDay(cell.date, state.focusedDate);
+            const ariaStatus = isOutOfMonth
+              ? statusLabels.outOfMonth
+              : (isBooked
+                ? statusLabels.booked
+                : (isBlocked
+                  ? statusLabels.blocked
+                  : (isRangeStart || isRangeEnd
+                    ? statusLabels.selected
+                    : (isRangeMiddle ? statusLabels.inRange : statusLabels.available))));
+            const ariaLabel = `${formatLongDate(cell.date)}. ${ariaStatus}.`;
+
             return m('div', {
               key: `cell-${monthIndex}-${index}`,
               style: cellStyles,
               onclick: () => handleCellClick(cell),
               onmouseenter: () => handleCellHover(cell),
               onmouseleave: handleCellLeave,
+              onfocus: () => {
+                if (cell.isCurrentMonth) {
+                  state.focusedDate = startOfDay(cell.date);
+                }
+              },
+              onkeydown: (event) => handleCellKeyDown(event, cell),
+              role: 'gridcell',
+              tabindex: cell.isCurrentMonth ? (isFocused ? 0 : -1) : -1,
+              'aria-selected': isInRange ? 'true' : 'false',
+              'aria-disabled': (isOutOfMonth || isBooked || isBlocked) ? 'true' : 'false',
+              'aria-label': ariaLabel,
             }, [
               m('span', {
+                key: 'day',
                 style: {
                   fontSize: Tokens.typography.fontSize.base,
                   fontWeight: cellStyles.fontWeight || Tokens.typography.fontWeight.normal,
                   lineHeight: 1.2,
                 }
               }, dayNumber),
-              // Mostrar precio si está disponible
-              ...(priceInfo ? [m('span', {
-                key: `price-${monthIndex}-${index}`,
-                style: {
-                  fontSize: PremiumTokens.typography.priceSize,
-                  color: priceColor,
-                  marginTop: '2px',
-                  fontWeight: Tokens.typography.fontWeight.normal,
-                  lineHeight: 1,
-                }
-              }, formatPrice(priceInfo.price, priceInfo.currency).replace(/\s/g, ''))] : []),
             ]);
           }),
         ]),
@@ -474,6 +596,12 @@ export const MonthCalendar = {
     
     // Agregar tooltip si existe
     if (state.tooltipInfo) {
+      const nightsLabel = state.tooltipInfo.nights === 1 ? nightsLabels.one : nightsLabels.many;
+      const rangeLabel = (state.tooltipInfo.start && state.tooltipInfo.end)
+        ? (isSameDay(state.tooltipInfo.start, state.tooltipInfo.end)
+          ? formatShortDate(state.tooltipInfo.start)
+          : `${formatShortDate(state.tooltipInfo.start)} - ${formatShortDate(state.tooltipInfo.end)}`)
+        : '';
       children.push(m('div', {
         key: 'tooltip',
         style: {
@@ -493,8 +621,9 @@ export const MonthCalendar = {
           whiteSpace: 'nowrap',
         }
       }, [
-        `${state.tooltipInfo.nights} ${state.tooltipInfo.nights === 1 ? 'noche' : 'noches'}`,
-        state.tooltipInfo.total !== null ? ` • Total: ${formatPrice(state.tooltipInfo.total, state.tooltipInfo.currency)}` : '',
+        rangeLabel,
+        rangeLabel ? ' • ' : '',
+        `${state.tooltipInfo.nights} ${nightsLabel}`,
       ]));
     }
     
