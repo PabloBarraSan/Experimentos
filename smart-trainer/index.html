@@ -51,5 +51,27 @@
 <body>
     <div id="app"></div>
     <script type="module" src="src/app.js"></script>
+    <script>
+        // Registrar Service Worker para funcionalidad PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then((registration) => {
+                        console.log('✅ Service Worker registrado:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('⚠️ Service Worker no registrado:', error);
+                    });
+            });
+        }
+        
+        // Detectar si se puede instalar como PWA
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            console.log('📲 PWA instalable disponible');
+        });
+    </script>
 </body>
 </html>

@@ -91,10 +91,10 @@
 ## 📊 FASE 2: Entrenamientos Estructurados
 
 ### 2.1 Zonas de Entrenamiento
-- [ ] **T2.1.1** Crear `src/storage/settings.js`
+- [x] **T2.1.1** Crear `src/storage/settings.js`
   - Guardar/cargar FTP del usuario
   - Guardar preferencias (unidades, zonas personalizadas)
-- [ ] **T2.1.2** Implementar cálculo automático de zonas
+- [x] **T2.1.2** Implementar cálculo automático de zonas
   - Z1: Recuperación (< 55% FTP)
   - Z2: Resistencia (56-75% FTP)
   - Z3: Tempo (76-90% FTP)
@@ -102,24 +102,24 @@
   - Z5: VO2max (106-120% FTP)
   - Z6: Anaeróbico (121-150% FTP)
   - Z7: Neuromuscular (> 150% FTP)
-- [ ] **T2.1.3** Componente visual de zona actual
-- [ ] **T2.1.4** Vista de configuración de FTP y zonas
+- [x] **T2.1.3** Componente visual de zona actual (integrado en TrainingView y theme.js)
+- [x] **T2.1.4** Vista de configuración de FTP y zonas → `src/views/SettingsView.js`
 
 ### 2.2 Modelo de Entrenamientos
-- [ ] **T2.2.1** Crear `src/workouts/model.js`
+- [x] **T2.2.1** Crear `src/workouts/model.js`
   - Estructura de datos para entrenamientos
-  - Tipos de bloques (warmup, interval, cooldown, rest)
-  - Targets: potencia absoluta, % FTP, cadencia
-- [ ] **T2.2.2** Crear `src/workouts/presets.js`
-  - "FTP Test 20min"
-  - "Sweet Spot 2x20"
-  - "VO2max Intervals 5x5"
-  - "Endurance 1h"
+  - Tipos de bloques (warmup, interval, cooldown, rest, ramp, steady, free)
+  - Targets: potencia absoluta, % FTP, cadencia, resistencia
+- [x] **T2.2.2** Crear `src/workouts/presets.js`
+  - "FTP Test 20min", "Ramp Test"
+  - "Sweet Spot 2x20", "Threshold 4x8"
+  - "VO2max Intervals 5x5", "Tabata"
+  - "Endurance 60/90min", "Pyramid"
   - "Recovery Spin"
-- [ ] **T2.2.3** Validación de estructura de entrenamientos
+- [x] **T2.2.3** Validación de estructura de entrenamientos
 
 ### 2.3 Parser de Archivos
-- [ ] **T2.3.1** Crear `src/workouts/parser.js`
+- [ ] **T2.3.1** Crear `src/workouts/parser.js` (pendiente)
   - Parsear archivos .zwo (Zwift XML)
   - Parsear archivos .erg (texto plano)
   - Parsear archivos .mrc (texto plano)
@@ -128,28 +128,28 @@
 - [ ] **T2.3.4** UI para importar archivos (drag & drop)
 
 ### 2.4 Reproductor de Entrenamientos
-- [ ] **T2.4.1** Crear `src/components/WorkoutPlayer.js`
+- [x] **T2.4.1** Crear `src/components/WorkoutPlayer.js`
   - Visualización de bloques (timeline)
   - Indicador de posición actual
   - Tiempo restante del bloque / total
-- [ ] **T2.4.2** Lógica de ejecución del entrenamiento
+- [x] **T2.4.2** Lógica de ejecución del entrenamiento
   - Timer preciso (requestAnimationFrame)
   - Cambio automático de bloques
   - Envío de comandos de resistencia/potencia
-- [ ] **T2.4.3** Modo ERG vs Modo Resistencia
+- [x] **T2.4.3** Modo ERG vs Modo Resistencia
   - ERG: mantener potencia constante
   - Resistencia: ajustar nivel fijo
-- [ ] **T2.4.4** Alertas de cambio de bloque
+- [ ] **T2.4.4** Alertas de cambio de bloque (pendiente mejoras)
   - Countdown 3-2-1
   - Sonido opcional
   - Cambio de color en pantalla
 
 ### 2.5 Vista de Biblioteca
-- [ ] **T2.5.1** Crear `src/views/WorkoutsView.js`
+- [x] **T2.5.1** Crear `src/views/WorkoutsView.js`
   - Lista de entrenamientos disponibles
-  - Filtros (duración, tipo, TSS estimado)
-  - Preview del entrenamiento seleccionado
-- [ ] **T2.5.2** Crear `src/workouts/builder.js`
+  - Filtros por categoría
+  - Preview del entrenamiento seleccionado (timeline, stats)
+- [ ] **T2.5.2** Crear `src/workouts/builder.js` (pendiente)
   - Interfaz para crear entrenamientos personalizados
   - Añadir/editar/eliminar bloques
   - Guardar en localStorage/IndexedDB
@@ -159,47 +159,49 @@
 ## 💾 FASE 3: Análisis y Persistencia
 
 ### 3.1 Grabación de Sesiones
-- [ ] **T3.1.1** Crear `src/storage/sessions.js`
+- [x] **T3.1.1** Crear `src/storage/sessions.js`
   - Estructura de datos para sesiones
   - Array de puntos: {timestamp, power, cadence, speed, hr, resistance}
   - Metadata: fecha, duración, workout usado
-- [ ] **T3.1.2** Implementar grabación en tiempo real
+- [x] **T3.1.2** Implementar grabación en tiempo real
   - Intervalo de 1 segundo
   - Buffer en memoria durante sesión
-- [ ] **T3.1.3** Guardar sesión al finalizar (IndexedDB)
-- [ ] **T3.1.4** Opción de descartar sesión
+- [x] **T3.1.3** Guardar sesión al finalizar (IndexedDB)
+- [x] **T3.1.4** Opción de descartar sesión
 
 ### 3.2 Cálculos de Métricas Avanzadas
-- [ ] **T3.2.1** Crear `src/utils/calculations.js`
+- [x] **T3.2.1** Crear `src/utils/calculations.js`
   - `calculateNP(powerArray)` - Potencia Normalizada
   - `calculateTSS(np, duration, ftp)` - Training Stress Score
   - `calculateIF(np, ftp)` - Intensity Factor
   - `calculateVI(np, avgPower)` - Variability Index
   - `calculateKilojoules(powerArray)` - Trabajo total
-- [ ] **T3.2.2** Mostrar métricas al finalizar sesión
+  - `calculatePowerCurve()` - Curva de potencia
+  - `calculateTimeInZones()` - Tiempo en zonas
+- [x] **T3.2.2** Mostrar métricas al finalizar sesión
 - [ ] **T3.2.3** Recalcular al cambiar FTP
 
 ### 3.3 Exportación
-- [ ] **T3.3.1** Crear `src/utils/exporters.js`
-  - Exportar a .fit (binario, estándar Garmin)
-  - Exportar a .tcx (XML)
+- [x] **T3.3.1** Exportadores en `src/storage/sessions.js`
+  - Exportar a .fit (formato JSON compatible)
+  - Exportar a .tcx (XML completo)
   - Exportar a .csv (simple)
-- [ ] **T3.3.2** Botón de descarga en detalle de sesión
+- [x] **T3.3.2** Botón de descarga en detalle de sesión
 - [ ] **T3.3.3** Exportar múltiples sesiones como zip
 
 ### 3.4 Historial de Sesiones
-- [ ] **T3.4.1** Crear `src/views/HistoryView.js`
+- [x] **T3.4.1** Crear `src/views/HistoryView.js`
   - Lista de sesiones pasadas
   - Ordenar por fecha (más reciente primero)
   - Resumen: fecha, duración, potencia media, TSS
-- [ ] **T3.4.2** Vista de detalle de sesión
-  - Gráfico de potencia vs tiempo
-  - Estadísticas completas
+- [x] **T3.4.2** Vista de detalle de sesión (en tarjeta)
+  - Métricas principales
+  - Exportación
   - Opción de eliminar
-- [ ] **T3.4.3** Estadísticas acumuladas
+- [x] **T3.4.3** Estadísticas acumuladas
   - Total de sesiones
   - Tiempo total de entrenamiento
-  - TSS semanal/mensual
+  - TSS total, calorías, distancia
 
 ### 3.5 Gráficos
 - [ ] **T3.5.1** Crear `src/utils/charts.js`
@@ -230,14 +232,16 @@
 - [ ] **T4.1.4** Configuración de prioridad de sensores
 
 ### 4.2 PWA Completa
-- [ ] **T4.2.1** Crear `manifest.json`
+- [x] **T4.2.1** Crear `manifest.json`
   - Nombre, iconos, colores
   - Display: standalone
-- [ ] **T4.2.2** Crear `sw.js` (Service Worker)
+  - Shortcuts a funciones principales
+- [x] **T4.2.2** Crear `sw.js` (Service Worker)
   - Cachear assets estáticos
-  - Estrategia cache-first
-- [ ] **T4.2.3** Prompt de instalación
-- [ ] **T4.2.4** Icono para home screen
+  - Estrategia cache-first con stale-while-revalidate
+  - Soporte offline
+- [x] **T4.2.3** Prompt de instalación (detectado en index.html)
+- [x] **T4.2.4** Icono para home screen (SVG inline)
 - [ ] **T4.2.5** Splash screen
 
 ### 4.3 Simulación de Rutas GPX
@@ -316,4 +320,23 @@
 
 ---
 
-*Última actualización: Enero 2026*
+*Última actualización: 26 Enero 2026*
+
+---
+
+## ✅ Resumen de Progreso
+
+### Fase 1: MVP - ✅ COMPLETADA
+- Setup inicial, Bluetooth (scanner, FTMS, comandos), UI completa
+
+### Fase 2: Entrenamientos - ✅ MAYORMENTE COMPLETADA  
+- Settings, modelo de workouts, presets, reproductor, biblioteca
+- Pendiente: parser de archivos externos, builder
+
+### Fase 3: Análisis - ✅ MAYORMENTE COMPLETADA
+- Sessions storage (IndexedDB), cálculos avanzados, exportación, historial
+- Pendiente: gráficos post-sesión mejorados
+
+### Fase 4: Avanzado - 🔄 EN PROGRESO
+- PWA completada (manifest, service worker)
+- Pendiente: sensores adicionales, GPX, mejoras UX
