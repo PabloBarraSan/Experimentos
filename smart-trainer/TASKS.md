@@ -11,80 +11,80 @@
 ## 🏗️ FASE 1: MVP - Conexión y Control Básico
 
 ### 1.1 Setup Inicial del Proyecto
-- [ ] **T1.1.1** Crear estructura de carpetas según PRD
-- [ ] **T1.1.2** Crear `index.html` con estructura base
-- [ ] **T1.1.3** Crear `src/app.js` - punto de entrada principal
-- [ ] **T1.1.4** Implementar sistema de estilos (objeto JS)
-- [ ] **T1.1.5** Crear componente base/utilidades de renderizado
+- [x] **T1.1.1** Crear estructura de carpetas según PRD
+- [x] **T1.1.2** Crear `index.html` con estructura base
+- [x] **T1.1.3** Crear `src/app.js` - punto de entrada principal
+- [x] **T1.1.4** Implementar sistema de estilos (objeto JS) → `src/utils/theme.js`
+- [x] **T1.1.5** Crear componente base/utilidades de renderizado → `src/utils/dom.js`
 
 ### 1.2 Módulo Bluetooth - Scanner
-- [ ] **T1.2.1** Crear `src/bluetooth/scanner.js`
+- [x] **T1.2.1** Crear `src/bluetooth/scanner.js`
   - Función `checkBluetoothSupport()` - verificar compatibilidad
   - Función `scanForDevices()` - escanear dispositivos FTMS
   - Función `connectToDevice(device)` - establecer conexión GATT
   - Manejo de errores de conexión
-- [ ] **T1.2.2** Implementar reconexión automática
-- [ ] **T1.2.3** Gestionar estado de conexión (conectado/desconectado/conectando)
-- [ ] **T1.2.4** Evento de desconexión con opción de reconectar
+- [x] **T1.2.2** Implementar reconexión automática
+- [x] **T1.2.3** Gestionar estado de conexión (conectado/desconectado/conectando)
+- [x] **T1.2.4** Evento de desconexión con opción de reconectar
 
 ### 1.3 Módulo Bluetooth - Parser FTMS
-- [ ] **T1.3.1** Crear `src/bluetooth/ftms.js`
+- [x] **T1.3.1** Crear `src/bluetooth/ftms.js`
   - Constantes UUID de servicios y características
   - Función `parseIndoorBikeData(dataView)` - parsear datos
   - Función `parseFitnessMachineFeature(dataView)` - capacidades
   - Función `parseFitnessMachineStatus(dataView)` - estado
-- [ ] **T1.3.2** Manejar todos los campos opcionales según flags
-- [ ] **T1.3.3** Normalizar unidades (km/h, rpm, watts, etc.)
+- [x] **T1.3.2** Manejar todos los campos opcionales según flags
+- [x] **T1.3.3** Normalizar unidades (km/h, rpm, watts, etc.)
 - [ ] **T1.3.4** Tests unitarios del parser (datos simulados)
 
 ### 1.4 Módulo Bluetooth - Comandos
-- [ ] **T1.4.1** Crear `src/bluetooth/commands.js`
+- [x] **T1.4.1** Crear `src/bluetooth/commands.js`
   - Función `requestControl()` - solicitar control
   - Función `setTargetResistance(level)` - 0-100%
   - Función `setTargetPower(watts)` - modo ERG
   - Función `startTraining()` / `stopTraining()`
   - Función `reset()` - reiniciar métricas
-- [ ] **T1.4.2** Implementar cola de comandos (evitar colisiones)
-- [ ] **T1.4.3** Verificar respuesta del Control Point
-- [ ] **T1.4.4** Timeout y reintentos en comandos fallidos
+- [x] **T1.4.2** Implementar cola de comandos (evitar colisiones)
+- [x] **T1.4.3** Verificar respuesta del Control Point
+- [x] **T1.4.4** Timeout y reintentos en comandos fallidos
 
 ### 1.5 Componentes UI - Dashboard
-- [ ] **T1.5.1** Crear `src/components/MetricCard.js`
+- [x] **T1.5.1** Crear `src/components/MetricCard.js`
   - Props: label, value, unit, icon, color
   - Animación suave de cambio de valor
   - Tamaño responsivo
-- [ ] **T1.5.2** Crear `src/components/PowerGauge.js`
+- [x] **T1.5.2** Crear `src/components/PowerGauge.js`
   - Indicador circular o barra de potencia
   - Colores por zona (configurable)
   - Valor numérico central
-- [ ] **T1.5.3** Crear `src/components/ResistanceSlider.js`
+- [x] **T1.5.3** Crear `src/components/ResistanceSlider.js`
   - Slider 0-100%
   - Feedback táctil/visual
   - Debounce para evitar spam de comandos
-- [ ] **T1.5.4** Crear `src/components/ConnectionStatus.js`
+- [x] **T1.5.4** Crear `src/components/ConnectionStatus.js` (integrado en header de app.js)
   - Estados: desconectado, buscando, conectando, conectado
   - Nombre del dispositivo cuando conectado
   - Botón conectar/desconectar
 
 ### 1.6 Vista Principal
-- [ ] **T1.6.1** Crear `src/views/HomeView.js`
+- [x] **T1.6.1** Crear `src/views/HomeView.js`
   - Botón grande "Conectar Rodillo"
   - Instrucciones de uso
   - Mensaje de navegador no compatible
-- [ ] **T1.6.2** Crear `src/views/TrainingView.js`
+- [x] **T1.6.2** Crear `src/views/TrainingView.js`
   - Layout con métricas principales (potencia, cadencia, velocidad)
   - Control de resistencia
   - Métricas secundarias (tiempo, distancia, calorías)
   - Botones de control (pausar, finalizar)
-- [ ] **T1.6.3** Implementar navegación entre vistas
+- [x] **T1.6.3** Implementar navegación entre vistas
 - [ ] **T1.6.4** Transiciones suaves entre vistas
 
 ### 1.7 Tema y Estilos
-- [ ] **T1.7.1** Crear `src/styles/theme.js` con paleta de colores
-- [ ] **T1.7.2** Estilos base (reset, tipografía, spacing)
-- [ ] **T1.7.3** Implementar tema oscuro completo
-- [ ] **T1.7.4** Diseño responsive (mobile-first)
-- [ ] **T1.7.5** Estados hover/active/focus accesibles
+- [x] **T1.7.1** Crear `src/utils/theme.js` con paleta de colores
+- [x] **T1.7.2** Estilos base (reset, tipografía, spacing)
+- [x] **T1.7.3** Implementar tema oscuro completo
+- [x] **T1.7.4** Diseño responsive (mobile-first)
+- [x] **T1.7.5** Estados hover/active/focus accesibles
 
 ---
 
