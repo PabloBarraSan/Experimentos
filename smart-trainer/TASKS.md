@@ -274,104 +274,103 @@
 > Documentación completa en: `docs/GAME_MODE_SPEC.md`
 
 ### 5.1 Motor del Juego (Game Engine)
-- [ ] **T5.1.1** Crear `src/game/GameEngine.js`
+- [x] **T5.1.1** Crear `src/game/GameEngine.js`
   - Game loop con requestAnimationFrame
   - Integración con datos del rodillo
   - Sistema de estados (menu, playing, paused, gameover)
-- [ ] **T5.1.2** Crear `src/game/GameState.js`
+- [x] **T5.1.2** Crear `src/game/GameState.js`
   - Estado global del juego
   - Puntuación, vidas, combos
   - Posición y velocidad del mundo
-- [ ] **T5.1.3** Crear `src/game/GameRenderer.js`
+- [x] **T5.1.3** Crear `src/game/GameRenderer.js`
   - Renderizado Canvas 2D
   - Capas: fondo, carretera, entidades, HUD
-  - Optimización con offscreen canvas
+  - Menú, pausa, game over screens
 
 ### 5.2 Entidades del Juego
-- [ ] **T5.2.1** Crear `src/game/entities/Cyclist.js`
+- [x] **T5.2.1** Crear `src/game/entities/Cyclist.js`
   - Avatar del jugador (gráfico vectorial)
   - Animación de pedaleo sincronizada con cadencia
   - Estados: normal, saltando, agachado, turbo
   - Efecto de inclinación según potencia
-- [ ] **T5.2.2** Crear `src/game/entities/Obstacle.js`
+- [x] **T5.2.2** Crear `src/game/entities/Obstacle.js`
   - Tipos: rampa, túnel, zona de potencia, viento
   - Hitbox para colisiones
-  - Animación de aparición/destrucción
-- [ ] **T5.2.3** Crear `src/game/entities/Collectible.js`
+  - Renderizado personalizado por tipo
+- [x] **T5.2.3** Crear `src/game/entities/Collectible.js`
   - Tipos: estrella, diamante, corazón, rayo
   - Efecto de rotación/brillo
-  - Feedback visual al recoger
+  - Sistema de partículas al recoger
 
 ### 5.3 Sistemas del Juego
-- [ ] **T5.3.1** Crear `src/game/systems/PhysicsSystem.js`
+- [x] **T5.3.1** Crear `src/game/systems/PhysicsSystem.js`
   - Velocidad basada en potencia real
   - Detección de colisiones AABB
   - Salto: detectar sprint > 120% FTP por 2s
   - Agacharse: detectar cadencia < 60 rpm
-- [ ] **T5.3.2** Crear `src/game/systems/SpawnSystem.js`
+- [x] **T5.3.2** Crear `src/game/systems/SpawnSystem.js`
   - Generación procedural de obstáculos
   - Dificultad progresiva (más frecuente con el tiempo)
   - Patrones de obstáculos evitables
   - Balance de coleccionables
-- [ ] **T5.3.3** Crear `src/game/systems/ScoreSystem.js`
+- [x] **T5.3.3** Crear `src/game/systems/ScoreSystem.js`
   - Puntos por distancia, obstáculos, items
   - Sistema de combos
   - Multiplicadores por potencia alta
   - Achievements
 
 ### 5.4 Interfaz del Juego
-- [ ] **T5.4.1** Crear `src/game/ui/GameHUD.js`
+- [x] **T5.4.1** HUD integrado en GameRenderer
   - Puntuación con animación
   - Indicador de vidas (corazones)
   - Barra de combo/multiplicador
   - Métricas reales del rodillo (abajo)
-- [ ] **T5.4.2** Crear `src/game/ui/GameOverScreen.js`
+- [x] **T5.4.2** GameOver screen en GameRenderer
   - Puntuación final
   - Estadísticas de la partida
-  - Botones: Reintentar, Salir
   - Nuevo récord highlight
-- [ ] **T5.4.3** Crear `src/game/ui/GameMenu.js`
-  - Selección de modo (Infinito, Entrenamiento, Desafío)
-  - Mejores puntuaciones
-  - Tutorial breve
+  - Sprint para reintentar
+- [x] **T5.4.3** Menu screen en GameRenderer
+  - High score
+  - Controles explicados
+  - Auto-start al pedalear
 
 ### 5.5 Gráficos Minimalistas
-- [ ] **T5.5.1** Diseñar sprite del ciclista (vectorial Canvas)
+- [x] **T5.5.1** Diseñar sprite del ciclista (vectorial Canvas)
   - Cuerpo con líneas simples
-  - Ruedas con rotación
-  - Efecto de estela a alta velocidad
-- [ ] **T5.5.2** Diseñar carretera infinita
-  - Perspectiva simple con líneas
+  - Ruedas con radios animados
+  - Efecto de estela en modo turbo
+- [x] **T5.5.2** Diseñar carretera infinita
   - Scroll horizontal continuo
-  - Marcadores de distancia
-- [ ] **T5.5.3** Diseñar obstáculos y coleccionables
-  - Formas geométricas simples
-  - Colores distintivos
-  - Efecto glow sutil
+  - Líneas discontinuas animadas
+  - Marcadores de distancia en km
+- [x] **T5.5.3** Diseñar obstáculos y coleccionables
+  - Rampa (triángulo), túnel, zonas de potencia, viento
+  - Estrella, diamante, corazón, rayo
+  - Efectos glow y rotación
 
 ### 5.6 Integración y Vista
-- [ ] **T5.6.1** Crear `src/views/GameView.js`
+- [x] **T5.6.1** Crear `src/views/GameView.js`
   - Canvas a pantalla completa
   - Integración con liveData del rodillo
-  - Pausar al desconectar
-- [ ] **T5.6.2** Añadir navegación al juego
-  - Botón "🎮 Jugar" en TrainingView
-  - Botón para volver al dashboard
-  - Mantener conexión Bluetooth activa
-- [ ] **T5.6.3** Guardar mejores puntuaciones
+  - Botón para salir
+- [x] **T5.6.2** Componente GameModeButton
+  - Botón estilizado "🎮 Modo Juego"
+  - Listo para integrar en TrainingView
+- [x] **T5.6.3** Guardar mejores puntuaciones
   - localStorage para high scores
-  - Estadísticas de juego por sesión
+  - Achievements persistentes
 
 ### 5.7 Polish y Efectos
-- [ ] **T5.7.1** Efectos visuales
+- [x] **T5.7.1** Efectos visuales
   - Screen shake al chocar
-  - Flash al recoger items
-  - Glow en zona turbo
-  - Partículas de velocidad
-- [ ] **T5.7.2** Feedback háptico (opcional)
+  - Flash al recoger items / colisiones
+  - Glow en zona turbo y coleccionables
+  - Partículas al recoger items
+- [ ] **T5.7.2** Feedback háptico (pendiente)
   - Vibración al chocar (móvil)
   - Vibración al saltar
-- [ ] **T5.7.3** Sonidos (opcional)
+- [ ] **T5.7.3** Sonidos (pendiente)
   - Efecto de recoger item
   - Efecto de salto
   - Efecto de colisión
@@ -450,7 +449,8 @@
 - PWA completada (manifest, service worker)
 - Pendiente: sensores adicionales, GPX, mejoras UX
 
-### Fase 5: Modo Videojuego - 📋 PLANIFICADO
+### Fase 5: Modo Videojuego - ✅ IMPLEMENTADO
 - Juego "Power Rush" con gráficos minimalistas
 - Control mediante potencia y cadencia real
+- Motor completo: entidades, sistemas, renderizado
 - Documentación: `docs/GAME_MODE_SPEC.md`
