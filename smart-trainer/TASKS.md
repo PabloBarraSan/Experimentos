@@ -269,6 +269,115 @@
 
 ---
 
+## 🎮 FASE 5: Modo Videojuego "Power Rush"
+
+> Documentación completa en: `docs/GAME_MODE_SPEC.md`
+
+### 5.1 Motor del Juego (Game Engine)
+- [ ] **T5.1.1** Crear `src/game/GameEngine.js`
+  - Game loop con requestAnimationFrame
+  - Integración con datos del rodillo
+  - Sistema de estados (menu, playing, paused, gameover)
+- [ ] **T5.1.2** Crear `src/game/GameState.js`
+  - Estado global del juego
+  - Puntuación, vidas, combos
+  - Posición y velocidad del mundo
+- [ ] **T5.1.3** Crear `src/game/GameRenderer.js`
+  - Renderizado Canvas 2D
+  - Capas: fondo, carretera, entidades, HUD
+  - Optimización con offscreen canvas
+
+### 5.2 Entidades del Juego
+- [ ] **T5.2.1** Crear `src/game/entities/Cyclist.js`
+  - Avatar del jugador (gráfico vectorial)
+  - Animación de pedaleo sincronizada con cadencia
+  - Estados: normal, saltando, agachado, turbo
+  - Efecto de inclinación según potencia
+- [ ] **T5.2.2** Crear `src/game/entities/Obstacle.js`
+  - Tipos: rampa, túnel, zona de potencia, viento
+  - Hitbox para colisiones
+  - Animación de aparición/destrucción
+- [ ] **T5.2.3** Crear `src/game/entities/Collectible.js`
+  - Tipos: estrella, diamante, corazón, rayo
+  - Efecto de rotación/brillo
+  - Feedback visual al recoger
+
+### 5.3 Sistemas del Juego
+- [ ] **T5.3.1** Crear `src/game/systems/PhysicsSystem.js`
+  - Velocidad basada en potencia real
+  - Detección de colisiones AABB
+  - Salto: detectar sprint > 120% FTP por 2s
+  - Agacharse: detectar cadencia < 60 rpm
+- [ ] **T5.3.2** Crear `src/game/systems/SpawnSystem.js`
+  - Generación procedural de obstáculos
+  - Dificultad progresiva (más frecuente con el tiempo)
+  - Patrones de obstáculos evitables
+  - Balance de coleccionables
+- [ ] **T5.3.3** Crear `src/game/systems/ScoreSystem.js`
+  - Puntos por distancia, obstáculos, items
+  - Sistema de combos
+  - Multiplicadores por potencia alta
+  - Achievements
+
+### 5.4 Interfaz del Juego
+- [ ] **T5.4.1** Crear `src/game/ui/GameHUD.js`
+  - Puntuación con animación
+  - Indicador de vidas (corazones)
+  - Barra de combo/multiplicador
+  - Métricas reales del rodillo (abajo)
+- [ ] **T5.4.2** Crear `src/game/ui/GameOverScreen.js`
+  - Puntuación final
+  - Estadísticas de la partida
+  - Botones: Reintentar, Salir
+  - Nuevo récord highlight
+- [ ] **T5.4.3** Crear `src/game/ui/GameMenu.js`
+  - Selección de modo (Infinito, Entrenamiento, Desafío)
+  - Mejores puntuaciones
+  - Tutorial breve
+
+### 5.5 Gráficos Minimalistas
+- [ ] **T5.5.1** Diseñar sprite del ciclista (vectorial Canvas)
+  - Cuerpo con líneas simples
+  - Ruedas con rotación
+  - Efecto de estela a alta velocidad
+- [ ] **T5.5.2** Diseñar carretera infinita
+  - Perspectiva simple con líneas
+  - Scroll horizontal continuo
+  - Marcadores de distancia
+- [ ] **T5.5.3** Diseñar obstáculos y coleccionables
+  - Formas geométricas simples
+  - Colores distintivos
+  - Efecto glow sutil
+
+### 5.6 Integración y Vista
+- [ ] **T5.6.1** Crear `src/views/GameView.js`
+  - Canvas a pantalla completa
+  - Integración con liveData del rodillo
+  - Pausar al desconectar
+- [ ] **T5.6.2** Añadir navegación al juego
+  - Botón "🎮 Jugar" en TrainingView
+  - Botón para volver al dashboard
+  - Mantener conexión Bluetooth activa
+- [ ] **T5.6.3** Guardar mejores puntuaciones
+  - localStorage para high scores
+  - Estadísticas de juego por sesión
+
+### 5.7 Polish y Efectos
+- [ ] **T5.7.1** Efectos visuales
+  - Screen shake al chocar
+  - Flash al recoger items
+  - Glow en zona turbo
+  - Partículas de velocidad
+- [ ] **T5.7.2** Feedback háptico (opcional)
+  - Vibración al chocar (móvil)
+  - Vibración al saltar
+- [ ] **T5.7.3** Sonidos (opcional)
+  - Efecto de recoger item
+  - Efecto de salto
+  - Efecto de colisión
+
+---
+
 ## 🧪 Testing y QA
 
 ### Tests Unitarios
@@ -340,3 +449,8 @@
 ### Fase 4: Avanzado - 🔄 EN PROGRESO
 - PWA completada (manifest, service worker)
 - Pendiente: sensores adicionales, GPX, mejoras UX
+
+### Fase 5: Modo Videojuego - 📋 PLANIFICADO
+- Juego "Power Rush" con gráficos minimalistas
+- Control mediante potencia y cadencia real
+- Documentación: `docs/GAME_MODE_SPEC.md`
