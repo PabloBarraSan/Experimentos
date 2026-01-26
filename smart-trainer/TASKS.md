@@ -1,0 +1,319 @@
+# 📋 Tareas de Desarrollo - Smart Trainer Controller
+
+## Convenciones
+- `[ ]` - Pendiente
+- `[x]` - Completado
+- `[~]` - En progreso
+- `[-]` - Cancelado/Bloqueado
+
+---
+
+## 🏗️ FASE 1: MVP - Conexión y Control Básico
+
+### 1.1 Setup Inicial del Proyecto
+- [ ] **T1.1.1** Crear estructura de carpetas según PRD
+- [ ] **T1.1.2** Crear `index.html` con estructura base
+- [ ] **T1.1.3** Crear `src/app.js` - punto de entrada principal
+- [ ] **T1.1.4** Implementar sistema de estilos (objeto JS)
+- [ ] **T1.1.5** Crear componente base/utilidades de renderizado
+
+### 1.2 Módulo Bluetooth - Scanner
+- [ ] **T1.2.1** Crear `src/bluetooth/scanner.js`
+  - Función `checkBluetoothSupport()` - verificar compatibilidad
+  - Función `scanForDevices()` - escanear dispositivos FTMS
+  - Función `connectToDevice(device)` - establecer conexión GATT
+  - Manejo de errores de conexión
+- [ ] **T1.2.2** Implementar reconexión automática
+- [ ] **T1.2.3** Gestionar estado de conexión (conectado/desconectado/conectando)
+- [ ] **T1.2.4** Evento de desconexión con opción de reconectar
+
+### 1.3 Módulo Bluetooth - Parser FTMS
+- [ ] **T1.3.1** Crear `src/bluetooth/ftms.js`
+  - Constantes UUID de servicios y características
+  - Función `parseIndoorBikeData(dataView)` - parsear datos
+  - Función `parseFitnessMachineFeature(dataView)` - capacidades
+  - Función `parseFitnessMachineStatus(dataView)` - estado
+- [ ] **T1.3.2** Manejar todos los campos opcionales según flags
+- [ ] **T1.3.3** Normalizar unidades (km/h, rpm, watts, etc.)
+- [ ] **T1.3.4** Tests unitarios del parser (datos simulados)
+
+### 1.4 Módulo Bluetooth - Comandos
+- [ ] **T1.4.1** Crear `src/bluetooth/commands.js`
+  - Función `requestControl()` - solicitar control
+  - Función `setTargetResistance(level)` - 0-100%
+  - Función `setTargetPower(watts)` - modo ERG
+  - Función `startTraining()` / `stopTraining()`
+  - Función `reset()` - reiniciar métricas
+- [ ] **T1.4.2** Implementar cola de comandos (evitar colisiones)
+- [ ] **T1.4.3** Verificar respuesta del Control Point
+- [ ] **T1.4.4** Timeout y reintentos en comandos fallidos
+
+### 1.5 Componentes UI - Dashboard
+- [ ] **T1.5.1** Crear `src/components/MetricCard.js`
+  - Props: label, value, unit, icon, color
+  - Animación suave de cambio de valor
+  - Tamaño responsivo
+- [ ] **T1.5.2** Crear `src/components/PowerGauge.js`
+  - Indicador circular o barra de potencia
+  - Colores por zona (configurable)
+  - Valor numérico central
+- [ ] **T1.5.3** Crear `src/components/ResistanceSlider.js`
+  - Slider 0-100%
+  - Feedback táctil/visual
+  - Debounce para evitar spam de comandos
+- [ ] **T1.5.4** Crear `src/components/ConnectionStatus.js`
+  - Estados: desconectado, buscando, conectando, conectado
+  - Nombre del dispositivo cuando conectado
+  - Botón conectar/desconectar
+
+### 1.6 Vista Principal
+- [ ] **T1.6.1** Crear `src/views/HomeView.js`
+  - Botón grande "Conectar Rodillo"
+  - Instrucciones de uso
+  - Mensaje de navegador no compatible
+- [ ] **T1.6.2** Crear `src/views/TrainingView.js`
+  - Layout con métricas principales (potencia, cadencia, velocidad)
+  - Control de resistencia
+  - Métricas secundarias (tiempo, distancia, calorías)
+  - Botones de control (pausar, finalizar)
+- [ ] **T1.6.3** Implementar navegación entre vistas
+- [ ] **T1.6.4** Transiciones suaves entre vistas
+
+### 1.7 Tema y Estilos
+- [ ] **T1.7.1** Crear `src/styles/theme.js` con paleta de colores
+- [ ] **T1.7.2** Estilos base (reset, tipografía, spacing)
+- [ ] **T1.7.3** Implementar tema oscuro completo
+- [ ] **T1.7.4** Diseño responsive (mobile-first)
+- [ ] **T1.7.5** Estados hover/active/focus accesibles
+
+---
+
+## 📊 FASE 2: Entrenamientos Estructurados
+
+### 2.1 Zonas de Entrenamiento
+- [ ] **T2.1.1** Crear `src/storage/settings.js`
+  - Guardar/cargar FTP del usuario
+  - Guardar preferencias (unidades, zonas personalizadas)
+- [ ] **T2.1.2** Implementar cálculo automático de zonas
+  - Z1: Recuperación (< 55% FTP)
+  - Z2: Resistencia (56-75% FTP)
+  - Z3: Tempo (76-90% FTP)
+  - Z4: Umbral (91-105% FTP)
+  - Z5: VO2max (106-120% FTP)
+  - Z6: Anaeróbico (121-150% FTP)
+  - Z7: Neuromuscular (> 150% FTP)
+- [ ] **T2.1.3** Componente visual de zona actual
+- [ ] **T2.1.4** Vista de configuración de FTP y zonas
+
+### 2.2 Modelo de Entrenamientos
+- [ ] **T2.2.1** Crear `src/workouts/model.js`
+  - Estructura de datos para entrenamientos
+  - Tipos de bloques (warmup, interval, cooldown, rest)
+  - Targets: potencia absoluta, % FTP, cadencia
+- [ ] **T2.2.2** Crear `src/workouts/presets.js`
+  - "FTP Test 20min"
+  - "Sweet Spot 2x20"
+  - "VO2max Intervals 5x5"
+  - "Endurance 1h"
+  - "Recovery Spin"
+- [ ] **T2.2.3** Validación de estructura de entrenamientos
+
+### 2.3 Parser de Archivos
+- [ ] **T2.3.1** Crear `src/workouts/parser.js`
+  - Parsear archivos .zwo (Zwift XML)
+  - Parsear archivos .erg (texto plano)
+  - Parsear archivos .mrc (texto plano)
+- [ ] **T2.3.2** Convertir a formato interno unificado
+- [ ] **T2.3.3** Manejo de errores de parsing
+- [ ] **T2.3.4** UI para importar archivos (drag & drop)
+
+### 2.4 Reproductor de Entrenamientos
+- [ ] **T2.4.1** Crear `src/components/WorkoutPlayer.js`
+  - Visualización de bloques (timeline)
+  - Indicador de posición actual
+  - Tiempo restante del bloque / total
+- [ ] **T2.4.2** Lógica de ejecución del entrenamiento
+  - Timer preciso (requestAnimationFrame)
+  - Cambio automático de bloques
+  - Envío de comandos de resistencia/potencia
+- [ ] **T2.4.3** Modo ERG vs Modo Resistencia
+  - ERG: mantener potencia constante
+  - Resistencia: ajustar nivel fijo
+- [ ] **T2.4.4** Alertas de cambio de bloque
+  - Countdown 3-2-1
+  - Sonido opcional
+  - Cambio de color en pantalla
+
+### 2.5 Vista de Biblioteca
+- [ ] **T2.5.1** Crear `src/views/WorkoutsView.js`
+  - Lista de entrenamientos disponibles
+  - Filtros (duración, tipo, TSS estimado)
+  - Preview del entrenamiento seleccionado
+- [ ] **T2.5.2** Crear `src/workouts/builder.js`
+  - Interfaz para crear entrenamientos personalizados
+  - Añadir/editar/eliminar bloques
+  - Guardar en localStorage/IndexedDB
+
+---
+
+## 💾 FASE 3: Análisis y Persistencia
+
+### 3.1 Grabación de Sesiones
+- [ ] **T3.1.1** Crear `src/storage/sessions.js`
+  - Estructura de datos para sesiones
+  - Array de puntos: {timestamp, power, cadence, speed, hr, resistance}
+  - Metadata: fecha, duración, workout usado
+- [ ] **T3.1.2** Implementar grabación en tiempo real
+  - Intervalo de 1 segundo
+  - Buffer en memoria durante sesión
+- [ ] **T3.1.3** Guardar sesión al finalizar (IndexedDB)
+- [ ] **T3.1.4** Opción de descartar sesión
+
+### 3.2 Cálculos de Métricas Avanzadas
+- [ ] **T3.2.1** Crear `src/utils/calculations.js`
+  - `calculateNP(powerArray)` - Potencia Normalizada
+  - `calculateTSS(np, duration, ftp)` - Training Stress Score
+  - `calculateIF(np, ftp)` - Intensity Factor
+  - `calculateVI(np, avgPower)` - Variability Index
+  - `calculateKilojoules(powerArray)` - Trabajo total
+- [ ] **T3.2.2** Mostrar métricas al finalizar sesión
+- [ ] **T3.2.3** Recalcular al cambiar FTP
+
+### 3.3 Exportación
+- [ ] **T3.3.1** Crear `src/utils/exporters.js`
+  - Exportar a .fit (binario, estándar Garmin)
+  - Exportar a .tcx (XML)
+  - Exportar a .csv (simple)
+- [ ] **T3.3.2** Botón de descarga en detalle de sesión
+- [ ] **T3.3.3** Exportar múltiples sesiones como zip
+
+### 3.4 Historial de Sesiones
+- [ ] **T3.4.1** Crear `src/views/HistoryView.js`
+  - Lista de sesiones pasadas
+  - Ordenar por fecha (más reciente primero)
+  - Resumen: fecha, duración, potencia media, TSS
+- [ ] **T3.4.2** Vista de detalle de sesión
+  - Gráfico de potencia vs tiempo
+  - Estadísticas completas
+  - Opción de eliminar
+- [ ] **T3.4.3** Estadísticas acumuladas
+  - Total de sesiones
+  - Tiempo total de entrenamiento
+  - TSS semanal/mensual
+
+### 3.5 Gráficos
+- [ ] **T3.5.1** Crear `src/utils/charts.js`
+  - Gráfico de líneas (potencia en tiempo real)
+  - Gráfico de áreas (zonas de potencia)
+  - Implementar con Canvas API nativo
+- [ ] **T3.5.2** Gráfico en tiempo real durante entrenamiento
+  - Ventana deslizante (últimos 5 minutos)
+  - Actualización eficiente (60fps)
+- [ ] **T3.5.3** Gráfico completo post-sesión
+  - Zoom/pan interactivo
+  - Overlay de zonas
+
+---
+
+## 🚀 FASE 4: Características Avanzadas
+
+### 4.1 Sensores Adicionales
+- [ ] **T4.1.1** Soporte para sensor HR (Heart Rate)
+  - Escanear servicios `0x180D`
+  - Parsear Heart Rate Measurement `0x2A37`
+  - Mostrar BPM en dashboard
+- [ ] **T4.1.2** Soporte para sensor de cadencia externo
+  - CSC Service `0x1816`
+  - Parsear datos de cadencia
+  - Priorizar sobre cadencia del rodillo
+- [ ] **T4.1.3** Gestión de múltiples dispositivos conectados
+- [ ] **T4.1.4** Configuración de prioridad de sensores
+
+### 4.2 PWA Completa
+- [ ] **T4.2.1** Crear `manifest.json`
+  - Nombre, iconos, colores
+  - Display: standalone
+- [ ] **T4.2.2** Crear `sw.js` (Service Worker)
+  - Cachear assets estáticos
+  - Estrategia cache-first
+- [ ] **T4.2.3** Prompt de instalación
+- [ ] **T4.2.4** Icono para home screen
+- [ ] **T4.2.5** Splash screen
+
+### 4.3 Simulación de Rutas GPX
+- [ ] **T4.3.1** Crear `src/workouts/gpxParser.js`
+  - Parsear archivos GPX
+  - Extraer puntos con elevación
+  - Calcular pendientes por segmento
+- [ ] **T4.3.2** Modo simulación
+  - Ajustar resistencia según pendiente
+  - Fórmula: resistencia = f(pendiente, peso, potencia)
+- [ ] **T4.3.3** Visualización del perfil de ruta
+  - Gráfico de elevación
+  - Posición actual en la ruta
+  - Distancia restante
+
+### 4.4 Mejoras de UX
+- [ ] **T4.4.1** Modo pantalla completa (F11 / fullscreen API)
+- [ ] **T4.4.2** Atajos de teclado
+  - Espacio: pausar/reanudar
+  - +/-: ajustar resistencia
+  - R: reset
+- [ ] **T4.4.3** Vibración en alertas (móvil)
+- [ ] **T4.4.4** Sonidos opcionales
+- [ ] **T4.4.5** "Keep screen awake" (Wake Lock API)
+
+---
+
+## 🧪 Testing y QA
+
+### Tests Unitarios
+- [ ] **TQ.1** Tests del parser FTMS
+- [ ] **TQ.2** Tests de cálculos (NP, TSS, etc.)
+- [ ] **TQ.3** Tests de parsers de workout (.zwo, .erg)
+
+### Tests de Integración
+- [ ] **TQ.4** Simular dispositivo BLE con nRF Connect
+- [ ] **TQ.5** Test de conexión/reconexión
+- [ ] **TQ.6** Test de grabación de sesión completa
+
+### Tests en Dispositivo Real
+- [ ] **TQ.7** Probar con Decathlon D100 real
+- [ ] **TQ.8** Documentar quirks/particularidades
+- [ ] **TQ.9** Probar en Android Chrome
+- [ ] **TQ.10** Probar en Windows Chrome
+
+---
+
+## 📚 Documentación
+
+- [ ] **DOC.1** README.md con instrucciones de uso
+- [ ] **DOC.2** Documentar API de comandos FTMS descubiertos
+- [ ] **DOC.3** Guía de contribución
+- [ ] **DOC.4** Troubleshooting común
+
+---
+
+## 🐛 Bugs Conocidos / Por Investigar
+
+*(Sección para documentar issues durante el desarrollo)*
+
+---
+
+## 📝 Notas de Desarrollo
+
+### Prioridades MVP
+1. Conexión Bluetooth funcional
+2. Lectura de datos en tiempo real
+3. Control de resistencia
+4. UI básica pero usable
+
+### Decisiones Técnicas
+- **Sin frameworks JS** - Vanilla JS para máximo rendimiento
+- **Sin CSS frameworks** - Estilos como objetos JS
+- **IndexedDB** para persistencia - No localStorage para datos grandes
+- **Canvas** para gráficos - No librerías externas
+
+---
+
+*Última actualización: Enero 2026*
