@@ -49,19 +49,126 @@ export class CommandQueue {
         this.queue = [];
         this.isProcessing = false;
         this.pendingCommand = null;
-        this.timeout = 5000; // 5 segundos timeout
+        this.timeoutId = null;
+        
+        // Timeouts configurables por tipo de comando
+        this.timeouts = {
+            default: 5000,      // 5 segundos por defecto
+            critical: 10000,    // 10 segundos para comandos críticos
+            fast: 3000,         // 3 segundos para comandos rápidos
+        };
+        
+        this.baseTimeout = this.timeouts.default;
+        this.adaptiveTimeout = this.baseTimeout; // Timeout adaptativo
+        this.consecutiveFailures = 0; // Contador de fallos consecutivos
+        
         this.resolveCallback = null;
         this.rejectCallback = null;
+        
+        // Métricas
+        this.metrics = {
+            total: 0,
+            success: 0,
+            failed: 0,
+            timeouts: 0,
+        };
+    }
+    
+    /**
+     * Obtener timeout para un comando específico
+     */
+    getTimeoutForCommand(command) {
+        // Comandos críticos que requieren más tiempo
+        const criticalCommands = [
+            CONTROL_POINT_OPCODES.REQUEST_CONTROL,
+            CONTROL_POINT_OPCODES.SET_INDOOR_BIKE_SIMULATION,
+        ];
+        
+        // Comandos rápidos que deberían responder rápido
+        const fastCommands = [
+            CONTROL_POINT_OPCODES.START_OR_RESUME,
+            CONTROL_POINT_OPCODES.STOP_OR_PAUSE,
+        ];
+        
+        if (criticalCommands.includes(command)) {
+            return this.timeouts.critical;
+        } else if (fastCommands.includes(command)) {
+            return this.timeouts.fast;
+        }
+        
+        // Usar timeout adaptativo si hay fallos consecutivos
+        return this.adaptiveTimeout;
+    }
+    
+    /**
+     * Ajustar timeout adaptativo basado en fallos
+     */
+    adjustTimeout(success) {
+        if (success) {
+            this.consecutiveFailures = 0;
+            this.adaptiveTimeout = this.baseTimeout;
+        } else {
+            this.consecutiveFailures++;
+            // Aumentar timeout si hay fallos (hasta 2x el base)
+            this.adaptiveTimeout = Math.min(
+                this.baseTimeout * (1 + this.consecutiveFailures * 0.2),
+                this.baseTimeout * 2
+            );
+        }
     }
     
     /**
      * Encolar y ejecutar comando
+     * @param {number} command - OpCode del comando
+     * @param {Array} data - Datos del comando
+     * @param {Object} options - Opciones: priority (number), timeout (number)
      */
-    async enqueue(command, data = []) {
+    async enqueue(command, data = [], options = {}) {
         return new Promise((resolve, reject) => {
-            this.queue.push({ command, data, resolve, reject });
+            const priority = options.priority || 0; // Mayor número = mayor prioridad
+            const item = { command, data, resolve, reject, priority, options };
+            
+            // Insertar según prioridad
+            if (priority > 0) {
+                // Insertar al inicio si tiene prioridad
+                let insertIndex = 0;
+                for (let i = 0; i < this.queue.length; i++) {
+                    if (this.queue[i].priority < priority) {
+                        insertIndex = i;
+                        break;
+                    }
+                    insertIndex = i + 1;
+                }
+                this.queue.splice(insertIndex, 0, item);
+            } else {
+                this.queue.push(item);
+            }
+            
             this.processQueue();
         });
+    }
+    
+    /**
+     * Cancelar comando pendiente
+     */
+    cancelCommand(command) {
+        const index = this.queue.findIndex(item => item.command === command);
+        if (index !== -1) {
+            const item = this.queue.splice(index, 1)[0];
+            item.reject(new Error('Comando cancelado'));
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Cancelar todos los comandos pendientes
+     */
+    cancelAll() {
+        this.queue.forEach(item => {
+            item.reject(new Error('Todos los comandos fueron cancelados'));
+        });
+        this.queue = [];
     }
     
     /**
@@ -73,17 +180,26 @@ export class CommandQueue {
         }
         
         this.isProcessing = true;
-        const { command, data, resolve, reject } = this.queue.shift();
+        const item = this.queue.shift();
+        const { command, data, resolve, reject, options } = item;
         
         this.pendingCommand = command;
         this.resolveCallback = resolve;
         this.rejectCallback = reject;
         
+        // Obtener timeout para este comando
+        const timeout = options?.timeout || this.getTimeoutForCommand(command);
+        
         // Timeout para el comando
-        const timeoutId = setTimeout(() => {
-            this.rejectCallback?.(new Error(`Comando ${command} timeout`));
+        this.timeoutId = setTimeout(() => {
+            this.metrics.timeouts++;
+            this.metrics.failed++;
+            this.adjustTimeout(false);
+            this.rejectCallback?.(new Error(`Comando ${command} timeout después de ${timeout}ms`));
             this.cleanup();
-        }, this.timeout);
+        }, timeout);
+        
+        this.metrics.total++;
         
         try {
             const buffer = new Uint8Array([command, ...data]);
@@ -93,7 +209,12 @@ export class CommandQueue {
             // El timeout se limpiará cuando llegue la respuesta
             
         } catch (error) {
-            clearTimeout(timeoutId);
+            if (this.timeoutId) {
+                clearTimeout(this.timeoutId);
+                this.timeoutId = null;
+            }
+            this.metrics.failed++;
+            this.adjustTimeout(false);
             reject(error);
             this.cleanup();
         }
@@ -103,6 +224,11 @@ export class CommandQueue {
      * Manejar respuesta del Control Point
      */
     handleResponse(dataView) {
+        if (!dataView || dataView.byteLength < 3) {
+            console.warn('Respuesta inválida recibida');
+            return;
+        }
+        
         const responseCode = dataView.getUint8(0);
         
         if (responseCode !== CONTROL_POINT_OPCODES.RESPONSE_CODE) {
@@ -118,6 +244,12 @@ export class CommandQueue {
             return;
         }
         
+        // Limpiar timeout
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+            this.timeoutId = null;
+        }
+        
         const resultNames = {
             [RESULT_CODES.SUCCESS]: 'Success',
             [RESULT_CODES.OP_CODE_NOT_SUPPORTED]: 'OpCode Not Supported',
@@ -126,9 +258,22 @@ export class CommandQueue {
             [RESULT_CODES.CONTROL_NOT_PERMITTED]: 'Control Not Permitted',
         };
         
-        console.log(`📡 Respuesta comando ${requestOpCode}: ${resultNames[resultCode] || resultCode}`);
+        const isSuccess = resultCode === RESULT_CODES.SUCCESS;
         
-        if (resultCode === RESULT_CODES.SUCCESS) {
+        if (isSuccess) {
+            this.metrics.success++;
+            this.adjustTimeout(true);
+        } else {
+            this.metrics.failed++;
+            this.adjustTimeout(false);
+        }
+        
+        // Solo log en modo debug
+        if (typeof window !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            console.log(`📡 Respuesta comando ${requestOpCode}: ${resultNames[resultCode] || resultCode}`);
+        }
+        
+        if (isSuccess) {
             this.resolveCallback?.({ success: true, opCode: requestOpCode });
         } else {
             this.rejectCallback?.(new Error(resultNames[resultCode] || `Error code: ${resultCode}`));
@@ -141,6 +286,11 @@ export class CommandQueue {
      * Limpiar estado y procesar siguiente comando
      */
     cleanup() {
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+            this.timeoutId = null;
+        }
+        
         this.isProcessing = false;
         this.pendingCommand = null;
         this.resolveCallback = null;
@@ -152,6 +302,35 @@ export class CommandQueue {
         }
     }
     
+    /**
+     * Obtener métricas de la cola
+     */
+    getMetrics() {
+        return {
+            ...this.metrics,
+            queueLength: this.queue.length,
+            successRate: this.metrics.total > 0 
+                ? (this.metrics.success / this.metrics.total * 100).toFixed(1) + '%'
+                : '0%',
+            consecutiveFailures: this.consecutiveFailures,
+            adaptiveTimeout: this.adaptiveTimeout,
+        };
+    }
+    
+    /**
+     * Resetear métricas
+     */
+    resetMetrics() {
+        this.metrics = {
+            total: 0,
+            success: 0,
+            failed: 0,
+            timeouts: 0,
+        };
+        this.consecutiveFailures = 0;
+        this.adaptiveTimeout = this.baseTimeout;
+    }
+    
     // === Comandos de alto nivel ===
     
     /**
@@ -159,7 +338,10 @@ export class CommandQueue {
      */
     async requestControl() {
         console.log('🎮 Solicitando control del dispositivo...');
-        return this.enqueue(CONTROL_POINT_OPCODES.REQUEST_CONTROL);
+        return this.enqueue(CONTROL_POINT_OPCODES.REQUEST_CONTROL, [], { 
+            priority: 10, // Alta prioridad
+            timeout: this.timeouts.critical 
+        });
     }
     
     /**

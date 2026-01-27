@@ -49,6 +49,18 @@ const INDOOR_BIKE_DATA_FLAGS = {
  * @returns {Object} Datos parseados
  */
 export function parseIndoorBikeData(dataView) {
+    // Validar que dataView existe y tiene al menos 2 bytes (flags)
+    if (!dataView || dataView.byteLength < 2) {
+        console.warn('⚠️ Datos inválidos: menos de 2 bytes');
+        return {
+            timestamp: Date.now(),
+            power: 0,
+            cadence: 0,
+            speed: 0,
+            resistance: 0,
+        };
+    }
+    
     const flags = dataView.getUint16(0, true);
     let offset = 2;
     
@@ -59,84 +71,118 @@ export function parseIndoorBikeData(dataView) {
     // Velocidad instantánea (siempre presente si bit 0 = 0, en 0.01 km/h)
     // Si MORE_DATA = 0, la velocidad está presente
     if (!(flags & INDOOR_BIKE_DATA_FLAGS.MORE_DATA)) {
-        result.speed = dataView.getUint16(offset, true) / 100;
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.speed = dataView.getUint16(offset, true) / 100;
+            offset += 2;
+        }
     }
     
     // Velocidad media
     if (flags & INDOOR_BIKE_DATA_FLAGS.AVERAGE_SPEED) {
-        result.averageSpeed = dataView.getUint16(offset, true) / 100;
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.averageSpeed = dataView.getUint16(offset, true) / 100;
+            offset += 2;
+        }
     }
     
     // Cadencia instantánea (en 0.5 rpm)
     if (flags & INDOOR_BIKE_DATA_FLAGS.INSTANTANEOUS_CADENCE) {
-        result.cadence = dataView.getUint16(offset, true) / 2;
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.cadence = dataView.getUint16(offset, true) / 2;
+            offset += 2;
+        }
     }
     
     // Cadencia media
     if (flags & INDOOR_BIKE_DATA_FLAGS.AVERAGE_CADENCE) {
-        result.averageCadence = dataView.getUint16(offset, true) / 2;
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.averageCadence = dataView.getUint16(offset, true) / 2;
+            offset += 2;
+        }
     }
     
     // Distancia total (en metros, uint24)
     if (flags & INDOOR_BIKE_DATA_FLAGS.TOTAL_DISTANCE) {
-        result.distance = dataView.getUint16(offset, true) | (dataView.getUint8(offset + 2) << 16);
-        offset += 3;
+        if (offset + 3 <= dataView.byteLength) {
+            result.distance = dataView.getUint16(offset, true) | (dataView.getUint8(offset + 2) << 16);
+            offset += 3;
+        }
     }
     
     // Nivel de resistencia (sint16, unitless)
     if (flags & INDOOR_BIKE_DATA_FLAGS.RESISTANCE_LEVEL) {
-        result.resistance = dataView.getInt16(offset, true);
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.resistance = dataView.getInt16(offset, true);
+            offset += 2;
+        }
     }
     
     // Potencia instantánea (en watts, sint16)
     if (flags & INDOOR_BIKE_DATA_FLAGS.INSTANTANEOUS_POWER) {
-        result.power = dataView.getInt16(offset, true);
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.power = dataView.getInt16(offset, true);
+            offset += 2;
+        }
     }
     
     // Potencia media
     if (flags & INDOOR_BIKE_DATA_FLAGS.AVERAGE_POWER) {
-        result.averagePower = dataView.getInt16(offset, true);
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.averagePower = dataView.getInt16(offset, true);
+            offset += 2;
+        }
     }
     
     // Energía expendida (kcal total, kcal/h, kcal/min)
     if (flags & INDOOR_BIKE_DATA_FLAGS.EXPENDED_ENERGY) {
-        result.totalEnergy = dataView.getUint16(offset, true);
-        result.energyPerHour = dataView.getUint16(offset + 2, true);
-        result.energyPerMinute = dataView.getUint8(offset + 4);
-        result.calories = result.totalEnergy;
-        offset += 5;
+        if (offset + 5 <= dataView.byteLength) {
+            result.totalEnergy = dataView.getUint16(offset, true);
+            result.energyPerHour = dataView.getUint16(offset + 2, true);
+            result.energyPerMinute = dataView.getUint8(offset + 4);
+            result.calories = result.totalEnergy;
+            offset += 5;
+        }
     }
     
     // Frecuencia cardíaca
     if (flags & INDOOR_BIKE_DATA_FLAGS.HEART_RATE) {
-        result.heartRate = dataView.getUint8(offset);
-        offset += 1;
+        if (offset + 1 <= dataView.byteLength) {
+            result.heartRate = dataView.getUint8(offset);
+            offset += 1;
+        }
     }
     
     // Equivalente metabólico
     if (flags & INDOOR_BIKE_DATA_FLAGS.METABOLIC_EQUIVALENT) {
-        result.metabolicEquivalent = dataView.getUint8(offset) / 10;
-        offset += 1;
+        if (offset + 1 <= dataView.byteLength) {
+            result.metabolicEquivalent = dataView.getUint8(offset) / 10;
+            offset += 1;
+        }
     }
     
     // Tiempo transcurrido (en segundos)
     if (flags & INDOOR_BIKE_DATA_FLAGS.ELAPSED_TIME) {
-        result.elapsedTime = dataView.getUint16(offset, true);
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.elapsedTime = dataView.getUint16(offset, true);
+            offset += 2;
+        }
     }
     
     // Tiempo restante
     if (flags & INDOOR_BIKE_DATA_FLAGS.REMAINING_TIME) {
-        result.remainingTime = dataView.getUint16(offset, true);
-        offset += 2;
+        if (offset + 2 <= dataView.byteLength) {
+            result.remainingTime = dataView.getUint16(offset, true);
+            offset += 2;
+        }
     }
+    
+    // Asegurar que los valores principales estén definidos
+    // Para campos no soportados, mantener undefined (no inicializar a 0)
+    if (result.power === undefined) result.power = 0;
+    if (result.speed === undefined) result.speed = 0;
+    if (result.resistance === undefined) result.resistance = 0;
+    // Cadencia y distancia pueden ser undefined si no están soportados
+    // No inicializar a 0 para poder distinguir entre "no disponible" y "valor real 0"
     
     return result;
 }

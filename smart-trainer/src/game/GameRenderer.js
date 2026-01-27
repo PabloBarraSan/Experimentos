@@ -425,9 +425,15 @@ export function createGameRenderer(canvas) {
         ctx.fillText('¡Pedalea para comenzar!', w / 2, h / 2 + 100);
         
         // Controles
-        ctx.fillStyle = '#666666';
+        ctx.fillStyle = '#00d4aa';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText('CONTROLES', w / 2, h / 2 + 150);
+        
+        ctx.fillStyle = '#888888';
         ctx.font = '14px sans-serif';
-        ctx.fillText('Sprint (>120% FTP) = Saltar  |  Cadencia <60 = Agacharse', w / 2, h / 2 + 150);
+        ctx.fillText('⬆️ Botón o Espacio = Saltar', w / 2, h / 2 + 180);
+        ctx.fillText('⬇️ Botón o S = Agacharse', w / 2, h / 2 + 205);
+        ctx.fillText('O automático: Sprint >120% FTP = Saltar | Cadencia <60 = Agacharse', w / 2, h / 2 + 230);
     }
     
     /**

@@ -40,7 +40,10 @@ export function updateCyclist(cyclist, bikeData, ftp, deltaTime) {
     }
     
     // Detectar si debería agacharse (cadencia baja)
-    cyclist.isDucking = bikeData.cadence > 0 && bikeData.cadence < 60;
+    // Solo si no está en modo manual
+    if (!cyclist.manualDuck) {
+        cyclist.isDucking = bikeData.cadence > 0 && bikeData.cadence < 60;
+    }
     
     return cyclist;
 }

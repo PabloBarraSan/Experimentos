@@ -228,6 +228,14 @@ export function createGameEngine(options = {}) {
     }
     
     /**
+     * Forzar agacharse (para botón manual)
+     */
+    function forceDuck(duck) {
+        state.cyclist.manualDuck = duck;
+        state.cyclist.isDucking = duck;
+    }
+    
+    /**
      * Destruir engine
      */
     function destroy() {
@@ -248,6 +256,7 @@ export function createGameEngine(options = {}) {
         getState,
         setFTP,
         forceJump,
+        forceDuck,
         destroy,
     };
 }

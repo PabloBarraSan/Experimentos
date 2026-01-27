@@ -6,6 +6,9 @@
 import { colors, spacing, typography, baseStyles, borderRadius, transitions, shadows } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { checkBluetoothSupport } from '../bluetooth/scanner.js';
+import { GameModeButton } from './GameView.js';
+import { navigateToGame, navigateTo, getState } from '../app.js';
+import { CONNECTION_STATE } from '../bluetooth/scanner.js';
 
 /**
  * Vista de inicio con botón de conexión
@@ -44,8 +47,12 @@ export function HomeView(state) {
         }
     };
     
-    window.addEventListener('pwa-installable', handleInstallable);
-    window.addEventListener('pwa-installed', handleInstalled);
+    // Guardar referencias a los handlers para poder eliminarlos
+    const installableHandler = handleInstallable;
+    const installedHandler = handleInstalled;
+    
+    window.addEventListener('pwa-installable', installableHandler);
+    window.addEventListener('pwa-installed', installedHandler);
     
     // Verificar al cargar
     showInstallButton = checkInstallable();
@@ -151,7 +158,10 @@ export function HomeView(state) {
     };
     
     // Crear elementos
-    const container = div({ styles: containerStyles });
+    const container = div({ 
+        styles: containerStyles,
+        attrs: { 'data-view': 'home' }
+    });
     
     // Logo
     const logoContainer = div({
@@ -209,31 +219,160 @@ export function HomeView(state) {
     });
     container.appendChild(installButtonContainer);
     
+    // Verificar si hay dispositivo cacheado
+    const hasCachedDevice = state.bluetoothManager?.cachedDevice;
+    const connectionState = state.connectionState || CONNECTION_STATE.DISCONNECTED;
+    
+    // Indicador de progreso de conexión
+    const getConnectionStatusText = () => {
+        switch (connectionState) {
+            case CONNECTION_STATE.SCANNING:
+                return 'Buscando dispositivos...';
+            case CONNECTION_STATE.CONNECTING:
+            case CONNECTION_STATE.CONNECTING_GATT:
+                return 'Conectando...';
+            case CONNECTION_STATE.DISCOVERING_SERVICES:
+                return 'Descubriendo servicios...';
+            case CONNECTION_STATE.SUBSCRIBING:
+                return 'Configurando notificaciones...';
+            case CONNECTION_STATE.RECONNECTING:
+                return 'Reconectando...';
+            default:
+                return null;
+        }
+    };
+    
+    const statusText = getConnectionStatusText();
+    const isConnecting = [
+        CONNECTION_STATE.SCANNING,
+        CONNECTION_STATE.CONNECTING,
+        CONNECTION_STATE.CONNECTING_GATT,
+        CONNECTION_STATE.DISCOVERING_SERVICES,
+        CONNECTION_STATE.SUBSCRIBING,
+        CONNECTION_STATE.RECONNECTING,
+    ].includes(connectionState);
+    
+    // Mostrar indicador de progreso si está conectando
+    if (isConnecting && statusText) {
+        const progressContainer = div({
+            styles: {
+                ...baseStyles.card,
+                padding: spacing.md,
+                marginBottom: spacing.md,
+                maxWidth: '400px',
+                textAlign: 'center',
+            },
+            children: [
+                div({
+                    styles: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: spacing.sm,
+                        color: colors.primary,
+                    },
+                    children: [
+                        div({
+                            styles: {
+                                width: '20px',
+                                height: '20px',
+                                border: `3px solid ${colors.primary}20`,
+                                borderTopColor: colors.primary,
+                                borderRadius: borderRadius.full,
+                                animation: 'spin 1s linear infinite',
+                            }
+                        }),
+                        createElement('span', {
+                            text: statusText,
+                            styles: {
+                                fontSize: typography.sizes.sm,
+                                fontWeight: typography.weights.medium,
+                            }
+                        }),
+                    ]
+                }),
+            ]
+        });
+        
+        // Añadir animación CSS si no existe
+        if (!document.getElementById('connection-spinner-style')) {
+            const style = document.createElement('style');
+            style.id = 'connection-spinner-style';
+            style.textContent = `
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        container.appendChild(progressContainer);
+    }
+    
     // Botón de conexión o mensaje de error
     if (bluetoothSupport.supported) {
+        const buttonContainer = div({
+            styles: {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: spacing.md,
+                alignItems: 'center',
+                width: '100%',
+                maxWidth: '400px',
+            }
+        });
+        
+        // Botón principal de conexión
         const connectBtn = button({
-            styles: connectButtonStyles,
+            styles: {
+                ...connectButtonStyles,
+                opacity: isConnecting ? 0.6 : 1,
+                cursor: isConnecting ? 'not-allowed' : 'pointer',
+            },
             children: [
                 icon('bluetooth', 24, colors.background),
-                createElement('span', { text: 'Conectar Rodillo' }),
+                createElement('span', { 
+                    text: hasCachedDevice && !isConnecting 
+                        ? `Conectar a ${hasCachedDevice.name || 'Dispositivo'}` 
+                        : 'Conectar Rodillo' 
+                }),
             ],
             events: {
                 click: async () => {
+                    if (isConnecting) return;
                     try {
-                        await state.bluetoothManager.scan();
+                        // Si hay dispositivo cacheado, intentar reconexión silenciosa primero
+                        if (hasCachedDevice) {
+                            const device = await state.bluetoothManager.reconnectSilently();
+                            if (device) {
+                                // Reconexión silenciosa exitosa, no hacer nada más
+                                return;
+                            }
+                            // Si falla, intentar reconexión con selector
+                            await state.bluetoothManager.reconnectToCachedDevice();
+                        } else {
+                            // No hay dispositivo cacheado, buscar nuevo
+                            await state.bluetoothManager.scan();
+                        }
                     } catch (error) {
-                        console.log('Conexión cancelada o error:', error.message);
+                        // El usuario canceló o hubo un error
+                        if (error.name !== 'NotFoundError') {
+                            console.log('Conexión cancelada o error:', error.message);
+                        }
                     }
                 },
                 mouseenter: (e) => {
-                    e.target.style.transform = 'scale(1.05)';
+                    if (!isConnecting) {
+                        e.target.style.transform = 'scale(1.05)';
+                    }
                 },
                 mouseleave: (e) => {
                     e.target.style.transform = 'scale(1)';
                 },
             }
         });
-        container.appendChild(connectBtn);
+        buttonContainer.appendChild(connectBtn);
+        container.appendChild(buttonContainer);
     } else {
         const disabledBtn = button({
             styles: disabledButtonStyles,
@@ -257,6 +396,86 @@ export function HomeView(state) {
         container.appendChild(errorBox);
     }
     
+    // Sección de Modos de Entrenamiento
+    const trainingModesStyles = {
+        marginTop: spacing.xxl,
+        padding: spacing.lg,
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.lg,
+        maxWidth: '500px',
+        width: '100%',
+    };
+    
+    const trainingModesTitleStyles = {
+        fontSize: typography.sizes.lg,
+        fontWeight: typography.weights.semibold,
+        color: colors.text,
+        marginBottom: spacing.md,
+        textAlign: 'center',
+    };
+    
+    const isConnected = state && state.connectionState === CONNECTION_STATE.CONNECTED;
+    
+    const trainingModes = div({
+        styles: trainingModesStyles,
+        children: [
+            createElement('h3', { text: 'Modos de Entrenamiento', styles: trainingModesTitleStyles }),
+            div({
+                styles: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: spacing.md,
+                    alignItems: 'center',
+                },
+                children: [
+                    // Botón de Entrenamiento (solo visible cuando está conectado)
+                    isConnected && button({
+                        styles: {
+                            ...baseStyles.button,
+                            ...baseStyles.buttonPrimary,
+                            padding: `${spacing.md} ${spacing.lg}`,
+                            fontSize: typography.sizes.md,
+                            fontWeight: typography.weights.bold,
+                            gap: spacing.sm,
+                            minWidth: '250px',
+                            width: '100%',
+                        },
+                        children: [
+                            icon('activity', 20, colors.background),
+                            createElement('span', { text: 'Entrenamiento' }),
+                        ],
+                        events: {
+                            click: () => {
+                                navigateTo('training');
+                            },
+                        }
+                    }),
+                    // Botón de Modo Juego
+                    GameModeButton({
+                        onClick: () => {
+                            if (isConnected) {
+                                navigateToGame();
+                            } else {
+                                alert('Por favor, conecta tu rodillo primero para usar el modo juego.');
+                            }
+                        },
+                        disabled: !isConnected,
+                    }),
+                    !isConnected && createElement('p', {
+                        text: 'Conecta tu rodillo para habilitar los modos de entrenamiento',
+                        styles: {
+                            fontSize: typography.sizes.sm,
+                            color: colors.textMuted,
+                            marginTop: spacing.xs,
+                            textAlign: 'center',
+                        }
+                    }),
+                ].filter(Boolean)
+            }),
+        ]
+    });
+    container.appendChild(trainingModes);
+    
     // Instrucciones
     const instructions = div({
         styles: instructionsStyles,
@@ -278,44 +497,18 @@ export function HomeView(state) {
                             createElement('span', { text: '2.', styles: { color: colors.primary, fontWeight: typography.weights.bold } }),
                             createElement('span', { text: 'Haz clic en "Conectar Rodillo" y selecciona tu dispositivo de la lista.' }),
                         ]
-                    }),
-                    createElement('li', {
-                        styles: instructionItemStyles,
-                        children: [
-                            createElement('span', { text: '3.', styles: { color: colors.primary, fontWeight: typography.weights.bold } }),
-                            createElement('span', { text: 'Una vez conectado, podrás ver tus métricas y controlar la resistencia.' }),
-                        ]
-                    }),
-                    createElement('li', {
-                        styles: instructionItemStyles,
-                        children: [
-                            createElement('span', { text: '💡', styles: { fontSize: typography.sizes.md } }),
-                            createElement('span', { text: 'Usa Chrome, Edge u Opera para mejor compatibilidad con Web Bluetooth.' }),
-                        ]
-                    }),
+                    })
                 ]
             }),
         ]
     });
     container.appendChild(instructions);
     
-    // Dispositivos compatibles
-    const compatibleDevices = div({
-        styles: {
-            marginTop: spacing.lg,
-            padding: spacing.md,
-            backgroundColor: colors.surfaceLight,
-            borderRadius: borderRadius.md,
-            maxWidth: '500px',
-        },
-        children: [
-            createElement('p', {
-                text: 'Dispositivos compatibles: Decathlon D100, Van Rysel E-500, y cualquier rodillo FTMS',
-                styles: { fontSize: typography.sizes.xs, color: colors.textDark }
-            })
-        ]
-    });
-    container.appendChild(compatibleDevices);
+    // Función de limpieza para eliminar event listeners
+    container.cleanup = () => {
+        window.removeEventListener('pwa-installable', installableHandler);
+        window.removeEventListener('pwa-installed', installedHandler);
+    };
     
     return container;
 }

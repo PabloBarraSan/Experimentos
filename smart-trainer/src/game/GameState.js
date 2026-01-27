@@ -41,6 +41,7 @@ export function createGameState(ftp = 200) {
             vy: 0,              // Velocidad vertical (para salto)
             isJumping: false,
             isDucking: false,
+            manualDuck: false,   // Agacharse manual (botón)
             isTurbo: false,
             pedalAngle: 0,
             lean: 0,            // Inclinación (-1 a 1)
@@ -96,6 +97,7 @@ export function resetGameState(state) {
     state.cyclist.vy = 0;
     state.cyclist.isJumping = false;
     state.cyclist.isDucking = false;
+    state.cyclist.manualDuck = false;
     state.cyclist.isTurbo = false;
     state.obstacles = [];
     state.collectibles = [];

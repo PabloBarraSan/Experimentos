@@ -73,6 +73,158 @@ export function GameView({ state, onExit }) {
     });
     container.appendChild(exitBtn);
     
+    // Controles en pantalla
+    const controlsContainer = div({
+        styles: {
+            position: 'absolute',
+            bottom: '100px',
+            left: '0',
+            right: '0',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: spacing.lg,
+            zIndex: '1001',
+            pointerEvents: 'none',
+        },
+    });
+    
+    // Botón de saltar
+    const jumpBtn = button({
+        styles: {
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(0, 212, 170, 0.8)',
+            border: '3px solid rgba(255, 255, 255, 0.5)',
+            color: colors.background,
+            fontSize: '32px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 15px rgba(0, 212, 170, 0.4)',
+            pointerEvents: 'auto',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            transition: 'transform 0.1s, box-shadow 0.1s',
+        },
+        children: [
+            createElement('span', { text: '⬆️' }),
+        ],
+        attrs: { 
+            title: 'Saltar (Espacio)',
+            'aria-label': 'Saltar',
+        },
+        events: {
+            touchstart: (e) => {
+                e.preventDefault();
+                if (engine) {
+                    const gameState = engine.getState();
+                    if (gameState.status === GAME_STATUS.PLAYING) {
+                        engine.forceJump();
+                        jumpBtn.style.transform = 'scale(0.9)';
+                    }
+                }
+            },
+            touchend: (e) => {
+                e.preventDefault();
+                jumpBtn.style.transform = 'scale(1)';
+            },
+            mousedown: (e) => {
+                e.preventDefault();
+                if (engine) {
+                    const gameState = engine.getState();
+                    if (gameState.status === GAME_STATUS.PLAYING) {
+                        engine.forceJump();
+                        jumpBtn.style.transform = 'scale(0.9)';
+                    }
+                }
+            },
+            mouseup: () => {
+                jumpBtn.style.transform = 'scale(1)';
+            },
+            mouseleave: () => {
+                jumpBtn.style.transform = 'scale(1)';
+            },
+        },
+    });
+    
+    // Botón de agacharse
+    const duckBtn = button({
+        styles: {
+            width: '80px',
+            height: '80px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(255, 107, 53, 0.8)',
+            border: '3px solid rgba(255, 255, 255, 0.5)',
+            color: colors.background,
+            fontSize: '32px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4)',
+            pointerEvents: 'auto',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+            transition: 'transform 0.1s, box-shadow 0.1s',
+        },
+        children: [
+            createElement('span', { text: '⬇️' }),
+        ],
+        attrs: { 
+            title: 'Agacharse (S)',
+            'aria-label': 'Agacharse',
+        },
+        events: {
+            touchstart: (e) => {
+                e.preventDefault();
+                if (engine) {
+                    const gameState = engine.getState();
+                    if (gameState.status === GAME_STATUS.PLAYING) {
+                        engine.forceDuck(true);
+                        duckBtn.style.transform = 'scale(0.9)';
+                    }
+                }
+            },
+            touchend: (e) => {
+                e.preventDefault();
+                if (engine) {
+                    engine.forceDuck(false);
+                }
+                duckBtn.style.transform = 'scale(1)';
+            },
+            mousedown: (e) => {
+                e.preventDefault();
+                if (engine) {
+                    const gameState = engine.getState();
+                    if (gameState.status === GAME_STATUS.PLAYING) {
+                        engine.forceDuck(true);
+                        duckBtn.style.transform = 'scale(0.9)';
+                    }
+                }
+            },
+            mouseup: () => {
+                if (engine) {
+                    engine.forceDuck(false);
+                }
+                duckBtn.style.transform = 'scale(1)';
+            },
+            mouseleave: () => {
+                if (engine) {
+                    engine.forceDuck(false);
+                }
+                duckBtn.style.transform = 'scale(1)';
+            },
+        },
+    });
+    
+    controlsContainer.appendChild(jumpBtn);
+    controlsContainer.appendChild(duckBtn);
+    container.appendChild(controlsContainer);
+    
     // Variables del motor
     let engine = null;
     let renderer = null;
@@ -149,6 +301,13 @@ export function GameView({ state, onExit }) {
         if (renderer) {
             renderer.destroy();
         }
+        // Eliminar event listeners de teclado
+        if (handleKeyDown) {
+            document.removeEventListener('keydown', handleKeyDown);
+        }
+        if (handleKeyUp) {
+            document.removeEventListener('keyup', handleKeyUp);
+        }
     };
     
     // Manejar teclas
@@ -166,8 +325,10 @@ export function GameView({ state, onExit }) {
                 }
                 break;
             case ' ':
-                // Espacio para saltar (debug/testing)
+            case 'ArrowUp':
+                // Espacio o flecha arriba para saltar
                 if (gameState.status === GAME_STATUS.PLAYING) {
+                    e.preventDefault();
                     engine.forceJump();
                 } else if (gameState.status === GAME_STATUS.MENU) {
                     engine.start();
@@ -175,13 +336,42 @@ export function GameView({ state, onExit }) {
                     engine.restart();
                 }
                 break;
+            case 's':
+            case 'S':
+            case 'ArrowDown':
+                // S o flecha abajo para agacharse
+                if (gameState.status === GAME_STATUS.PLAYING) {
+                    e.preventDefault();
+                    engine.forceDuck(true);
+                }
+                break;
+        }
+    };
+    
+    const handleKeyUp = (e) => {
+        if (!engine) return;
+        
+        const gameState = engine.getState();
+        
+        switch (e.key) {
+            case 's':
+            case 'S':
+            case 'ArrowDown':
+                // Dejar de agacharse
+                if (gameState.status === GAME_STATUS.PLAYING) {
+                    e.preventDefault();
+                    engine.forceDuck(false);
+                }
+                break;
         }
     };
     
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
     
-    // Guardar referencia para limpieza
-    container._keyHandler = handleKeyDown;
+    // Guardar referencias para limpieza
+    container._keyDownHandler = handleKeyDown;
+    container._keyUpHandler = handleKeyUp;
     
     return container;
 }
@@ -189,33 +379,36 @@ export function GameView({ state, onExit }) {
 /**
  * Crear botón para acceder al modo juego
  */
-export function GameModeButton({ onClick }) {
+export function GameModeButton({ onClick, disabled = false }) {
     const buttonStyles = {
         ...baseStyles.button,
         padding: `${spacing.md} ${spacing.lg}`,
-        backgroundColor: 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)',
-        background: 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)',
-        color: colors.background,
+        backgroundColor: disabled ? colors.surfaceLight : 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)',
+        background: disabled ? colors.surfaceLight : 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)',
+        color: disabled ? colors.textMuted : colors.background,
         fontSize: typography.sizes.md,
         fontWeight: typography.weights.bold,
         gap: spacing.sm,
-        boxShadow: '0 4px 15px rgba(0, 212, 170, 0.3)',
+        boxShadow: disabled ? 'none' : '0 4px 15px rgba(0, 212, 170, 0.3)',
         border: 'none',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
     };
     
     return button({
         styles: buttonStyles,
+        attrs: disabled ? { disabled: 'true' } : {},
         children: [
             createElement('span', { text: '🎮' }),
             createElement('span', { text: 'Modo Juego' }),
         ],
         events: {
-            click: onClick,
-            mouseenter: (e) => {
+            click: disabled ? undefined : onClick,
+            mouseenter: disabled ? undefined : (e) => {
                 e.target.style.transform = 'scale(1.05)';
                 e.target.style.boxShadow = '0 6px 20px rgba(0, 212, 170, 0.4)';
             },
-            mouseleave: (e) => {
+            mouseleave: disabled ? undefined : (e) => {
                 e.target.style.transform = 'scale(1)';
                 e.target.style.boxShadow = '0 4px 15px rgba(0, 212, 170, 0.3)';
             },
