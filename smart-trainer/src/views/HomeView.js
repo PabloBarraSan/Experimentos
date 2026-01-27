@@ -13,6 +13,43 @@ import { checkBluetoothSupport } from '../bluetooth/scanner.js';
 export function HomeView(state) {
     const bluetoothSupport = checkBluetoothSupport();
     
+    // Estado para el botón de instalación PWA
+    let installButtonContainer = null;
+    let showInstallButton = false;
+    
+    // Verificar si la PWA está instalable
+    const checkInstallable = () => {
+        // Verificar si ya está instalada
+        if (window.matchMedia('(display-mode: standalone)').matches || 
+            window.navigator.standalone === true) {
+            return false; // Ya está instalada
+        }
+        
+        // Verificar si hay un deferredPrompt disponible
+        return typeof window.installPWA === 'function';
+    };
+    
+    // Escuchar eventos de instalación
+    const handleInstallable = () => {
+        showInstallButton = true;
+        if (installButtonContainer) {
+            installButtonContainer.style.display = 'flex';
+        }
+    };
+    
+    const handleInstalled = () => {
+        showInstallButton = false;
+        if (installButtonContainer) {
+            installButtonContainer.style.display = 'none';
+        }
+    };
+    
+    window.addEventListener('pwa-installable', handleInstallable);
+    window.addEventListener('pwa-installed', handleInstalled);
+    
+    // Verificar al cargar
+    showInstallButton = checkInstallable();
+    
     const containerStyles = {
         display: 'flex',
         flexDirection: 'column',
@@ -132,6 +169,45 @@ export function HomeView(state) {
         ]
     });
     container.appendChild(logoContainer);
+    
+    // Botón de instalación PWA
+    const installButtonStyles = {
+        ...baseStyles.button,
+        backgroundColor: colors.surface,
+        color: colors.text,
+        border: `1px solid ${colors.border}`,
+        padding: `${spacing.sm} ${spacing.md}`,
+        fontSize: typography.sizes.sm,
+        fontWeight: typography.weights.medium,
+        gap: spacing.xs,
+        marginBottom: spacing.md,
+        minWidth: '200px',
+    };
+    
+    installButtonContainer = div({
+        styles: {
+            display: showInstallButton ? 'flex' : 'none',
+            justifyContent: 'center',
+            marginBottom: spacing.md,
+        },
+        children: [
+            button({
+                styles: installButtonStyles,
+                children: [
+                    icon('download', 18, colors.primary),
+                    createElement('span', { text: 'Instalar App' }),
+                ],
+                events: {
+                    click: async () => {
+                        if (window.installPWA) {
+                            await window.installPWA();
+                        }
+                    },
+                }
+            })
+        ]
+    });
+    container.appendChild(installButtonContainer);
     
     // Botón de conexión o mensaje de error
     if (bluetoothSupport.supported) {
