@@ -5,11 +5,18 @@
 
 const CACHE_NAME = 'smart-trainer-v1';
 const BASE_PATH = '/Experimentos/smart-trainer';
-const STATIC_ASSETS = [
+
+// Archivos críticos que deben estar disponibles
+const CRITICAL_ASSETS = [
     `${BASE_PATH}/`,
     `${BASE_PATH}/index.html`,
     `${BASE_PATH}/manifest.json`,
     `${BASE_PATH}/src/app.js`,
+];
+
+// Archivos adicionales (se cachean pero no bloquean la instalación si fallan)
+const STATIC_ASSETS = [
+    ...CRITICAL_ASSETS,
     `${BASE_PATH}/src/utils/theme.js`,
     `${BASE_PATH}/src/utils/dom.js`,
     `${BASE_PATH}/src/utils/calculations.js`,
@@ -26,6 +33,7 @@ const STATIC_ASSETS = [
     `${BASE_PATH}/src/views/WorkoutsView.js`,
     `${BASE_PATH}/src/views/SettingsView.js`,
     `${BASE_PATH}/src/views/HistoryView.js`,
+    `${BASE_PATH}/src/views/GameView.js`,
     `${BASE_PATH}/src/workouts/model.js`,
     `${BASE_PATH}/src/workouts/presets.js`,
     `${BASE_PATH}/src/storage/settings.js`,
@@ -34,6 +42,7 @@ const STATIC_ASSETS = [
 
 /**
  * Instalación del Service Worker
+ * Usa cacheo individual para que un fallo no rompa toda la instalación
  */
 self.addEventListener('install', (event) => {
     console.log('[SW] Installing Service Worker...');
@@ -42,14 +51,38 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('[SW] Caching static assets...');
-                return cache.addAll(STATIC_ASSETS);
+                // Cachear archivos individualmente para que un fallo no rompa toda la instalación
+                return Promise.allSettled(
+                    STATIC_ASSETS.map(url => {
+                        return fetch(url, { cache: 'no-cache' })
+                            .then(response => {
+                                if (response.ok) {
+                                    return cache.put(url, response);
+                                } else {
+                                    console.warn(`[SW] Failed to cache ${url}: ${response.status}`);
+                                    return Promise.resolve(); // No fallar la instalación
+                                }
+                            })
+                            .catch(error => {
+                                console.warn(`[SW] Failed to fetch ${url}:`, error);
+                                // No lanzar error, continuar con otros archivos
+                                return Promise.resolve();
+                            });
+                    })
+                ).then(results => {
+                    const failed = results.filter(r => r.status === 'rejected').length;
+                    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+                    console.log(`[SW] Cached ${succeeded}/${STATIC_ASSETS.length} assets${failed > 0 ? `, ${failed} failed` : ''}`);
+                });
             })
             .then(() => {
-                console.log('[SW] Static assets cached successfully');
+                console.log('[SW] Static assets caching completed');
                 return self.skipWaiting();
             })
             .catch((error) => {
-                console.error('[SW] Failed to cache static assets:', error);
+                console.error('[SW] Failed to open cache:', error);
+                // Aún así, activar el service worker
+                return self.skipWaiting();
             })
     );
 });

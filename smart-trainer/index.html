@@ -55,12 +55,28 @@
         // Registrar Service Worker para funcionalidad PWA
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                // Usar ruta relativa al directorio actual
+                const swPath = './sw.js';
+                navigator.serviceWorker.register(swPath, {
+                    scope: './'
+                })
                     .then((registration) => {
                         console.log('✅ Service Worker registrado:', registration.scope);
+                        
+                        // Verificar actualizaciones
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            if (newWorker) {
+                                newWorker.addEventListener('statechange', () => {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        console.log('🔄 Nueva versión disponible');
+                                    }
+                                });
+                            }
+                        });
                     })
                     .catch((error) => {
-                        console.log('⚠️ Service Worker no registrado:', error);
+                        console.error('⚠️ Service Worker no registrado:', error);
                     });
             });
         }

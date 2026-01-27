@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Generar Iconos PWA - Smart Trainer</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #00d4aa;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #00b894;
+        }
+        #preview {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .icon-preview {
+            text-align: center;
+        }
+        .icon-preview canvas {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 6px;
+            color: #2e7d32;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚴 Generador de Iconos PWA - Smart Trainer</h1>
+        <p>Este generador crea los iconos PNG necesarios para que la PWA muestre el icono correcto en lugar del icono de Chrome.</p>
+        
+        <div id="preview"></div>
+        
+        <button onclick="generarTodos()">📥 Generar y Descargar Iconos</button>
+        <button onclick="verPrevisualizacion()">👁️ Ver Previsualización</button>
+        
+        <div id="status"></div>
+        
+        <h3>Instrucciones:</h3>
+        <ol>
+            <li>Click en "Ver Previsualización" para ver cómo quedarán los iconos</li>
+            <li>Click en "Generar y Descargar Iconos" para descargar los archivos PNG</li>
+            <li>Guarda los archivos <code>icon-192x192.png</code> y <code>icon-512x512.png</code> en la carpeta <code>smart-trainer/</code></li>
+            <li>Haz commit y push de los cambios</li>
+            <li>Desinstala la PWA anterior y reinstálala para ver el nuevo icono</li>
+        </ol>
+    </div>
+
+    <script>
+        function generarIcono(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Fondo con bordes redondeados (12.5% del tamaño)
+            const radius = size * 0.125;
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(size - radius, 0);
+            ctx.quadraticCurveTo(size, 0, size, radius);
+            ctx.lineTo(size, size - radius);
+            ctx.quadraticCurveTo(size, size, size - radius, size);
+            ctx.lineTo(radius, size);
+            ctx.quadraticCurveTo(0, size, 0, size - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Dibujar emoji de bicicleta (60% del tamaño)
+            const fontSize = size * 0.6;
+            ctx.font = `bold ${fontSize}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🚴', size / 2, size / 2);
+            
+            return canvas;
+        }
+        
+        function descargarCanvas(canvas, nombre) {
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = nombre;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+        
+        function verPrevisualizacion() {
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '';
+            
+            const sizes = [192, 512];
+            sizes.forEach(size => {
+                const canvas = generarIcono(size);
+                const div = document.createElement('div');
+                div.className = 'icon-preview';
+                div.innerHTML = `<strong>${size}x${size}px</strong>`;
+                div.appendChild(canvas);
+                preview.appendChild(div);
+            });
+            
+            document.getElementById('status').innerHTML = 
+                '<div class="status">✅ Previsualización generada. Ahora puedes generar y descargar los iconos.</div>';
+        }
+        
+        function generarTodos() {
+            const sizes = [192, 512];
+            let descargados = 0;
+            
+            sizes.forEach((size, index) => {
+                setTimeout(() => {
+                    const canvas = generarIcono(size);
+                    const nombre = `icon-${size}x${size}.png`;
+                    descargarCanvas(canvas, nombre);
+                    descargados++;
+                    
+                    if (descargados === sizes.length) {
+                        document.getElementById('status').innerHTML = `
+                            <div class="status">
+                                ✅ <strong>¡Iconos generados correctamente!</strong><br><br>
+                                Archivos descargados:<br>
+                                • <code>icon-192x192.png</code><br>
+                                • <code>icon-512x512.png</code><br><br>
+                                <strong>Próximos pasos:</strong><br>
+                                1. Guarda estos archivos en la carpeta <code>smart-trainer/</code><br>
+                                2. Haz commit y push<br>
+                                3. Desinstala la PWA anterior y reinstálala
+                            </div>
+                        `;
+                    }
+                }, index * 500); // Pequeño delay entre descargas
+            });
+        }
+        
+        // Generar previsualización automáticamente al cargar
+        window.addEventListener('load', () => {
+            setTimeout(verPrevisualizacion, 500);
+        });
+    </script>
+</body>
+</html>
