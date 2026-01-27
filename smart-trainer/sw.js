@@ -4,31 +4,32 @@
  */
 
 const CACHE_NAME = 'smart-trainer-v1';
+const BASE_PATH = '/Experimentos/smart-trainer';
 const STATIC_ASSETS = [
-    '/smart-trainer/',
-    '/smart-trainer/index.html',
-    '/smart-trainer/manifest.json',
-    '/smart-trainer/src/app.js',
-    '/smart-trainer/src/utils/theme.js',
-    '/smart-trainer/src/utils/dom.js',
-    '/smart-trainer/src/utils/calculations.js',
-    '/smart-trainer/src/bluetooth/scanner.js',
-    '/smart-trainer/src/bluetooth/ftms.js',
-    '/smart-trainer/src/bluetooth/commands.js',
-    '/smart-trainer/src/components/MetricCard.js',
-    '/smart-trainer/src/components/PowerGauge.js',
-    '/smart-trainer/src/components/ResistanceSlider.js',
-    '/smart-trainer/src/components/PowerChart.js',
-    '/smart-trainer/src/components/WorkoutPlayer.js',
-    '/smart-trainer/src/views/HomeView.js',
-    '/smart-trainer/src/views/TrainingView.js',
-    '/smart-trainer/src/views/WorkoutsView.js',
-    '/smart-trainer/src/views/SettingsView.js',
-    '/smart-trainer/src/views/HistoryView.js',
-    '/smart-trainer/src/workouts/model.js',
-    '/smart-trainer/src/workouts/presets.js',
-    '/smart-trainer/src/storage/settings.js',
-    '/smart-trainer/src/storage/sessions.js',
+    `${BASE_PATH}/`,
+    `${BASE_PATH}/index.html`,
+    `${BASE_PATH}/manifest.json`,
+    `${BASE_PATH}/src/app.js`,
+    `${BASE_PATH}/src/utils/theme.js`,
+    `${BASE_PATH}/src/utils/dom.js`,
+    `${BASE_PATH}/src/utils/calculations.js`,
+    `${BASE_PATH}/src/bluetooth/scanner.js`,
+    `${BASE_PATH}/src/bluetooth/ftms.js`,
+    `${BASE_PATH}/src/bluetooth/commands.js`,
+    `${BASE_PATH}/src/components/MetricCard.js`,
+    `${BASE_PATH}/src/components/PowerGauge.js`,
+    `${BASE_PATH}/src/components/ResistanceSlider.js`,
+    `${BASE_PATH}/src/components/PowerChart.js`,
+    `${BASE_PATH}/src/components/WorkoutPlayer.js`,
+    `${BASE_PATH}/src/views/HomeView.js`,
+    `${BASE_PATH}/src/views/TrainingView.js`,
+    `${BASE_PATH}/src/views/WorkoutsView.js`,
+    `${BASE_PATH}/src/views/SettingsView.js`,
+    `${BASE_PATH}/src/views/HistoryView.js`,
+    `${BASE_PATH}/src/workouts/model.js`,
+    `${BASE_PATH}/src/workouts/presets.js`,
+    `${BASE_PATH}/src/storage/settings.js`,
+    `${BASE_PATH}/src/storage/sessions.js`,
 ];
 
 /**
@@ -110,7 +111,7 @@ self.addEventListener('fetch', (event) => {
             .catch(() => {
                 // Si falla todo, devolver página offline
                 if (event.request.mode === 'navigate') {
-                    return caches.match('/smart-trainer/index.html');
+                    return caches.match(`${BASE_PATH}/index.html`);
                 }
                 
                 return new Response('Offline', {
@@ -183,8 +184,8 @@ self.addEventListener('push', (event) => {
     
     const options = {
         body: data.body || 'Notificación de Smart Trainer',
-        icon: '/smart-trainer/assets/icons/icon-192.png',
-        badge: '/smart-trainer/assets/icons/badge-72.png',
+        icon: `${BASE_PATH}/assets/icons/icon-192.png`,
+        badge: `${BASE_PATH}/assets/icons/badge-72.png`,
         vibrate: [200, 100, 200],
         data: data.data || {},
         actions: data.actions || [],
@@ -201,14 +202,14 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
     
-    const urlToOpen = event.notification.data?.url || '/smart-trainer/';
+    const urlToOpen = event.notification.data?.url || `${BASE_PATH}/`;
     
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then((clientList) => {
                 // Si ya hay una ventana abierta, enfocarla
                 for (const client of clientList) {
-                    if (client.url.includes('/smart-trainer/') && 'focus' in client) {
+                    if (client.url.includes(`${BASE_PATH}/`) && 'focus' in client) {
                         return client.focus();
                     }
                 }
