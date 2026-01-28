@@ -70,6 +70,18 @@ export function createSession(options = {}) {
         dataPoints: [],
         status: 'active', // 'active', 'paused', 'completed', 'discarded'
         metrics: null,    // Se calculan al finalizar
+        // Campos para sincronización con plataformas externas
+        syncStatus: {
+            strava: {
+                synced: false,
+                activityId: null,
+                syncedAt: null,
+                error: null,
+            },
+            // Preparado para futuras integraciones
+            // trainingPeaks: { synced: false, ... },
+            // garminConnect: { synced: false, ... },
+        },
     };
 }
 

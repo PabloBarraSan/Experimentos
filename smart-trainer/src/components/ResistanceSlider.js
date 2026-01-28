@@ -3,11 +3,12 @@
  * Smart Trainer Controller
  */
 
-import { colors, spacing, typography, borderRadius, transitions } from '../utils/theme.js';
+import { colors, spacing, typography, borderRadius, transitions, shadows } from '../utils/theme.js';
 import { createElement, div, debounce } from '../utils/dom.js';
 
 /**
  * Slider para controlar la resistencia del rodillo
+ * Incluye botones +/- para uso táctil mientras se pedalea.
  * @param {Object} props
  * @param {number} props.value - Valor actual (0-100)
  * @param {Function} props.onChange - Callback al cambiar valor
@@ -21,9 +22,16 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
         padding: `${spacing.md} 0`,
     };
     
+    const sliderRowStyles = {
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.md,
+        width: '100%',
+    };
+    
     const sliderContainerStyles = {
         position: 'relative',
-        width: '100%',
+        flex: '1',
         height: '40px',
         display: 'flex',
         alignItems: 'center',
@@ -72,9 +80,30 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     };
     
     const thumbValueStyles = {
-        fontSize: typography.sizes.xs,
+        fontSize: typography.sizes.sm,
         fontWeight: typography.weights.bold,
         color: colors.background,
+        transition: 'transform 0.2s ease',
+    };
+    
+    // Botones +/- grandes para uso táctil
+    const stepButtonStyles = {
+        width: '56px',
+        height: '56px',
+        minWidth: '56px',
+        minHeight: '56px',
+        borderRadius: '16px',
+        border: 'none',
+        backgroundColor: colors.surfaceLight,
+        color: colors.text,
+        fontSize: '24px',
+        fontWeight: typography.weights.bold,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: transitions.normal,
+        boxShadow: shadows.md,
     };
     
     const labelsStyles = {
@@ -91,6 +120,7 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     // Crear elementos
     const container = div({ styles: containerStyles });
     
+    const sliderRow = div({ styles: sliderRowStyles });
     const sliderContainer = div({ styles: sliderContainerStyles });
     
     // Track
@@ -110,6 +140,10 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     thumbValue.id = 'resistance-thumb-value';
     thumb.appendChild(thumbValue);
     sliderContainer.appendChild(thumb);
+    // Referencias para setValue (actualización programática)
+    const fillEl = fill;
+    const thumbEl = thumb;
+    const thumbValueEl = thumbValue;
     
     // Input range real
     const input = createElement('input', {
@@ -130,36 +164,81 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
         }
     }, 200);
     
-    // Actualizar UI inmediatamente, pero debounce el comando
+    // Actualizar solo la UI (sin enviar comando al rodillo). Para sincronización programática.
+    function updateUIOnly(newValue) {
+        const v = Math.max(min, Math.min(max, Number(newValue)));
+        if (fillEl) fillEl.style.width = `${v}%`;
+        if (thumbEl) thumbEl.style.left = `calc(${v}% - 16px)`;
+        if (thumbValueEl) thumbValueEl.textContent = String(Math.round(v));
+        input.value = String(v);
+    }
+
+    // Actualizar UI y feedback visual (brillo/pulse en thumb) y enviar comando
+    function updateUIAndPulse(newValue) {
+        if (fillEl) fillEl.style.width = `${newValue}%`;
+        if (thumbEl) {
+            thumbEl.style.left = `calc(${newValue}% - 16px)`;
+            thumbEl.style.transform = 'scale(1.25)';
+            thumbEl.style.boxShadow = `0 0 20px ${colors.primary}80`;
+            setTimeout(() => {
+                thumbEl.style.transform = 'scale(1)';
+                thumbEl.style.boxShadow = '0 2px 8px rgba(0, 212, 170, 0.4)';
+            }, 200);
+        }
+        if (thumbValueEl) {
+            thumbValueEl.textContent = String(newValue);
+            thumbValueEl.style.transform = 'scale(1.2)';
+            setTimeout(() => { thumbValueEl.style.transform = 'scale(1)'; }, 200);
+        }
+        debouncedOnChange(newValue);
+    }
+    
     input.addEventListener('input', (e) => {
         const newValue = parseInt(e.target.value, 10);
-        
-        // Actualizar UI inmediatamente
-        const fillEl = document.getElementById('resistance-fill');
-        const thumbEl = document.getElementById('resistance-thumb');
-        const thumbValueEl = document.getElementById('resistance-thumb-value');
-        
-        if (fillEl) fillEl.style.width = `${newValue}%`;
-        if (thumbEl) thumbEl.style.left = `calc(${newValue}% - 16px)`;
-        if (thumbValueEl) thumbValueEl.textContent = String(newValue);
-        
-        // Enviar comando con debounce
-        debouncedOnChange(newValue);
+        updateUIAndPulse(newValue);
     });
     
-    // Efecto hover/active en thumb
-    input.addEventListener('mousedown', () => {
-        thumb.style.transform = 'scale(1.1)';
-    });
-    input.addEventListener('mouseup', () => {
-        thumb.style.transform = 'scale(1)';
-    });
-    input.addEventListener('mouseleave', () => {
-        thumb.style.transform = 'scale(1)';
-    });
+    input.addEventListener('mousedown', () => { thumb.style.transform = 'scale(1.1)'; });
+    input.addEventListener('mouseup', () => { thumb.style.transform = 'scale(1)'; });
+    input.addEventListener('mouseleave', () => { thumb.style.transform = 'scale(1)'; });
     
+    // Botón menos
+    const minusBtn = createElement('button', {
+        text: '−',
+        styles: stepButtonStyles,
+        attrs: { type: 'button', title: 'Bajar resistencia 1%' },
+        events: {
+            click: () => {
+                const newValue = Math.max(min, parseInt(input.value, 10) - step);
+                input.value = newValue;
+                updateUIAndPulse(newValue);
+            },
+        },
+    });
+    minusBtn.addEventListener('mouseenter', () => { minusBtn.style.backgroundColor = colors.surfaceHover; minusBtn.style.transform = 'scale(1.05)'; });
+    minusBtn.addEventListener('mouseleave', () => { minusBtn.style.backgroundColor = colors.surfaceLight; minusBtn.style.transform = 'scale(1)'; });
+    
+    // Botón más
+    const plusBtn = createElement('button', {
+        text: '+',
+        styles: stepButtonStyles,
+        attrs: { type: 'button', title: 'Subir resistencia 1%' },
+        events: {
+            click: () => {
+                const newValue = Math.min(max, parseInt(input.value, 10) + step);
+                input.value = newValue;
+                updateUIAndPulse(newValue);
+            },
+        },
+    });
+    plusBtn.addEventListener('mouseenter', () => { plusBtn.style.backgroundColor = colors.surfaceHover; plusBtn.style.transform = 'scale(1.05)'; });
+    plusBtn.addEventListener('mouseleave', () => { plusBtn.style.backgroundColor = colors.surfaceLight; plusBtn.style.transform = 'scale(1)'; });
+    
+    sliderRow.appendChild(minusBtn);
     sliderContainer.appendChild(input);
-    container.appendChild(sliderContainer);
+    sliderRow.appendChild(sliderContainer);
+    sliderRow.appendChild(plusBtn);
+    container.appendChild(sliderRow);
     
     // Labels
     const labels = div({
@@ -171,7 +250,12 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
         ]
     });
     container.appendChild(labels);
-    
+
+    // API para actualización programática (sin disparar onChange). Evita feedback loop del servo.
+    container.setValue = (newValue) => {
+        updateUIOnly(newValue);
+    };
+
     // Botones de ajuste rápido
     const quickButtonsStyles = {
         display: 'flex',

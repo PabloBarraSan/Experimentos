@@ -3,7 +3,7 @@
  * Smart Trainer Controller
  */
 
-import { colors, spacing, typography, borderRadius } from '../utils/theme.js';
+import { colors, spacing, typography, borderRadius, getZoneColor } from '../utils/theme.js';
 import { div } from '../utils/dom.js';
 
 /**
@@ -55,6 +55,7 @@ export function PowerChart({ dataPoints = [], ftp = 200, width = '100%', height 
     }
     
     // Dibujar gráfico cuando el canvas esté en el DOM
+    const currentPower = dataPoints.length > 0 ? (dataPoints[dataPoints.length - 1].power || 0) : 0;
     requestAnimationFrame(() => {
         const rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * window.devicePixelRatio;
@@ -63,16 +64,16 @@ export function PowerChart({ dataPoints = [], ftp = 200, width = '100%', height 
         const ctx = canvas.getContext('2d');
         ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
         
-        drawChart(ctx, rect.width, rect.height, dataPoints, ftp, windowSeconds);
+        drawChart(ctx, rect.width, rect.height, dataPoints, ftp, windowSeconds, currentPower);
     });
     
     return container;
 }
 
 /**
- * Dibujar el gráfico en el canvas
+ * Dibujar el gráfico en el canvas (área con degradado según zona de potencia)
  */
-function drawChart(ctx, width, height, dataPoints, ftp, windowSeconds) {
+function drawChart(ctx, width, height, dataPoints, ftp, windowSeconds, currentPower = 0) {
     const padding = { top: 10, right: 10, bottom: 25, left: 40 };
     const chartWidth = width - padding.left - padding.right;
     const chartHeight = height - padding.top - padding.bottom;
@@ -147,16 +148,17 @@ function drawChart(ctx, width, height, dataPoints, ftp, windowSeconds) {
     ctx.lineTo(firstX, padding.top + chartHeight);
     ctx.closePath();
     
-    // Gradiente de relleno
+    // Gradiente de relleno según zona de potencia actual (legibilidad periférica)
+    const zoneColor = getZoneColor(currentPower, ftp);
     const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartHeight);
-    gradient.addColorStop(0, `${colors.primary}40`);
-    gradient.addColorStop(1, `${colors.primary}05`);
+    gradient.addColorStop(0, `${zoneColor}60`);
+    gradient.addColorStop(1, `${zoneColor}08`);
     ctx.fillStyle = gradient;
     ctx.fill();
     
-    // Dibujar línea de potencia
+    // Dibujar línea de potencia (color de zona)
     ctx.beginPath();
-    ctx.strokeStyle = colors.primary;
+    ctx.strokeStyle = zoneColor;
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     
@@ -192,7 +194,7 @@ function drawChart(ctx, width, height, dataPoints, ftp, windowSeconds) {
         ctx.fillText(label, x, height - 5);
     });
     
-    // Punto actual
+    // Punto actual (color de zona)
     if (visibleData.length > 0) {
         const current = visibleData[visibleData.length - 1];
         const x = padding.left + ((current.timestamp - windowStart) / (windowSeconds * 1000)) * chartWidth;
@@ -200,7 +202,7 @@ function drawChart(ctx, width, height, dataPoints, ftp, windowSeconds) {
         
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = colors.primary;
+        ctx.fillStyle = zoneColor;
         ctx.fill();
         ctx.strokeStyle = colors.background;
         ctx.lineWidth = 2;

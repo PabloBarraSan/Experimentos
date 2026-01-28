@@ -3,11 +3,16 @@
  * Smart Trainer - Power Rush
  */
 
-import { colors, spacing, typography, baseStyles, borderRadius } from '../utils/theme.js';
+import { colors, spacing, typography, baseStyles, borderRadius, premiumCardStyles } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { createGameEngine } from '../game/GameEngine.js';
-import { createGameRenderer } from '../game/GameRenderer.js';
+import { createGameRenderer, UI_STRIP_HEIGHT } from '../game/GameRenderer.js';
 import { GAME_STATUS } from '../game/GameState.js';
+
+const METRICS_BAR_HEIGHT = 50;
+const isTouchPrimary = () =>
+    window.matchMedia('(pointer: coarse)').matches ||
+    ('ontouchstart' in window && window.innerWidth <= 768);
 
 /**
  * Vista del juego Power Rush
@@ -33,13 +38,22 @@ export function GameView({ state, onExit }) {
     
     const exitButtonStyles = {
         position: 'absolute',
-        top: spacing.md,
-        right: spacing.md,
+        top: spacing.sm,
+        right: spacing.sm,
         ...baseStyles.button,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        border: `1px solid ${colors.border}`,
+        width: '36px',
+        height: '36px',
+        minWidth: '36px',
+        padding: '0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        border: `1px solid ${colors.border}80`,
         color: colors.text,
-        padding: spacing.sm,
+        borderRadius: '50%',
         zIndex: '1001',
     };
     
@@ -54,7 +68,7 @@ export function GameView({ state, onExit }) {
     const exitBtn = button({
         styles: exitButtonStyles,
         children: [
-            icon('x', 24, colors.text),
+            icon('x', 18, colors.text),
         ],
         attrs: { title: 'Salir del juego' },
         events: {
@@ -73,14 +87,17 @@ export function GameView({ state, onExit }) {
     });
     container.appendChild(exitBtn);
     
-    // Controles en pantalla
+    // Controles en pantalla (franja inferior, encima de la barra de métricas)
+    const showTouchControls = isTouchPrimary();
     const controlsContainer = div({
         styles: {
             position: 'absolute',
-            bottom: '100px',
+            bottom: `${METRICS_BAR_HEIGHT}px`,
             left: '0',
             right: '0',
-            display: 'flex',
+            height: `${UI_STRIP_HEIGHT - METRICS_BAR_HEIGHT}px`,
+            display: showTouchControls ? 'flex' : 'none',
+            alignItems: 'center',
             justifyContent: 'center',
             gap: spacing.lg,
             zIndex: '1001',
@@ -91,26 +108,26 @@ export function GameView({ state, onExit }) {
     // Botón de saltar
     const jumpBtn = button({
         styles: {
-            width: '80px',
-            height: '80px',
+            width: '56px',
+            height: '56px',
             borderRadius: '50%',
-            backgroundColor: 'rgba(0, 212, 170, 0.8)',
-            border: '3px solid rgba(255, 255, 255, 0.5)',
+            backgroundColor: 'rgba(0, 212, 170, 0.5)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: `1px solid rgba(255, 255, 255, 0.35)`,
             color: colors.background,
-            fontSize: '32px',
-            fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(0, 212, 170, 0.4)',
+            boxShadow: '0 2px 12px rgba(0, 212, 170, 0.3)',
             pointerEvents: 'auto',
             userSelect: 'none',
             WebkitUserSelect: 'none',
             transition: 'transform 0.1s, box-shadow 0.1s',
         },
         children: [
-            createElement('span', { text: '⬆️' }),
+            icon('chevronUp', 28, colors.text),
         ],
         attrs: { 
             title: 'Saltar (Espacio)',
@@ -153,26 +170,26 @@ export function GameView({ state, onExit }) {
     // Botón de agacharse
     const duckBtn = button({
         styles: {
-            width: '80px',
-            height: '80px',
+            width: '56px',
+            height: '56px',
             borderRadius: '50%',
-            backgroundColor: 'rgba(255, 107, 53, 0.8)',
-            border: '3px solid rgba(255, 255, 255, 0.5)',
+            backgroundColor: 'rgba(255, 107, 53, 0.5)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: `1px solid rgba(255, 255, 255, 0.35)`,
             color: colors.background,
-            fontSize: '32px',
-            fontWeight: 'bold',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4)',
+            boxShadow: '0 2px 12px rgba(255, 107, 53, 0.3)',
             pointerEvents: 'auto',
             userSelect: 'none',
             WebkitUserSelect: 'none',
             transition: 'transform 0.1s, box-shadow 0.1s',
         },
         children: [
-            createElement('span', { text: '⬇️' }),
+            icon('chevronDown', 28, colors.text),
         ],
         attrs: { 
             title: 'Agacharse (S)',
@@ -377,38 +394,92 @@ export function GameView({ state, onExit }) {
 }
 
 /**
- * Crear botón para acceder al modo juego
+ * Crear botón o card preview para el modo juego.
+ * Cuando está deshabilitado: card preview con gradiente + overlay rejilla + "Conecta para desbloquear".
+ * Cuando está habilitado: botón con clase card-unlocked para efecto "encendido".
  */
-export function GameModeButton({ onClick, disabled = false }) {
+export function GameModeButton({ onClick, disabled = false, className = '' }) {
+    if (disabled) {
+        // Card preview: overlay de rejilla técnica + contenido
+        return div({
+            styles: {
+                ...premiumCardStyles,
+                width: '100%',
+                minWidth: '250px',
+                padding: spacing.lg,
+                position: 'relative',
+                overflow: 'hidden',
+                cursor: 'not-allowed',
+                background: `linear-gradient(145deg, rgba(0, 212, 170, 0.12) 0%, rgba(20, 20, 20, 0.95) 50%, rgba(0, 242, 254, 0.06) 100%)`,
+                border: `1px solid ${colors.border}80`,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: spacing.sm,
+            },
+            children: [
+                createElement('div', { className: 'card-grid-overlay' }),
+                createElement('span', { text: '🎮', styles: { fontSize: '28px', position: 'relative', zIndex: 1 } }),
+                createElement('span', {
+                    text: 'Modo Juego',
+                    styles: {
+                        fontFamily: typography.fontDisplay,
+                        fontSize: typography.sizes.md,
+                        fontWeight: typography.weights.bold,
+                        color: colors.text,
+                        position: 'relative',
+                        zIndex: 1,
+                    },
+                }),
+                div({
+                    styles: {
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing.xs,
+                        fontSize: typography.sizes.xs,
+                        color: colors.textMuted,
+                        position: 'relative',
+                        zIndex: 1,
+                    },
+                    children: [
+                        icon('lock', 14, colors.textMuted),
+                        createElement('span', { text: 'Conecta el rodillo para desbloquear' }),
+                    ],
+                }),
+            ],
+        });
+    }
+
     const buttonStyles = {
         ...baseStyles.button,
         padding: `${spacing.md} ${spacing.lg}`,
-        backgroundColor: disabled ? colors.surfaceLight : 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)',
-        background: disabled ? colors.surfaceLight : 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)',
-        color: disabled ? colors.textMuted : colors.background,
+        background: 'linear-gradient(135deg, #00d4aa 0%, #00a88a 100%)',
+        color: colors.background,
         fontSize: typography.sizes.md,
         fontWeight: typography.weights.bold,
         gap: spacing.sm,
-        boxShadow: disabled ? 'none' : '0 4px 15px rgba(0, 212, 170, 0.3)',
+        boxShadow: '0 4px 15px rgba(0, 212, 170, 0.3)',
         border: 'none',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
+        cursor: 'pointer',
+        minWidth: '250px',
+        width: '100%',
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
     };
-    
+
     return button({
+        className: className || undefined,
         styles: buttonStyles,
-        attrs: disabled ? { disabled: 'true' } : {},
         children: [
             createElement('span', { text: '🎮' }),
             createElement('span', { text: 'Modo Juego' }),
         ],
         events: {
-            click: disabled ? undefined : onClick,
-            mouseenter: disabled ? undefined : (e) => {
-                e.target.style.transform = 'scale(1.05)';
+            click: onClick,
+            mouseenter: (e) => {
+                e.target.style.transform = 'scale(1.02)';
                 e.target.style.boxShadow = '0 6px 20px rgba(0, 212, 170, 0.4)';
             },
-            mouseleave: disabled ? undefined : (e) => {
+            mouseleave: (e) => {
                 e.target.style.transform = 'scale(1)';
                 e.target.style.boxShadow = '0 4px 15px rgba(0, 212, 170, 0.3)';
             },

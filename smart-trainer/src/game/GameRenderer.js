@@ -8,6 +8,11 @@ import { renderObstacle } from './entities/Obstacle.js';
 import { renderCollectible } from './entities/Collectible.js';
 import { getCurrentPowerZone, GAME_STATUS } from './GameState.js';
 
+/** Altura de la franja inferior reservada para UI (métricas + controles) */
+export const UI_STRIP_HEIGHT = 140;
+/** Altura visual de la carretera por encima de la franja UI */
+const ROAD_HEIGHT = 60;
+
 // Colores del fondo según zona
 const BG_COLORS = {
     1: '#1a1a2e',
@@ -69,8 +74,8 @@ export function createGameRenderer(canvas) {
         // Fondo
         renderBackground(ctx, state, width, height);
         
-        // Carretera
-        const groundY = height - 80;
+        // Carretera (por encima de la franja UI)
+        const groundY = height - UI_STRIP_HEIGHT;
         renderRoad(ctx, state, width, height, groundY);
         
         // Obstáculos
@@ -155,19 +160,20 @@ export function createGameRenderer(canvas) {
     }
     
     /**
-     * Renderizar carretera
+     * Renderizar carretera (solo en zona de juego, por encima de la franja UI)
      */
     function renderRoad(ctx, state, w, h, groundY) {
-        // Carretera principal
+        const roadTop = groundY - ROAD_HEIGHT;
+        // Carretera principal (solo ROAD_HEIGHT px por encima de groundY)
         ctx.fillStyle = '#222222';
-        ctx.fillRect(0, groundY, w, h - groundY);
+        ctx.fillRect(0, roadTop, w, ROAD_HEIGHT);
         
         // Borde superior de la carretera
         ctx.strokeStyle = '#444444';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(0, groundY);
-        ctx.lineTo(w, groundY);
+        ctx.moveTo(0, roadTop);
+        ctx.lineTo(w, roadTop);
         ctx.stroke();
         
         // Líneas de carretera (animadas)
@@ -177,8 +183,8 @@ export function createGameRenderer(canvas) {
         
         const lineOffset = (state.worldPosition * 2) % 70;
         ctx.beginPath();
-        ctx.moveTo(-lineOffset, groundY + 40);
-        ctx.lineTo(w, groundY + 40);
+        ctx.moveTo(-lineOffset, roadTop + 40);
+        ctx.lineTo(w, roadTop + 40);
         ctx.stroke();
         ctx.setLineDash([]);
         
@@ -194,14 +200,14 @@ export function createGameRenderer(canvas) {
             const x = w - (markerOffset * 0.5 + i * distanceMarkerInterval * 0.5);
             if (x > 0 && x < w) {
                 const km = Math.floor((state.distance + i * distanceMarkerInterval) / 1000);
-                ctx.fillText(`${km}km`, x, groundY + 70);
+                ctx.fillText(`${km}km`, x, roadTop + 55);
                 
                 // Línea vertical
                 ctx.strokeStyle = '#444444';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(x, groundY + 55);
-                ctx.lineTo(x, groundY + 60);
+                ctx.moveTo(x, roadTop + 50);
+                ctx.lineTo(x, roadTop + 55);
                 ctx.stroke();
             }
         }

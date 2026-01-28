@@ -10,6 +10,7 @@ import { updateCollectible } from './entities/Collectible.js';
 import { updateSpawnSystem, cleanupEntities } from './systems/SpawnSystem.js';
 import { updatePhysicsSystem, updateComboTimer } from './systems/PhysicsSystem.js';
 import { updateScoreSystem, finishGame } from './systems/ScoreSystem.js';
+import { UI_STRIP_HEIGHT } from './GameRenderer.js';
 
 /**
  * Crear instancia del motor del juego
@@ -56,7 +57,7 @@ export function createGameEngine(options = {}) {
      */
     function update(deltaTime) {
         const { width, height } = getCanvasSize();
-        const groundY = height - 80;
+        const groundY = height - UI_STRIP_HEIGHT;
         
         // Actualizar velocidad del mundo según potencia
         state.worldSpeed = calculateWorldSpeed(state.bikeData.power, state.ftp);
@@ -192,7 +193,9 @@ export function createGameEngine(options = {}) {
             cancelAnimationFrame(animationFrameId);
             animationFrameId = null;
         }
-        state.status = GAME_STATUS.MENU;
+        if (state) {
+            state.status = GAME_STATUS.MENU;
+        }
     }
     
     /**
@@ -236,9 +239,10 @@ export function createGameEngine(options = {}) {
     }
     
     /**
-     * Destruir engine
+     * Destruir engine (idempotente: seguro llamar más de una vez)
      */
     function destroy() {
+        if (!state) return;
         stop();
         state = null;
         renderer = null;

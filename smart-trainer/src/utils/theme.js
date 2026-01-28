@@ -55,6 +55,7 @@ export const spacing = {
 
 export const typography = {
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif",
+    fontDisplay: "'Barlow', -apple-system, BlinkMacSystemFont, sans-serif", // Títulos premium
     fontMono: "'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace",
     
     sizes: {
@@ -66,6 +67,7 @@ export const typography = {
         xxl: '32px',
         xxxl: '48px',
         metric: '64px',
+        metricHero: '80px', // Legibilidad bajo fatiga (Garmin/Zwift)
     },
     
     weights: {
@@ -81,6 +83,7 @@ export const shadows = {
     md: '0 4px 6px rgba(0, 0, 0, 0.4)',
     lg: '0 10px 15px rgba(0, 0, 0, 0.5)',
     glow: (color) => `0 0 20px ${color}40`,
+    glass: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
 };
 
 export const transitions = {
@@ -95,6 +98,26 @@ export const borderRadius = {
     lg: '12px',
     xl: '16px',
     full: '9999px',
+};
+
+// Estilos premium: glassmorphism para tarjetas
+export const premiumCardStyles = {
+    background: 'linear-gradient(145deg, rgba(35, 35, 35, 0.85) 0%, rgba(20, 20, 20, 0.9) 100%)',
+    border: `1px solid ${colors.border}80`,
+    backdropFilter: 'blur(10px)',
+    WebkitBackdropFilter: 'blur(10px)',
+    boxShadow: shadows.glass,
+    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+};
+
+// Botón de conexión premium (gradiente "Energy")
+export const premiumConnectButtonStyles = {
+    background: `linear-gradient(90deg, ${colors.primary} 0%, #00f2fe 100%)`,
+    color: '#000',
+    textTransform: 'uppercase',
+    letterSpacing: '1px',
+    fontWeight: 800,
+    boxShadow: `0 0 25px ${colors.primary}40`,
 };
 
 // Estilos base reutilizables

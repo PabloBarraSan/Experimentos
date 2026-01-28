@@ -10,7 +10,10 @@ import { PowerGauge } from '../components/PowerGauge.js';
 import { ResistanceSlider } from '../components/ResistanceSlider.js';
 import { PowerChart } from '../components/PowerChart.js';
 import { GameModeButton } from './GameView.js';
-import { navigateToGame, subscribe } from '../app.js';
+import { showSaveSessionDialog } from '../components/SaveSessionDialog.js';
+import { navigateToGame, navigateTo, subscribe, updateState, AppState } from '../app.js';
+import { createSession, finishSession } from '../storage/sessions.js';
+import { calculateSessionMetrics } from '../utils/calculations.js';
 
 /**
  * Vista de entrenamiento con métricas y controles
@@ -19,32 +22,65 @@ export function TrainingView(state) {
     const { liveData, session, settings, bluetoothManager } = state;
     
     // Referencias a elementos del DOM para actualización en tiempo real
+    const SLIDER_AUTO_UPDATE_COOLDOWN_MS = 2000;
     let updateRefs = {
         speedValue: null,
         timeValue: null,
         distanceValue: null,
         caloriesValue: null,
         heartRateValue: null,
+        cadenceValue: null,
+        cadenceCard: null,
         resistanceValue: null,
+        resistanceSlider: null,
+        lastResistanceSliderInteraction: 0,
         powerGauge: null,
+        powerGaugeContainer: null,
         powerChart: null,
         chartCanvas: null,
+        metricsContainer: null,
+        heartRateCard: null,
+        pausarBtn: null,
+        pausarBtnIcon: null,
+        /** Buffer para media móvil de 3 s (potencia y cadencia) */
+        smoothBuffer: [],
     };
+    
+    const currentZoneColor = getZoneColor(liveData.power || 0, settings.ftp);
     
     // Función para actualizar los valores en el DOM
     const updateMetrics = (newState) => {
         const { liveData: newLiveData, session: newSession, settings: newSettings } = newState;
-        
-        // Calcular tiempo transcurrido
+        const now = Date.now();
+        const WINDOW_MS = 3000;
+
+        // Media móvil 3 s para Potencia y Cadencia (evitar que los números bailen)
+        const buf = updateRefs.smoothBuffer;
+        buf.push({
+            t: now,
+            power: newLiveData.power ?? 0,
+            cadence: newLiveData.cadence != null ? newLiveData.cadence : null,
+        });
+        while (buf.length && buf[0].t < now - WINDOW_MS) buf.shift();
+        const powerEntries = buf.filter((e) => typeof e.power === 'number');
+        const cadenceEntries = buf.filter((e) => e.cadence != null && typeof e.cadence === 'number');
+        const smoothedPower = powerEntries.length
+            ? Math.round(powerEntries.reduce((a, e) => a + e.power, 0) / powerEntries.length)
+            : (newLiveData.power ?? 0);
+        const smoothedCadence = cadenceEntries.length
+            ? Math.round(cadenceEntries.reduce((a, e) => a + e.cadence, 0) / cadenceEntries.length)
+            : null;
+
+        // Calcular tiempo transcurrido (descontando tiempo en pausa)
         let elapsedTime = 0;
         if (newSession.isActive && newSession.startTime) {
-            elapsedTime = Math.floor((Date.now() - newSession.startTime) / 1000);
-        } else if (newSession.elapsedTime) {
+            const pauseDuration = newSession.pauseDuration || 0;
+            const currentPauseMs = newSession.pausedAt ? (now - newSession.pausedAt) : 0;
+            elapsedTime = Math.floor((now - newSession.startTime - pauseDuration - currentPauseMs) / 1000);
+        } else if (newSession.elapsedTime != null) {
             elapsedTime = newSession.elapsedTime;
         }
-        
-        // Las métricas de potencia y zona se actualizan a través del PowerGauge
-        
+
         if (updateRefs.speedValue) {
             updateRefs.speedValue.textContent = (newLiveData.speed || 0).toFixed(1);
         }
@@ -81,16 +117,63 @@ export function TrainingView(state) {
             updateRefs.heartRateValue.textContent = newLiveData.heartRate || '--';
         }
         
+        // Cadencia: valor suavizado; si cadencia 0 o sin dato pero potencia > 25W → "Calculando..." con parpadeo
+        const showCalculando = smoothedPower > 25 && (smoothedCadence == null || smoothedCadence === 0);
+        if (updateRefs.cadenceValue) {
+            if (showCalculando) {
+                updateRefs.cadenceValue.textContent = 'Calculando...';
+                updateRefs.cadenceValue.classList.add('cadence-calculating');
+            } else {
+                updateRefs.cadenceValue.textContent = smoothedCadence != null ? String(smoothedCadence) : '--';
+                updateRefs.cadenceValue.classList.remove('cadence-calculating');
+            }
+        }
+        if (updateRefs.cadenceCard) {
+            updateRefs.cadenceCard.style.opacity = '1';
+        }
+
+        // Actualizar borde de zona en tarjetas de métricas (usar potencia suavizada)
+        if (updateRefs.metricsContainer) {
+            const zoneColor = getZoneColor(smoothedPower, newSettings.ftp);
+            const cards = updateRefs.metricsContainer.querySelectorAll(':scope > div');
+            cards.forEach(card => { card.style.borderLeft = `4px solid ${zoneColor}`; });
+        }
+        // Botón Pausa/Reanudar: actualizar aspecto según isPaused
+        if (updateRefs.pausarBtn && updateRefs.pausarBtnIcon && newSession.isPaused !== undefined) {
+            updateRefs.pausarBtn.style.backgroundColor = newSession.isPaused ? colors.success : colors.warning;
+            updateRefs.pausarBtn.title = newSession.isPaused ? 'Reanudar' : 'Pausar';
+            const newIcon = icon(newSession.isPaused ? 'play' : 'pause', 20, colors.background);
+            updateRefs.pausarBtnIcon.innerHTML = newIcon.innerHTML;
+        }
+        // FC: atenuar si no hay sensor conectado
+        if (updateRefs.heartRateCard) {
+            const hasHR = newLiveData.heartRate != null && newLiveData.heartRate !== '';
+            updateRefs.heartRateCard.style.opacity = hasHR ? '1' : '0.5';
+            updateRefs.heartRateCard.style.filter = hasHR ? 'none' : 'brightness(0.85)';
+        }
+        
         if (updateRefs.resistanceValue) {
             updateRefs.resistanceValue.textContent = `${Math.round(newLiveData.resistance || 0)}%`;
         }
-        
-        // Actualizar gauge de potencia (re-renderizar cada segundo para mejor rendimiento)
-        const now = Date.now();
+        // ResistanceSlider: no mover automáticamente si el usuario ha interactuado en los últimos 2 s (evita feedback loop del servo)
+        if (updateRefs.resistanceSlider && typeof updateRefs.resistanceSlider.setValue === 'function') {
+            const lastInteraction = updateRefs.lastResistanceSliderInteraction || 0;
+            if (now - lastInteraction >= SLIDER_AUTO_UPDATE_COOLDOWN_MS) {
+                updateRefs.resistanceSlider.setValue(newLiveData.resistance ?? 0);
+            }
+        }
+        // UI Feedback: esfuerzo máximo si potencia > 400 W (glow rojo en contenedor del PowerGauge)
+        if (updateRefs.powerGaugeContainer) {
+            updateRefs.powerGaugeContainer.style.boxShadow = smoothedPower > 400
+                ? shadows.glow(colors.error)
+                : '';
+        }
+
+        // Actualizar gauge de potencia con valor suavizado (re-renderizar cada segundo)
         if (!updateRefs.lastGaugeUpdate || now - updateRefs.lastGaugeUpdate > 1000) {
             if (updateRefs.powerGauge && updateRefs.powerGauge.parentElement) {
                 const newGauge = PowerGauge({
-                    power: newLiveData.power || 0,
+                    power: smoothedPower,
                     ftp: newSettings.ftp,
                     maxPower: newSettings.ftp * 2,
                 });
@@ -136,10 +219,10 @@ export function TrainingView(state) {
         width: '100%',
     };
     
-    // === Sección principal de métricas ===
+    // === Sección principal de métricas (responsive: auto-fit 140px) ===
     const mainMetricsStyles = {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
         gap: spacing.md,
     };
     
@@ -176,20 +259,25 @@ export function TrainingView(state) {
         attrs: { 'data-view': 'training' }
     });
     
-    // Añadir estilos responsive
+    // Añadir estilos responsive + modo paisaje (móvil en manillar)
     const responsiveStyles = createElement('style', {
         text: `
-            @media (max-width: 1024px) {
-                [data-view="training"] .secondary-metrics {
-                    grid-template-columns: repeat(3, 1fr) !important;
-                }
+            @keyframes cadence-blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.45; }
+            }
+            [data-view="training"] .cadence-calculating {
+                animation: cadence-blink 1s ease-in-out infinite;
+            }
+            [data-view="training"] .secondary-metrics {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
             }
             @media (max-width: 768px) {
                 [data-view="training"] {
                     padding: ${spacing.md} !important;
                 }
                 [data-view="training"] .secondary-metrics {
-                    grid-template-columns: repeat(3, 1fr) !important;
+                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
                 }
                 [data-view="training"] .action-buttons {
                     grid-template-columns: repeat(3, 1fr) !important;
@@ -197,10 +285,24 @@ export function TrainingView(state) {
             }
             @media (max-width: 480px) {
                 [data-view="training"] .secondary-metrics {
-                    grid-template-columns: repeat(2, 1fr) !important;
+                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+                }
+            }
+            @media (orientation: landscape) and (max-height: 500px) {
+                [data-view="training"] {
+                    flex-direction: row !important;
+                    flex-wrap: wrap !important;
+                    padding: ${spacing.sm} !important;
+                    gap: ${spacing.sm} !important;
+                }
+                [data-view="training"] .secondary-metrics {
+                    order: 1;
+                    flex: 1 1 100%;
+                    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important;
                 }
                 [data-view="training"] .action-buttons {
-                    grid-template-columns: repeat(3, 1fr) !important;
+                    order: 2;
+                    flex: 0 0 auto;
                 }
             }
         `
@@ -221,26 +323,29 @@ export function TrainingView(state) {
         },
         children: [powerGaugeElement]
     });
+    updateRefs.powerGaugeContainer = powerSection;
     container.appendChild(powerSection);
     
     // Velocidad y Tiempo se crearán más abajo junto con las otras métricas secundarias
     
-    // === BOTONES DE ACCIÓN (solo iconos, compactos para una fila) ===
+    // === BOTONES DE ACCIÓN (altura 56px para uso táctil bajo fatiga) ===
     const iconButtonStyles = {
         ...baseStyles.button,
         padding: `${spacing.xs} ${spacing.sm}`,
         minWidth: 'auto',
         width: '100%',
-        height: '44px',
-        minHeight: '44px',
-        maxHeight: '44px',
+        height: '56px',
+        minHeight: '56px',
+        maxHeight: '56px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
         transition: transitions.normal,
         border: 'none',
-        borderRadius: baseStyles.button.borderRadius,
+        borderRadius: '16px',
+        fontSize: '18px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
     };
     
     const reiniciarBtn = button({
@@ -263,23 +368,25 @@ export function TrainingView(state) {
         }
     });
     
+    const pausarBtnIcon = icon(session.isPaused ? 'play' : 'pause', 20, colors.background);
     const pausarBtn = button({
         styles: {
             ...iconButtonStyles,
             backgroundColor: session.isPaused ? colors.success : colors.warning,
             color: colors.background,
         },
-        children: [
-            icon(session.isPaused ? 'play' : 'pause', 20, colors.background),
-        ],
+        children: [pausarBtnIcon],
         attrs: { title: session.isPaused ? 'Reanudar' : 'Pausar' },
         events: {
             click: async () => {
                 try {
                     if (session.isPaused) {
                         await bluetoothManager.startTraining();
+                        const pauseDuration = (AppState.session.pauseDuration || 0) + (Date.now() - (AppState.session.pausedAt || Date.now()));
+                        updateState({ session: { ...AppState.session, isPaused: false, pauseDuration, pausedAt: null } });
                     } else {
                         await bluetoothManager.stopTraining();
+                        updateState({ session: { ...AppState.session, isPaused: true, pausedAt: Date.now() } });
                     }
                 } catch (error) {
                     console.error('Error:', error);
@@ -287,6 +394,8 @@ export function TrainingView(state) {
             }
         }
     });
+    updateRefs.pausarBtn = pausarBtn;
+    updateRefs.pausarBtnIcon = pausarBtnIcon;
     
     const finalizarBtn = button({
         styles: {
@@ -297,12 +406,81 @@ export function TrainingView(state) {
         children: [
             icon('stop', 20, colors.background),
         ],
-        attrs: { title: 'Finalizar' },
+        attrs: { title: 'Finalizar entrenamiento (mantiene conexión)' },
         events: {
-            click: () => {
-                if (confirm('¿Seguro que quieres finalizar el entrenamiento?')) {
-                    bluetoothManager.disconnect();
+            click: async () => {
+                const duration = AppState.session.elapsedTime || 0;
+                const MIN_DURATION_SECONDS = 60; // 1 minuto mínimo
+                
+                // Si es muy corto, descartar automáticamente sin preguntar
+                if (duration < MIN_DURATION_SECONDS) {
+                    updateState({
+                        session: {
+                            isActive: false,
+                            isPaused: false,
+                            startTime: null,
+                            elapsedTime: 0,
+                            dataPoints: [],
+                            accumulatedDistance: 0,
+                            pauseDuration: 0,
+                            pausedAt: null,
+                        },
+                    });
+                    navigateTo('home');
+                    return;
                 }
+                
+                // Calcular métricas antes de mostrar el diálogo
+                const metrics = calculateSessionMetrics({
+                    dataPoints: AppState.session.dataPoints,
+                    duration: duration,
+                }, settings.ftp);
+                
+                // Mostrar diálogo de guardado
+                const result = await showSaveSessionDialog({
+                    session: AppState.session,
+                    metrics,
+                    ftp: settings.ftp,
+                    onCancel: () => {}, // Permitir volver al entreno
+                });
+                
+                if (result.cancelled) {
+                    // Usuario quiere volver al entrenamiento
+                    return;
+                }
+                
+                if (result.saved) {
+                    // Guardar sesión en IndexedDB
+                    try {
+                        const sessionToSave = createSession({
+                            workoutName: result.workoutName,
+                            ftp: settings.ftp,
+                        });
+                        sessionToSave.dataPoints = [...AppState.session.dataPoints];
+                        sessionToSave.startTime = AppState.session.startTime;
+                        
+                        await finishSession(sessionToSave, metrics);
+                        console.log('✅ Sesión guardada:', result.workoutName);
+                    } catch (error) {
+                        console.error('Error guardando sesión:', error);
+                        alert('Error al guardar la sesión. Los datos no se han perdido.');
+                    }
+                }
+                
+                // Resetear sesión y navegar a home
+                updateState({
+                    session: {
+                        isActive: false,
+                        isPaused: false,
+                        startTime: null,
+                        elapsedTime: 0,
+                        dataPoints: [],
+                        accumulatedDistance: 0,
+                        pauseDuration: 0,
+                        pausedAt: null,
+                    },
+                });
+                navigateTo('home');
             }
         }
     });
@@ -319,8 +497,56 @@ export function TrainingView(state) {
         });
     });
     
-    // === MÉTRICAS SECUNDARIAS (Distancia, Calorías, FC, Velocidad, Tiempo) ===
-    // Usar distancia calculada si el dispositivo no la soporta
+    // === MÉTRICAS SECUNDARIAS (Cadencia primero, luego Tiempo, Velocidad, Distancia, FC, Calorías) ===
+    // zoneColor e isStale/dimmed para coherencia visual tipo Garmin
+    const cadenceCard = MetricCard({
+        label: 'Cadencia',
+        value: liveData.cadence != null ? Math.round(liveData.cadence) : '--',
+        unit: 'rpm',
+        icon: 'cadence',
+        color: colors.primary,
+        size: 'small',
+        zoneColor: currentZoneColor,
+    });
+    updateRefs.cadenceCard = cadenceCard;
+    const cadenceDivs = cadenceCard.querySelectorAll('div');
+    if (cadenceDivs.length >= 3) {
+        const valueContainer = cadenceDivs[cadenceDivs.length - 1];
+        const valueSpan = valueContainer.querySelector('span:first-child');
+        if (valueSpan) updateRefs.cadenceValue = valueSpan;
+    }
+    
+    const timeCard = MetricCard({
+        label: 'Tiempo',
+        value: formatTime(session.elapsedTime || liveData.elapsedTime || 0),
+        icon: 'clock',
+        color: colors.textMuted,
+        size: 'small',
+        zoneColor: currentZoneColor,
+    });
+    const timeDivs = timeCard.querySelectorAll('div');
+    if (timeDivs.length >= 3) {
+        const valueContainer = timeDivs[timeDivs.length - 1];
+        const valueSpan = valueContainer.querySelector('span:first-child');
+        if (valueSpan) updateRefs.timeValue = valueSpan;
+    }
+    
+    const speedCard = MetricCard({
+        label: 'Velocidad',
+        value: (liveData.speed || 0).toFixed(1),
+        unit: 'km/h',
+        icon: 'speedometer',
+        color: colors.primary,
+        size: 'small',
+        zoneColor: currentZoneColor,
+    });
+    const speedDivs = speedCard.querySelectorAll('div');
+    if (speedDivs.length >= 3) {
+        const valueContainer = speedDivs[speedDivs.length - 1];
+        const valueSpan = valueContainer.querySelector('span:first-child');
+        if (valueSpan) updateRefs.speedValue = valueSpan;
+    }
+    
     const distanceSupported = state.deviceCapabilities?.totalDistanceSupported !== false;
     let distanceValue = liveData.distance;
     if ((distanceValue === undefined || distanceValue === null || !distanceSupported) && 
@@ -333,17 +559,35 @@ export function TrainingView(state) {
     const distanceCard = MetricCard({
         label: 'Distancia',
         value: distanceDisplay,
-        icon: 'bike',
+        icon: 'route',
         color: colors.textMuted,
         size: 'small',
+        zoneColor: currentZoneColor,
     });
     const distanceDivs = distanceCard.querySelectorAll('div');
     if (distanceDivs.length >= 3) {
         const valueContainer = distanceDivs[distanceDivs.length - 1];
         const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) {
-            updateRefs.distanceValue = valueSpan;
-        }
+        if (valueSpan) updateRefs.distanceValue = valueSpan;
+    }
+    
+    const hasHeartRate = liveData.heartRate != null && liveData.heartRate !== '';
+    const heartRateCard = MetricCard({
+        label: 'FC',
+        value: liveData.heartRate || '--',
+        unit: hasHeartRate ? 'bpm' : '',
+        icon: 'activity',
+        color: colors.error,
+        size: 'small',
+        zoneColor: currentZoneColor,
+        dimmed: !hasHeartRate,
+    });
+    updateRefs.heartRateCard = heartRateCard;
+    const heartRateDivs = heartRateCard.querySelectorAll('div');
+    if (heartRateDivs.length >= 3) {
+        const valueContainer = heartRateDivs[heartRateDivs.length - 1];
+        const valueSpan = valueContainer.querySelector('span:first-child');
+        if (valueSpan) updateRefs.heartRateValue = valueSpan;
     }
     
     const caloriesCard = MetricCard({
@@ -353,76 +597,25 @@ export function TrainingView(state) {
         icon: 'flame',
         color: colors.accent,
         size: 'small',
+        zoneColor: currentZoneColor,
     });
     const caloriesDivs = caloriesCard.querySelectorAll('div');
     if (caloriesDivs.length >= 3) {
         const valueContainer = caloriesDivs[caloriesDivs.length - 1];
         const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) {
-            updateRefs.caloriesValue = valueSpan;
-        }
+        if (valueSpan) updateRefs.caloriesValue = valueSpan;
     }
     
-    const heartRateCard = MetricCard({
-        label: 'FC',
-        value: liveData.heartRate || '--',
-        unit: liveData.heartRate ? 'bpm' : '',
-        icon: 'activity',
-        color: colors.error,
-        size: 'small',
-    });
-    const heartRateDivs = heartRateCard.querySelectorAll('div');
-    if (heartRateDivs.length >= 3) {
-        const valueContainer = heartRateDivs[heartRateDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) {
-            updateRefs.heartRateValue = valueSpan;
-        }
-    }
-    
-    const speedCard = MetricCard({
-        label: 'Velocidad',
-        value: (liveData.speed || 0).toFixed(1),
-        unit: 'km/h',
-        icon: 'gauge',
-        color: colors.primary,
-        size: 'small',
-    });
-    const speedDivs = speedCard.querySelectorAll('div');
-    if (speedDivs.length >= 3) {
-        const valueContainer = speedDivs[speedDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) {
-            updateRefs.speedValue = valueSpan;
-        }
-    }
-    
-    const timeCard = MetricCard({
-        label: 'Tiempo',
-        value: formatTime(session.elapsedTime || liveData.elapsedTime || 0),
-        icon: 'clock',
-        color: colors.textMuted,
-        size: 'small',
-    });
-    const timeDivs = timeCard.querySelectorAll('div');
-    if (timeDivs.length >= 3) {
-        const valueContainer = timeDivs[timeDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) {
-            updateRefs.timeValue = valueSpan;
-        }
-    }
-    
-    // Grid con todas las métricas secundarias (5 elementos)
+    // Grid responsive: repeat(auto-fit, minmax(140px, 1fr))
     const secondaryMetrics = div({
         styles: {
             ...mainMetricsStyles,
-            gridTemplateColumns: 'repeat(5, 1fr)',
             marginBottom: spacing.lg,
         },
         attrs: { class: 'secondary-metrics' },
-        children: [distanceCard, caloriesCard, heartRateCard, speedCard, timeCard]
+        children: [cadenceCard, timeCard, speedCard, distanceCard, heartRateCard, caloriesCard]
     });
+    updateRefs.metricsContainer = secondaryMetrics;
     container.appendChild(secondaryMetrics);
     
     // === BOTONES DE ACCIÓN (3 columnas, solo iconos: Reiniciar, Pausar, Finalizar) ===
@@ -467,16 +660,21 @@ export function TrainingView(state) {
                     })(),
                 ]
             }),
-            ResistanceSlider({
-                value: liveData.resistance || 50,
-                onChange: async (value) => {
-                    try {
-                        await bluetoothManager.setResistance(value);
-                    } catch (error) {
-                        console.error('Error al cambiar resistencia:', error);
+            (() => {
+                const sliderEl = ResistanceSlider({
+                    value: liveData.resistance || 50,
+                    onChange: async (value) => {
+                        updateRefs.lastResistanceSliderInteraction = Date.now();
+                        try {
+                            await bluetoothManager.setResistance(value);
+                        } catch (error) {
+                            console.error('Error al cambiar resistencia:', error);
+                        }
                     }
-                }
-            }),
+                });
+                updateRefs.resistanceSlider = sliderEl;
+                return sliderEl;
+            })(),
             // Botón de Modo Juego
             div({
                 styles: {

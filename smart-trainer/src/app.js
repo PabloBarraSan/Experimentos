@@ -6,6 +6,7 @@
 import { colors, spacing, typography, baseStyles, borderRadius, transitions } from './utils/theme.js';
 import { createElement, div, render, icon } from './utils/dom.js';
 import { BluetoothManager, CONNECTION_STATE } from './bluetooth/scanner.js';
+import { HeartRateManager, HR_CONNECTION_STATE } from './bluetooth/heartRate.js';
 import { HomeView } from './views/HomeView.js';
 import { TrainingView } from './views/TrainingView.js';
 import { GameView } from './views/GameView.js';
@@ -20,6 +21,12 @@ const AppState = {
     deviceCapabilities: null, // Capacidades del dispositivo
     lastDataUpdateTimestamp: null, // Timestamp de la última actualización de datos
     
+    // Heart Rate Monitor (pulsómetro separado)
+    heartRateManager: null,
+    hrConnectionState: HR_CONNECTION_STATE.DISCONNECTED,
+    hrDeviceName: null,
+    hrSensorLocation: null,
+    
     // Datos en tiempo real del rodillo
     liveData: {
         power: 0,
@@ -31,7 +38,7 @@ const AppState = {
         resistance: 0,
     },
     
-    // Datos de la sesión actual
+    // Datos de la sesión actual (solo activa al entrar en modo Entrenamiento, no al conectar)
     session: {
         isActive: false,
         isPaused: false,
@@ -39,6 +46,8 @@ const AppState = {
         elapsedTime: 0,
         dataPoints: [],
         accumulatedDistance: 0, // Distancia acumulada calculada desde velocidad
+        pauseDuration: 0,       // ms totales en pausa (para que el tiempo no cuente)
+        pausedAt: null,         // timestamp al pausar; null si no está pausado
     },
     
     // Configuración del usuario
@@ -76,41 +85,49 @@ export function updateState(updates) {
 }
 
 /**
+ * Actualizar distancia acumulada a partir de velocidad (cuando el rodillo no envía distancia).
+ * @param {number} speedKmh - Velocidad en km/h
+ * @param {number} timeStepSeconds - Intervalo de tiempo en segundos
+ */
+export function updateDistance(speedKmh, timeStepSeconds) {
+    if (speedKmh > 0 && timeStepSeconds > 0) {
+        const speedMs = speedKmh / 3.6; // km/h → m/s
+        const addedDistance = speedMs * timeStepSeconds;
+        if (AppState.session.accumulatedDistance === undefined) {
+            AppState.session.accumulatedDistance = 0;
+        }
+        AppState.session.accumulatedDistance += addedDistance;
+    }
+}
+
+/**
  * Actualizar datos en tiempo real
  */
 export function updateLiveData(data) {
     const now = Date.now();
-    const previousData = { ...AppState.liveData };
     const previousTimestamp = AppState.lastDataUpdateTimestamp || now;
-    
+
     Object.assign(AppState.liveData, data);
     AppState.lastDataUpdateTimestamp = now;
-    
-    // Actualizar tiempo transcurrido si la sesión está activa
+
+    // Actualizar tiempo transcurrido si la sesión está activa (descontando tiempo en pausa)
     if (AppState.session.isActive && AppState.session.startTime) {
-        AppState.session.elapsedTime = Math.floor((Date.now() - AppState.session.startTime) / 1000);
+        const pauseDuration = AppState.session.pauseDuration || 0;
+        const currentPauseMs = AppState.session.pausedAt ? (now - AppState.session.pausedAt) : 0;
+        const totalPauseMs = pauseDuration + currentPauseMs;
+        AppState.session.elapsedTime = Math.floor((now - AppState.session.startTime - totalPauseMs) / 1000);
     }
     
-    // Calcular distancia acumulada si no viene del dispositivo pero tenemos velocidad
+    // Distancia: si el parser D100 devuelve distance undefined, forzamos cálculo exacto: distancia += (velocidad/3.6) * (delta_ms/1000)
     if (AppState.session.isActive && !AppState.session.isPaused) {
-        // Calcular distancia basada en velocidad si no está disponible del dispositivo
         if (AppState.liveData.distance === undefined || AppState.liveData.distance === null) {
-            // Inicializar distancia acumulada si no existe
-            if (AppState.session.accumulatedDistance === undefined) {
-                AppState.session.accumulatedDistance = 0;
-            }
-            
-            // Calcular distancia desde la última actualización (en metros)
-            // velocidad está en km/h, convertir a m/s: km/h * 1000/3600 = m/s
-            const timeDelta = (now - previousTimestamp) / 1000; // segundos
-            if (timeDelta > 0 && AppState.liveData.speed > 0) {
-                const speedMs = (AppState.liveData.speed * 1000) / 3600; // m/s
-                const distanceDelta = speedMs * timeDelta; // metros
-                AppState.session.accumulatedDistance += distanceDelta;
+            const delta_ms = now - previousTimestamp;
+            const timeDeltaSeconds = delta_ms / 1000;
+            updateDistance(AppState.liveData.speed || 0, timeDeltaSeconds);
+            if (AppState.session.accumulatedDistance !== undefined) {
                 AppState.liveData.distance = Math.round(AppState.session.accumulatedDistance);
             }
         } else {
-            // Si el dispositivo envía distancia, usar esa y resetear la acumulada
             AppState.session.accumulatedDistance = AppState.liveData.distance;
         }
         
@@ -121,10 +138,6 @@ export function updateLiveData(data) {
                 timestamp: now,
                 ...AppState.liveData,
             });
-            // Limitar a los últimos 5 minutos de datos (300 puntos a 1 por segundo)
-            if (AppState.session.dataPoints.length > 300) {
-                AppState.session.dataPoints.shift();
-            }
             
             // Calcular calorías basadas en la potencia acumulada
             if (AppState.session.dataPoints.length > 0) {
@@ -150,6 +163,17 @@ export function getState() {
  */
 export function navigateTo(viewName) {
     AppState.currentView = viewName;
+    // Iniciar sesión de entrenamiento solo al entrar en la vista Entrenamiento (no al conectar)
+    if (viewName === 'training' && AppState.connectionState === CONNECTION_STATE.CONNECTED && !AppState.session.isActive) {
+        AppState.session.isActive = true;
+        AppState.session.isPaused = false;
+        AppState.session.startTime = Date.now();
+        AppState.session.elapsedTime = 0;
+        AppState.session.dataPoints = [];
+        AppState.session.accumulatedDistance = 0;
+        AppState.session.pauseDuration = 0;
+        AppState.session.pausedAt = null;
+    }
     renderApp();
 }
 
@@ -220,6 +244,30 @@ function renderHeader() {
         }
     });
     
+    // Estado del pulsómetro
+    const isHRConnected = AppState.hrConnectionState === HR_CONNECTION_STATE.CONNECTED;
+    const hrIndicator = isHRConnected ? div({
+        styles: {
+            ...baseStyles.flexCenter,
+            gap: '4px',
+            padding: '2px 8px',
+            backgroundColor: 'rgba(255, 82, 82, 0.15)',
+            borderRadius: borderRadius.full,
+            marginLeft: spacing.sm,
+        },
+        children: [
+            icon('heart', 14, '#ff5252'),
+            createElement('span', { 
+                text: AppState.liveData.heartRate || '--', 
+                styles: { 
+                    color: '#ff5252', 
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.semibold,
+                } 
+            }),
+        ]
+    }) : null;
+    
     return div({
         styles: headerStyles,
         children: [
@@ -231,11 +279,33 @@ function renderHeader() {
                 ]
             }),
             div({
-                styles: statusStyles,
+                styles: {
+                    ...statusStyles,
+                    gap: spacing.md,
+                },
                 children: [
-                    statusDot,
-                    createElement('span', { text: status.text, styles: { color: status.color } }),
-                ]
+                    // HR indicator (si conectado)
+                    hrIndicator,
+                    // Separador visual si hay HR
+                    isHRConnected ? div({
+                        styles: {
+                            width: '1px',
+                            height: '20px',
+                            backgroundColor: colors.border,
+                        }
+                    }) : null,
+                    // Estado del rodillo
+                    div({
+                        styles: {
+                            ...baseStyles.flexCenter,
+                            gap: spacing.xs,
+                        },
+                        children: [
+                            statusDot,
+                            createElement('span', { text: status.text, styles: { color: status.color } }),
+                        ]
+                    }),
+                ].filter(Boolean)
             }),
         ]
     });
@@ -355,17 +425,10 @@ async function init() {
             if (AppState.bluetoothManager && AppState.bluetoothManager.capabilities) {
                 AppState.deviceCapabilities = AppState.bluetoothManager.capabilities;
             }
-            // Iniciar sesión cuando se conecta el dispositivo
-            AppState.session.isActive = true;
-            AppState.session.isPaused = false;
-            AppState.session.startTime = Date.now();
-            AppState.session.elapsedTime = 0;
-            AppState.session.dataPoints = [];
-            AppState.session.accumulatedDistance = 0;
+            // No iniciar sesión aquí: los datos en vivo (liveData) se actualizan al conectar,
+            // pero la sesión (tiempo, distancia, gráfico) solo empieza al entrar en "Entrenamiento".
             AppState.lastDataUpdateTimestamp = Date.now();
             notify();
-            // No navegar automáticamente - permitir que el usuario elija entre entrenamiento y modo juego
-            // navigateTo('training');
         },
         onDeviceDisconnected: () => {
             AppState.deviceName = null;
@@ -379,6 +442,35 @@ async function init() {
         },
         onDataReceived: (data) => {
             updateLiveData(data);
+        },
+    });
+    
+    // Crear instancia del gestor Heart Rate (pulsómetro)
+    AppState.heartRateManager = new HeartRateManager({
+        onStateChange: (state) => {
+            AppState.hrConnectionState = state;
+            notify();
+            renderApp();
+        },
+        onDeviceConnected: (deviceName, sensorLocation) => {
+            AppState.hrDeviceName = deviceName;
+            AppState.hrSensorLocation = sensorLocation;
+            AppState.hrConnectionState = HR_CONNECTION_STATE.CONNECTED;
+            notify();
+        },
+        onDeviceDisconnected: () => {
+            AppState.hrDeviceName = null;
+            AppState.hrSensorLocation = null;
+            AppState.hrConnectionState = HR_CONNECTION_STATE.DISCONNECTED;
+            // No resetear HR a 0 inmediatamente para evitar parpadeo
+            notify();
+        },
+        onHeartRateReceived: (data) => {
+            // Actualizar HR en liveData
+            if (data.heartRate !== undefined) {
+                AppState.liveData.heartRate = data.heartRate;
+                notify();
+            }
         },
     });
     
@@ -403,6 +495,17 @@ async function init() {
     subscribe(() => {
         // Solo re-renderizar componentes específicos, no toda la app
         // Esto se optimizará más adelante
+    });
+    
+    // Mantener sesión correcta al volver de segundo plano: recalcular tiempo y notificar
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        if (!AppState.session.isActive || !AppState.session.startTime) return;
+        const now = Date.now();
+        const pauseDuration = AppState.session.pauseDuration || 0;
+        const currentPauseMs = AppState.session.pausedAt ? (now - AppState.session.pausedAt) : 0;
+        AppState.session.elapsedTime = Math.floor((now - AppState.session.startTime - pauseDuration - currentPauseMs) / 1000);
+        notify();
     });
     
     console.log('✅ Smart Trainer Controller listo');
@@ -439,4 +542,4 @@ if (document.readyState === 'loading') {
 }
 
 // Exportar funciones para uso externo
-export { AppState, renderApp };
+export { AppState, renderApp, HR_CONNECTION_STATE };

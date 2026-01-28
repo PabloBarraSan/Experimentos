@@ -67,7 +67,7 @@ export function jumpCyclist(cyclist) {
 export function getCyclistHitbox(cyclist, baseY) {
     const width = cyclist.isDucking ? 50 : 40;
     const height = cyclist.isDucking ? 30 : 50;
-    const y = baseY - cyclist.y - height;
+    const y = baseY + cyclist.y - height;
     
     return {
         x: cyclist.x - width / 2,
@@ -82,7 +82,7 @@ export function getCyclistHitbox(cyclist, baseY) {
  */
 export function renderCyclist(ctx, cyclist, baseY, isTurbo = false) {
     const x = cyclist.x;
-    const y = baseY - cyclist.y;
+    const y = baseY + cyclist.y;
     
     ctx.save();
     ctx.translate(x, y);

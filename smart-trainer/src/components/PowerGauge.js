@@ -50,7 +50,7 @@ export function PowerGauge({ power = 0, ftp = 200, maxPower = 400 }) {
     };
     
     const powerValueStyles = {
-        fontSize: typography.sizes.metric,
+        fontSize: typography.sizes.metricHero,
         fontWeight: typography.weights.bold,
         color: colors.text,
         fontFamily: typography.fontMono,
@@ -115,20 +115,23 @@ export function PowerGauge({ power = 0, ftp = 200, maxPower = 400 }) {
     ftpMarker.setAttribute('fill', colors.warning);
     svg.appendChild(ftpMarker);
     
-    // Labels de watts
+    // Labels de watts (más grandes para legibilidad)
     const minLabel = document.createElementNS(svgNS, 'text');
     minLabel.setAttribute('x', '5');
     minLabel.setAttribute('y', '54');
-    minLabel.setAttribute('fill', colors.textDark);
-    minLabel.setAttribute('font-size', '6');
+    minLabel.setAttribute('fill', colors.text);
+    minLabel.setAttribute('font-size', '10');
+    minLabel.setAttribute('font-weight', '600');
     minLabel.textContent = '0';
     svg.appendChild(minLabel);
     
     const maxLabel = document.createElementNS(svgNS, 'text');
-    maxLabel.setAttribute('x', '88');
+    maxLabel.setAttribute('x', '85');
     maxLabel.setAttribute('y', '54');
-    maxLabel.setAttribute('fill', colors.textDark);
-    maxLabel.setAttribute('font-size', '6');
+    maxLabel.setAttribute('fill', colors.text);
+    maxLabel.setAttribute('font-size', '10');
+    maxLabel.setAttribute('font-weight', '600');
+    maxLabel.setAttribute('text-anchor', 'end');
     maxLabel.textContent = maxPower;
     svg.appendChild(maxLabel);
     

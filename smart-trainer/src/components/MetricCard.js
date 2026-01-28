@@ -3,7 +3,7 @@
  * Smart Trainer Controller
  */
 
-import { colors, spacing, typography, baseStyles, borderRadius, shadows } from '../utils/theme.js';
+import { colors, spacing, typography, baseStyles, borderRadius, shadows, transitions } from '../utils/theme.js';
 import { createElement, div, icon as createIcon } from '../utils/dom.js';
 
 /**
@@ -15,8 +15,11 @@ import { createElement, div, icon as createIcon } from '../utils/dom.js';
  * @param {string} props.icon - Nombre del icono (opcional)
  * @param {string} props.color - Color de acento
  * @param {string} props.size - 'small', 'medium', 'large'
+ * @param {string} props.zoneColor - Color de zona de potencia (borde izquierdo)
+ * @param {boolean} props.isStale - Si el dato está congelado (efecto scale sutil)
+ * @param {boolean} props.dimmed - Estado atenuado (ej. FC sin sensor)
  */
-export function MetricCard({ label, value, unit = '', icon, color = colors.primary, size = 'medium' }) {
+export function MetricCard({ label, value, unit = '', icon, color = colors.primary, size = 'medium', zoneColor, isStale = false, dimmed = false }) {
     const sizes = {
         small: {
             padding: spacing.md,
@@ -54,6 +57,10 @@ export function MetricCard({ label, value, unit = '', icon, color = colors.prima
         minWidth: size === 'large' ? '200px' : '120px',
         position: 'relative',
         overflow: 'hidden',
+        transition: 'all 0.2s ease-out',
+        transform: isStale ? 'scale(0.98)' : 'scale(1)',
+        ...(zoneColor ? { borderLeft: `4px solid ${zoneColor}` } : {}),
+        ...(dimmed ? { opacity: 0.5, filter: 'brightness(0.85)' } : {}),
     };
     
     const glowStyles = {

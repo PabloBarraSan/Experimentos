@@ -175,6 +175,12 @@ export function icon(name, size = 24, color = 'currentColor') {
         chevronRight: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
             <polyline points="9 18 15 12 9 6"/>
         </svg>`,
+        chevronUp: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
+            <polyline points="18 15 12 9 6 15"/>
+        </svg>`,
+        chevronDown: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"/>
+        </svg>`,
         
         flame: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}">
             <path d="M12 2c1 3-2 5-2 8a4 4 0 0 0 8 0c0-3-2-5-3-7 0 3-3 4-3 4s-1-2 0-5z"/>
@@ -185,11 +191,43 @@ export function icon(name, size = 24, color = 'currentColor') {
             <path d="M12 12l4-4"/>
             <circle cx="12" cy="12" r="2"/>
         </svg>`,
+        /** Velocímetro (para Velocidad) - mismo que gauge */
+        speedometer: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
+            <path d="M12 2a10 10 0 1 0 10 10"/>
+            <path d="M12 12l4-4"/>
+            <circle cx="12" cy="12" r="2"/>
+        </svg>`,
+        /** Ruta / distancia (para Distancia) */
+        route: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
+            <circle cx="6" cy="18" r="3"/>
+            <circle cx="18" cy="6" r="3"/>
+            <path d="M9 18l3-9 6 3"/>
+        </svg>`,
+        /** Cadencia (rpm) */
+        cadence: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
+            <circle cx="12" cy="12" r="8"/>
+            <path d="M12 6v6l4 2"/>
+            <path d="M12 4v2M12 18v2M4 12h2M18 12h2"/>
+        </svg>`,
         
         download: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>`,
+        
+        lock: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>`,
+        
+        heart: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="${color}" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+        </svg>`,
+        
+        heartPulse: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2">
+            <path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"/>
+            <path d="M12 6l-1 4l2.5 3l2.5 -3l-1 -4"/>
         </svg>`,
     };
     

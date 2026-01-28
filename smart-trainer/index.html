@@ -6,6 +6,9 @@
     <meta name="theme-color" content="#0a0a0a">
     <meta name="description" content="Controlador para rodillo de entrenamiento Decathlon D100">
     <title>Smart Trainer Controller</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚴</text></svg>">
     <style>
@@ -27,6 +30,57 @@
         #app {
             width: 100%;
             min-height: 100%;
+        }
+        
+        /* Vista Home: fondo ambiental animado */
+        .home-view-bg {
+            position: relative;
+            min-height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 212, 170, 0.05) 0%, rgba(10, 10, 10, 1) 70%);
+            background-size: 200% 200%;
+            animation: ambientBgPulse 10s ease infinite;
+        }
+        @keyframes ambientBgPulse {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 170, 0.4); opacity: 1; }
+            50% { box-shadow: 0 0 35px rgba(0, 212, 170, 0.6); opacity: 0.9; }
+        }
+        /* Cards: overlay de rejilla técnica */
+        .card-grid-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.08;
+            background-image: linear-gradient(rgba(0, 212, 170, 0.15) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 212, 170, 0.15) 1px, transparent 1px);
+            background-size: 20px 20px;
+            border-radius: inherit;
+        }
+        /* Cards desbloqueadas: "encendidas" */
+        .card-unlocked {
+            animation: cardUnlockedGlow 0.6s ease-out forwards;
+            box-shadow: 0 0 28px rgba(0, 212, 170, 0.35), 0 8px 32px rgba(0, 0, 0, 0.4);
+            border-color: rgba(0, 212, 170, 0.5) !important;
+        }
+        @keyframes cardUnlockedGlow {
+            from { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
+            to { box-shadow: 0 0 28px rgba(0, 212, 170, 0.35), 0 8px 32px rgba(0, 0, 0, 0.4); }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes connectButtonShine {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        .connect-btn-pro {
+            background: linear-gradient(90deg, #00d4aa 0%, #00f2fe 25%, #00d4aa 50%, #00f2fe 75%, #00d4aa 100%) !important;
+            background-size: 200% 100% !important;
+            animation: connectButtonShine 5s ease-in-out infinite;
         }
         
         /* Scrollbar personalizado */

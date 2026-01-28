@@ -3,12 +3,12 @@
  * Smart Trainer Controller
  */
 
-import { colors, spacing, typography, baseStyles, borderRadius, transitions, shadows } from '../utils/theme.js';
+import { colors, spacing, typography, baseStyles, borderRadius, transitions, shadows, premiumCardStyles, premiumConnectButtonStyles } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
-import { checkBluetoothSupport } from '../bluetooth/scanner.js';
+import { checkBluetoothSupport, CONNECTION_STATE } from '../bluetooth/scanner.js';
+import { HR_CONNECTION_STATE } from '../bluetooth/heartRate.js';
 import { GameModeButton } from './GameView.js';
 import { navigateToGame, navigateTo, getState } from '../app.js';
-import { CONNECTION_STATE } from '../bluetooth/scanner.js';
 
 /**
  * Vista de inicio con botón de conexión
@@ -71,24 +71,15 @@ export function HomeView(state) {
         marginBottom: spacing.xl,
     };
     
-    const logoStyles = {
-        width: '120px',
-        height: '120px',
-        borderRadius: borderRadius.full,
-        backgroundColor: colors.surface,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: spacing.lg,
-        border: `2px solid ${colors.primary}`,
-        boxShadow: shadows.glow(colors.primary),
-    };
+    const isConnected = state && state.connectionState === CONNECTION_STATE.CONNECTED;
     
     const titleStyles = {
+        fontFamily: typography.fontDisplay,
         fontSize: typography.sizes.xxl,
-        fontWeight: typography.weights.bold,
+        fontWeight: 800,
         color: colors.text,
         marginBottom: spacing.sm,
+        letterSpacing: '-0.02em',
     };
     
     const subtitleStyles = {
@@ -100,14 +91,13 @@ export function HomeView(state) {
     
     const connectButtonStyles = {
         ...baseStyles.button,
-        ...baseStyles.buttonPrimary,
+        ...premiumConnectButtonStyles,
         padding: `${spacing.md} ${spacing.xl}`,
         fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.bold,
+        fontWeight: 800,
         gap: spacing.sm,
         minWidth: '250px',
-        boxShadow: shadows.glow(colors.primary),
-        transition: transitions.normal,
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease, opacity 0.35s ease',
     };
     
     const disabledButtonStyles = {
@@ -126,51 +116,59 @@ export function HomeView(state) {
         marginTop: spacing.lg,
     };
     
-    const instructionsStyles = {
-        marginTop: spacing.xxl,
-        padding: spacing.lg,
-        backgroundColor: colors.surface,
-        borderRadius: borderRadius.lg,
-        maxWidth: '500px',
-        textAlign: 'left',
-    };
-    
-    const instructionsTitleStyles = {
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.text,
-        marginBottom: spacing.md,
-    };
-    
-    const instructionsListStyles = {
-        listStyle: 'none',
-        padding: '0',
-        margin: '0',
-    };
-    
-    const instructionItemStyles = {
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: spacing.sm,
-        marginBottom: spacing.sm,
-        color: colors.textMuted,
-        fontSize: typography.sizes.sm,
-    };
-    
     // Crear elementos
     const container = div({ 
         styles: containerStyles,
-        attrs: { 'data-view': 'home' }
+        attrs: { 'data-view': 'home', class: 'home-view-bg' }
     });
+    
+    // Banner PWA (elegante en la parte superior, no compite con Conectar)
+    installButtonContainer = div({
+        styles: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            display: showInstallButton ? 'flex' : 'none',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: spacing.sm,
+            background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 10,
+        },
+        children: [
+            button({
+                styles: {
+                    ...baseStyles.button,
+                    background: 'rgba(35,35,35,0.85)',
+                    color: colors.text,
+                    border: `1px solid ${colors.border}80`,
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    fontSize: typography.sizes.xs,
+                    fontWeight: typography.weights.medium,
+                    gap: spacing.xs,
+                    borderRadius: borderRadius.full,
+                },
+                children: [
+                    icon('download', 14, colors.primary),
+                    createElement('span', { text: 'Instalar App' }),
+                ],
+                events: {
+                    click: async () => {
+                        if (window.installPWA) await window.installPWA();
+                    },
+                },
+            }),
+        ],
+    });
+    container.style.position = 'relative';
+    container.appendChild(installButtonContainer);
     
     // Logo
     const logoContainer = div({
         styles: logoContainerStyles,
         children: [
-            div({
-                styles: logoStyles,
-                children: [icon('bike', 64, colors.primary)]
-            }),
             createElement('h1', { text: 'Smart Trainer', styles: titleStyles }),
             createElement('p', { 
                 text: 'Conecta tu rodillo Decathlon D100 y comienza a entrenar', 
@@ -179,45 +177,6 @@ export function HomeView(state) {
         ]
     });
     container.appendChild(logoContainer);
-    
-    // Botón de instalación PWA
-    const installButtonStyles = {
-        ...baseStyles.button,
-        backgroundColor: colors.surface,
-        color: colors.text,
-        border: `1px solid ${colors.border}`,
-        padding: `${spacing.sm} ${spacing.md}`,
-        fontSize: typography.sizes.sm,
-        fontWeight: typography.weights.medium,
-        gap: spacing.xs,
-        marginBottom: spacing.md,
-        minWidth: '200px',
-    };
-    
-    installButtonContainer = div({
-        styles: {
-            display: showInstallButton ? 'flex' : 'none',
-            justifyContent: 'center',
-            marginBottom: spacing.md,
-        },
-        children: [
-            button({
-                styles: installButtonStyles,
-                children: [
-                    icon('download', 18, colors.primary),
-                    createElement('span', { text: 'Instalar App' }),
-                ],
-                events: {
-                    click: async () => {
-                        if (window.installPWA) {
-                            await window.installPWA();
-                        }
-                    },
-                }
-            })
-        ]
-    });
-    container.appendChild(installButtonContainer);
     
     // Verificar si hay dispositivo cacheado
     const hasCachedDevice = state.bluetoothManager?.cachedDevice;
@@ -252,64 +211,38 @@ export function HomeView(state) {
         CONNECTION_STATE.RECONNECTING,
     ].includes(connectionState);
     
-    // Mostrar indicador de progreso si está conectando
-    if (isConnecting && statusText) {
-        const progressContainer = div({
-            styles: {
-                ...baseStyles.card,
-                padding: spacing.md,
-                marginBottom: spacing.md,
-                maxWidth: '400px',
-                textAlign: 'center',
-            },
-            children: [
-                div({
-                    styles: {
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: spacing.sm,
-                        color: colors.primary,
-                    },
-                    children: [
-                        div({
-                            styles: {
-                                width: '20px',
-                                height: '20px',
-                                border: `3px solid ${colors.primary}20`,
-                                borderTopColor: colors.primary,
-                                borderRadius: borderRadius.full,
-                                animation: 'spin 1s linear infinite',
-                            }
-                        }),
-                        createElement('span', {
-                            text: statusText,
-                            styles: {
-                                fontSize: typography.sizes.sm,
-                                fontWeight: typography.weights.medium,
-                            }
-                        }),
-                    ]
-                }),
-            ]
-        });
-        
-        // Añadir animación CSS si no existe
-        if (!document.getElementById('connection-spinner-style')) {
-            const style = document.createElement('style');
-            style.id = 'connection-spinner-style';
-            style.textContent = `
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            `;
-            document.head.appendChild(style);
+    // Haptic feedback al conectar con éxito (PWA/móvil)
+    const triggerHapticSuccess = () => {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate([50, 30, 50]);
         }
-        
-        container.appendChild(progressContainer);
-    }
+    };
     
-    // Botón de conexión o mensaje de error
+    // Estado del pulsómetro
+    const hrConnectionState = state.hrConnectionState || HR_CONNECTION_STATE.DISCONNECTED;
+    const isHRConnected = hrConnectionState === HR_CONNECTION_STATE.CONNECTED;
+    const isHRConnecting = [
+        HR_CONNECTION_STATE.SCANNING,
+        HR_CONNECTION_STATE.CONNECTING,
+        HR_CONNECTION_STATE.RECONNECTING,
+    ].includes(hrConnectionState);
+    const hasCachedHRDevice = state.heartRateManager?.cachedDevice;
+    
+    const getHRStatusText = () => {
+        switch (hrConnectionState) {
+            case HR_CONNECTION_STATE.SCANNING:
+                return 'Buscando pulsómetro...';
+            case HR_CONNECTION_STATE.CONNECTING:
+                return 'Conectando...';
+            case HR_CONNECTION_STATE.RECONNECTING:
+                return 'Reconectando...';
+            default:
+                return null;
+        }
+    };
+    const hrStatusText = getHRStatusText();
+    
+    // Conexión: si ya está conectado, mostrar estado "Conectado a [nombre]"; si no, botón Conectar
     if (bluetoothSupport.supported) {
         const buttonContainer = div({
             styles: {
@@ -322,56 +255,231 @@ export function HomeView(state) {
             }
         });
         
-        // Botón principal de conexión
-        const connectBtn = button({
-            styles: {
-                ...connectButtonStyles,
-                opacity: isConnecting ? 0.6 : 1,
-                cursor: isConnecting ? 'not-allowed' : 'pointer',
-            },
-            children: [
-                icon('bluetooth', 24, colors.background),
-                createElement('span', { 
-                    text: hasCachedDevice && !isConnecting 
-                        ? `Conectar a ${hasCachedDevice.name || 'Dispositivo'}` 
-                        : 'Conectar Rodillo' 
-                }),
-            ],
-            events: {
-                click: async () => {
-                    if (isConnecting) return;
-                    try {
-                        // Si hay dispositivo cacheado, intentar reconexión silenciosa primero
-                        if (hasCachedDevice) {
-                            const device = await state.bluetoothManager.reconnectSilently();
-                            if (device) {
-                                // Reconexión silenciosa exitosa, no hacer nada más
-                                return;
+        if (isConnected) {
+            // Ya conectado: mostrar estado, no el botón "Conectar a Van Rysel"
+            const deviceName = hasCachedDevice?.name || 'Rodillo';
+            const connectedStatus = div({
+                styles: {
+                    ...baseStyles.card,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    padding: spacing.md,
+                    backgroundColor: 'rgba(0, 212, 170, 0.12)',
+                    borderColor: `${colors.primary}60`,
+                },
+                children: [
+                    icon('check', 24, colors.primary),
+                    createElement('span', {
+                        text: `Conectado a ${deviceName}`,
+                        styles: {
+                            fontSize: typography.sizes.md,
+                            fontWeight: typography.weights.semibold,
+                            color: colors.text,
+                        }
+                    }),
+                ]
+            });
+            buttonContainer.appendChild(connectedStatus);
+        } else {
+            // No conectado: botón principal de conexión (spinner dentro cuando isConnecting)
+            const connectBtn = button({
+                className: !isConnecting ? 'connect-btn-pro' : '',
+                styles: {
+                    ...connectButtonStyles,
+                    opacity: isConnecting ? 0.85 : 1,
+                    cursor: isConnecting ? 'not-allowed' : 'pointer',
+                    minWidth: isConnecting ? '280px' : '250px',
+                    transition: 'min-width 0.35s ease, opacity 0.35s ease',
+                },
+                children: isConnecting && statusText
+                    ? [
+                        div({
+                            styles: {
+                                width: '22px',
+                                height: '22px',
+                                border: `3px solid ${colors.primary}40`,
+                                borderTopColor: colors.primary,
+                                borderRadius: borderRadius.full,
+                                flexShrink: 0,
+                                animation: 'spin 1s linear infinite',
                             }
-                            // Si falla, intentar reconexión con selector
-                            await state.bluetoothManager.reconnectToCachedDevice();
-                        } else {
-                            // No hay dispositivo cacheado, buscar nuevo
-                            await state.bluetoothManager.scan();
+                        }),
+                        createElement('span', {
+                            text: statusText,
+                            styles: {
+                                fontSize: typography.sizes.sm,
+                                fontWeight: typography.weights.semibold,
+                                color: '#000',
+                            }
+                        }),
+                    ]
+                    : [
+                        icon('bluetooth', 24, '#000'),
+                        createElement('span', { text: 'Conectar Rodillo' }),
+                    ],
+                events: {
+                    click: async () => {
+                        if (isConnecting) return;
+                        try {
+                            if (hasCachedDevice) {
+                                const device = await state.bluetoothManager.reconnectSilently();
+                                if (device) {
+                                    triggerHapticSuccess();
+                                    return;
+                                }
+                                await state.bluetoothManager.reconnectToCachedDevice();
+                            } else {
+                                await state.bluetoothManager.scan();
+                            }
+                            triggerHapticSuccess();
+                        } catch (error) {
+                            if (error.name !== 'NotFoundError') {
+                                console.log('Conexión cancelada o error:', error.message);
+                            }
                         }
-                    } catch (error) {
-                        // El usuario canceló o hubo un error
-                        if (error.name !== 'NotFoundError') {
-                            console.log('Conexión cancelada o error:', error.message);
+                    },
+                    mouseenter: (e) => {
+                        if (!isConnecting) e.target.style.transform = 'scale(1.05)';
+                    },
+                    mouseleave: (e) => {
+                        e.target.style.transform = 'scale(1)';
+                    },
+                }
+            });
+            buttonContainer.appendChild(connectBtn);
+        }
+        
+        // Botón de pulsómetro (siempre visible, estilo secundario)
+        const hrButtonStyles = {
+            ...baseStyles.button,
+            padding: `${spacing.sm} ${spacing.lg}`,
+            fontSize: typography.sizes.sm,
+            fontWeight: typography.weights.semibold,
+            gap: spacing.sm,
+            minWidth: '220px',
+            background: isHRConnected 
+                ? 'rgba(255, 82, 82, 0.15)' 
+                : 'rgba(255, 82, 82, 0.08)',
+            border: `1px solid ${isHRConnected ? 'rgba(255, 82, 82, 0.5)' : 'rgba(255, 82, 82, 0.3)'}`,
+            color: isHRConnected ? '#ff5252' : colors.text,
+            borderRadius: borderRadius.lg,
+            transition: 'all 0.3s ease',
+        };
+        
+        if (isHRConnected) {
+            // Mostrar estado conectado del pulsómetro
+            const hrDeviceName = state.hrDeviceName || hasCachedHRDevice?.name || 'Pulsómetro';
+            const hrConnectedStatus = div({
+                styles: {
+                    ...baseStyles.card,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    padding: spacing.sm,
+                    paddingLeft: spacing.md,
+                    paddingRight: spacing.md,
+                    backgroundColor: 'rgba(255, 82, 82, 0.12)',
+                    borderColor: 'rgba(255, 82, 82, 0.4)',
+                    cursor: 'pointer',
+                },
+                children: [
+                    icon('heart', 18, '#ff5252'),
+                    createElement('span', {
+                        text: hrDeviceName,
+                        styles: {
+                            fontSize: typography.sizes.sm,
+                            fontWeight: typography.weights.medium,
+                            color: colors.text,
                         }
-                    }
+                    }),
+                    // Botón desconectar pequeño
+                    div({
+                        styles: {
+                            marginLeft: 'auto',
+                            padding: spacing.xs,
+                            cursor: 'pointer',
+                            opacity: 0.6,
+                            transition: 'opacity 0.2s',
+                        },
+                        children: [icon('x', 14, colors.textMuted)],
+                        events: {
+                            click: (e) => {
+                                e.stopPropagation();
+                                state.heartRateManager?.disconnect();
+                            },
+                            mouseenter: (e) => { e.currentTarget.style.opacity = '1'; },
+                            mouseleave: (e) => { e.currentTarget.style.opacity = '0.6'; },
+                        }
+                    }),
+                ],
+            });
+            buttonContainer.appendChild(hrConnectedStatus);
+        } else {
+            // Botón para conectar pulsómetro
+            const hrConnectBtn = button({
+                styles: {
+                    ...hrButtonStyles,
+                    opacity: isHRConnecting ? 0.85 : 1,
+                    cursor: isHRConnecting ? 'not-allowed' : 'pointer',
                 },
-                mouseenter: (e) => {
-                    if (!isConnecting) {
-                        e.target.style.transform = 'scale(1.05)';
-                    }
-                },
-                mouseleave: (e) => {
-                    e.target.style.transform = 'scale(1)';
-                },
-            }
-        });
-        buttonContainer.appendChild(connectBtn);
+                children: isHRConnecting && hrStatusText
+                    ? [
+                        div({
+                            styles: {
+                                width: '16px',
+                                height: '16px',
+                                border: '2px solid rgba(255, 82, 82, 0.3)',
+                                borderTopColor: '#ff5252',
+                                borderRadius: borderRadius.full,
+                                flexShrink: 0,
+                                animation: 'spin 1s linear infinite',
+                            }
+                        }),
+                        createElement('span', { text: hrStatusText }),
+                    ]
+                    : [
+                        icon('heart', 18, '#ff5252'),
+                        createElement('span', { 
+                            text: hasCachedHRDevice 
+                                ? `Conectar ${hasCachedHRDevice.name}` 
+                                : 'Conectar Pulsómetro' 
+                        }),
+                    ],
+                events: {
+                    click: async () => {
+                        if (isHRConnecting) return;
+                        try {
+                            if (hasCachedHRDevice) {
+                                const device = await state.heartRateManager.reconnectSilently();
+                                if (device) {
+                                    triggerHapticSuccess();
+                                    return;
+                                }
+                            }
+                            await state.heartRateManager.scan();
+                            triggerHapticSuccess();
+                        } catch (error) {
+                            if (error.name !== 'NotFoundError') {
+                                console.log('Conexión HR cancelada o error:', error.message);
+                            }
+                        }
+                    },
+                    mouseenter: (e) => {
+                        if (!isHRConnecting) {
+                            e.target.style.background = 'rgba(255, 82, 82, 0.15)';
+                            e.target.style.borderColor = 'rgba(255, 82, 82, 0.5)';
+                        }
+                    },
+                    mouseleave: (e) => {
+                        e.target.style.background = 'rgba(255, 82, 82, 0.08)';
+                        e.target.style.borderColor = 'rgba(255, 82, 82, 0.3)';
+                    },
+                }
+            });
+            buttonContainer.appendChild(hrConnectBtn);
+        }
+        
         container.appendChild(buttonContainer);
     } else {
         const disabledBtn = button({
@@ -396,17 +504,20 @@ export function HomeView(state) {
         container.appendChild(errorBox);
     }
     
-    // Sección de Modos de Entrenamiento
+    // Sección de Modos de Entrenamiento (glassmorphism + overlay rejilla)
     const trainingModesStyles = {
+        ...premiumCardStyles,
         marginTop: spacing.xxl,
         padding: spacing.lg,
-        backgroundColor: colors.surface,
         borderRadius: borderRadius.lg,
         maxWidth: '500px',
         width: '100%',
+        position: 'relative',
+        overflow: 'hidden',
     };
     
     const trainingModesTitleStyles = {
+        fontFamily: typography.fontDisplay,
         fontSize: typography.sizes.lg,
         fontWeight: typography.weights.semibold,
         color: colors.text,
@@ -414,95 +525,104 @@ export function HomeView(state) {
         textAlign: 'center',
     };
     
-    const isConnected = state && state.connectionState === CONNECTION_STATE.CONNECTED;
-    
     const trainingModes = div({
         styles: trainingModesStyles,
         children: [
-            createElement('h3', { text: 'Modos de Entrenamiento', styles: trainingModesTitleStyles }),
+            createElement('div', { className: 'card-grid-overlay' }),
+            createElement('h3', { text: 'Modos de Entrenamiento', styles: { ...trainingModesTitleStyles, position: 'relative', zIndex: 1 } }),
             div({
                 styles: {
                     display: 'flex',
                     flexDirection: 'column',
                     gap: spacing.md,
                     alignItems: 'center',
+                    position: 'relative',
+                    zIndex: 1,
                 },
                 children: [
-                    // Botón de Entrenamiento (solo visible cuando está conectado)
-                    isConnected && button({
-                        styles: {
-                            ...baseStyles.button,
-                            ...baseStyles.buttonPrimary,
-                            padding: `${spacing.md} ${spacing.lg}`,
-                            fontSize: typography.sizes.md,
-                            fontWeight: typography.weights.bold,
-                            gap: spacing.sm,
-                            minWidth: '250px',
-                            width: '100%',
-                        },
-                        children: [
-                            icon('activity', 20, colors.background),
-                            createElement('span', { text: 'Entrenamiento' }),
-                        ],
-                        events: {
-                            click: () => {
-                                navigateTo('training');
+                    // Entrenamiento: siempre visible; bloqueado o botón según conexión
+                    isConnected
+                        ? button({
+                            className: 'card-unlocked',
+                            styles: {
+                                ...baseStyles.button,
+                                ...baseStyles.buttonPrimary,
+                                padding: `${spacing.md} ${spacing.lg}`,
+                                fontSize: typography.sizes.md,
+                                fontWeight: typography.weights.bold,
+                                gap: spacing.sm,
+                                minWidth: '250px',
+                                width: '100%',
+                                position: 'relative',
+                                zIndex: 1,
                             },
-                        }
-                    }),
-                    // Botón de Modo Juego
+                            children: [
+                                icon('activity', 20, colors.background),
+                                createElement('span', { text: 'Entrenamiento' }),
+                            ],
+                            events: { click: () => navigateTo('training') },
+                        })
+                        : div({
+                            styles: {
+                                ...premiumCardStyles,
+                                width: '100%',
+                                minWidth: '250px',
+                                padding: spacing.lg,
+                                position: 'relative',
+                                overflow: 'hidden',
+                                cursor: 'not-allowed',
+                                background: `linear-gradient(145deg, rgba(0, 212, 170, 0.12) 0%, rgba(20, 20, 20, 0.95) 50%, rgba(0, 242, 254, 0.06) 100%)`,
+                                border: `1px solid ${colors.border}80`,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: spacing.sm,
+                            },
+                            children: [
+                                createElement('div', { className: 'card-grid-overlay' }),
+                                icon('activity', 28, colors.primary),
+                                createElement('span', {
+                                    text: 'Entrenamiento',
+                                    styles: {
+                                        fontFamily: typography.fontDisplay,
+                                        fontSize: typography.sizes.md,
+                                        fontWeight: typography.weights.bold,
+                                        color: colors.text,
+                                        position: 'relative',
+                                        zIndex: 1,
+                                    },
+                                }),
+                                div({
+                                    styles: {
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: spacing.xs,
+                                        fontSize: typography.sizes.xs,
+                                        color: colors.textMuted,
+                                        position: 'relative',
+                                        zIndex: 1,
+                                    },
+                                    children: [
+                                        icon('lock', 14, colors.textMuted),
+                                        createElement('span', { text: 'Conecta el rodillo para desbloquear' }),
+                                    ],
+                                }),
+                            ],
+                        }),
+                    // Modo Juego: siempre visible; bloqueado o botón según conexión
                     GameModeButton({
                         onClick: () => {
-                            if (isConnected) {
-                                navigateToGame();
-                            } else {
-                                alert('Por favor, conecta tu rodillo primero para usar el modo juego.');
-                            }
+                            if (isConnected) navigateToGame();
+                            else alert('Por favor, conecta tu rodillo primero para usar el modo juego.');
                         },
                         disabled: !isConnected,
+                        className: isConnected ? 'card-unlocked' : '',
                     }),
-                    !isConnected && createElement('p', {
-                        text: 'Conecta tu rodillo para habilitar los modos de entrenamiento',
-                        styles: {
-                            fontSize: typography.sizes.sm,
-                            color: colors.textMuted,
-                            marginTop: spacing.xs,
-                            textAlign: 'center',
-                        }
-                    }),
-                ].filter(Boolean)
-            }),
-        ]
-    });
-    container.appendChild(trainingModes);
-    
-    // Instrucciones
-    const instructions = div({
-        styles: instructionsStyles,
-        children: [
-            createElement('h3', { text: 'Instrucciones', styles: instructionsTitleStyles }),
-            createElement('ul', {
-                styles: instructionsListStyles,
-                children: [
-                    createElement('li', {
-                        styles: instructionItemStyles,
-                        children: [
-                            createElement('span', { text: '1.', styles: { color: colors.primary, fontWeight: typography.weights.bold } }),
-                            createElement('span', { text: 'Enciende tu rodillo Decathlon D100 y asegúrate de que el Bluetooth esté activo.' }),
-                        ]
-                    }),
-                    createElement('li', {
-                        styles: instructionItemStyles,
-                        children: [
-                            createElement('span', { text: '2.', styles: { color: colors.primary, fontWeight: typography.weights.bold } }),
-                            createElement('span', { text: 'Haz clic en "Conectar Rodillo" y selecciona tu dispositivo de la lista.' }),
-                        ]
-                    })
                 ]
             }),
         ]
     });
-    container.appendChild(instructions);
+    container.appendChild(trainingModes);
     
     // Función de limpieza para eliminar event listeners
     container.cleanup = () => {

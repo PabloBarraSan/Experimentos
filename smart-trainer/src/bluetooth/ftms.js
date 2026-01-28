@@ -64,12 +64,37 @@ export function parseIndoorBikeData(dataView) {
     const flags = dataView.getUint16(0, true);
     let offset = 2;
     
+    // Van Rysel D100: flag 0x40. Byte 0-1 flags, 2-3 velocidad (Uint16/100), 4-5 potencia (Uint16), 6 cadencia (raw[6]/2).
+    // Resistencia byte 10 (valor crudo servo → 0-100% con raw[10]/255*100).
+    if (flags === 0x0040 && dataView.byteLength >= 7) {
+        const raw = new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength);
+        const result = {
+            timestamp: Date.now(),
+            power: 0,
+            cadence: 0,
+            speed: 0,
+            resistance: 0,
+            distance: undefined,
+        };
+        result.speed = dataView.getUint16(2, true) / 100;
+        result.power = dataView.getUint16(4, true); // Byte 4-5: Potencia (Uint16)
+        // Byte 6: Cadencia (raw[6]/2). Si potencia es 0, forzar cadencia 0 para evitar valores fantasma al parar.
+        if (result.power === 0) {
+            result.cadence = 0;
+        } else if (raw[6] > 0) {
+            result.cadence = Math.round(raw[6] / 2);
+        }
+        if (dataView.byteLength >= 11) {
+            result.resistance = Math.round((raw[10] / 255) * 100);
+        }
+        return result;
+    }
+    
     const result = {
         timestamp: Date.now(),
     };
     
-    // Velocidad instantánea (siempre presente si bit 0 = 0, en 0.01 km/h)
-    // Si MORE_DATA = 0, la velocidad está presente
+    // Velocidad instantánea (estándar: si bit 0 MORE_DATA = 0, presente; resolución 0.01 km/h)
     if (!(flags & INDOOR_BIKE_DATA_FLAGS.MORE_DATA)) {
         if (offset + 2 <= dataView.byteLength) {
             result.speed = dataView.getUint16(offset, true) / 100;
@@ -77,7 +102,7 @@ export function parseIndoorBikeData(dataView) {
         }
     }
     
-    // Velocidad media
+    // Velocidad media (bit 1)
     if (flags & INDOOR_BIKE_DATA_FLAGS.AVERAGE_SPEED) {
         if (offset + 2 <= dataView.byteLength) {
             result.averageSpeed = dataView.getUint16(offset, true) / 100;
@@ -85,7 +110,7 @@ export function parseIndoorBikeData(dataView) {
         }
     }
     
-    // Cadencia instantánea (en 0.5 rpm)
+    // Cadencia instantánea (bit 2, resolución 0.5 rpm) — p. ej. D100 con 0x42 al pedalear >50W
     if (flags & INDOOR_BIKE_DATA_FLAGS.INSTANTANEOUS_CADENCE) {
         if (offset + 2 <= dataView.byteLength) {
             result.cadence = dataView.getUint16(offset, true) / 2;

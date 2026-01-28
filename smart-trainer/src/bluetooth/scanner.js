@@ -4,6 +4,25 @@
  */
 
 import { FTMS_UUIDS, parseIndoorBikeData, parseFitnessMachineFeature } from './ftms.js';
+
+/**
+ * Analizador de correlación para encontrar cadencia oculta (Van Rysel D100).
+ * Imprime los 16 bytes y resalta los que podrían ser cadencia (30–120 rpm).
+ * Usar solo en desarrollo (LOG_LEVEL DEBUG).
+ */
+function debugRawBytes(dataView) {
+    if (!dataView || dataView.byteLength < 6) return;
+    const raw = Array.from(new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength));
+    const timestamp = new Date().toLocaleTimeString();
+    const hexString = raw.map(b => b.toString(16).padStart(2, '0')).join(' ');
+    console.log(`[BT_RAW] ${timestamp} | Bytes: ${hexString}`);
+    if (raw[6] > 0) {
+        console.log(`%c Posible Cadencia (Byte 6): ${raw[6]}`, 'color: #00d4aa; font-weight: bold');
+    }
+    if (raw[10] > 0) {
+        console.log(`%c Posible Dato Extra (Byte 10): ${raw[10]}`, 'color: #ffcc00');
+    }
+}
 import { CommandQueue } from './commands.js';
 
 // Estados de conexión
@@ -154,6 +173,7 @@ export class BluetoothManager {
         this.isManualDisconnect = false; // Flag para distinguir desconexión manual
         this.lastDataTimestamp = 0; // Para debounce de datos
         this.dataDebounceMs = 50; // Debounce de 50ms para datos
+        this.lastIndoorBikeFlags = null; // Para detectar cambios de flags FTMS (p. ej. D100 0x40 -> 0x42)
         this.capabilities = null; // Capacidades del dispositivo
         
         // Logger
@@ -567,14 +587,25 @@ export class BluetoothManager {
             return;
         }
         
+        const flags = dataView.getUint16(0, true);
+        // Logger de cambios de flags (D100: 0x40 solo potencia, 0x42 potencia+cadencia al pedalear fuerte)
+        if (this.lastIndoorBikeFlags !== null && this.lastIndoorBikeFlags !== flags) {
+            this.logger.info(
+                `FTMS flags cambiaron: 0x${this.lastIndoorBikeFlags.toString(16).padStart(4, '0')} → 0x${flags.toString(16).padStart(4, '0')}`
+            );
+        }
+        this.lastIndoorBikeFlags = flags;
+        
         // Logs de depuración detallados (solo en modo debug)
         if (LOG_LEVEL <= LOG_LEVELS.DEBUG) {
             const bytes = [];
             for (let i = 0; i < Math.min(dataView.byteLength, 20); i++) {
                 bytes.push(dataView.getUint8(i).toString(16).padStart(2, '0'));
             }
-            const flags = dataView.getUint16(0, true);
             this.logger.debug(`Datos recibidos (${dataView.byteLength} bytes):`, bytes.join(' '), `| Flags: 0x${flags.toString(16)}`);
+            if (dataView.byteLength >= 6) {
+                debugRawBytes(dataView);
+            }
         }
         
         try {
@@ -746,6 +777,7 @@ export class BluetoothManager {
      * Limpiar referencias
      */
     cleanup() {
+        this.lastIndoorBikeFlags = null;
         this.removeEventListeners();
         this.server = null;
         this.service = null;
