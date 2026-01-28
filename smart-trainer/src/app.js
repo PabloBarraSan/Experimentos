@@ -10,6 +10,7 @@ import { HeartRateManager, HR_CONNECTION_STATE } from './bluetooth/heartRate.js'
 import { HomeView } from './views/HomeView.js';
 import { TrainingView } from './views/TrainingView.js';
 import { GameView } from './views/GameView.js';
+import { RideView } from './views/RideView.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 
 // Estado global de la aplicación
@@ -185,6 +186,13 @@ export function navigateToGame() {
 }
 
 /**
+ * Navegar al modo ciclismo virtual
+ */
+export function navigateToRide() {
+    navigateTo('ride');
+}
+
+/**
  * Renderizar header de la aplicación
  */
 function renderHeader() {
@@ -322,47 +330,71 @@ function renderCurrentView() {
         }
     });
     
+    // Función auxiliar para limpiar vistas de pantalla completa
+    const cleanupFullscreenViews = () => {
+        // Limpiar GameView si existe
+        const gameView = document.querySelector('[data-game-view]');
+        if (gameView) {
+            if (gameView.cleanup) gameView.cleanup();
+            gameView.remove();
+        }
+        // Limpiar RideView si existe
+        const rideView = document.querySelector('[data-ride-view]');
+        if (rideView) {
+            if (rideView.cleanup) rideView.cleanup();
+            rideView.remove();
+        }
+    };
+    
     switch (AppState.currentView) {
         case 'game':
-            // GameView se renderiza a pantalla completa, no necesita contenedor
+            // GameView se renderiza a pantalla completa
+            cleanupFullscreenViews();
             const gameView = GameView({
                 state: AppState,
                 onExit: () => {
                     navigateTo('training');
                 }
             });
-            // Limpiar contenedor anterior si existe
-            const existingGameView = document.querySelector('[data-game-view]');
-            if (existingGameView) {
-                if (existingGameView.cleanup) {
-                    existingGameView.cleanup();
-                }
-                existingGameView.remove();
-            }
             gameView.setAttribute('data-game-view', 'true');
             document.body.appendChild(gameView);
-            return container; // Retornar contenedor vacío ya que GameView se añade al body
-        case 'training':
-            // Limpiar GameView si existe
-            const gameViewToRemove = document.querySelector('[data-game-view]');
-            if (gameViewToRemove) {
-                if (gameViewToRemove.cleanup) {
-                    gameViewToRemove.cleanup();
+            return container; // Retornar contenedor vacío
+            
+        case 'ride':
+            // RideView se renderiza a pantalla completa
+            cleanupFullscreenViews();
+            const rideView = RideView({
+                state: AppState,
+                onExit: () => {
+                    navigateTo('home');
+                },
+                onSimulationUpdate: (params) => {
+                    // Enviar parámetros de simulación al rodillo
+                    if (AppState.bluetoothManager && AppState.bluetoothManager.commandQueue) {
+                        AppState.bluetoothManager.commandQueue.setIndoorBikeSimulation(
+                            params.windSpeed,
+                            params.grade,
+                            params.crr,
+                            params.cw
+                        ).catch(err => {
+                            // Silenciar errores - el rodillo puede no soportar simulación
+                            console.debug('Simulación no soportada:', err.message);
+                        });
+                    }
                 }
-                gameViewToRemove.remove();
-            }
+            });
+            rideView.setAttribute('data-ride-view', 'true');
+            document.body.appendChild(rideView);
+            return container; // Retornar contenedor vacío
+            
+        case 'training':
+            cleanupFullscreenViews();
             container.appendChild(TrainingView(AppState));
             break;
+            
         case 'home':
         default:
-            // Limpiar GameView si existe
-            const gameViewToRemove2 = document.querySelector('[data-game-view]');
-            if (gameViewToRemove2) {
-                if (gameViewToRemove2.cleanup) {
-                    gameViewToRemove2.cleanup();
-                }
-                gameViewToRemove2.remove();
-            }
+            cleanupFullscreenViews();
             container.appendChild(HomeView(AppState));
             break;
     }

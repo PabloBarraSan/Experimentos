@@ -106,34 +106,273 @@
     <div id="app"></div>
     <script type="module" src="src/app.js"></script>
     <script>
-        // Registrar Service Worker para funcionalidad PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Usar ruta relativa al directorio actual
-                const swPath = './sw.js';
-                navigator.serviceWorker.register(swPath, {
-                    scope: './'
-                })
-                    .then((registration) => {
-                        console.log('✅ Service Worker registrado:', registration.scope);
-                        
-                        // Verificar actualizaciones
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            if (newWorker) {
-                                newWorker.addEventListener('statechange', () => {
-                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                        console.log('🔄 Nueva versión disponible');
-                                    }
-                                });
-                            }
-                        });
-                    })
-                    .catch((error) => {
-                        console.error('⚠️ Service Worker no registrado:', error);
+        // ═══════════════════════════════════════════════════════════════════
+        // Sistema de Actualización PWA - Smart Trainer
+        // ═══════════════════════════════════════════════════════════════════
+        
+        const UpdateManager = {
+            registration: null,
+            waitingWorker: null,
+            updateToastVisible: false,
+            isRefreshing: false, // Evitar múltiples recargas
+            userRequestedUpdate: false, // Solo recargar si el usuario pidió la actualización
+            
+            /**
+             * Inicializar el Service Worker y sistema de actualizaciones
+             */
+            async init() {
+                if (!('serviceWorker' in navigator)) {
+                    console.log('⚠️ Service Worker no soportado');
+                    return;
+                }
+                
+                try {
+                    // Registrar SW
+                    this.registration = await navigator.serviceWorker.register('./sw.js', {
+                        scope: './'
                     });
-            });
-        }
+                    console.log('✅ Service Worker registrado:', this.registration.scope);
+                    
+                    // Detectar actualizaciones al registrar
+                    this.checkForWaitingWorker();
+                    
+                    // Escuchar nuevas instalaciones
+                    this.registration.addEventListener('updatefound', () => {
+                        this.onUpdateFound();
+                    });
+                    
+                    // Escuchar cuando el SW controlador cambia (después de skipWaiting)
+                    // SOLO recargar si el usuario solicitó la actualización explícitamente
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        if (this.isRefreshing) return; // Evitar loop
+                        if (!this.userRequestedUpdate) {
+                            // El SW cambió pero el usuario no lo pidió (ej: DevTools "Update on reload")
+                            console.log('🔄 Service Worker actualizado en background');
+                            return;
+                        }
+                        this.isRefreshing = true;
+                        console.log('🔄 Aplicando actualización...');
+                        window.location.reload();
+                    });
+                    
+                    // Comprobar actualizaciones al arrancar (solo una vez)
+                    setTimeout(() => this.checkForUpdates(), 1000);
+                    
+                    // Comprobar actualizaciones periódicamente (cada 30 min)
+                    setInterval(() => this.checkForUpdates(), 30 * 60 * 1000);
+                    
+                    // También al volver de segundo plano
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            this.checkForUpdates();
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error('⚠️ Error registrando Service Worker:', error);
+                }
+            },
+            
+            /**
+             * Comprobar si hay un SW esperando cuando cargamos
+             */
+            checkForWaitingWorker() {
+                if (this.registration?.waiting) {
+                    this.waitingWorker = this.registration.waiting;
+                    this.showUpdateToast();
+                }
+            },
+            
+            /**
+             * Se ha encontrado una actualización
+             */
+            onUpdateFound() {
+                const newWorker = this.registration.installing;
+                if (!newWorker) return;
+                
+                console.log('🔄 Descargando nueva versión...');
+                
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed') {
+                        if (navigator.serviceWorker.controller) {
+                            // Hay una versión anterior - mostrar toast de actualización
+                            console.log('🔄 Nueva versión lista para instalar');
+                            this.waitingWorker = newWorker;
+                            this.showUpdateToast();
+                        } else {
+                            // Primera instalación - no mostrar nada
+                            console.log('✅ App instalada por primera vez');
+                        }
+                    }
+                });
+            },
+            
+            /**
+             * Forzar comprobación de actualizaciones
+             */
+            async checkForUpdates() {
+                if (!this.registration) return;
+                
+                try {
+                    await this.registration.update();
+                    console.log('🔍 Comprobación de actualizaciones completada');
+                } catch (error) {
+                    console.log('⚠️ Error comprobando actualizaciones:', error.message);
+                }
+            },
+            
+            /**
+             * Mostrar toast de actualización disponible
+             */
+            showUpdateToast() {
+                if (this.updateToastVisible) return;
+                this.updateToastVisible = true;
+                
+                // Crear toast
+                const toast = document.createElement('div');
+                toast.id = 'update-toast';
+                toast.innerHTML = `
+                    <div style="
+                        position: fixed;
+                        bottom: 24px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+                        border: 1px solid rgba(0, 212, 170, 0.3);
+                        border-radius: 12px;
+                        padding: 16px 20px;
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 212, 170, 0.1);
+                        z-index: 10000;
+                        animation: slideUp 0.3s ease-out;
+                        max-width: calc(100vw - 32px);
+                    ">
+                        <div style="
+                            width: 40px;
+                            height: 40px;
+                            background: rgba(0, 212, 170, 0.15);
+                            border-radius: 10px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            flex-shrink: 0;
+                        ">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00d4aa" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 600; color: #fff; margin-bottom: 2px;">Nueva versión disponible</div>
+                            <div style="font-size: 13px; color: #888;">Actualiza para obtener las últimas mejoras</div>
+                        </div>
+                        <button onclick="UpdateManager.applyUpdate()" style="
+                            background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+                            color: #000;
+                            border: none;
+                            border-radius: 8px;
+                            padding: 10px 20px;
+                            font-weight: 600;
+                            font-size: 14px;
+                            cursor: pointer;
+                            white-space: nowrap;
+                            transition: transform 0.15s ease, box-shadow 0.15s ease;
+                        " onmouseover="this.style.transform='scale(1.02)'; this.style.boxShadow='0 4px 12px rgba(0,212,170,0.3)'"
+                           onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='none'">
+                            Actualizar
+                        </button>
+                        <button onclick="UpdateManager.dismissToast()" style="
+                            background: transparent;
+                            border: none;
+                            color: #666;
+                            cursor: pointer;
+                            padding: 8px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        " title="Cerrar">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                
+                // Añadir estilos de animación
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes slideUp {
+                        from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+                        to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                    }
+                    @keyframes slideDown {
+                        from { transform: translateX(-50%) translateY(0); opacity: 1; }
+                        to { transform: translateX(-50%) translateY(100px); opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+                document.body.appendChild(toast);
+            },
+            
+            /**
+             * Aplicar la actualización
+             */
+            applyUpdate() {
+                if (!this.waitingWorker) {
+                    // No hay worker esperando, forzar recarga limpia
+                    this.userRequestedUpdate = true;
+                    this.forceRefresh();
+                    return;
+                }
+                
+                // Marcar que el usuario solicitó la actualización
+                this.userRequestedUpdate = true;
+                
+                // Mostrar estado de "actualizando"
+                const toast = document.getElementById('update-toast');
+                if (toast) {
+                    toast.querySelector('button').textContent = 'Actualizando...';
+                    toast.querySelector('button').disabled = true;
+                }
+                
+                // Enviar mensaje al SW para que se active
+                this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+            },
+            
+            /**
+             * Forzar recarga limpia (limpiar cache)
+             */
+            async forceRefresh() {
+                this.userRequestedUpdate = true;
+                this.isRefreshing = true;
+                if (this.registration?.active) {
+                    this.registration.active.postMessage({ type: 'FORCE_UPDATE' });
+                }
+                // Esperar un momento y recargar
+                setTimeout(() => window.location.reload(true), 500);
+            },
+            
+            /**
+             * Cerrar el toast (sin actualizar)
+             */
+            dismissToast() {
+                const toast = document.getElementById('update-toast');
+                if (toast) {
+                    toast.querySelector('div').style.animation = 'slideDown 0.3s ease-out forwards';
+                    setTimeout(() => {
+                        toast.remove();
+                        this.updateToastVisible = false;
+                    }, 300);
+                }
+            }
+        };
+        
+        // Inicializar al cargar
+        window.addEventListener('load', () => UpdateManager.init());
         
         // Detectar si se puede instalar como PWA
         let deferredPrompt;

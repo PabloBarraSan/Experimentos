@@ -1,10 +1,17 @@
 /**
  * Service Worker - Smart Trainer Controller
  * Maneja el caching para funcionamiento offline
+ * 
+ * IMPORTANTE: Incrementar VERSION cuando hagas cambios para forzar actualización
  */
 
-const CACHE_NAME = 'smart-trainer-v1';
-const BASE_PATH = '/Experimentos/smart-trainer';
+const VERSION = '1.1.0';
+const CACHE_NAME = `smart-trainer-v${VERSION}`;
+
+// Detectar BASE_PATH dinámicamente según el entorno
+// En GitHub Pages: /Experimentos/smart-trainer
+// En localhost: /smart-trainer o vacío
+const BASE_PATH = self.location.pathname.replace('/sw.js', '');
 
 // Archivos críticos que deben estar disponibles
 const CRITICAL_ASSETS = [
@@ -17,27 +24,56 @@ const CRITICAL_ASSETS = [
 // Archivos adicionales (se cachean pero no bloquean la instalación si fallan)
 const STATIC_ASSETS = [
     ...CRITICAL_ASSETS,
+    // Utils
     `${BASE_PATH}/src/utils/theme.js`,
     `${BASE_PATH}/src/utils/dom.js`,
     `${BASE_PATH}/src/utils/calculations.js`,
+    // Bluetooth
     `${BASE_PATH}/src/bluetooth/scanner.js`,
     `${BASE_PATH}/src/bluetooth/ftms.js`,
     `${BASE_PATH}/src/bluetooth/commands.js`,
+    `${BASE_PATH}/src/bluetooth/heartRate.js`,
+    // Components
     `${BASE_PATH}/src/components/MetricCard.js`,
     `${BASE_PATH}/src/components/PowerGauge.js`,
     `${BASE_PATH}/src/components/ResistanceSlider.js`,
     `${BASE_PATH}/src/components/PowerChart.js`,
     `${BASE_PATH}/src/components/WorkoutPlayer.js`,
+    `${BASE_PATH}/src/components/SaveSessionDialog.js`,
+    // Views
     `${BASE_PATH}/src/views/HomeView.js`,
     `${BASE_PATH}/src/views/TrainingView.js`,
     `${BASE_PATH}/src/views/WorkoutsView.js`,
     `${BASE_PATH}/src/views/SettingsView.js`,
     `${BASE_PATH}/src/views/HistoryView.js`,
     `${BASE_PATH}/src/views/GameView.js`,
+    `${BASE_PATH}/src/views/RideView.js`,
+    // Game
+    `${BASE_PATH}/src/game/GameEngine.js`,
+    `${BASE_PATH}/src/game/GameRenderer.js`,
+    `${BASE_PATH}/src/game/GameState.js`,
+    `${BASE_PATH}/src/game/entities/Cyclist.js`,
+    `${BASE_PATH}/src/game/entities/Obstacle.js`,
+    `${BASE_PATH}/src/game/entities/Collectible.js`,
+    `${BASE_PATH}/src/game/systems/PhysicsSystem.js`,
+    `${BASE_PATH}/src/game/systems/ScoreSystem.js`,
+    `${BASE_PATH}/src/game/systems/SpawnSystem.js`,
+    // Ride (ciclismo virtual)
+    `${BASE_PATH}/src/ride/index.js`,
+    `${BASE_PATH}/src/ride/RideEngine.js`,
+    `${BASE_PATH}/src/ride/RideRenderer.js`,
+    `${BASE_PATH}/src/ride/RideState.js`,
+    `${BASE_PATH}/src/ride/RidePhysics.js`,
+    `${BASE_PATH}/src/ride/RouteGenerator.js`,
+    `${BASE_PATH}/src/ride/BotSystem.js`,
+    `${BASE_PATH}/src/ride/worlds/WorldConfig.js`,
+    // Workouts
     `${BASE_PATH}/src/workouts/model.js`,
     `${BASE_PATH}/src/workouts/presets.js`,
+    // Storage
     `${BASE_PATH}/src/storage/settings.js`,
     `${BASE_PATH}/src/storage/sessions.js`,
+    `${BASE_PATH}/src/storage/strava.js`,
 ];
 
 /**
@@ -76,13 +112,12 @@ self.addEventListener('install', (event) => {
                 });
             })
             .then(() => {
-                console.log('[SW] Static assets caching completed');
-                return self.skipWaiting();
+                console.log(`[SW] v${VERSION} - Static assets caching completed`);
+                // NO llamar skipWaiting() aquí - esperamos a que el cliente lo solicite
+                // Esto permite que el usuario decida cuándo actualizar
             })
             .catch((error) => {
                 console.error('[SW] Failed to open cache:', error);
-                // Aún así, activar el service worker
-                return self.skipWaiting();
             })
     );
 });
@@ -114,7 +149,9 @@ self.addEventListener('activate', (event) => {
 
 /**
  * Interceptar peticiones de red
- * Estrategia: Cache First, Network Fallback
+ * Estrategia mixta:
+ * - Network First para archivos JS/HTML (garantiza versión más reciente cuando hay red)
+ * - Cache First para assets estáticos (imágenes, fonts, etc.)
  */
 self.addEventListener('fetch', (event) => {
     // Solo manejar peticiones GET
@@ -128,35 +165,59 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    event.respondWith(
-        caches.match(event.request)
-            .then((cachedResponse) => {
-                // Si está en cache, devolver
-                if (cachedResponse) {
-                    // Actualizar cache en background (stale-while-revalidate)
-                    fetchAndCache(event.request);
-                    return cachedResponse;
-                }
-                
-                // Si no está en cache, obtener de red
-                return fetchAndCache(event.request);
-            })
-            .catch(() => {
-                // Si falla todo, devolver página offline
-                if (event.request.mode === 'navigate') {
-                    return caches.match(`${BASE_PATH}/index.html`);
-                }
-                
-                return new Response('Offline', {
-                    status: 503,
-                    statusText: 'Service Unavailable',
-                });
-            })
-    );
+    const url = new URL(event.request.url);
+    const isJSorHTML = url.pathname.endsWith('.js') || 
+                       url.pathname.endsWith('.html') ||
+                       url.pathname.endsWith('/');
+    
+    if (isJSorHTML) {
+        // Network First para archivos críticos
+        event.respondWith(networkFirstStrategy(event.request));
+    } else {
+        // Cache First para otros assets
+        event.respondWith(cacheFirstStrategy(event.request));
+    }
 });
 
 /**
- * Obtener recurso de red y cachear
+ * Estrategia Network First - intenta red primero, cache como fallback
+ */
+async function networkFirstStrategy(request) {
+    try {
+        const response = await fetch(request, { cache: 'no-cache' });
+        if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(request, response.clone());
+        }
+        return response;
+    } catch (error) {
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        // Si es navegación y no hay cache, devolver index.html
+        if (request.mode === 'navigate') {
+            return caches.match(`${BASE_PATH}/index.html`);
+        }
+        throw error;
+    }
+}
+
+/**
+ * Estrategia Cache First - cache primero, red como fallback
+ */
+async function cacheFirstStrategy(request) {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+        // Actualizar cache en background (stale-while-revalidate)
+        fetchAndCache(request);
+        return cachedResponse;
+    }
+    return fetchAndCache(request);
+}
+
+/**
+ * Obtener recurso de red y cachear (para stale-while-revalidate)
  */
 async function fetchAndCache(request) {
     try {
@@ -170,7 +231,12 @@ async function fetchAndCache(request) {
         
         return response;
     } catch (error) {
-        console.error('[SW] Fetch failed:', error);
+        // En background update, los errores son normales (offline)
+        // No propagar para evitar logs innecesarios
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
         throw error;
     }
 }
@@ -180,11 +246,22 @@ async function fetchAndCache(request) {
  */
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
+        console.log(`[SW] v${VERSION} - Skip waiting solicitado, activando nueva versión...`);
         self.skipWaiting();
     }
     
     if (event.data && event.data.type === 'GET_VERSION') {
-        event.ports[0].postMessage({ version: CACHE_NAME });
+        event.ports[0].postMessage({ version: VERSION, cacheName: CACHE_NAME });
+    }
+    
+    // Forzar actualización: limpiar cache y recargar
+    if (event.data && event.data.type === 'FORCE_UPDATE') {
+        console.log(`[SW] v${VERSION} - Forzando actualización...`);
+        caches.keys().then(names => {
+            return Promise.all(names.map(name => caches.delete(name)));
+        }).then(() => {
+            self.skipWaiting();
+        });
     }
 });
 

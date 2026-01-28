@@ -8,7 +8,8 @@ import { createElement, div, button, icon } from '../utils/dom.js';
 import { checkBluetoothSupport, CONNECTION_STATE } from '../bluetooth/scanner.js';
 import { HR_CONNECTION_STATE } from '../bluetooth/heartRate.js';
 import { GameModeButton } from './GameView.js';
-import { navigateToGame, navigateTo, getState } from '../app.js';
+import { RideModeButton } from './RideView.js';
+import { navigateToGame, navigateTo, navigateToRide, getState } from '../app.js';
 
 /**
  * Vista de inicio con botón de conexión
@@ -617,6 +618,14 @@ export function HomeView(state) {
                         },
                         disabled: !isConnected,
                         className: isConnected ? 'card-unlocked' : '',
+                    }),
+                    // Ciclismo Virtual: siempre visible; bloqueado o botón según conexión
+                    RideModeButton({
+                        onClick: () => {
+                            if (isConnected) navigateToRide();
+                            else alert('Por favor, conecta tu rodillo primero para usar el ciclismo virtual.');
+                        },
+                        disabled: !isConnected,
                     }),
                 ]
             }),
