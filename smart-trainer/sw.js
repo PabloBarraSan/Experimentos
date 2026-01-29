@@ -40,6 +40,7 @@ const STATIC_ASSETS = [
     `${BASE_PATH}/src/components/PowerChart.js`,
     `${BASE_PATH}/src/components/WorkoutPlayer.js`,
     `${BASE_PATH}/src/components/SaveSessionDialog.js`,
+    `${BASE_PATH}/src/components/SessionDetailBottomSheet.js`,
     // Views
     `${BASE_PATH}/src/views/HomeView.js`,
     `${BASE_PATH}/src/views/TrainingView.js`,
@@ -246,7 +247,6 @@ async function fetchAndCache(request) {
  */
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
-        console.log(`[SW] v${VERSION} - Skip waiting solicitado, activando nueva versión...`);
         self.skipWaiting();
     }
     
@@ -256,7 +256,6 @@ self.addEventListener('message', (event) => {
     
     // Forzar actualización: limpiar cache y recargar
     if (event.data && event.data.type === 'FORCE_UPDATE') {
-        console.log(`[SW] v${VERSION} - Forzando actualización...`);
         caches.keys().then(names => {
             return Promise.all(names.map(name => caches.delete(name)));
         }).then(() => {

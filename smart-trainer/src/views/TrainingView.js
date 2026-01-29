@@ -8,10 +8,8 @@ import { createElement, div, button, icon, formatTime, formatDistance } from '..
 import { MetricCard } from '../components/MetricCard.js';
 import { PowerGauge } from '../components/PowerGauge.js';
 import { ResistanceSlider } from '../components/ResistanceSlider.js';
-import { PowerChart } from '../components/PowerChart.js';
-import { GameModeButton } from './GameView.js';
 import { showSaveSessionDialog } from '../components/SaveSessionDialog.js';
-import { navigateToGame, navigateTo, subscribe, updateState, AppState } from '../app.js';
+import { navigateTo, subscribe, updateState, AppState } from '../app.js';
 import { createSession, finishSession } from '../storage/sessions.js';
 import { calculateSessionMetrics } from '../utils/calculations.js';
 
@@ -27,22 +25,17 @@ export function TrainingView(state) {
         speedValue: null,
         timeValue: null,
         distanceValue: null,
-        caloriesValue: null,
         heartRateValue: null,
-        cadenceValue: null,
-        cadenceCard: null,
+        heartRateCard: null,
         resistanceValue: null,
         resistanceSlider: null,
         lastResistanceSliderInteraction: 0,
         powerGauge: null,
         powerGaugeContainer: null,
-        powerChart: null,
-        chartCanvas: null,
         metricsContainer: null,
-        heartRateCard: null,
         pausarBtn: null,
         pausarBtnIcon: null,
-        /** Buffer para media móvil de 3 s (potencia y cadencia) */
+        /** Buffer para media móvil de 3 s (potencia) */
         smoothBuffer: [],
     };
     
@@ -54,22 +47,14 @@ export function TrainingView(state) {
         const now = Date.now();
         const WINDOW_MS = 3000;
 
-        // Media móvil 3 s para Potencia y Cadencia (evitar que los números bailen)
+        // Media móvil 3 s para Potencia (evitar que los números bailen)
         const buf = updateRefs.smoothBuffer;
-        buf.push({
-            t: now,
-            power: newLiveData.power ?? 0,
-            cadence: newLiveData.cadence != null ? newLiveData.cadence : null,
-        });
+        buf.push({ t: now, power: newLiveData.power ?? 0 });
         while (buf.length && buf[0].t < now - WINDOW_MS) buf.shift();
         const powerEntries = buf.filter((e) => typeof e.power === 'number');
-        const cadenceEntries = buf.filter((e) => e.cadence != null && typeof e.cadence === 'number');
         const smoothedPower = powerEntries.length
             ? Math.round(powerEntries.reduce((a, e) => a + e.power, 0) / powerEntries.length)
             : (newLiveData.power ?? 0);
-        const smoothedCadence = cadenceEntries.length
-            ? Math.round(cadenceEntries.reduce((a, e) => a + e.cadence, 0) / cadenceEntries.length)
-            : null;
 
         // Calcular tiempo transcurrido (descontando tiempo en pausa)
         let elapsedTime = 0;
@@ -109,27 +94,14 @@ export function TrainingView(state) {
             }
         }
         
-        if (updateRefs.caloriesValue) {
-            updateRefs.caloriesValue.textContent = String(Math.round(newLiveData.calories || 0));
-        }
-        
+        // Frecuencia cardiaca: mostrar valor o -- si no hay sensor; atenuar tarjeta si no hay FC
         if (updateRefs.heartRateValue) {
-            updateRefs.heartRateValue.textContent = newLiveData.heartRate || '--';
+            updateRefs.heartRateValue.textContent = newLiveData.heartRate != null && newLiveData.heartRate !== '' ? String(newLiveData.heartRate) : '--';
         }
-        
-        // Cadencia: valor suavizado; si cadencia 0 o sin dato pero potencia > 25W → "Calculando..." con parpadeo
-        const showCalculando = smoothedPower > 25 && (smoothedCadence == null || smoothedCadence === 0);
-        if (updateRefs.cadenceValue) {
-            if (showCalculando) {
-                updateRefs.cadenceValue.textContent = 'Calculando...';
-                updateRefs.cadenceValue.classList.add('cadence-calculating');
-            } else {
-                updateRefs.cadenceValue.textContent = smoothedCadence != null ? String(smoothedCadence) : '--';
-                updateRefs.cadenceValue.classList.remove('cadence-calculating');
-            }
-        }
-        if (updateRefs.cadenceCard) {
-            updateRefs.cadenceCard.style.opacity = '1';
+        if (updateRefs.heartRateCard) {
+            const hasHR = newLiveData.heartRate != null && newLiveData.heartRate !== '';
+            updateRefs.heartRateCard.style.opacity = hasHR ? '1' : '0.6';
+            updateRefs.heartRateCard.style.filter = hasHR ? 'none' : 'brightness(0.9)';
         }
 
         // Actualizar borde de zona en tarjetas de métricas (usar potencia suavizada)
@@ -142,14 +114,10 @@ export function TrainingView(state) {
         if (updateRefs.pausarBtn && updateRefs.pausarBtnIcon && newSession.isPaused !== undefined) {
             updateRefs.pausarBtn.style.backgroundColor = newSession.isPaused ? colors.success : colors.warning;
             updateRefs.pausarBtn.title = newSession.isPaused ? 'Reanudar' : 'Pausar';
-            const newIcon = icon(newSession.isPaused ? 'play' : 'pause', 20, colors.background);
+            const newIcon = icon(newSession.isPaused ? 'play' : 'pause', 18, 'currentColor');
             updateRefs.pausarBtnIcon.innerHTML = newIcon.innerHTML;
-        }
-        // FC: atenuar si no hay sensor conectado
-        if (updateRefs.heartRateCard) {
-            const hasHR = newLiveData.heartRate != null && newLiveData.heartRate !== '';
-            updateRefs.heartRateCard.style.opacity = hasHR ? '1' : '0.5';
-            updateRefs.heartRateCard.style.filter = hasHR ? 'none' : 'brightness(0.85)';
+            const labelSpan = updateRefs.pausarBtn.querySelector('span');
+            if (labelSpan) labelSpan.textContent = newSession.isPaused ? 'Reanudar' : 'Pausar';
         }
         
         if (updateRefs.resistanceValue) {
@@ -176,6 +144,7 @@ export function TrainingView(state) {
                     power: smoothedPower,
                     ftp: newSettings.ftp,
                     maxPower: newSettings.ftp * 2,
+                    variant: 'training',
                 });
                 updateRefs.powerGauge.parentElement.replaceChild(newGauge, updateRefs.powerGauge);
                 updateRefs.powerGauge = newGauge;
@@ -183,23 +152,6 @@ export function TrainingView(state) {
             }
         }
         
-        // Actualizar gráfico cada 2 segundos para mejor rendimiento
-        if (!updateRefs.lastChartUpdate || now - updateRefs.lastChartUpdate > 2000) {
-            if (updateRefs.powerChart && newSession.dataPoints && newSession.dataPoints.length > 0) {
-                const chartContainer = updateRefs.powerChart.parentElement;
-                if (chartContainer) {
-                    const newChart = PowerChart({
-                        dataPoints: newSession.dataPoints,
-                        ftp: newSettings.ftp,
-                        width: '100%',
-                        height: 150,
-                    });
-                    chartContainer.replaceChild(newChart, updateRefs.powerChart);
-                    updateRefs.powerChart = newChart;
-                    updateRefs.lastChartUpdate = now;
-                }
-            }
-        }
     };
     
     // Suscribirse a cambios de estado
@@ -209,48 +161,65 @@ export function TrainingView(state) {
         }
     });
     
+    // Estilos alineados con mockup: columna única, gauge centrado, 3 métricas, bottom sheet resistencia
     const containerStyles = {
         display: 'flex',
         flexDirection: 'column',
-        padding: spacing.lg,
-        gap: spacing.lg,
+        height: '100%',
+        minHeight: 0,
+        overflow: 'hidden',
+        padding: 0,
+        gap: 0,
         maxWidth: '1200px',
         margin: '0 auto',
         width: '100%',
+        backgroundColor: colors.background,
     };
-    
-    // === Sección principal de métricas (responsive: auto-fit 140px) ===
-    const mainMetricsStyles = {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-        gap: spacing.md,
+
+    const sessionHeaderStyles = {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '16px 24px 0',
+        flexShrink: 0,
     };
-    
-    // === Sección de potencia destacada ===
-    const powerSectionStyles = {
-        ...baseStyles.card,
+
+    const scrollContentStyles = {
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
         display: 'flex',
         flexDirection: 'column',
+    };
+
+    const gaugeContainerStyles = {
+        display: 'flex',
+        justifyContent: 'center',
         alignItems: 'center',
-        padding: spacing.xl,
+        position: 'relative',
+        minHeight: '280px',
+        flexShrink: 0,
     };
-    
-    // === Controles ===
-    const controlsSectionStyles = {
-        ...baseStyles.card,
-        padding: spacing.lg,
+
+    const metricsGridStyles = {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: '12px',
+        padding: '0 16px',
+        marginBottom: '24px',
+        flexShrink: 0,
     };
-    
-    const controlsHeaderStyles = {
-        ...baseStyles.flexBetween,
-        marginBottom: spacing.md,
-    };
-    
-    // === Gráfico de potencia ===
-    const chartSectionStyles = {
-        ...baseStyles.card,
-        padding: spacing.lg,
-        minHeight: '200px',
+
+    const resistancePanelStyles = {
+        background: '#161616',
+        borderTop: '1px solid rgba(255,255,255,0.1)',
+        padding: '12px 20px max(40px, env(safe-area-inset-bottom))',
+        borderRadius: '24px 24px 0 0',
+        boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
+        position: 'relative',
+        zIndex: 20,
+        flexShrink: 0,
     };
     
     // === Construir vista ===
@@ -262,279 +231,126 @@ export function TrainingView(state) {
     // Añadir estilos responsive + modo paisaje (móvil en manillar)
     const responsiveStyles = createElement('style', {
         text: `
-            @keyframes cadence-blink {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.45; }
-            }
-            [data-view="training"] .cadence-calculating {
-                animation: cadence-blink 1s ease-in-out infinite;
-            }
             [data-view="training"] .secondary-metrics {
                 grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
             }
-            @media (max-width: 768px) {
-                [data-view="training"] {
-                    padding: ${spacing.md} !important;
-                }
-                [data-view="training"] .secondary-metrics {
-                    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
-                }
-                [data-view="training"] .action-buttons {
-                    grid-template-columns: repeat(3, 1fr) !important;
-                }
+            [data-view="training"] .training-swiper {
+                -webkit-overflow-scrolling: touch;
             }
-            @media (max-width: 480px) {
+            [data-view="training"] .training-swiper-panel {
+                scroll-snap-align: start;
+                scroll-snap-stop: always;
+            }
+            [data-view="training"] .training-metrics-grid > div {
+                background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 16px;
+                padding: 16px 12px;
+            }
+            [data-view="training"] .training-metrics-grid > div.fc {
+                border-color: rgba(239, 68, 68, 0.35);
+                background: linear-gradient(180deg, rgba(239,68,68,0.06) 0%, #111 100%);
+            }
+            @media (max-width: 768px) {
                 [data-view="training"] .secondary-metrics {
                     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
                 }
             }
-            @media (orientation: landscape) and (max-height: 500px) {
-                [data-view="training"] {
-                    flex-direction: row !important;
-                    flex-wrap: wrap !important;
-                    padding: ${spacing.sm} !important;
-                    gap: ${spacing.sm} !important;
-                }
+            @media (max-width: 480px) {
                 [data-view="training"] .secondary-metrics {
-                    order: 1;
-                    flex: 1 1 100%;
-                    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important;
+                    grid-template-columns: repeat(2, 1fr) !important;
                 }
-                [data-view="training"] .action-buttons {
-                    order: 2;
-                    flex: 0 0 auto;
+            }
+            @media (orientation: landscape) and (max-height: 500px) {
+                [data-view="training"] .secondary-metrics {
+                    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important;
                 }
             }
         `
     });
     document.head.appendChild(responsiveStyles);
     
-    // === SECCIÓN HERO: PowerGauge (potencia + zona consolidados) ===
+    // === HEADER: tipo de sesión + timer (estilo mockup) ===
+    const sessionTypeLabel = session.workoutName || 'Entreno Libre';
+    const sessionHeader = div({
+        styles: sessionHeaderStyles,
+        children: [
+            createElement('div', {
+                text: sessionTypeLabel,
+                styles: {
+                    fontSize: '12px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    color: colors.textMuted,
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '4px 10px',
+                    borderRadius: '20px',
+                },
+            }),
+            createElement('div', {
+                text: formatTime(session.elapsedTime || liveData.elapsedTime || 0),
+                styles: {
+                    fontFamily: "'Barlow', sans-serif",
+                    fontSize: '28px',
+                    fontWeight: 700,
+                    letterSpacing: '-0.5px',
+                    color: colors.text,
+                },
+            }),
+        ],
+    });
+    const timerEl = sessionHeader.querySelector('div:last-child');
+    if (timerEl) updateRefs.timeValue = timerEl;
+
+    // Área scrollable: header + gauge + métricas (el panel de resistencia queda fijo abajo)
+    const scrollContent = div({
+        styles: scrollContentStyles,
+        attrs: { class: 'training-scroll-content' },
+        children: [],
+    });
+    scrollContent.appendChild(sessionHeader);
+
+    // === GAUGE: circular centrado (variant training, estilo mockup) ===
     const powerGaugeElement = PowerGauge({
         power: liveData.power || 0,
         ftp: settings.ftp,
         maxPower: settings.ftp * 2,
+        variant: 'training',
     });
     updateRefs.powerGauge = powerGaugeElement;
-    const powerSection = div({
-        styles: {
-            ...powerSectionStyles,
-            marginBottom: spacing.lg,
-        },
-        children: [powerGaugeElement]
+    const gaugeContainer = div({
+        styles: gaugeContainerStyles,
+        children: [powerGaugeElement],
     });
-    updateRefs.powerGaugeContainer = powerSection;
-    container.appendChild(powerSection);
-    
-    // Velocidad y Tiempo se crearán más abajo junto con las otras métricas secundarias
-    
-    // === BOTONES DE ACCIÓN (altura 56px para uso táctil bajo fatiga) ===
-    const iconButtonStyles = {
-        ...baseStyles.button,
-        padding: `${spacing.xs} ${spacing.sm}`,
-        minWidth: 'auto',
-        width: '100%',
-        height: '56px',
-        minHeight: '56px',
-        maxHeight: '56px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        transition: transitions.normal,
-        border: 'none',
-        borderRadius: '16px',
-        fontSize: '18px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-    };
-    
-    const reiniciarBtn = button({
-        styles: {
-            ...iconButtonStyles,
-            ...baseStyles.buttonSecondary,
-        },
-        children: [
-            icon('refresh', 20, colors.text),
-        ],
-        attrs: { title: 'Reiniciar' },
-        events: {
-            click: async () => {
-                try {
-                    await bluetoothManager.reset();
-                } catch (error) {
-                    console.error('Error al reiniciar:', error);
-                }
-            }
-        }
-    });
-    
-    const pausarBtnIcon = icon(session.isPaused ? 'play' : 'pause', 20, colors.background);
-    const pausarBtn = button({
-        styles: {
-            ...iconButtonStyles,
-            backgroundColor: session.isPaused ? colors.success : colors.warning,
-            color: colors.background,
-        },
-        children: [pausarBtnIcon],
-        attrs: { title: session.isPaused ? 'Reanudar' : 'Pausar' },
-        events: {
-            click: async () => {
-                try {
-                    if (session.isPaused) {
-                        await bluetoothManager.startTraining();
-                        const pauseDuration = (AppState.session.pauseDuration || 0) + (Date.now() - (AppState.session.pausedAt || Date.now()));
-                        updateState({ session: { ...AppState.session, isPaused: false, pauseDuration, pausedAt: null } });
-                    } else {
-                        await bluetoothManager.stopTraining();
-                        updateState({ session: { ...AppState.session, isPaused: true, pausedAt: Date.now() } });
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            }
-        }
-    });
-    updateRefs.pausarBtn = pausarBtn;
-    updateRefs.pausarBtnIcon = pausarBtnIcon;
-    
-    const finalizarBtn = button({
-        styles: {
-            ...iconButtonStyles,
-            backgroundColor: colors.error,
-            color: colors.background,
-        },
-        children: [
-            icon('stop', 20, colors.background),
-        ],
-        attrs: { title: 'Finalizar entrenamiento (mantiene conexión)' },
-        events: {
-            click: async () => {
-                const duration = AppState.session.elapsedTime || 0;
-                const MIN_DURATION_SECONDS = 60; // 1 minuto mínimo
-                
-                // Si es muy corto, descartar automáticamente sin preguntar
-                if (duration < MIN_DURATION_SECONDS) {
-                    updateState({
-                        session: {
-                            isActive: false,
-                            isPaused: false,
-                            startTime: null,
-                            elapsedTime: 0,
-                            dataPoints: [],
-                            accumulatedDistance: 0,
-                            pauseDuration: 0,
-                            pausedAt: null,
-                        },
-                    });
-                    navigateTo('home');
-                    return;
-                }
-                
-                // Calcular métricas antes de mostrar el diálogo
-                const metrics = calculateSessionMetrics({
-                    dataPoints: AppState.session.dataPoints,
-                    duration: duration,
-                }, settings.ftp);
-                
-                // Mostrar diálogo de guardado
-                const result = await showSaveSessionDialog({
-                    session: AppState.session,
-                    metrics,
-                    ftp: settings.ftp,
-                    onCancel: () => {}, // Permitir volver al entreno
-                });
-                
-                if (result.cancelled) {
-                    // Usuario quiere volver al entrenamiento
-                    return;
-                }
-                
-                if (result.saved) {
-                    // Guardar sesión en IndexedDB
-                    try {
-                        const sessionToSave = createSession({
-                            workoutName: result.workoutName,
-                            ftp: settings.ftp,
-                        });
-                        sessionToSave.dataPoints = [...AppState.session.dataPoints];
-                        sessionToSave.startTime = AppState.session.startTime;
-                        
-                        await finishSession(sessionToSave, metrics);
-                        console.log('✅ Sesión guardada:', result.workoutName);
-                    } catch (error) {
-                        console.error('Error guardando sesión:', error);
-                        alert('Error al guardar la sesión. Los datos no se han perdido.');
-                    }
-                }
-                
-                // Resetear sesión y navegar a home
-                updateState({
-                    session: {
-                        isActive: false,
-                        isPaused: false,
-                        startTime: null,
-                        elapsedTime: 0,
-                        dataPoints: [],
-                        accumulatedDistance: 0,
-                        pauseDuration: 0,
-                        pausedAt: null,
-                    },
-                });
-                navigateTo('home');
-            }
-        }
-    });
-    
-    // Añadir efectos hover a los botones
-    [reiniciarBtn, pausarBtn, finalizarBtn].forEach(btn => {
-        btn.addEventListener('mouseenter', () => {
-            btn.style.transform = 'scale(1.05)';
-            btn.style.opacity = '0.9';
-        });
-        btn.addEventListener('mouseleave', () => {
-            btn.style.transform = 'scale(1)';
-            btn.style.opacity = '1';
-        });
-    });
-    
-    // === MÉTRICAS SECUNDARIAS (Cadencia primero, luego Tiempo, Velocidad, Distancia, FC, Calorías) ===
+    updateRefs.powerGaugeContainer = gaugeContainer;
+    scrollContent.appendChild(gaugeContainer);
+
+    // === MÉTRICAS (3 cards: RPM, KM/H, KM - estilo mockup) ===
     // zoneColor e isStale/dimmed para coherencia visual tipo Garmin
-    const cadenceCard = MetricCard({
-        label: 'Cadencia',
-        value: liveData.cadence != null ? Math.round(liveData.cadence) : '--',
-        unit: 'rpm',
-        icon: 'cadence',
-        color: colors.primary,
+    const hasHeartRate = liveData.heartRate != null && liveData.heartRate !== '';
+    const heartRateCard = MetricCard({
+        label: 'FC',
+        value: liveData.heartRate || '--',
+        unit: hasHeartRate ? 'bpm' : '',
+        icon: 'activity',
+        color: colors.error,
         size: 'small',
         zoneColor: currentZoneColor,
+        dimmed: !hasHeartRate,
     });
-    updateRefs.cadenceCard = cadenceCard;
-    const cadenceDivs = cadenceCard.querySelectorAll('div');
-    if (cadenceDivs.length >= 3) {
-        const valueContainer = cadenceDivs[cadenceDivs.length - 1];
+    updateRefs.heartRateCard = heartRateCard;
+    heartRateCard.classList.add('fc');
+    const heartRateDivs = heartRateCard.querySelectorAll('div');
+    if (heartRateDivs.length >= 3) {
+        const valueContainer = heartRateDivs[heartRateDivs.length - 1];
         const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) updateRefs.cadenceValue = valueSpan;
+        if (valueSpan) updateRefs.heartRateValue = valueSpan;
     }
-    
-    const timeCard = MetricCard({
-        label: 'Tiempo',
-        value: formatTime(session.elapsedTime || liveData.elapsedTime || 0),
-        icon: 'clock',
-        color: colors.textMuted,
-        size: 'small',
-        zoneColor: currentZoneColor,
-    });
-    const timeDivs = timeCard.querySelectorAll('div');
-    if (timeDivs.length >= 3) {
-        const valueContainer = timeDivs[timeDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) updateRefs.timeValue = valueSpan;
-    }
-    
+
     const speedCard = MetricCard({
-        label: 'Velocidad',
+        label: 'KM/H',
         value: (liveData.speed || 0).toFixed(1),
-        unit: 'km/h',
+        unit: '',
         icon: 'speedometer',
         color: colors.primary,
         size: 'small',
@@ -557,8 +373,9 @@ export function TrainingView(state) {
         ? formatDistance(distanceValue)
         : '--';
     const distanceCard = MetricCard({
-        label: 'Distancia',
+        label: 'KM',
         value: distanceDisplay,
+        unit: '',
         icon: 'route',
         color: colors.textMuted,
         size: 'small',
@@ -571,161 +388,210 @@ export function TrainingView(state) {
         if (valueSpan) updateRefs.distanceValue = valueSpan;
     }
     
-    const hasHeartRate = liveData.heartRate != null && liveData.heartRate !== '';
-    const heartRateCard = MetricCard({
-        label: 'FC',
-        value: liveData.heartRate || '--',
-        unit: hasHeartRate ? 'bpm' : '',
-        icon: 'activity',
-        color: colors.error,
-        size: 'small',
-        zoneColor: currentZoneColor,
-        dimmed: !hasHeartRate,
+    const metricsGrid = div({
+        styles: metricsGridStyles,
+        attrs: { class: 'training-metrics-grid' },
+        children: [heartRateCard, speedCard, distanceCard],
     });
-    updateRefs.heartRateCard = heartRateCard;
-    const heartRateDivs = heartRateCard.querySelectorAll('div');
-    if (heartRateDivs.length >= 3) {
-        const valueContainer = heartRateDivs[heartRateDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) updateRefs.heartRateValue = valueSpan;
-    }
-    
-    const caloriesCard = MetricCard({
-        label: 'Calorías',
-        value: liveData.calories || 0,
-        unit: 'kcal',
-        icon: 'flame',
-        color: colors.accent,
-        size: 'small',
-        zoneColor: currentZoneColor,
-    });
-    const caloriesDivs = caloriesCard.querySelectorAll('div');
-    if (caloriesDivs.length >= 3) {
-        const valueContainer = caloriesDivs[caloriesDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) updateRefs.caloriesValue = valueSpan;
-    }
-    
-    // Grid responsive: repeat(auto-fit, minmax(140px, 1fr))
-    const secondaryMetrics = div({
+    updateRefs.metricsContainer = metricsGrid;
+    scrollContent.appendChild(metricsGrid);
+
+    container.appendChild(scrollContent);
+
+    // === PANEL RESISTENCIA (bottom sheet, siempre visible abajo) ===
+    const resistanceValueSpan = createElement('span', {
+        text: `${Math.round(liveData.resistance || 0)}%`,
         styles: {
-            ...mainMetricsStyles,
-            marginBottom: spacing.lg,
+            fontFamily: "'Barlow', sans-serif",
+            fontSize: '20px',
+            fontWeight: 700,
+            color: colors.primary,
         },
-        attrs: { class: 'secondary-metrics' },
-        children: [cadenceCard, timeCard, speedCard, distanceCard, heartRateCard, caloriesCard]
     });
-    updateRefs.metricsContainer = secondaryMetrics;
-    container.appendChild(secondaryMetrics);
-    
-    // === BOTONES DE ACCIÓN (3 columnas, solo iconos: Reiniciar, Pausar, Finalizar) ===
-    const actionButtonsGrid = div({
+    updateRefs.resistanceValue = resistanceValueSpan;
+
+    const sliderEl = ResistanceSlider({
+        value: liveData.resistance || 50,
+        minimal: true,
+        onChange: async (value) => {
+            updateRefs.lastResistanceSliderInteraction = Date.now();
+            try {
+                await bluetoothManager.setResistance(value);
+            } catch (error) {
+                console.error('Error al cambiar resistencia:', error);
+            }
+        },
+    });
+    updateRefs.resistanceSlider = sliderEl;
+
+    const pausarBtnIcon = icon(session.isPaused ? 'play' : 'pause', 18, 'currentColor');
+    const pausarBtn = button({
+        styles: {
+            height: '48px',
+            borderRadius: '12px',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            background: 'rgba(245, 158, 11, 0.15)',
+            color: '#f59e0b',
+            fontWeight: 600,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+        },
+        children: [pausarBtnIcon, createElement('span', { text: session.isPaused ? 'Reanudar' : 'Pausar' })],
+        attrs: { title: session.isPaused ? 'Reanudar' : 'Pausar' },
+        events: {
+            click: async () => {
+                try {
+                    if (session.isPaused) {
+                        await bluetoothManager.startTraining();
+                        const pauseDuration = (AppState.session.pauseDuration || 0) + (Date.now() - (AppState.session.pausedAt || Date.now()));
+                        updateState({ session: { ...AppState.session, isPaused: false, pauseDuration, pausedAt: null } });
+                    } else {
+                        await bluetoothManager.stopTraining();
+                        updateState({ session: { ...AppState.session, isPaused: true, pausedAt: Date.now() } });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            },
+        },
+    });
+    updateRefs.pausarBtn = pausarBtn;
+    updateRefs.pausarBtnIcon = pausarBtnIcon;
+
+    const finalizarBtn = button({
+        styles: {
+            height: '48px',
+            borderRadius: '12px',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            background: 'rgba(239, 68, 68, 0.15)',
+            color: '#ef4444',
+            fontWeight: 600,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+        },
+        children: [icon('stop', 18, 'currentColor'), createElement('span', { text: 'Fin' })],
+        attrs: { title: 'Finalizar entrenamiento' },
+        events: {
+            click: async () => {
+                const duration = AppState.session.elapsedTime ?? 0;
+                const MIN_DURATION_SECONDS = 60;
+                if (duration < MIN_DURATION_SECONDS) {
+                    updateState({
+                        session: {
+                            isActive: false,
+                            isPaused: false,
+                            startTime: null,
+                            elapsedTime: 0,
+                            dataPoints: [],
+                            accumulatedDistance: 0,
+                            pauseDuration: 0,
+                            pausedAt: null,
+                        },
+                    });
+                    navigateTo('home');
+                    return;
+                }
+                const metrics = calculateSessionMetrics({
+                    dataPoints: AppState.session.dataPoints,
+                    duration,
+                }, settings.ftp);
+                const result = await showSaveSessionDialog({
+                    session: AppState.session,
+                    metrics,
+                    ftp: settings.ftp,
+                    onCancel: () => {},
+                });
+                if (result.cancelled) return;
+                if (result.saved) {
+                    try {
+                        const sessionToSave = createSession({
+                            workoutName: result.workoutName,
+                            ftp: settings.ftp,
+                        });
+                        sessionToSave.dataPoints = [...AppState.session.dataPoints];
+                        sessionToSave.startTime = AppState.session.startTime;
+                        await finishSession(sessionToSave, metrics);
+                    } catch (error) {
+                        console.error('Error guardando sesión:', error);
+                        alert('Error al guardar la sesión. Los datos no se han perdido.');
+                    }
+                }
+                updateState({
+                    session: {
+                        isActive: false,
+                        isPaused: false,
+                        startTime: null,
+                        elapsedTime: 0,
+                        dataPoints: [],
+                        accumulatedDistance: 0,
+                        pauseDuration: 0,
+                        pausedAt: null,
+                    },
+                });
+                navigateTo('home');
+            },
+        },
+    });
+
+    const resHeader = div({
+        styles: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '16px',
+        },
+        children: [
+            createElement('span', {
+                text: 'Resistencia',
+                styles: {
+                    fontSize: '13px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    color: colors.textMuted,
+                    fontWeight: 600,
+                },
+            }),
+            resistanceValueSpan,
+        ],
+    });
+
+    const bottomActions = div({
         styles: {
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: spacing.sm,
-            marginBottom: spacing.lg,
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px',
+            marginTop: '24px',
         },
-        attrs: { class: 'action-buttons' },
-        children: [reiniciarBtn, pausarBtn, finalizarBtn]
+        children: [pausarBtn, finalizarBtn],
     });
-    container.appendChild(actionButtonsGrid);
-    
-    // === CONTROLES: Resistencia y Modo Juego ===
-    const controlsSection = div({
-        styles: controlsSectionStyles,
+
+    const resistancePanel = div({
+        styles: resistancePanelStyles,
+        attrs: { class: 'resistance-control' },
         children: [
             div({
-                styles: controlsHeaderStyles,
-                children: [
-                    createElement('h3', {
-                        text: 'Control de Resistencia',
-                        styles: {
-                            fontSize: typography.sizes.lg,
-                            fontWeight: typography.weights.semibold,
-                            color: colors.text,
-                        }
-                    }),
-                    (() => {
-                        const resistanceSpan = createElement('span', {
-                            text: `${liveData.resistance || 0}%`,
-                            styles: {
-                                fontSize: typography.sizes.xl,
-                                fontWeight: typography.weights.bold,
-                                color: colors.primary,
-                            }
-                        });
-                        updateRefs.resistanceValue = resistanceSpan;
-                        return resistanceSpan;
-                    })(),
-                ]
-            }),
-            (() => {
-                const sliderEl = ResistanceSlider({
-                    value: liveData.resistance || 50,
-                    onChange: async (value) => {
-                        updateRefs.lastResistanceSliderInteraction = Date.now();
-                        try {
-                            await bluetoothManager.setResistance(value);
-                        } catch (error) {
-                            console.error('Error al cambiar resistencia:', error);
-                        }
-                    }
-                });
-                updateRefs.resistanceSlider = sliderEl;
-                return sliderEl;
-            })(),
-            // Botón de Modo Juego
-            div({
                 styles: {
-                    marginTop: spacing.lg,
-                    paddingTop: spacing.lg,
-                    borderTop: `1px solid ${colors.border}`,
-                    display: 'flex',
-                    justifyContent: 'center',
+                    width: '40px',
+                    height: '4px',
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    borderRadius: '2px',
+                    margin: '0 auto 20px',
                 },
-                children: [
-                    GameModeButton({
-                        onClick: () => {
-                            navigateToGame();
-                        },
-                        disabled: false,
-                    }),
-                ]
             }),
-        ]
+            resHeader,
+            sliderEl,
+            bottomActions,
+        ],
     });
-    container.appendChild(controlsSection);
-    
-    // Gráfico de potencia en tiempo real
-    const powerChartElement = PowerChart({
-        dataPoints: session.dataPoints || [],
-        ftp: settings.ftp,
-        width: '100%',
-        height: 150,
-    });
-    updateRefs.powerChart = powerChartElement;
-    const chartSection = div({
-        styles: {
-            ...chartSectionStyles,
-            marginBottom: spacing.lg,
-        },
-        children: [
-            createElement('h3', {
-                text: 'Potencia en Tiempo Real',
-                styles: {
-                    fontSize: typography.sizes.md,
-                    fontWeight: typography.weights.semibold,
-                    color: colors.text,
-                    marginBottom: spacing.md,
-                }
-            }),
-            powerChartElement,
-        ]
-    });
-    container.appendChild(chartSection);
-    
-    // Los botones ya están en el grid combinado arriba, no necesitamos esta sección
+    container.appendChild(resistancePanel);
     
     // Marcar el estilo para poder limpiarlo después
     if (responsiveStyles) {

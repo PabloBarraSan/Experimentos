@@ -4,13 +4,14 @@
  */
 
 import { colors, spacing, typography, baseStyles, borderRadius, transitions } from './utils/theme.js';
-import { createElement, div, render, icon } from './utils/dom.js';
+import { createElement, div, render } from './utils/dom.js';
 import { BluetoothManager, CONNECTION_STATE } from './bluetooth/scanner.js';
 import { HeartRateManager, HR_CONNECTION_STATE } from './bluetooth/heartRate.js';
 import { HomeView } from './views/HomeView.js';
 import { TrainingView } from './views/TrainingView.js';
 import { GameView } from './views/GameView.js';
 import { RideView } from './views/RideView.js';
+import { HistoryView } from './views/HistoryView.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 
 // Estado global de la aplicación
@@ -193,140 +194,17 @@ export function navigateToRide() {
 }
 
 /**
- * Renderizar header de la aplicación
- */
-function renderHeader() {
-    const headerStyles = {
-        ...baseStyles.flexBetween,
-        padding: `${spacing.md} ${spacing.lg}`,
-        backgroundColor: colors.surface,
-        borderBottom: `1px solid ${colors.border}`,
-        position: 'sticky',
-        top: '0',
-        zIndex: '100',
-    };
-    
-    const logoStyles = {
-        ...baseStyles.flexCenter,
-        gap: spacing.sm,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.bold,
-        color: colors.primary,
-    };
-    
-    const statusStyles = {
-        ...baseStyles.flexCenter,
-        gap: spacing.sm,
-        fontSize: typography.sizes.sm,
-        color: colors.textMuted,
-    };
-    
-    const getStatusInfo = () => {
-        switch (AppState.connectionState) {
-            case CONNECTION_STATE.CONNECTED:
-                return { text: AppState.deviceName || 'Conectado', color: colors.success };
-            case CONNECTION_STATE.CONNECTING:
-            case CONNECTION_STATE.CONNECTING_GATT:
-                return { text: 'Conectando...', color: colors.warning };
-            case CONNECTION_STATE.DISCOVERING_SERVICES:
-                return { text: 'Descubriendo...', color: colors.warning };
-            case CONNECTION_STATE.SUBSCRIBING:
-                return { text: 'Configurando...', color: colors.warning };
-            case CONNECTION_STATE.SCANNING:
-                return { text: 'Buscando...', color: colors.warning };
-            case CONNECTION_STATE.RECONNECTING:
-                return { text: 'Reconectando...', color: colors.warning };
-            default:
-                return { text: 'Desconectado', color: colors.textMuted };
-        }
-    };
-    
-    const status = getStatusInfo();
-    
-    const statusDot = div({
-        styles: {
-            width: '8px',
-            height: '8px',
-            borderRadius: borderRadius.full,
-            backgroundColor: status.color,
-        }
-    });
-    
-    // Estado del pulsómetro
-    const isHRConnected = AppState.hrConnectionState === HR_CONNECTION_STATE.CONNECTED;
-    const hrIndicator = isHRConnected ? div({
-        styles: {
-            ...baseStyles.flexCenter,
-            gap: '4px',
-            padding: '2px 8px',
-            backgroundColor: 'rgba(255, 82, 82, 0.15)',
-            borderRadius: borderRadius.full,
-            marginLeft: spacing.sm,
-        },
-        children: [
-            icon('heart', 14, '#ff5252'),
-            createElement('span', { 
-                text: AppState.liveData.heartRate || '--', 
-                styles: { 
-                    color: '#ff5252', 
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.semibold,
-                } 
-            }),
-        ]
-    }) : null;
-    
-    return div({
-        styles: headerStyles,
-        children: [
-            div({
-                styles: logoStyles,
-                children: [
-                    icon('bike', 28, colors.primary),
-                    createElement('span', { text: 'Smart Trainer' }),
-                ]
-            }),
-            div({
-                styles: {
-                    ...statusStyles,
-                    gap: spacing.md,
-                },
-                children: [
-                    // HR indicator (si conectado)
-                    hrIndicator,
-                    // Separador visual si hay HR
-                    isHRConnected ? div({
-                        styles: {
-                            width: '1px',
-                            height: '20px',
-                            backgroundColor: colors.border,
-                        }
-                    }) : null,
-                    // Estado del rodillo
-                    div({
-                        styles: {
-                            ...baseStyles.flexCenter,
-                            gap: spacing.xs,
-                        },
-                        children: [
-                            statusDot,
-                            createElement('span', { text: status.text, styles: { color: status.color } }),
-                        ]
-                    }),
-                ].filter(Boolean)
-            }),
-        ]
-    });
-}
-
-/**
  * Renderizar vista actual
  */
 function renderCurrentView() {
+    const isTrainingView = AppState.currentView === 'training';
     const container = div({
         styles: {
             flex: '1',
-            overflow: 'auto',
+            minHeight: isTrainingView ? 0 : undefined,
+            overflow: isTrainingView ? 'hidden' : 'auto',
+            display: 'flex',
+            flexDirection: 'column',
         }
     });
     
@@ -387,11 +265,75 @@ function renderCurrentView() {
             document.body.appendChild(rideView);
             return container; // Retornar contenedor vacío
             
-        case 'training':
+        case 'training': {
             cleanupFullscreenViews();
-            container.appendChild(TrainingView(AppState));
+            const trainingWrapper = div({
+                styles: {
+                    flex: '1',
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }
+            });
+            trainingWrapper.appendChild(TrainingView(AppState));
+            container.appendChild(trainingWrapper);
             break;
-            
+        }
+
+        case 'history': {
+            cleanupFullscreenViews();
+            const historyWrapper = div({
+                styles: {
+                    flex: '1',
+                    minHeight: 0,
+                    overflow: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                },
+                attrs: { 'data-view': 'history' },
+            });
+            const loader = div({
+                styles: {
+                    flex: '1',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: spacing.xxl,
+                },
+                children: [
+                    div({
+                        styles: {
+                            width: '32px',
+                            height: '32px',
+                            border: `3px solid ${colors.border}`,
+                            borderTopColor: colors.primary,
+                            borderRadius: '50%',
+                            animation: 'spin 1s linear infinite',
+                        },
+                    }),
+                ],
+            });
+            historyWrapper.appendChild(loader);
+            container.appendChild(historyWrapper);
+            HistoryView({ state: AppState, onBack: () => navigateTo('home') })
+                .then((viewEl) => {
+                    loader.remove();
+                    historyWrapper.appendChild(viewEl);
+                })
+                .catch((err) => {
+                    console.error('Error cargando historial:', err);
+                    loader.remove();
+                    historyWrapper.appendChild(
+                        createElement('p', {
+                            text: 'Error al cargar el historial. Vuelve a intentarlo.',
+                            styles: { color: colors.error, padding: spacing.lg, textAlign: 'center' },
+                        })
+                    );
+                });
+            break;
+        }
+
         case 'home':
         default:
             cleanupFullscreenViews();
@@ -420,6 +362,7 @@ function renderApp() {
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
+        height: '100%',
         backgroundColor: colors.background,
     };
     
@@ -428,10 +371,7 @@ function renderApp() {
     
     const app = div({
         styles: appStyles,
-        children: [
-            renderHeader(),
-            viewContainer,
-        ]
+        children: [viewContainer]
     });
     
     render(appContainer, app);
@@ -441,8 +381,6 @@ function renderApp() {
  * Inicializar aplicación
  */
 async function init() {
-    console.log('🚴 Smart Trainer Controller iniciando...');
-    
     // Crear instancia del gestor Bluetooth
     AppState.bluetoothManager = new BluetoothManager({
         onStateChange: (state) => {
@@ -514,22 +452,11 @@ async function init() {
     // y getDevices() está disponible (Chrome 85+)
     if (AppState.bluetoothManager && AppState.bluetoothManager.cachedDevice) {
         // Intentar reconexión silenciosa en segundo plano (no bloquear la UI)
-        AppState.bluetoothManager.reconnectSilently().catch(error => {
-            // Silenciar errores de reconexión automática - es normal que falle
-            console.log('Reconexión automática no disponible:', error.message);
-        });
+        AppState.bluetoothManager.reconnectSilently().catch(() => {});
     }
     
-    // Renderizar app inicial
     renderApp();
-    
-    // Suscribirse a cambios para re-renderizar
-    subscribe(() => {
-        // Solo re-renderizar componentes específicos, no toda la app
-        // Esto se optimizará más adelante
-    });
-    
-    // Mantener sesión correcta al volver de segundo plano: recalcular tiempo y notificar
+    subscribe(() => {});
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState !== 'visible') return;
         if (!AppState.session.isActive || !AppState.session.startTime) return;
@@ -539,8 +466,6 @@ async function init() {
         AppState.session.elapsedTime = Math.floor((now - AppState.session.startTime - pauseDuration - currentPauseMs) / 1000);
         notify();
     });
-    
-    console.log('✅ Smart Trainer Controller listo');
 }
 
 /**

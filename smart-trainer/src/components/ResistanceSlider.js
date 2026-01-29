@@ -15,8 +15,9 @@ import { createElement, div, debounce } from '../utils/dom.js';
  * @param {number} props.min - Valor mínimo
  * @param {number} props.max - Valor máximo
  * @param {number} props.step - Incremento
+ * @param {boolean} props.minimal - Sin labels (Fácil/Medio/Difícil) ni quick buttons (25/50/75/100)
  */
-export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, step = 1 }) {
+export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, step = 1, minimal = false }) {
     const containerStyles = {
         width: '100%',
         padding: `${spacing.md} 0`,
@@ -86,15 +87,15 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
         transition: 'transform 0.2s ease',
     };
     
-    // Botones +/- grandes para uso táctil
+    // Botones +/- grandes para uso táctil (redondos en minimal)
     const stepButtonStyles = {
         width: '56px',
         height: '56px',
         minWidth: '56px',
         minHeight: '56px',
-        borderRadius: '16px',
-        border: 'none',
-        backgroundColor: colors.surfaceLight,
+        borderRadius: minimal ? '50%' : '16px',
+        border: minimal ? `1px solid ${colors.border}` : 'none',
+        background: minimal ? 'linear-gradient(145deg, #2a2a2a, #1a1a1a)' : colors.surfaceLight,
         color: colors.text,
         fontSize: '24px',
         fontWeight: typography.weights.bold,
@@ -240,67 +241,69 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     sliderRow.appendChild(plusBtn);
     container.appendChild(sliderRow);
     
-    // Labels
-    const labels = div({
-        styles: labelsStyles,
-        children: [
-            createElement('span', { text: 'Fácil', styles: labelStyles }),
-            createElement('span', { text: 'Medio', styles: { ...labelStyles, color: colors.textMuted } }),
-            createElement('span', { text: 'Difícil', styles: labelStyles }),
-        ]
-    });
-    container.appendChild(labels);
+    // Labels (ocultos en minimal)
+    if (!minimal) {
+        const labels = div({
+            styles: labelsStyles,
+            children: [
+                createElement('span', { text: 'Fácil', styles: labelStyles }),
+                createElement('span', { text: 'Medio', styles: { ...labelStyles, color: colors.textMuted } }),
+                createElement('span', { text: 'Difícil', styles: labelStyles }),
+            ]
+        });
+        container.appendChild(labels);
+    }
 
     // API para actualización programática (sin disparar onChange). Evita feedback loop del servo.
     container.setValue = (newValue) => {
         updateUIOnly(newValue);
     };
 
-    // Botones de ajuste rápido
-    const quickButtonsStyles = {
-        display: 'flex',
-        gap: spacing.sm,
-        marginTop: spacing.md,
-        justifyContent: 'center',
-        flexWrap: 'wrap',
-    };
-    
-    const quickButtonStyle = {
-        padding: `${spacing.xs} ${spacing.md}`,
-        backgroundColor: colors.surfaceLight,
-        border: `1px solid ${colors.border}`,
-        borderRadius: borderRadius.md,
-        color: colors.text,
-        fontSize: typography.sizes.sm,
-        cursor: 'pointer',
-        transition: transitions.fast,
-    };
-    
-    const quickButtons = div({
-        styles: quickButtonsStyles,
-        children: [25, 50, 75, 100].map(val => {
-            const btn = createElement('button', {
-                text: `${val}%`,
-                styles: quickButtonStyle,
-                events: {
-                    click: () => {
-                        input.value = val;
-                        input.dispatchEvent(new Event('input'));
-                    },
-                    mouseenter: (e) => {
-                        e.target.style.backgroundColor = colors.primary;
-                        e.target.style.color = colors.background;
-                    },
-                    mouseleave: (e) => {
-                        e.target.style.backgroundColor = colors.surfaceLight;
-                        e.target.style.color = colors.text;
-                    },
-                }
-            });
-            return btn;
-        })
-    });
-    container.appendChild(quickButtons);
+    // Botones de ajuste rápido (ocultos en minimal)
+    if (!minimal) {
+        const quickButtonsStyles = {
+            display: 'flex',
+            gap: spacing.sm,
+            marginTop: spacing.md,
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+        };
+        const quickButtonStyle = {
+            padding: `${spacing.xs} ${spacing.md}`,
+            backgroundColor: colors.surfaceLight,
+            border: `1px solid ${colors.border}`,
+            borderRadius: borderRadius.md,
+            color: colors.text,
+            fontSize: typography.sizes.sm,
+            cursor: 'pointer',
+            transition: transitions.fast,
+        };
+        const quickButtons = div({
+            styles: quickButtonsStyles,
+            children: [25, 50, 75, 100].map(val => {
+                const btn = createElement('button', {
+                    text: `${val}%`,
+                    styles: quickButtonStyle,
+                    events: {
+                        click: () => {
+                            input.value = val;
+                            input.dispatchEvent(new Event('input'));
+                        },
+                        mouseenter: (e) => {
+                            e.target.style.backgroundColor = colors.primary;
+                            e.target.style.color = colors.background;
+                        },
+                        mouseleave: (e) => {
+                            e.target.style.backgroundColor = colors.surfaceLight;
+                            e.target.style.color = colors.text;
+                        },
+                    }
+                });
+                return btn;
+            })
+        });
+        container.appendChild(quickButtons);
+    }
     
     return container;
 }

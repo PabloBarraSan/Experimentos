@@ -121,7 +121,7 @@ export class HeartRateManager {
             const cached = localStorage.getItem('hr_last_device');
             if (cached) {
                 this.cachedDevice = JSON.parse(cached);
-                console.log('[HR] Dispositivo cacheado encontrado:', this.cachedDevice);
+                if (typeof console.debug === 'function') console.debug('[HR] Dispositivo cacheado:', this.cachedDevice?.name);
             }
         } catch (e) {
             console.warn('[HR] Error al cargar dispositivo cacheado:', e);

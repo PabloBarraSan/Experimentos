@@ -3,13 +3,11 @@
  * Smart Trainer Controller
  */
 
-import { colors, spacing, typography, baseStyles, borderRadius, transitions, shadows, premiumCardStyles, premiumConnectButtonStyles } from '../utils/theme.js';
+import { colors, spacing, typography, baseStyles, borderRadius, premiumConnectButtonStyles, shadows } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { checkBluetoothSupport, CONNECTION_STATE } from '../bluetooth/scanner.js';
 import { HR_CONNECTION_STATE } from '../bluetooth/heartRate.js';
-import { GameModeButton } from './GameView.js';
-import { RideModeButton } from './RideView.js';
-import { navigateToGame, navigateTo, navigateToRide, getState } from '../app.js';
+import { navigateToGame, navigateTo, navigateToRide } from '../app.js';
 
 /**
  * Vista de inicio con botón de conexión
@@ -17,8 +15,6 @@ import { navigateToGame, navigateTo, navigateToRide, getState } from '../app.js'
 export function HomeView(state) {
     const bluetoothSupport = checkBluetoothSupport();
     
-    // Estado para el botón de instalación PWA
-    let installButtonContainer = null;
     let showInstallButton = false;
     
     // Verificar si la PWA está instalable
@@ -33,151 +29,360 @@ export function HomeView(state) {
         return typeof window.installPWA === 'function';
     };
     
-    // Escuchar eventos de instalación
+    let installPopupOpen = false;
+    let installTriggerEl = null;
+    let installPopupEl = null;
+
+    let infoModalOpen = false;
+    let infoModalEl = null;
+
+    const openInstallPopup = () => {
+        installPopupOpen = true;
+        if (installPopupEl) installPopupEl.style.display = 'flex';
+    };
+
+    const closeInstallPopup = () => {
+        installPopupOpen = false;
+        if (installPopupEl) installPopupEl.style.display = 'none';
+    };
+
+    const openInfoModal = (title, message) => {
+        infoModalOpen = true;
+        if (infoModalEl) {
+            const t = infoModalEl.querySelector('[data-info-modal-title]');
+            const m = infoModalEl.querySelector('[data-info-modal-message]');
+            if (t) t.textContent = title;
+            if (m) m.textContent = message;
+            infoModalEl.style.display = 'flex';
+        }
+    };
+
+    const closeInfoModal = () => {
+        infoModalOpen = false;
+        if (infoModalEl) infoModalEl.style.display = 'none';
+    };
+
     const handleInstallable = () => {
         showInstallButton = true;
-        if (installButtonContainer) {
-            installButtonContainer.style.display = 'flex';
-        }
+        if (installTriggerEl) installTriggerEl.style.display = 'flex';
     };
-    
+
     const handleInstalled = () => {
         showInstallButton = false;
-        if (installButtonContainer) {
-            installButtonContainer.style.display = 'none';
-        }
+        closeInstallPopup();
+        if (installTriggerEl) installTriggerEl.style.display = 'none';
     };
-    
-    // Guardar referencias a los handlers para poder eliminarlos
+
     const installableHandler = handleInstallable;
     const installedHandler = handleInstalled;
-    
+
     window.addEventListener('pwa-installable', installableHandler);
     window.addEventListener('pwa-installed', installedHandler);
-    
-    // Verificar al cargar
+
     showInstallButton = checkInstallable();
     
-    const containerStyles = {
+    const isConnected = state && state.connectionState === CONNECTION_STATE.CONNECTED;
+    const innerStyles = {
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 'calc(100vh - 60px)',
-        padding: spacing.xl,
-        textAlign: 'center',
-    };
-    
-    const logoContainerStyles = {
-        marginBottom: spacing.xl,
-    };
-    
-    const isConnected = state && state.connectionState === CONNECTION_STATE.CONNECTED;
-    
-    const titleStyles = {
-        fontFamily: typography.fontDisplay,
-        fontSize: typography.sizes.xxl,
-        fontWeight: 800,
-        color: colors.text,
-        marginBottom: spacing.sm,
-        letterSpacing: '-0.02em',
-    };
-    
-    const subtitleStyles = {
-        fontSize: typography.sizes.md,
-        color: colors.textMuted,
-        marginBottom: spacing.xxl,
+        alignItems: 'stretch',
+        width: '100%',
         maxWidth: '400px',
-    };
-    
-    const connectButtonStyles = {
-        ...baseStyles.button,
-        ...premiumConnectButtonStyles,
-        padding: `${spacing.md} ${spacing.xl}`,
-        fontSize: typography.sizes.lg,
-        fontWeight: 800,
-        gap: spacing.sm,
-        minWidth: '250px',
-        transition: 'transform 0.3s ease, box-shadow 0.3s ease, opacity 0.35s ease',
-    };
-    
-    const disabledButtonStyles = {
-        ...connectButtonStyles,
-        backgroundColor: colors.surfaceLight,
-        color: colors.textMuted,
-        cursor: 'not-allowed',
-        boxShadow: 'none',
+        margin: '0 auto',
+        padding: '24px',
+        paddingTop: '40px',
     };
     
     const errorBoxStyles = {
         ...baseStyles.card,
         backgroundColor: 'rgba(255, 68, 68, 0.1)',
         borderColor: colors.error,
-        maxWidth: '400px',
         marginTop: spacing.lg,
     };
     
-    // Crear elementos
-    const container = div({ 
-        styles: containerStyles,
-        attrs: { 'data-view': 'home', class: 'home-view-bg' }
+    const wrapper = div({
+        styles: {
+            flex: '1',
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            position: 'relative',
+        },
+        attrs: { 'data-view': 'home', class: 'home-view-bg' },
     });
     
-    // Banner PWA (elegante en la parte superior, no compite con Conectar)
-    installButtonContainer = div({
+    const container = div({
+        styles: { ...innerStyles, position: 'relative' },
+    });
+    wrapper.appendChild(container);
+    
+    installTriggerEl = button({
         styles: {
             position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
+            top: spacing.md,
+            right: spacing.md,
             display: showInstallButton ? 'flex' : 'none',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: spacing.sm,
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 10,
+            ...baseStyles.flexCenter,
+            gap: spacing.xs,
+            padding: `${spacing.xs} ${spacing.md}`,
+            fontSize: typography.sizes.sm,
+            color: colors.textMuted,
+            background: 'rgba(35,35,35,0.8)',
+            border: `1px solid ${colors.border}`,
+            borderRadius: borderRadius.full,
+            cursor: 'pointer',
+            zIndex: 5,
         },
         children: [
-            button({
-                styles: {
-                    ...baseStyles.button,
-                    background: 'rgba(35,35,35,0.85)',
-                    color: colors.text,
-                    border: `1px solid ${colors.border}80`,
-                    padding: `${spacing.xs} ${spacing.md}`,
-                    fontSize: typography.sizes.xs,
-                    fontWeight: typography.weights.medium,
-                    gap: spacing.xs,
-                    borderRadius: borderRadius.full,
-                },
+            icon('download', 16, colors.primary),
+            createElement('span', { text: 'Instalar App' }),
+        ],
+        events: { click: openInstallPopup },
+    });
+    container.appendChild(installTriggerEl);
+
+    // Popup de instalación PWA (cerrable, solo útil si no está instalada)
+    const popupOverlayStyles = {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(4px)',
+        display: installPopupOpen ? 'flex' : 'none',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        padding: spacing.lg,
+    };
+    const popupCardStyles = {
+        ...baseStyles.card,
+        maxWidth: '340px',
+        width: '100%',
+        padding: spacing.xl,
+        boxShadow: shadows.lg,
+    };
+    installPopupEl = div({
+        styles: popupOverlayStyles,
+        attrs: { 'data-install-popup': 'true' },
+        events: {
+            click: (e) => {
+                if (e.target === installPopupEl) closeInstallPopup();
+            },
+        },
+        children: [
+            div({
+                styles: popupCardStyles,
+                events: { click: (e) => e.stopPropagation() },
                 children: [
-                    icon('download', 14, colors.primary),
-                    createElement('span', { text: 'Instalar App' }),
+                    div({
+                        styles: {
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            marginBottom: spacing.md,
+                        },
+                        children: [
+                            createElement('h3', {
+                                text: 'Instalar Smart Trainer',
+                                styles: {
+                                    fontSize: typography.sizes.lg,
+                                    fontWeight: typography.weights.bold,
+                                    color: colors.text,
+                                },
+                            }),
+                            button({
+                                styles: {
+                                    ...baseStyles.button,
+                                    padding: spacing.xs,
+                                    minWidth: 'auto',
+                                    background: 'transparent',
+                                    color: colors.textMuted,
+                                    border: 'none',
+                                },
+                                children: [icon('close', 20, colors.textMuted)],
+                                attrs: { title: 'Cerrar', 'aria-label': 'Cerrar' },
+                                events: { click: closeInstallPopup },
+                            }),
+                        ],
+                    }),
+                    createElement('p', {
+                        text: 'Instala la app en tu dispositivo para acceder más rápido y usarla sin depender del navegador.',
+                        styles: {
+                            fontSize: typography.sizes.sm,
+                            color: colors.textMuted,
+                            marginBottom: spacing.lg,
+                            lineHeight: 1.5,
+                        },
+                    }),
+                    div({
+                        styles: { display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' },
+                        children: [
+                            button({
+                                styles: {
+                                    ...baseStyles.button,
+                                    ...baseStyles.buttonSecondary,
+                                },
+                                text: 'Cerrar',
+                                events: { click: closeInstallPopup },
+                            }),
+                            button({
+                                styles: {
+                                    ...baseStyles.button,
+                                    ...premiumConnectButtonStyles,
+                                    padding: `${spacing.sm} ${spacing.md}`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: spacing.sm,
+                                },
+                                children: [
+                                    icon('download', 18, '#000'),
+                                    createElement('span', { text: 'Instalar' }),
+                                ],
+                                events: {
+                                    click: async () => {
+                                        if (window.installPWA) await window.installPWA();
+                                    },
+                                },
+                            }),
+                        ],
+                    }),
                 ],
-                events: {
-                    click: async () => {
-                        if (window.installPWA) await window.installPWA();
-                    },
+            }),
+        ],
+    });
+    document.body.appendChild(installPopupEl);
+
+    // Modal informativo (sustituye alerts)
+    const infoModalOverlayStyles = {
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(4px)',
+        display: infoModalOpen ? 'flex' : 'none',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1001,
+        padding: spacing.lg,
+    };
+    infoModalEl = div({
+        styles: infoModalOverlayStyles,
+        attrs: { 'data-info-modal': 'true' },
+        events: {
+            click: (e) => {
+                if (e.target === infoModalEl) closeInfoModal();
+            },
+        },
+        children: [
+            div({
+                styles: {
+                    ...baseStyles.card,
+                    maxWidth: '340px',
+                    width: '100%',
+                    padding: spacing.xl,
+                    boxShadow: shadows.lg,
+                },
+                events: { click: (e) => e.stopPropagation() },
+                children: [
+                    createElement('h3', {
+                        text: 'Conecta el rodillo',
+                        attrs: { 'data-info-modal-title': 'true' },
+                        styles: {
+                            fontSize: typography.sizes.lg,
+                            fontWeight: typography.weights.bold,
+                            color: colors.text,
+                            marginBottom: spacing.sm,
+                        },
+                    }),
+                    createElement('p', {
+                        text: 'Conecta tu rodillo primero para usar este modo.',
+                        attrs: { 'data-info-modal-message': 'true' },
+                        styles: {
+                            fontSize: typography.sizes.sm,
+                            color: colors.textMuted,
+                            marginBottom: spacing.lg,
+                            lineHeight: 1.5,
+                        },
+                    }),
+                    div({
+                        styles: { display: 'flex', justifyContent: 'flex-end' },
+                        children: [
+                            button({
+                                styles: {
+                                    ...baseStyles.button,
+                                    ...premiumConnectButtonStyles,
+                                    padding: `${spacing.sm} ${spacing.lg}`,
+                                },
+                                text: 'Entendido',
+                                events: { click: closeInfoModal },
+                            }),
+                        ],
+                    }),
+                ],
+            }),
+        ],
+    });
+    document.body.appendChild(infoModalEl);
+    
+    // Hero: logo animado + título
+    const logoInner = div({
+        styles: {
+            background: 'linear-gradient(145deg, #222, #111)',
+            borderRadius: '50%',
+            width: '70px',
+            height: '70px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            zIndex: 2,
+            border: '1px solid rgba(255,255,255,0.1)',
+        },
+        children: [
+            createElement('span', {
+                html: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+            }),
+        ],
+    });
+    const logoRing = div({
+        className: 'logo-ring',
+        styles: { position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', top: 0, left: 0 },
+    });
+    const logoContainer = div({
+        styles: {
+            width: '84px',
+            height: '84px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: spacing.md,
+            position: 'relative',
+        },
+        children: [logoRing, logoInner],
+    });
+    const hero = div({
+        styles: {
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            marginBottom: '32px',
+        },
+        children: [
+            logoContainer,
+            createElement('h1', {
+                text: 'Smart Trainer',
+                attrs: { class: 'hero-title-gradient' },
+                styles: {
+                    fontFamily: typography.fontDisplay,
+                    fontWeight: 800,
+                    fontSize: '32px',
+                    margin: 0,
+                    letterSpacing: '-1px',
                 },
             }),
         ],
     });
-    container.style.position = 'relative';
-    container.appendChild(installButtonContainer);
-    
-    // Logo
-    const logoContainer = div({
-        styles: logoContainerStyles,
-        children: [
-            createElement('h1', { text: 'Smart Trainer', styles: titleStyles }),
-            createElement('p', { 
-                text: 'Conecta tu rodillo Decathlon D100 y comienza a entrenar', 
-                styles: subtitleStyles 
-            }),
-        ]
-    });
-    container.appendChild(logoContainer);
+    container.appendChild(hero);
     
     // Verificar si hay dispositivo cacheado
     const hasCachedDevice = state.bluetoothManager?.cachedDevice;
@@ -243,401 +448,290 @@ export function HomeView(state) {
     };
     const hrStatusText = getHRStatusText();
     
-    // Conexión: si ya está conectado, mostrar estado "Conectado a [nombre]"; si no, botón Conectar
-    if (bluetoothSupport.supported) {
-        const buttonContainer = div({
-            styles: {
-                display: 'flex',
-                flexDirection: 'column',
-                gap: spacing.md,
-                alignItems: 'center',
-                width: '100%',
-                maxWidth: '400px',
+    const borderMuted = 'rgba(255,255,255,0.08)';
+    const deviceTileBase = {
+        borderRadius: '16px',
+        padding: '12px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '8px',
+        cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+        border: `1px solid ${borderMuted}`,
+        background: 'rgba(255,255,255,0.03)',
+    };
+
+    const makeDeviceTile = (kind) => {
+        const isRodillo = kind === 'rodillo';
+        const connected = isRodillo ? isConnected : isHRConnected;
+        const connecting = isRodillo ? isConnecting : isHRConnecting;
+        const connStatus = isRodillo ? statusText : hrStatusText;
+        const showSpinner = connecting && connStatus;
+        const statusLabel = showSpinner ? connStatus : (connected ? (isRodillo ? 'Conectado' : (state.hrDeviceName || hasCachedHRDevice?.name || 'Conectado')) : 'Conectar +');
+        const iconColor = isRodillo ? (connected ? colors.primary : colors.textMuted) : (connected ? '#ff5252' : colors.textMuted);
+        const iconEl = isRodillo ? icon('bike', 24, iconColor) : icon('heart', 24, iconColor);
+        const label = isRodillo ? 'Rodillo' : 'Pulso';
+        const onClick = async (e) => {
+            if (!isRodillo && connected && e.target.closest('[data-hr-disconnect]')) return;
+            if (isRodillo) {
+                if (connecting) return;
+                try {
+                    if (hasCachedDevice) {
+                        const dev = await state.bluetoothManager.reconnectSilently();
+                        if (dev) { triggerHapticSuccess(); return; }
+                        await state.bluetoothManager.reconnectToCachedDevice();
+                    } else await state.bluetoothManager.scan();
+                    triggerHapticSuccess();
+                } catch (err) {
+                    if (err.name !== 'NotFoundError') console.log('Conexión cancelada o error:', err.message);
+                }
+                return;
             }
-        });
-        
-        if (isConnected) {
-            // Ya conectado: mostrar estado, no el botón "Conectar a Van Rysel"
-            const deviceName = hasCachedDevice?.name || 'Rodillo';
-            const connectedStatus = div({
-                styles: {
-                    ...baseStyles.card,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing.sm,
-                    padding: spacing.md,
-                    backgroundColor: 'rgba(0, 212, 170, 0.12)',
-                    borderColor: `${colors.primary}60`,
-                },
-                children: [
-                    icon('check', 24, colors.primary),
-                    createElement('span', {
-                        text: `Conectado a ${deviceName}`,
-                        styles: {
-                            fontSize: typography.sizes.md,
-                            fontWeight: typography.weights.semibold,
-                            color: colors.text,
-                        }
-                    }),
-                ]
-            });
-            buttonContainer.appendChild(connectedStatus);
-        } else {
-            // No conectado: botón principal de conexión (spinner dentro cuando isConnecting)
-            const connectBtn = button({
-                className: !isConnecting ? 'connect-btn-pro' : '',
-                styles: {
-                    ...connectButtonStyles,
-                    opacity: isConnecting ? 0.85 : 1,
-                    cursor: isConnecting ? 'not-allowed' : 'pointer',
-                    minWidth: isConnecting ? '280px' : '250px',
-                    transition: 'min-width 0.35s ease, opacity 0.35s ease',
-                },
-                children: isConnecting && statusText
-                    ? [
-                        div({
-                            styles: {
-                                width: '22px',
-                                height: '22px',
-                                border: `3px solid ${colors.primary}40`,
-                                borderTopColor: colors.primary,
-                                borderRadius: borderRadius.full,
-                                flexShrink: 0,
-                                animation: 'spin 1s linear infinite',
-                            }
-                        }),
-                        createElement('span', {
-                            text: statusText,
-                            styles: {
-                                fontSize: typography.sizes.sm,
-                                fontWeight: typography.weights.semibold,
-                                color: '#000',
-                            }
-                        }),
-                    ]
-                    : [
-                        icon('bluetooth', 24, '#000'),
-                        createElement('span', { text: 'Conectar Rodillo' }),
-                    ],
-                events: {
-                    click: async () => {
-                        if (isConnecting) return;
-                        try {
-                            if (hasCachedDevice) {
-                                const device = await state.bluetoothManager.reconnectSilently();
-                                if (device) {
-                                    triggerHapticSuccess();
-                                    return;
-                                }
-                                await state.bluetoothManager.reconnectToCachedDevice();
-                            } else {
-                                await state.bluetoothManager.scan();
-                            }
-                            triggerHapticSuccess();
-                        } catch (error) {
-                            if (error.name !== 'NotFoundError') {
-                                console.log('Conexión cancelada o error:', error.message);
-                            }
-                        }
-                    },
-                    mouseenter: (e) => {
-                        if (!isConnecting) e.target.style.transform = 'scale(1.05)';
-                    },
-                    mouseleave: (e) => {
-                        e.target.style.transform = 'scale(1)';
-                    },
+            if (connecting) return;
+            try {
+                if (hasCachedHRDevice) {
+                    const dev = await state.heartRateManager.reconnectSilently();
+                    if (dev) { triggerHapticSuccess(); return; }
                 }
-            });
-            buttonContainer.appendChild(connectBtn);
-        }
-        
-        // Botón de pulsómetro (siempre visible, estilo secundario)
-        const hrButtonStyles = {
-            ...baseStyles.button,
-            padding: `${spacing.sm} ${spacing.lg}`,
-            fontSize: typography.sizes.sm,
-            fontWeight: typography.weights.semibold,
-            gap: spacing.sm,
-            minWidth: '220px',
-            background: isHRConnected 
-                ? 'rgba(255, 82, 82, 0.15)' 
-                : 'rgba(255, 82, 82, 0.08)',
-            border: `1px solid ${isHRConnected ? 'rgba(255, 82, 82, 0.5)' : 'rgba(255, 82, 82, 0.3)'}`,
-            color: isHRConnected ? '#ff5252' : colors.text,
-            borderRadius: borderRadius.lg,
-            transition: 'all 0.3s ease',
+                await state.heartRateManager.scan();
+                triggerHapticSuccess();
+            } catch (err) {
+                if (err.name !== 'NotFoundError') console.log('Conexión HR cancelada o error:', err.message);
+            }
         };
-        
-        if (isHRConnected) {
-            // Mostrar estado conectado del pulsómetro
-            const hrDeviceName = state.hrDeviceName || hasCachedHRDevice?.name || 'Pulsómetro';
-            const hrConnectedStatus = div({
-                styles: {
-                    ...baseStyles.card,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing.sm,
-                    padding: spacing.sm,
-                    paddingLeft: spacing.md,
-                    paddingRight: spacing.md,
-                    backgroundColor: 'rgba(255, 82, 82, 0.12)',
-                    borderColor: 'rgba(255, 82, 82, 0.4)',
-                    cursor: 'pointer',
-                },
-                children: [
-                    icon('heart', 18, '#ff5252'),
-                    createElement('span', {
-                        text: hrDeviceName,
-                        styles: {
-                            fontSize: typography.sizes.sm,
-                            fontWeight: typography.weights.medium,
-                            color: colors.text,
-                        }
-                    }),
-                    // Botón desconectar pequeño
-                    div({
-                        styles: {
-                            marginLeft: 'auto',
-                            padding: spacing.xs,
-                            cursor: 'pointer',
-                            opacity: 0.6,
-                            transition: 'opacity 0.2s',
-                        },
-                        children: [icon('x', 14, colors.textMuted)],
-                        events: {
-                            click: (e) => {
-                                e.stopPropagation();
-                                state.heartRateManager?.disconnect();
-                            },
-                            mouseenter: (e) => { e.currentTarget.style.opacity = '1'; },
-                            mouseleave: (e) => { e.currentTarget.style.opacity = '0.6'; },
-                        }
-                    }),
-                ],
+        const spinner = div({
+            styles: {
+                width: '20px', height: '20px',
+                border: `2px solid ${isRodillo ? `${colors.primary}40` : 'rgba(255,82,82,0.3)'}`,
+                borderTopColor: isRodillo ? colors.primary : '#ff5252',
+                borderRadius: borderRadius.full,
+                flexShrink: 0,
+                animation: 'spin 1s linear infinite',
+            },
+        });
+        const children = [
+            div({
+                styles: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+                children: [showSpinner ? spinner : iconEl],
+            }),
+            createElement('span', { text: label, styles: { fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#ccc' } }),
+            createElement('span', {
+                text: statusLabel,
+                styles: { fontSize: '10px', color: connected ? (isRodillo ? colors.primary : '#ff5252') : colors.textMuted },
+            }),
+        ];
+        if (connected && !isRodillo) {
+            const disconnectBtn = div({
+                attrs: { 'data-hr-disconnect': 'true' },
+                styles: { position: 'absolute', top: 4, right: 4, padding: 4, cursor: 'pointer', opacity: 0.6 },
+                children: [icon('x', 12, colors.textMuted)],
+                events: { click: (e) => { e.stopPropagation(); state.heartRateManager?.disconnect(); } },
             });
-            buttonContainer.appendChild(hrConnectedStatus);
-        } else {
-            // Botón para conectar pulsómetro
-            const hrConnectBtn = button({
-                styles: {
-                    ...hrButtonStyles,
-                    opacity: isHRConnecting ? 0.85 : 1,
-                    cursor: isHRConnecting ? 'not-allowed' : 'pointer',
-                },
-                children: isHRConnecting && hrStatusText
-                    ? [
-                        div({
-                            styles: {
-                                width: '16px',
-                                height: '16px',
-                                border: '2px solid rgba(255, 82, 82, 0.3)',
-                                borderTopColor: '#ff5252',
-                                borderRadius: borderRadius.full,
-                                flexShrink: 0,
-                                animation: 'spin 1s linear infinite',
-                            }
-                        }),
-                        createElement('span', { text: hrStatusText }),
-                    ]
-                    : [
-                        icon('heart', 18, '#ff5252'),
-                        createElement('span', { 
-                            text: hasCachedHRDevice 
-                                ? `Conectar ${hasCachedHRDevice.name}` 
-                                : 'Conectar Pulsómetro' 
-                        }),
-                    ],
-                events: {
-                    click: async () => {
-                        if (isHRConnecting) return;
-                        try {
-                            if (hasCachedHRDevice) {
-                                const device = await state.heartRateManager.reconnectSilently();
-                                if (device) {
-                                    triggerHapticSuccess();
-                                    return;
-                                }
-                            }
-                            await state.heartRateManager.scan();
-                            triggerHapticSuccess();
-                        } catch (error) {
-                            if (error.name !== 'NotFoundError') {
-                                console.log('Conexión HR cancelada o error:', error.message);
-                            }
-                        }
-                    },
-                    mouseenter: (e) => {
-                        if (!isHRConnecting) {
-                            e.target.style.background = 'rgba(255, 82, 82, 0.15)';
-                            e.target.style.borderColor = 'rgba(255, 82, 82, 0.5)';
-                        }
-                    },
-                    mouseleave: (e) => {
-                        e.target.style.background = 'rgba(255, 82, 82, 0.08)';
-                        e.target.style.borderColor = 'rgba(255, 82, 82, 0.3)';
-                    },
-                }
-            });
-            buttonContainer.appendChild(hrConnectBtn);
+            children.push(disconnectBtn);
         }
-        
-        container.appendChild(buttonContainer);
+        const tile = div({
+            styles: {
+                ...deviceTileBase,
+                position: connected && !isRodillo ? 'relative' : undefined,
+                ...(connected && isRodillo && { background: 'rgba(0,212,170,0.1)', borderColor: colors.primary, boxShadow: '0 4px 20px rgba(0,212,170,0.1)' }),
+                ...(connected && !isRodillo && { background: 'rgba(255,82,82,0.1)', borderColor: 'rgba(255,82,82,0.5)' }),
+                ...(!connected && !connecting && { borderStyle: 'dashed', opacity: 0.85 }),
+                opacity: connecting ? 0.9 : 1,
+                cursor: connecting ? 'not-allowed' : 'pointer',
+            },
+            events: { click: onClick },
+            children,
+        });
+        return tile;
+    };
+
+    if (bluetoothSupport.supported) {
+        const devicesRow = div({
+            styles: {
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '12px',
+                width: '100%',
+                marginBottom: '32px',
+            },
+            children: [makeDeviceTile('rodillo'), makeDeviceTile('pulso')],
+        });
+        container.appendChild(devicesRow);
     } else {
         const disabledBtn = button({
-            styles: disabledButtonStyles,
-            children: [
-                icon('x', 24, colors.textMuted),
-                createElement('span', { text: 'Bluetooth No Disponible' }),
-            ],
-            attrs: { disabled: 'true' }
+            styles: {
+                ...baseStyles.button,
+                padding: `${spacing.md} ${spacing.xl}`,
+                fontSize: typography.sizes.lg,
+                fontWeight: 800,
+                backgroundColor: colors.surfaceLight,
+                color: colors.textMuted,
+                cursor: 'not-allowed',
+                boxShadow: 'none',
+                marginBottom: spacing.md,
+            },
+            children: [icon('x', 24, colors.textMuted), createElement('span', { text: 'Bluetooth No Disponible' })],
+            attrs: { disabled: 'true' },
         });
         container.appendChild(disabledBtn);
-        
         const errorBox = div({
             styles: errorBoxStyles,
-            children: [
-                createElement('p', {
-                    text: bluetoothSupport.reason,
-                    styles: { color: colors.error, fontSize: typography.sizes.sm }
-                })
-            ]
+            children: [createElement('p', { text: bluetoothSupport.reason, styles: { color: colors.error, fontSize: typography.sizes.sm } })],
         });
         container.appendChild(errorBox);
     }
     
-    // Sección de Modos de Entrenamiento (glassmorphism + overlay rejilla)
-    const trainingModesStyles = {
-        ...premiumCardStyles,
-        marginTop: spacing.xxl,
-        padding: spacing.lg,
-        borderRadius: borderRadius.lg,
-        maxWidth: '500px',
-        width: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-    };
-    
-    const trainingModesTitleStyles = {
-        fontFamily: typography.fontDisplay,
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.text,
-        marginBottom: spacing.md,
-        textAlign: 'center',
-    };
-    
-    const trainingModes = div({
-        styles: trainingModesStyles,
-        children: [
-            createElement('div', { className: 'card-grid-overlay' }),
-            createElement('h3', { text: 'Modos de Entrenamiento', styles: { ...trainingModesTitleStyles, position: 'relative', zIndex: 1 } }),
-            div({
-                styles: {
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: spacing.md,
-                    alignItems: 'center',
-                    position: 'relative',
-                    zIndex: 1,
+    const sectionTitle = (text) =>
+        createElement('div', {
+            text,
+            styles: {
+                fontSize: '13px',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                color: colors.textMuted,
+                marginBottom: '12px',
+                paddingLeft: '4px',
+                fontWeight: 600,
+            },
+        });
+
+    const cardBg = 'linear-gradient(145deg, rgba(30,30,30,0.9), rgba(20,20,20,0.95))';
+    const cardBorder = borderMuted;
+
+    const createActionCard = ({ iconName, iconBg, iconColor, title, description, onClick, locked }) => {
+        const padding = '20px';
+        const iconSize = 24;
+        const el = div({
+            styles: {
+                background: cardBg,
+                border: `1px solid ${cardBorder}`,
+                borderRadius: '20px',
+                padding,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                cursor: locked ? 'pointer' : 'pointer',
+                transition: 'transform 0.2s',
+                opacity: locked ? 0.75 : 1,
+            },
+            events: {
+                click: () => {
+                    if (locked) {
+                        openInfoModal('Conecta el rodillo', 'Conecta tu rodillo primero para usar este modo.');
+                        return;
+                    }
+                    onClick?.();
                 },
-                children: [
-                    // Entrenamiento: siempre visible; bloqueado o botón según conexión
-                    isConnected
-                        ? button({
-                            className: 'card-unlocked',
-                            styles: {
-                                ...baseStyles.button,
-                                ...baseStyles.buttonPrimary,
-                                padding: `${spacing.md} ${spacing.lg}`,
-                                fontSize: typography.sizes.md,
-                                fontWeight: typography.weights.bold,
-                                gap: spacing.sm,
-                                minWidth: '250px',
-                                width: '100%',
-                                position: 'relative',
-                                zIndex: 1,
-                            },
-                            children: [
-                                icon('activity', 20, colors.background),
-                                createElement('span', { text: 'Entrenamiento' }),
-                            ],
-                            events: { click: () => navigateTo('training') },
-                        })
-                        : div({
-                            styles: {
-                                ...premiumCardStyles,
-                                width: '100%',
-                                minWidth: '250px',
-                                padding: spacing.lg,
-                                position: 'relative',
-                                overflow: 'hidden',
-                                cursor: 'not-allowed',
-                                background: `linear-gradient(145deg, rgba(0, 212, 170, 0.12) 0%, rgba(20, 20, 20, 0.95) 50%, rgba(0, 242, 254, 0.06) 100%)`,
-                                border: `1px solid ${colors.border}80`,
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: spacing.sm,
-                            },
-                            children: [
-                                createElement('div', { className: 'card-grid-overlay' }),
-                                icon('activity', 28, colors.primary),
-                                createElement('span', {
-                                    text: 'Entrenamiento',
-                                    styles: {
-                                        fontFamily: typography.fontDisplay,
-                                        fontSize: typography.sizes.md,
-                                        fontWeight: typography.weights.bold,
-                                        color: colors.text,
-                                        position: 'relative',
-                                        zIndex: 1,
-                                    },
-                                }),
-                                div({
-                                    styles: {
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: spacing.xs,
-                                        fontSize: typography.sizes.xs,
-                                        color: colors.textMuted,
-                                        position: 'relative',
-                                        zIndex: 1,
-                                    },
-                                    children: [
-                                        icon('lock', 14, colors.textMuted),
-                                        createElement('span', { text: 'Conecta el rodillo para desbloquear' }),
-                                    ],
-                                }),
-                            ],
+                mouseenter: (e) => { if (!locked) e.currentTarget.style.transform = 'scale(0.99)'; },
+                mouseleave: (e) => { e.currentTarget.style.transform = 'scale(1)'; },
+            },
+            children: [
+                div({
+                    styles: {
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        background: iconBg,
+                        color: iconColor,
+                    },
+                    children: [icon(iconName, iconSize, iconColor)],
+                }),
+                div({
+                    styles: { flex: 1, minWidth: 0 },
+                    children: [
+                        createElement('h3', {
+                            text: title,
+                            styles: { margin: '0 0 4px 0', fontFamily: typography.fontDisplay, fontSize: '18px', fontWeight: 700, color: colors.text },
                         }),
-                    // Modo Juego: siempre visible; bloqueado o botón según conexión
-                    GameModeButton({
-                        onClick: () => {
-                            if (isConnected) navigateToGame();
-                            else alert('Por favor, conecta tu rodillo primero para usar el modo juego.');
-                        },
-                        disabled: !isConnected,
-                        className: isConnected ? 'card-unlocked' : '',
+                        createElement('p', {
+                            text: description,
+                            styles: { margin: 0, fontSize: '13px', color: colors.textMuted },
+                        }),
+                    ],
+                }),
+                div({
+                    styles: { marginLeft: 'auto', opacity: 0.3 },
+                    children: [icon('chevronRight', 20, colors.textMuted)],
+                }),
+            ],
+        });
+        return el;
+    };
+
+    const modesSection = div({
+        styles: { marginBottom: '8px' },
+        children: [
+            sectionTitle('Modos de Entrenamiento'),
+            div({
+                styles: { display: 'flex', flexDirection: 'column', gap: '12px' },
+                children: [
+                    createActionCard({
+                        iconName: 'activity',
+                        iconBg: 'rgba(0, 212, 170, 0.15)',
+                        iconColor: colors.primary,
+                        title: 'Entrenamiento Libre',
+                        description: isConnected ? 'Control manual y zonas de potencia.' : 'Conecta el rodillo para desbloquear.',
+                        onClick: () => navigateTo('training'),
+                        locked: !isConnected,
                     }),
-                    // Ciclismo Virtual: siempre visible; bloqueado o botón según conexión
-                    RideModeButton({
-                        onClick: () => {
-                            if (isConnected) navigateToRide();
-                            else alert('Por favor, conecta tu rodillo primero para usar el ciclismo virtual.');
-                        },
-                        disabled: !isConnected,
+                    createActionCard({
+                        iconName: 'game',
+                        iconBg: 'rgba(168, 85, 247, 0.15)',
+                        iconColor: '#a855f7',
+                        title: 'Modo Juego',
+                        description: isConnected ? 'Simulación 3D y retos físicos.' : 'Conecta el rodillo para desbloquear.',
+                        onClick: () => navigateToGame(),
+                        locked: !isConnected,
                     }),
-                ]
+                    createActionCard({
+                        iconName: 'bike',
+                        iconBg: 'rgba(59, 130, 246, 0.15)',
+                        iconColor: '#3b82f6',
+                        title: 'Ciclismo Virtual',
+                        description: isConnected ? 'Ruta generada y resistencia dinámica.' : 'Conecta el rodillo para desbloquear.',
+                        onClick: () => navigateToRide(),
+                        locked: !isConnected,
+                    }),
+                ],
             }),
-        ]
+        ],
     });
-    container.appendChild(trainingModes);
+    container.appendChild(modesSection);
+
+    const dataSection = div({
+        styles: { marginTop: '24px' },
+        children: [
+            sectionTitle('Datos'),
+            div({
+                styles: { display: 'flex', flexDirection: 'column', gap: '12px' },
+                children: [
+                    createActionCard({
+                        iconName: 'barChart',
+                        iconBg: 'rgba(59, 130, 246, 0.15)',
+                        iconColor: '#3b82f6',
+                        title: 'Mis Entrenamientos',
+                        description: 'Historial, estadísticas y progreso.',
+                        onClick: () => navigateTo('history'),
+                        locked: false,
+                    }),
+                ],
+            }),
+        ],
+    });
+    container.appendChild(dataSection);
     
-    // Función de limpieza para eliminar event listeners
-    container.cleanup = () => {
+    wrapper.cleanup = () => {
         window.removeEventListener('pwa-installable', installableHandler);
         window.removeEventListener('pwa-installed', installedHandler);
+        if (installPopupEl && installPopupEl.parentNode) installPopupEl.parentNode.removeChild(installPopupEl);
+        if (infoModalEl && infoModalEl.parentNode) infoModalEl.parentNode.removeChild(infoModalEl);
     };
     
-    return container;
+    return wrapper;
 }

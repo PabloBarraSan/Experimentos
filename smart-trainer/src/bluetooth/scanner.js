@@ -45,9 +45,9 @@ const LOG_LEVELS = {
     ERROR: 3,
 };
 
-// Detectar modo producción (sin localhost)
-const isProduction = location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
-const LOG_LEVEL = isProduction ? LOG_LEVELS.INFO : LOG_LEVELS.DEBUG;
+// INFO por defecto; DEBUG solo si se pide explícitamente (localStorage smartTrainer_debug = 1)
+const wantDebug = typeof localStorage !== 'undefined' && localStorage.getItem('smartTrainer_debug') === '1';
+const LOG_LEVEL = wantDebug ? LOG_LEVELS.DEBUG : LOG_LEVELS.INFO;
 
 /**
  * Sistema de logging estructurado

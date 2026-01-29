@@ -54,7 +54,7 @@ export const spacing = {
 };
 
 export const typography = {
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif",
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     fontDisplay: "'Barlow', -apple-system, BlinkMacSystemFont, sans-serif", // Títulos premium
     fontMono: "'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace",
     
