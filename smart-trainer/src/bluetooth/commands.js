@@ -353,16 +353,40 @@ export class CommandQueue {
     }
     
     /**
-     * Establecer resistencia objetivo (0-100%)
-     * @param {number} level - Nivel de resistencia (0-100)
+     * Establecer resistencia objetivo
+     * @param {number} level - Nivel de resistencia (en las unidades del dispositivo)
+     * @param {Object} resistanceRange - Rango soportado por el dispositivo (opcional)
      */
-    async setTargetResistance(level) {
+    async setTargetResistance(level, resistanceRange = null) {
+        // Si tenemos el rango, clampar al rango real del dispositivo
+        let clampedLevel = level;
+        if (resistanceRange) {
+            clampedLevel = Math.max(resistanceRange.minimum, Math.min(resistanceRange.maximum, level));
+        } else {
+            // Sin rango conocido, asumir 0-100
+            clampedLevel = Math.max(0, Math.min(100, level));
+        }
+        
         // El nivel se envía como sint16 con resolución 0.1
-        const value = Math.round(Math.max(0, Math.min(100, level)) * 10);
+        // Según FTMS spec: valor = nivel * 10 (para resolución 0.1)
+        const value = Math.round(clampedLevel * 10);
         const data = [value & 0xFF, (value >> 8) & 0xFF];
         
-        console.log(`⚡ Estableciendo resistencia: ${level}%`);
-        return this.enqueue(CONTROL_POINT_OPCODES.SET_TARGET_RESISTANCE, data);
+        const rangeInfo = resistanceRange 
+            ? `(rango dispositivo: ${resistanceRange.minimum}-${resistanceRange.maximum})` 
+            : '(rango desconocido, asumiendo 0-100)';
+        
+        console.log(`⚡ Estableciendo resistencia: ${clampedLevel.toFixed(1)} ${rangeInfo}`);
+        console.log(`   Valor FTMS: ${value}, bytes: [0x${data[0].toString(16).padStart(2, '0')}, 0x${data[1].toString(16).padStart(2, '0')}]`);
+        
+        try {
+            const result = await this.enqueue(CONTROL_POINT_OPCODES.SET_TARGET_RESISTANCE, data);
+            console.log(`✅ Resistencia ${clampedLevel.toFixed(1)} aplicada correctamente`);
+            return result;
+        } catch (error) {
+            console.warn(`⚠️ Error al aplicar resistencia: ${error.message}`);
+            throw error;
+        }
     }
     
     /**

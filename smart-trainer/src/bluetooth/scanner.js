@@ -3,7 +3,7 @@
  * Smart Trainer Controller
  */
 
-import { FTMS_UUIDS, parseIndoorBikeData, parseFitnessMachineFeature } from './ftms.js';
+import { FTMS_UUIDS, parseIndoorBikeData, parseFitnessMachineFeature, parseSupportedResistanceRange } from './ftms.js';
 
 /**
  * Analizador de correlación para encontrar cadencia oculta (Van Rysel D100).
@@ -507,8 +507,35 @@ export class BluetoothManager {
                 const featureValue = await this.characteristics.feature.readValue();
                 this.capabilities = parseFitnessMachineFeature(featureValue);
                 this.logger.info('Capacidades del dispositivo:', this.capabilities);
+                
+                // Verificar si soporta control de resistencia
+                if (this.capabilities.resistanceTargetSupported) {
+                    this.logger.info('✅ El dispositivo SOPORTA control de resistencia (SET_TARGET_RESISTANCE)');
+                } else {
+                    this.logger.warn('⚠️ El dispositivo NO soporta control directo de resistencia');
+                    this.logger.info('Se usará simulación de pendiente para controlar dificultad');
+                }
+                
+                // Verificar simulación indoor bike
+                if (this.capabilities.indoorBikeSimulationSupported) {
+                    this.logger.info('✅ El dispositivo SOPORTA simulación indoor bike (pendiente/viento)');
+                } else {
+                    this.logger.warn('⚠️ El dispositivo NO soporta simulación indoor bike');
+                }
             } catch (e) {
                 this.logger.warn('No se pudieron leer las capacidades:', e);
+            }
+        }
+        
+        // Leer rango de resistencia soportado
+        if (this.characteristics.supportedResistance) {
+            try {
+                const resistanceRangeValue = await this.characteristics.supportedResistance.readValue();
+                this.resistanceRange = parseSupportedResistanceRange(resistanceRangeValue);
+                this.logger.info('📊 Rango de resistencia soportado:', this.resistanceRange);
+                this.logger.info(`   Mínimo: ${this.resistanceRange.minimum}, Máximo: ${this.resistanceRange.maximum}, Incremento: ${this.resistanceRange.increment}`);
+            } catch (e) {
+                this.logger.warn('No se pudo leer el rango de resistencia:', e);
             }
         }
     }
@@ -787,12 +814,23 @@ export class BluetoothManager {
     
     /**
      * Establecer resistencia (0-100%)
+     * El valor se mapea automáticamente al rango soportado por el dispositivo
      */
     async setResistance(level) {
         if (!this.commandQueue) {
             throw new Error('No hay conexión activa');
         }
-        return this.commandQueue.setTargetResistance(level);
+        
+        // Mapear el valor 0-100% al rango real del dispositivo si está disponible
+        let mappedLevel = level;
+        if (this.resistanceRange) {
+            const { minimum, maximum } = this.resistanceRange;
+            // Mapear 0-100% al rango real del dispositivo
+            mappedLevel = minimum + (level / 100) * (maximum - minimum);
+            this.logger.debug(`Resistencia: ${level}% → ${mappedLevel.toFixed(1)} (rango: ${minimum}-${maximum})`);
+        }
+        
+        return this.commandQueue.setTargetResistance(mappedLevel, this.resistanceRange);
     }
     
     /**

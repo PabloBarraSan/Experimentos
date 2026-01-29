@@ -13,6 +13,7 @@ import { GameView } from './views/GameView.js';
 import { RideView } from './views/RideView.js';
 import { HistoryView } from './views/HistoryView.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
+import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './router.js';
 
 // Estado global de la aplicación
 const AppState = {
@@ -162,8 +163,12 @@ export function getState() {
 
 /**
  * Navegar a una vista
+ * @param {string} viewName - Nombre de la vista
+ * @param {Object} options - Opciones de navegación
+ * @param {boolean} options.replace - Si true, reemplaza la entrada actual en el historial
+ * @param {boolean} options.skipRouter - Si true, no actualiza la URL (usado internamente por el router)
  */
-export function navigateTo(viewName) {
+export function navigateTo(viewName, options = {}) {
     AppState.currentView = viewName;
     // Iniciar sesión de entrenamiento solo al entrar en la vista Entrenamiento (no al conectar)
     if (viewName === 'training' && AppState.connectionState === CONNECTION_STATE.CONNECTED && !AppState.session.isActive) {
@@ -176,6 +181,12 @@ export function navigateTo(viewName) {
         AppState.session.pauseDuration = 0;
         AppState.session.pausedAt = null;
     }
+    
+    // Actualizar la URL (excepto si viene del propio router para evitar loops)
+    if (!options.skipRouter) {
+        navigate(viewName, { replace: options.replace });
+    }
+    
     renderApp();
 }
 
@@ -381,6 +392,16 @@ function renderApp() {
  * Inicializar aplicación
  */
 async function init() {
+    // Inicializar el router y obtener la vista desde la URL
+    const initialView = initRouter();
+    AppState.currentView = initialView;
+    
+    // Configurar handler para cambios de ruta (botón atrás/adelante del navegador)
+    setRouteChangeHandler((viewName) => {
+        // Usar skipRouter para evitar que navegateTo actualice la URL de nuevo
+        navigateTo(viewName, { skipRouter: true });
+    });
+    
     // Crear instancia del gestor Bluetooth
     AppState.bluetoothManager = new BluetoothManager({
         onStateChange: (state) => {
@@ -408,7 +429,8 @@ async function init() {
             AppState.session.isPaused = false;
             AppState.session.startTime = null;
             notify();
-            navigateTo('home');
+            // Usar replace para no poder volver con el botón atrás a una vista sin conexión
+            navigateTo('home', { replace: true });
         },
         onDataReceived: (data) => {
             updateLiveData(data);

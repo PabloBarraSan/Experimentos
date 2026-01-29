@@ -65,7 +65,9 @@ export function parseIndoorBikeData(dataView) {
     let offset = 2;
     
     // Van Rysel D100: flag 0x40. Byte 0-1 flags, 2-3 velocidad (Uint16/100), 4-5 potencia (Uint16), 6 cadencia (raw[6]/2).
-    // Resistencia byte 10 (valor crudo servo → 0-100% con raw[10]/255*100).
+    // NOTA: El byte 10 parece ser un valor interno del servo, NO la resistencia configurada por el usuario.
+    // El D100 no reporta de forma fiable la resistencia establecida, así que ignoramos este valor
+    // y dejamos que la UI muestre el valor objetivo que el usuario ha seleccionado.
     if (flags === 0x0040 && dataView.byteLength >= 7) {
         const raw = new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength);
         const result = {
@@ -73,7 +75,7 @@ export function parseIndoorBikeData(dataView) {
             power: 0,
             cadence: 0,
             speed: 0,
-            resistance: 0,
+            resistance: undefined, // No usamos el valor del dispositivo - el usuario controla manualmente
             distance: undefined,
         };
         result.speed = dataView.getUint16(2, true) / 100;
@@ -84,9 +86,8 @@ export function parseIndoorBikeData(dataView) {
         } else if (raw[6] > 0) {
             result.cadence = Math.round(raw[6] / 2);
         }
-        if (dataView.byteLength >= 11) {
-            result.resistance = Math.round((raw[10] / 255) * 100);
-        }
+        // NO interpretamos byte 10 como resistencia ya que no es fiable
+        // El usuario controla la resistencia con el slider y ese valor se muestra directamente
         return result;
     }
     

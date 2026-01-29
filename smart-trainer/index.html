@@ -366,27 +366,26 @@
         
         // Función global para instalar la PWA
         window.installPWA = async function() {
-            if (!deferredPrompt) return false;
+            if (!deferredPrompt) {
+                window.dispatchEvent(new CustomEvent('pwa-install-unavailable'));
+                return false;
+            }
             
             try {
-                // Mostrar el prompt de instalación
                 deferredPrompt.prompt();
-                
-                // Esperar a que el usuario responda
                 const { outcome } = await deferredPrompt.userChoice;
-                
-                // Limpiar el prompt
                 deferredPrompt = null;
-                
-                // Disparar evento para ocultar el botón
                 window.dispatchEvent(new CustomEvent('pwa-installed', { detail: outcome }));
-                
                 return outcome === 'accepted';
             } catch (error) {
                 console.error('Error al instalar PWA:', error);
+                window.dispatchEvent(new CustomEvent('pwa-install-unavailable'));
                 return false;
             }
         };
+        
+        // Saber si hay prompt pendiente (para que la UI no ofrezca instalar si no se puede)
+        window.hasPWAInstallPrompt = function() { return !!deferredPrompt; };
         
         // Detectar si la app ya está instalada
         window.addEventListener('appinstalled', () => {

@@ -19,8 +19,11 @@ import { calculateSessionMetrics } from '../utils/calculations.js';
 export function TrainingView(state) {
     const { liveData, session, settings, bluetoothManager } = state;
     
+    // Valor objetivo de resistencia controlado por el usuario
+    // Este es el valor que el usuario QUIERE, no el que reporta el dispositivo
+    let targetResistance = liveData.resistance || 50;
+    
     // Referencias a elementos del DOM para actualización en tiempo real
-    const SLIDER_AUTO_UPDATE_COOLDOWN_MS = 2000;
     let updateRefs = {
         speedValue: null,
         timeValue: null,
@@ -28,8 +31,6 @@ export function TrainingView(state) {
         heartRateValue: null,
         heartRateCard: null,
         resistanceValue: null,
-        resistanceSlider: null,
-        lastResistanceSliderInteraction: 0,
         powerGauge: null,
         powerGaugeContainer: null,
         metricsContainer: null,
@@ -120,16 +121,9 @@ export function TrainingView(state) {
             if (labelSpan) labelSpan.textContent = newSession.isPaused ? 'Reanudar' : 'Pausar';
         }
         
-        if (updateRefs.resistanceValue) {
-            updateRefs.resistanceValue.textContent = `${Math.round(newLiveData.resistance || 0)}%`;
-        }
-        // ResistanceSlider: no mover automáticamente si el usuario ha interactuado en los últimos 2 s (evita feedback loop del servo)
-        if (updateRefs.resistanceSlider && typeof updateRefs.resistanceSlider.setValue === 'function') {
-            const lastInteraction = updateRefs.lastResistanceSliderInteraction || 0;
-            if (now - lastInteraction >= SLIDER_AUTO_UPDATE_COOLDOWN_MS) {
-                updateRefs.resistanceSlider.setValue(newLiveData.resistance ?? 0);
-            }
-        }
+        // NO actualizamos el texto de resistencia desde el dispositivo
+        // El usuario tiene control manual total - mostramos el valor OBJETIVO seleccionado por el usuario
+        // (el valor se actualiza solo cuando el usuario mueve el slider)
         // UI Feedback: esfuerzo máximo si potencia > 400 W (glow rojo en contenedor del PowerGauge)
         if (updateRefs.powerGaugeContainer) {
             updateRefs.powerGaugeContainer.style.boxShadow = smoothedPower > 400
@@ -399,8 +393,9 @@ export function TrainingView(state) {
     container.appendChild(scrollContent);
 
     // === PANEL RESISTENCIA (bottom sheet, siempre visible abajo) ===
+    // Mostramos el valor OBJETIVO seleccionado por el usuario, no el del dispositivo
     const resistanceValueSpan = createElement('span', {
-        text: `${Math.round(liveData.resistance || 0)}%`,
+        text: `${Math.round(targetResistance)}%`,
         styles: {
             fontFamily: "'Barlow', sans-serif",
             fontSize: '20px',
@@ -411,18 +406,37 @@ export function TrainingView(state) {
     updateRefs.resistanceValue = resistanceValueSpan;
 
     const sliderEl = ResistanceSlider({
-        value: liveData.resistance || 50,
+        value: targetResistance,
         minimal: true,
         onChange: async (value) => {
-            updateRefs.lastResistanceSliderInteraction = Date.now();
+            // Actualizar el valor objetivo local
+            targetResistance = value;
+            
+            // Actualizar el texto mostrado inmediatamente
+            if (updateRefs.resistanceValue) {
+                updateRefs.resistanceValue.textContent = `${Math.round(value)}%`;
+            }
+            
             try {
+                // Intentar múltiples métodos para controlar la resistencia
+                // Método 1: SET_TARGET_RESISTANCE (estándar FTMS)
                 await bluetoothManager.setResistance(value);
+                
+                // Método 2: Simulación de pendiente
+                // 0% → -6% (bajada máxima, muy fácil)
+                // 50% → 0% (llano)
+                // 100% → +6% (subida máxima, muy duro)
+                const grade = -6 + (value / 100) * 12; // 0-100% → -6% a +6%
+                if (bluetoothManager.commandQueue) {
+                    console.log(`🚴 Enviando simulación de pendiente: ${grade.toFixed(1)}%`);
+                    bluetoothManager.commandQueue.setIndoorBikeSimulation(0, grade, 0.004, 0.51)
+                        .catch((e) => console.warn('Simulación no soportada:', e.message));
+                }
             } catch (error) {
                 console.error('Error al cambiar resistencia:', error);
             }
         },
     });
-    updateRefs.resistanceSlider = sliderEl;
 
     const pausarBtnIcon = icon(session.isPaused ? 'play' : 'pause', 18, 'currentColor');
     const pausarBtn = button({

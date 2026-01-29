@@ -17,15 +17,18 @@ export function HomeView(state) {
     
     let showInstallButton = false;
     
-    // Verificar si la PWA está instalable
+    // Verificar si la app ya está instalada (abierta como PWA)
+    const isPWAInstalled = () => {
+        if (window.matchMedia('(display-mode: standalone)').matches) return true;
+        if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+        if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
+        if (typeof window.navigator !== 'undefined' && window.navigator.standalone === true) return true;
+        return false;
+    };
+    
+    // Mostrar botón de instalar solo si no está ya instalada
     const checkInstallable = () => {
-        // Verificar si ya está instalada
-        if (window.matchMedia('(display-mode: standalone)').matches || 
-            window.navigator.standalone === true) {
-            return false; // Ya está instalada
-        }
-        
-        // Verificar si hay un deferredPrompt disponible
+        if (isPWAInstalled()) return false;
         return typeof window.installPWA === 'function';
     };
     
@@ -38,7 +41,11 @@ export function HomeView(state) {
 
     const openInstallPopup = () => {
         installPopupOpen = true;
-        if (installPopupEl) installPopupEl.style.display = 'flex';
+        if (installPopupEl) {
+            installPopupEl.style.display = 'flex';
+            const manual = installPopupEl.querySelector('[data-manual-install]');
+            if (manual) manual.style.display = 'none';
+        }
     };
 
     const closeInstallPopup = () => {
@@ -73,11 +80,18 @@ export function HomeView(state) {
         if (installTriggerEl) installTriggerEl.style.display = 'none';
     };
 
+    const showManualInstallInstructions = () => {
+        const block = installPopupEl && installPopupEl.querySelector('[data-manual-install]');
+        if (block) block.style.display = 'block';
+    };
+
     const installableHandler = handleInstallable;
     const installedHandler = handleInstalled;
+    const installUnavailableHandler = showManualInstallInstructions;
 
     window.addEventListener('pwa-installable', installableHandler);
     window.addEventListener('pwa-installed', installedHandler);
+    window.addEventListener('pwa-install-unavailable', installUnavailableHandler);
 
     showInstallButton = checkInstallable();
     
@@ -215,6 +229,20 @@ export function HomeView(state) {
                         },
                     }),
                     div({
+                        attrs: { 'data-manual-install': 'true' },
+                        styles: {
+                            display: 'none',
+                            fontSize: typography.sizes.sm,
+                            color: colors.textMuted,
+                            marginBottom: spacing.lg,
+                            padding: spacing.sm,
+                            background: 'rgba(0,0,0,0.2)',
+                            borderRadius: borderRadius.md,
+                            lineHeight: 1.5,
+                        },
+                        text: 'En Chrome: menú (⋮) → «Instalar Smart Trainer» o «Añadir a la pantalla de inicio». En otros navegadores busca «Instalar app» o «Añadir a inicio».',
+                    }),
+                    div({
                         styles: { display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' },
                         children: [
                             button({
@@ -240,7 +268,10 @@ export function HomeView(state) {
                                 ],
                                 events: {
                                     click: async () => {
-                                        if (window.installPWA) await window.installPWA();
+                                        if (window.installPWA) {
+                                            const ok = await window.installPWA();
+                                            if (!ok) showManualInstallInstructions();
+                                        }
                                     },
                                 },
                             }),
@@ -729,6 +760,7 @@ export function HomeView(state) {
     wrapper.cleanup = () => {
         window.removeEventListener('pwa-installable', installableHandler);
         window.removeEventListener('pwa-installed', installedHandler);
+        window.removeEventListener('pwa-install-unavailable', installUnavailableHandler);
         if (installPopupEl && installPopupEl.parentNode) installPopupEl.parentNode.removeChild(installPopupEl);
         if (infoModalEl && infoModalEl.parentNode) infoModalEl.parentNode.removeChild(infoModalEl);
     };
