@@ -237,26 +237,40 @@ export function createRouteGenerator(worldId = 'green_valley', seed = null) {
     
     /**
      * Obtener punto de ruta interpolado para una distancia específica
+     * Usa búsqueda binaria O(log n) para mejor rendimiento
      */
     function getPointAtDistance(points, distance) {
         if (!points || points.length === 0) {
             return { distance: 0, elevation: 0, grade: 0 };
         }
         
-        // Encontrar los dos puntos más cercanos
-        let i = 0;
-        while (i < points.length - 1 && points[i + 1].distance <= distance) {
-            i++;
+        // Caso límite: distancia menor que el primer punto
+        if (distance <= points[0].distance) {
+            return points[0];
         }
         
-        if (i >= points.length - 1) {
+        // Caso límite: distancia mayor que el último punto
+        if (distance >= points[points.length - 1].distance) {
             return points[points.length - 1];
         }
         
-        const p1 = points[i];
-        const p2 = points[i + 1];
+        // Búsqueda binaria para encontrar el índice del punto
+        let left = 0;
+        let right = points.length - 1;
         
-        // Interpolar
+        while (left < right - 1) {
+            const mid = Math.floor((left + right) / 2);
+            if (points[mid].distance <= distance) {
+                left = mid;
+            } else {
+                right = mid;
+            }
+        }
+        
+        const p1 = points[left];
+        const p2 = points[right];
+        
+        // Interpolar entre los dos puntos
         const t = (distance - p1.distance) / (p2.distance - p1.distance);
         
         return {

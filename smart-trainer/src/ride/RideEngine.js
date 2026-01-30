@@ -29,6 +29,10 @@ export function createRideEngine(options = {}) {
     let animationFrameId = null;
     let renderer = null;
     
+    // Tiempo de inicio usando performance.now() para consistencia
+    let performanceStartTime = 0;
+    let pausedElapsedTime = 0; // Tiempo acumulado antes de pausar
+    
     // Sistemas
     let physics = createRidePhysics();
     let routeGenerator = createRouteGenerator(worldId);
@@ -40,6 +44,10 @@ export function createRideEngine(options = {}) {
     // Throttle para envío de comandos al rodillo
     let lastSimulationUpdate = 0;
     const SIMULATION_UPDATE_INTERVAL = 1000; // Actualizar cada 1 segundo
+    
+    // Throttle para notificaciones de estado (evitar re-renders excesivos)
+    let lastStateNotification = 0;
+    const STATE_NOTIFICATION_INTERVAL = 50; // Notificar cada 50ms (20 FPS para UI)
     
     // Dimensiones del canvas
     const getCanvasSize = () => ({
@@ -54,8 +62,9 @@ export function createRideEngine(options = {}) {
         const deltaTime = timestamp - lastTimestamp;
         lastTimestamp = timestamp;
         
-        if (state.status === RIDE_STATUS.PLAYING) {
-            update(deltaTime);
+        // Validar deltaTime para evitar valores inválidos en el primer frame
+        if (deltaTime > 0 && deltaTime < 1000 && state.status === RIDE_STATUS.PLAYING) {
+            update(deltaTime, timestamp);
         }
         
         render();
@@ -66,11 +75,11 @@ export function createRideEngine(options = {}) {
     /**
      * Actualizar lógica del ride
      */
-    function update(deltaTime) {
+    function update(deltaTime, timestamp) {
         const dtSeconds = deltaTime / 1000;
         
-        // Actualizar tiempo
-        state.elapsedTime = Date.now() - state.startTime;
+        // Actualizar tiempo usando performance.now() consistentemente
+        state.elapsedTime = pausedElapsedTime + (timestamp - performanceStartTime);
         
         // Obtener punto actual de la ruta
         const currentPoint = routeGenerator.getPointAtDistance(
@@ -121,8 +130,11 @@ export function createRideEngine(options = {}) {
             finishRide();
         }
         
-        // Notificar cambios de estado
-        onStateChange(state);
+        // Notificar cambios de estado (throttled para evitar re-renders excesivos)
+        if (now - lastStateNotification > STATE_NOTIFICATION_INTERVAL) {
+            lastStateNotification = now;
+            onStateChange(state);
+        }
     }
     
     /**
@@ -236,7 +248,12 @@ export function createRideEngine(options = {}) {
         
         state.status = RIDE_STATUS.PLAYING;
         state.startTime = Date.now();
-        lastTimestamp = performance.now();
+        
+        // Usar performance.now() para tiempo consistente con el game loop
+        const now = performance.now();
+        performanceStartTime = now;
+        lastTimestamp = now;
+        pausedElapsedTime = 0;
         
         if (!animationFrameId) {
             animationFrameId = requestAnimationFrame(gameLoop);
@@ -250,6 +267,8 @@ export function createRideEngine(options = {}) {
      */
     function pause() {
         if (state.status === RIDE_STATUS.PLAYING) {
+            // Guardar tiempo acumulado antes de pausar
+            pausedElapsedTime = state.elapsedTime;
             state.status = RIDE_STATUS.PAUSED;
             onStateChange(state);
         }
@@ -261,7 +280,10 @@ export function createRideEngine(options = {}) {
     function resume() {
         if (state.status === RIDE_STATUS.PAUSED) {
             state.status = RIDE_STATUS.PLAYING;
-            lastTimestamp = performance.now();
+            // Reiniciar el timestamp desde ahora
+            const now = performance.now();
+            performanceStartTime = now;
+            lastTimestamp = now;
             onStateChange(state);
         }
     }
@@ -270,6 +292,12 @@ export function createRideEngine(options = {}) {
      * Finalizar ride
      */
     function finishRide() {
+        // Cancelar el animation frame para detener el loop
+        if (animationFrameId) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+        
         state.status = RIDE_STATUS.FINISHED;
         
         const results = {
@@ -314,7 +342,12 @@ export function createRideEngine(options = {}) {
         
         state.status = RIDE_STATUS.PLAYING;
         state.startTime = Date.now();
-        lastTimestamp = performance.now();
+        
+        // Reiniciar tiempo con performance.now()
+        const now = performance.now();
+        performanceStartTime = now;
+        lastTimestamp = now;
+        pausedElapsedTime = 0;
         
         onStateChange(state);
     }

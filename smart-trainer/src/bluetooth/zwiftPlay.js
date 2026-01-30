@@ -261,12 +261,19 @@ export class ZwiftPlayManager {
         if (!navigator.bluetooth) {
             throw new Error('Web Bluetooth no disponible');
         }
-        this.setState(ZWIFT_PLAY_STATE.CONNECTING);
+        // Abrir selector SIN tocar la UI: si hacemos setState aquí, el re-render puede cerrar el cuadro del navegador
+        const devicePromise = navigator.bluetooth.requestDevice({
+            filters: [
+                { name: 'Zwift Play' },
+                { name: 'Zwift Click' },
+                { namePrefix: 'Zwift' },
+                { services: [ZWIFT_PLAY_SERVICE] },
+            ],
+            optionalServices: [ZWIFT_PLAY_SERVICE],
+        });
         try {
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ name: 'Zwift Play' }],
-                optionalServices: [ZWIFT_PLAY_SERVICE],
-            });
+            const device = await devicePromise;
+            this.setState(ZWIFT_PLAY_STATE.CONNECTING);
             const session = new ZwiftPlayDeviceSession(device);
             session.onButton = (ev) => {
                 if (this.onButton) this.onButton(ev);
@@ -283,14 +290,51 @@ export class ZwiftPlayManager {
         }
     }
 
+    /**
+     * Conectar mostrando todos los dispositivos BLE (fallback si el filtro no encuentra el mando).
+     * El usuario debe elegir el dispositivo "Zwift Play" de la lista.
+     */
+    async connectAcceptAll() {
+        if (!navigator.bluetooth) {
+            throw new Error('Web Bluetooth no disponible');
+        }
+        const devicePromise = navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [ZWIFT_PLAY_SERVICE],
+        });
+        try {
+            const device = await devicePromise;
+            this.setState(ZWIFT_PLAY_STATE.CONNECTING);
+            const session = new ZwiftPlayDeviceSession(device);
+            session.onButton = (ev) => {
+                if (this.onButton) this.onButton(ev);
+            };
+            await session.connect();
+            this.sessions.push(session);
+            device.addEventListener('gattserverdisconnected', () => this.handleDisconnected(session));
+            this.setState(ZWIFT_PLAY_STATE.CONNECTED);
+            log('One Zwift Play controller connected (acceptAll)');
+            return device;
+        } catch (err) {
+            this.setState(ZWIFT_PLAY_STATE.DISCONNECTED);
+            throw err;
+        }
+    }
+
     async connectSecond() {
         if (!navigator.bluetooth || this.sessions.length === 0) return null;
-        this.setState(ZWIFT_PLAY_STATE.CONNECTING);
+        const devicePromise = navigator.bluetooth.requestDevice({
+            filters: [
+                { name: 'Zwift Play' },
+                { name: 'Zwift Click' },
+                { namePrefix: 'Zwift' },
+                { services: [ZWIFT_PLAY_SERVICE] },
+            ],
+            optionalServices: [ZWIFT_PLAY_SERVICE],
+        });
         try {
-            const device = await navigator.bluetooth.requestDevice({
-                filters: [{ name: 'Zwift Play' }],
-                optionalServices: [ZWIFT_PLAY_SERVICE],
-            });
+            const device = await devicePromise;
+            this.setState(ZWIFT_PLAY_STATE.CONNECTING);
             if (this.sessions.some((s) => s.device === device)) {
                 throw new Error('Ese mando ya está conectado');
             }
@@ -325,10 +369,12 @@ export class ZwiftPlayManager {
     }
 }
 
+/** Mapeo de botones Zwift Play/Click → acciones del juego. Sirve para ambos mandos (flechas y botones). */
 export const PLAY_BUTTON_TO_ACTION = {
-    Y: 'jump',
-    A: 'jump',
-    B: 'duck',
-    Z: 'duck',
+    Y: 'jump',      // flecha arriba o botón Y
+    A: 'jump',      // flecha derecha o botón A
+    B: 'duck',      // flecha abajo o botón B
+    Z: 'duck',     // flecha izquierda o botón Z
     ONOFF: 'pause',
+    Shifter: 'jump', // palanca/cambio en algunos mandos
 };

@@ -17,23 +17,44 @@ export function HomeView(state) {
     
     let showInstallButton = false;
     
-    // Verificar si la app ya está instalada (abierta como PWA)
-    const isPWAInstalled = () => {
-        if (window.matchMedia('(display-mode: standalone)').matches) return true;
-        if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
-        if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
-        if (typeof window.navigator !== 'undefined' && window.navigator.standalone === true) return true;
-        return false;
-    };
-    
-    // Mostrar botón de instalar solo si no está ya instalada
+    // Mostrar botón SOLO si hay prompt disponible y no está instalada
     const checkInstallable = () => {
-        if (isPWAInstalled()) return false;
-        return typeof window.installPWA === 'function';
+        if (typeof window.isPWAInstalled === 'function' && window.isPWAInstalled()) {
+            console.log('[HomeView] checkInstallable: already installed');
+            return false;
+        }
+        if (typeof window.hasPWAInstallPrompt === 'function' && !window.hasPWAInstallPrompt()) {
+            console.log('[HomeView] checkInstallable: no prompt available');
+            return false;
+        }
+        console.log('[HomeView] checkInstallable: showing install button');
+        return true;
     };
     
-    let installPopupOpen = false;
     let installTriggerEl = null;
+
+    // Actualizar visibilidad del botón
+    const updateInstallButtonVisibility = () => {
+        showInstallButton = checkInstallable();
+        if (installTriggerEl) {
+            installTriggerEl.style.display = showInstallButton ? 'flex' : 'none';
+        }
+    };
+
+    // Llamar al prompt nativo del navegador
+    const tryInstallDirect = async () => {
+        console.log('[HomeView] Install button clicked');
+        if (typeof window.installPWA === 'function') {
+            const result = await window.installPWA();
+            console.log('[HomeView] installPWA result:', result);
+            // Actualizar botón después del intento
+            updateInstallButtonVisibility();
+        } else {
+            console.log('[HomeView] installPWA not available');
+        }
+    };
+
+    let installPopupOpen = false;
     let installPopupEl = null;
 
     let infoModalOpen = false;
@@ -70,30 +91,30 @@ export function HomeView(state) {
     };
 
     const handleInstallable = () => {
-        showInstallButton = true;
-        if (installTriggerEl) installTriggerEl.style.display = 'flex';
+        console.log('[HomeView] pwa-installable event received');
+        updateInstallButtonVisibility();
     };
 
     const handleInstalled = () => {
+        console.log('[HomeView] pwa-installed event received');
         showInstallButton = false;
         closeInstallPopup();
         if (installTriggerEl) installTriggerEl.style.display = 'none';
     };
 
-    const showManualInstallInstructions = () => {
-        const block = installPopupEl && installPopupEl.querySelector('[data-manual-install]');
-        if (block) block.style.display = 'block';
+    const handleInstallUnavailable = () => {
+        console.log('[HomeView] pwa-install-unavailable event received');
+        // Ocultar botón si no hay prompt
+        updateInstallButtonVisibility();
     };
 
-    const installableHandler = handleInstallable;
-    const installedHandler = handleInstalled;
-    const installUnavailableHandler = showManualInstallInstructions;
+    window.addEventListener('pwa-installable', handleInstallable);
+    window.addEventListener('pwa-installed', handleInstalled);
+    window.addEventListener('pwa-install-unavailable', handleInstallUnavailable);
 
-    window.addEventListener('pwa-installable', installableHandler);
-    window.addEventListener('pwa-installed', installedHandler);
-    window.addEventListener('pwa-install-unavailable', installUnavailableHandler);
-
+    // Estado inicial
     showInstallButton = checkInstallable();
+    console.log('[HomeView] Initial showInstallButton:', showInstallButton);
     
     const isConnected = state && state.connectionState === CONNECTION_STATE.CONNECTED;
     const innerStyles = {
@@ -152,7 +173,7 @@ export function HomeView(state) {
             icon('download', 16, colors.primary),
             createElement('span', { text: 'Instalar App' }),
         ],
-        events: { click: openInstallPopup },
+        events: { click: tryInstallDirect },
     });
     container.appendChild(installTriggerEl);
 
@@ -767,9 +788,9 @@ export function HomeView(state) {
     container.appendChild(dataSection);
     
     wrapper.cleanup = () => {
-        window.removeEventListener('pwa-installable', installableHandler);
-        window.removeEventListener('pwa-installed', installedHandler);
-        window.removeEventListener('pwa-install-unavailable', installUnavailableHandler);
+        window.removeEventListener('pwa-installable', handleInstallable);
+        window.removeEventListener('pwa-installed', handleInstalled);
+        window.removeEventListener('pwa-install-unavailable', handleInstallUnavailable);
         if (installPopupEl && installPopupEl.parentNode) installPopupEl.parentNode.removeChild(installPopupEl);
         if (infoModalEl && infoModalEl.parentNode) infoModalEl.parentNode.removeChild(infoModalEl);
     };

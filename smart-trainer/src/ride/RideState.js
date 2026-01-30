@@ -137,6 +137,9 @@ export function getCurrentPowerZone(power, ftp) {
     return { zone: 7, name: 'Neuromuscular', color: '#ff00ff' };
 }
 
+// Límite máximo de muestras (1 hora a ~60 muestras/segundo = 3600, pero solo agregamos 1/segundo)
+const MAX_SAMPLES = 3600;
+
 /**
  * Actualizar estadísticas
  */
@@ -152,21 +155,39 @@ export function updateStats(state, deltaTime) {
         state.stats.maxSpeed = virtualSpeed;
     }
     
-    // Agregar muestras (cada segundo aproximadamente)
+    // Agregar muestras (cada frame, pero limitamos el array)
     if (deltaTime > 0) {
         state.stats.powerSamples.push(power);
         state.stats.speedSamples.push(virtualSpeed);
         
-        // Calcular promedios
-        if (state.stats.powerSamples.length > 0) {
-            state.stats.avgPower = Math.round(
-                state.stats.powerSamples.reduce((a, b) => a + b, 0) / state.stats.powerSamples.length
-            );
+        // Limitar tamaño de arrays para evitar memory leak
+        if (state.stats.powerSamples.length > MAX_SAMPLES) {
+            state.stats.powerSamples.shift();
         }
-        if (state.stats.speedSamples.length > 0) {
-            state.stats.avgSpeed = (
-                state.stats.speedSamples.reduce((a, b) => a + b, 0) / state.stats.speedSamples.length
-            ).toFixed(1);
+        if (state.stats.speedSamples.length > MAX_SAMPLES) {
+            state.stats.speedSamples.shift();
+        }
+        
+        // Calcular promedios usando promedio incremental para mejor rendimiento
+        const powerLen = state.stats.powerSamples.length;
+        const speedLen = state.stats.speedSamples.length;
+        
+        if (powerLen > 0) {
+            // Usar promedio incremental: newAvg = oldAvg + (newValue - oldAvg) / n
+            if (powerLen === 1) {
+                state.stats.avgPower = Math.round(power);
+            } else {
+                const oldAvg = state.stats.avgPower;
+                state.stats.avgPower = Math.round(oldAvg + (power - oldAvg) / powerLen);
+            }
+        }
+        if (speedLen > 0) {
+            if (speedLen === 1) {
+                state.stats.avgSpeed = virtualSpeed.toFixed(1);
+            } else {
+                const oldAvg = parseFloat(state.stats.avgSpeed);
+                state.stats.avgSpeed = (oldAvg + (virtualSpeed - oldAvg) / speedLen).toFixed(1);
+            }
         }
     }
     

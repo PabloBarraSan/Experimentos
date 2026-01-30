@@ -15,9 +15,11 @@ export function SettingsView({ state, onSave }) {
     const settings = loadSettings();
     
     const containerStyles = {
-        padding: spacing.lg,
+        width: '100%',
         maxWidth: '800px',
         margin: '0 auto',
+        padding: spacing.lg,
+        boxSizing: 'border-box',
     };
     
     const titleStyles = {
@@ -66,7 +68,7 @@ export function SettingsView({ state, onSave }) {
         padding: spacing.sm,
     };
     
-    const container = div({ styles: containerStyles });
+    const container = div({ className: 'settings-view', styles: containerStyles });
     
     // Título
     container.appendChild(createElement('h1', { text: '⚙️ Configuración', styles: titleStyles }));
@@ -81,7 +83,7 @@ export function SettingsView({ state, onSave }) {
         ],
     }));
     
-    const userFields = div({ styles: fieldGroupStyles });
+    const userFields = div({ className: 'settings-field-group', styles: fieldGroupStyles });
     
     // FTP
     const ftpField = createNumberField({
@@ -146,7 +148,8 @@ export function SettingsView({ state, onSave }) {
     
     const zones = calculatePowerZones(settings.ftp);
     const zonesTable = createZonesTable(zones);
-    zonesSection.appendChild(zonesTable);
+    const zonesWrap = div({ className: 'settings-zones-wrap', children: [zonesTable] });
+    zonesSection.appendChild(zonesWrap);
     
     container.appendChild(zonesSection);
     
@@ -160,7 +163,7 @@ export function SettingsView({ state, onSave }) {
         ],
     }));
     
-    const prefsFields = div({ styles: fieldGroupStyles });
+    const prefsFields = div({ className: 'settings-field-group', styles: fieldGroupStyles });
     
     // Unidades
     const unitsField = createSelectField({
@@ -203,7 +206,7 @@ export function SettingsView({ state, onSave }) {
         ],
     }));
     
-    const trainerFields = div({ styles: fieldGroupStyles });
+    const trainerFields = div({ className: 'settings-field-group', styles: fieldGroupStyles });
     
     // Circunferencia de rueda
     const wheelField = createNumberField({
@@ -241,10 +244,10 @@ export function SettingsView({ state, onSave }) {
         zwiftSection.appendChild(div({
             styles: sectionTitleStyles,
             children: [
-                createElement('span', { text: '🎮 Mando Zwift Play' }),
+                createElement('span', { text: '🎮 Mando Zwift Play / Zwift Click' }),
             ],
         }));
-        const zwiftRow = div({ styles: { display: 'flex', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' } });
+        const zwiftRow = div({ className: 'settings-zwift-row', styles: { display: 'flex', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' } });
         const isZwiftConnected = state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTED;
         if (isZwiftConnected) {
             const count = state.zwiftPlayManager.sessions ? state.zwiftPlayManager.sessions.length : 1;
@@ -252,9 +255,16 @@ export function SettingsView({ state, onSave }) {
                 text: `Conectado (${count} mando${count > 1 ? 's' : ''})`,
                 styles: { color: colors.primary, fontWeight: typography.weights.medium },
             }));
+            if (count === 1) {
+                zwiftRow.appendChild(createElement('span', {
+                    text: '— Vincula el otro mando (flechas o botones) para usar ambos en el juego.',
+                    styles: { fontSize: typography.sizes.sm, color: colors.textMuted },
+                }));
+            }
             zwiftRow.appendChild(button({
+                className: 'settings-zwift-btn',
                 styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, padding: `${spacing.sm} ${spacing.md}` },
-                text: 'Conectar segundo',
+                text: count === 1 ? 'Conectar segundo mando' : 'Añadir otro',
                 events: {
                     click: () => {
                         state.zwiftPlayManager.connectSecond().catch((err) => {
@@ -264,6 +274,7 @@ export function SettingsView({ state, onSave }) {
                 },
             }));
             zwiftRow.appendChild(button({
+                className: 'settings-zwift-btn',
                 styles: { ...baseStyles.button, padding: `${spacing.sm} ${spacing.md}` },
                 text: 'Desconectar',
                 events: {
@@ -271,18 +282,86 @@ export function SettingsView({ state, onSave }) {
                 },
             }));
         } else {
+            const doConnect = (useAcceptAll = false) => {
+                if (!navigator.bluetooth) {
+                    alert(
+                        'Bluetooth no disponible en esta página.\n\n' +
+                        '• Usa Chrome o Edge (en PC o Android).\n' +
+                        '• La página debe ser HTTPS o localhost.\n' +
+                        '• En móvil, activa la ubicación si te lo pide.'
+                    );
+                    return;
+                }
+                const connectFn = useAcceptAll ? state.zwiftPlayManager.connectAcceptAll.bind(state.zwiftPlayManager) : state.zwiftPlayManager.connect.bind(state.zwiftPlayManager);
+                connectFn().catch((err) => {
+                    if (err.name === 'NotFoundError') {
+                        alert(
+                            'No se seleccionó ningún mando.\n\n' +
+                            '• En el cuadro del navegador, elige tu Zwift Play o Zwift Click y pulsa «Parear» o «Conectar».\n' +
+                            '• Si la lista está vacía: enciende el mando (modo emparejable) y prueba «No aparece? Buscar todos los dispositivos BLE».'
+                        );
+                    } else {
+                        const msg = err.message || err.toString?.() || 'Error al conectar';
+                        alert('Error al vincular: ' + msg);
+                    }
+                });
+            };
             zwiftRow.appendChild(button({
-                styles: { ...baseStyles.button, padding: `${spacing.sm} ${spacing.md}` },
-                text: state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTING ? 'Conectando…' : 'Conectar mando Zwift Play',
-                attrs: { disabled: state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTING },
+                className: 'settings-zwift-btn settings-zwift-connect',
+                styles: {
+                    ...baseStyles.button,
+                    ...baseStyles.buttonPrimary,
+                    padding: `${spacing.md} ${spacing.lg}`,
+                    minHeight: '44px',
+                },
+                text: state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTING ? 'Buscando mandos…' : 'Vincular Zwift Play / Click',
+                attrs: state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTING ? { disabled: true } : {},
                 events: {
-                    click: () => {
-                        state.zwiftPlayManager.connect().catch((err) => {
-                            if (err.name !== 'NotFoundError') alert(err.message || 'Error al conectar');
-                        });
-                    },
+                    click: () => doConnect(false),
                 },
             }));
+            const helpRow = div({
+                styles: { marginTop: spacing.sm, display: 'flex', flexDirection: 'column', gap: spacing.xs },
+                children: [
+                    createElement('span', {
+                        text: 'Puedes usar los dos mandos (uno con flechas, otro con botones): vincula primero uno, luego el otro con «Conectar segundo mando». En el juego ambos funcionan igual.',
+                        styles: { fontSize: typography.sizes.xs, color: colors.textMuted },
+                    }),
+                    createElement('span', {
+                        text: 'Al pulsar «Vincular» se abrirá un cuadro del navegador para elegir el mando: míralo junto a la barra de direcciones o en una ventana emergente. Elige tu Zwift Play/Click y pulsa Parear.',
+                        styles: { fontSize: typography.sizes.xs, color: colors.primary, fontWeight: typography.weights.medium },
+                    }),
+                    createElement('span', {
+                        text: 'Enciende cada mando y ponlo en modo emparejable (mantén pulsado el botón). No debe estar conectado a Zwift u otra app.',
+                        styles: { fontSize: typography.sizes.xs, color: colors.textMuted },
+                    }),
+                    createElement('button', {
+                        text: 'No aparece? Buscar todos los dispositivos BLE',
+                        className: 'settings-zwift-link',
+                        styles: {
+                            background: 'none',
+                            border: 'none',
+                            color: colors.primary,
+                            fontSize: typography.sizes.sm,
+                            cursor: 'pointer',
+                            padding: 0,
+                            textAlign: 'left',
+                            textDecoration: 'underline',
+                        },
+                        attrs: {
+                            type: 'button',
+                            ...(state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTING ? { disabled: true } : {}),
+                        },
+                        events: {
+                            click: (e) => {
+                                e.preventDefault();
+                                doConnect(true);
+                            },
+                        },
+                    }),
+                ],
+            });
+            zwiftRow.appendChild(helpRow);
         }
         zwiftSection.appendChild(zwiftRow);
         container.appendChild(zwiftSection);
@@ -294,9 +373,11 @@ export function SettingsView({ state, onSave }) {
         gap: spacing.md,
         justifyContent: 'flex-end',
         marginTop: spacing.xl,
+        flexWrap: 'wrap',
     };
     
     const actions = div({
+        className: 'settings-actions',
         styles: actionsStyles,
         children: [
             button({

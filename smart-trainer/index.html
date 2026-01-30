@@ -129,6 +129,44 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+
+        /* Settings: responsive */
+        .settings-view {
+            padding: clamp(12px, 4vw, 24px) !important;
+        }
+        .settings-zones-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 8px;
+        }
+        .settings-zones-wrap table {
+            min-width: 280px;
+        }
+        @media (max-width: 600px) {
+            .settings-view .settings-field-group {
+                grid-template-columns: 1fr !important;
+            }
+            .settings-view .settings-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .settings-view .settings-actions button {
+                width: 100%;
+                justify-content: center;
+            }
+            .settings-view .settings-zwift-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .settings-view .settings-zwift-row .settings-zwift-btn {
+                width: 100%;
+                justify-content: center;
+                min-height: 44px;
+            }
+            .settings-view .settings-zwift-row .settings-zwift-connect {
+                order: -1;
+            }
+        }
     </style>
 </head>
 <body>
@@ -364,42 +402,93 @@
         // Inicializar al cargar
         window.addEventListener('load', () => UpdateManager.init());
         
-        // Detectar si se puede instalar como PWA
-        let deferredPrompt;
+        // =============================================
+        // PWA Install Management
+        // =============================================
+        const PWA_INSTALLED_KEY = 'smart-trainer-pwa-installed';
+        let deferredPrompt = null;
+
+        // Verificar si está en modo PWA (standalone, etc.)
+        const isRunningAsPWA = () => {
+            const displayModes = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay'];
+            for (const mode of displayModes) {
+                if (window.matchMedia && window.matchMedia(`(display-mode: ${mode})`).matches) {
+                    return true;
+                }
+            }
+            if (window.navigator && window.navigator.standalone === true) return true;
+            return false;
+        };
+
+        // Verificar si ya está instalada
+        window.isPWAInstalled = function() {
+            if (isRunningAsPWA()) return true;
+            if (localStorage.getItem(PWA_INSTALLED_KEY) === 'true') return true;
+            return false;
+        };
+
+        // Saber si hay prompt pendiente
+        window.hasPWAInstallPrompt = function() {
+            return !!deferredPrompt;
+        };
+
+        // Capturar el evento beforeinstallprompt
         window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('[PWA] beforeinstallprompt received');
             e.preventDefault();
+            
+            // Si ya está instalada, ignorar
+            if (window.isPWAInstalled()) {
+                console.log('[PWA] Already installed, ignoring prompt');
+                deferredPrompt = null;
+                return;
+            }
+            
             deferredPrompt = e;
+            console.log('[PWA] Prompt saved, dispatching pwa-installable');
             window.dispatchEvent(new CustomEvent('pwa-installable', { detail: true }));
         });
-        
+
         // Función global para instalar la PWA
         window.installPWA = async function() {
+            console.log('[PWA] installPWA called, deferredPrompt:', !!deferredPrompt);
+            
             if (!deferredPrompt) {
+                console.log('[PWA] No deferred prompt available');
                 window.dispatchEvent(new CustomEvent('pwa-install-unavailable'));
                 return false;
             }
             
             try {
+                console.log('[PWA] Calling prompt()...');
                 deferredPrompt.prompt();
                 const { outcome } = await deferredPrompt.userChoice;
+                console.log('[PWA] User choice:', outcome);
                 deferredPrompt = null;
-                window.dispatchEvent(new CustomEvent('pwa-installed', { detail: outcome }));
-                return outcome === 'accepted';
+                
+                if (outcome === 'accepted') {
+                    localStorage.setItem(PWA_INSTALLED_KEY, 'true');
+                    window.dispatchEvent(new CustomEvent('pwa-installed', { detail: outcome }));
+                    return true;
+                }
+                return false;
             } catch (error) {
-                console.error('Error al instalar PWA:', error);
-                window.dispatchEvent(new CustomEvent('pwa-install-unavailable'));
+                console.error('[PWA] Error installing:', error);
+                deferredPrompt = null;
                 return false;
             }
         };
-        
-        // Saber si hay prompt pendiente (para que la UI no ofrezca instalar si no se puede)
-        window.hasPWAInstallPrompt = function() { return !!deferredPrompt; };
-        
-        // Detectar si la app ya está instalada
+
+        // Detectar cuando el sistema confirma que la app fue instalada
         window.addEventListener('appinstalled', () => {
+            console.log('[PWA] appinstalled event received');
             deferredPrompt = null;
+            localStorage.setItem(PWA_INSTALLED_KEY, 'true');
             window.dispatchEvent(new CustomEvent('pwa-installed', { detail: 'installed' }));
         });
+        
+        // Debug: mostrar estado inicial
+        console.log('[PWA] Initial state - isRunningAsPWA:', isRunningAsPWA(), 'isPWAInstalled:', window.isPWAInstalled());
     </script>
 </body>
 </html>

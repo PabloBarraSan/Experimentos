@@ -25,11 +25,18 @@ export function createElement(tag, options = {}) {
     }
     
     if (attrs) {
+        const booleanAttrs = new Set(['disabled', 'readonly', 'checked', 'required', 'hidden', 'autoplay', 'loop', 'multiple', 'selected']);
         Object.entries(attrs).forEach(([key, value]) => {
             if (key === 'dataset') {
                 Object.entries(value).forEach(([dataKey, dataValue]) => {
                     element.dataset[dataKey] = dataValue;
                 });
+            } else if (booleanAttrs.has(key)) {
+                if (value) {
+                    element.setAttribute(key, '');
+                } else {
+                    element.removeAttribute(key);
+                }
             } else {
                 element.setAttribute(key, value);
             }

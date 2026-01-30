@@ -87,8 +87,9 @@ export function GameView({ state, onExit }) {
     container.appendChild(exitBtn);
 
     if (zwiftPlayManager && zwiftPlayManager.isConnected()) {
+        const sessionCount = zwiftPlayManager.sessions ? zwiftPlayManager.sessions.length : 1;
         const zwiftBadge = createElement('span', {
-            text: 'Mando Zwift',
+            text: sessionCount > 1 ? `Mando Zwift (${sessionCount})` : 'Mando Zwift',
             styles: {
                 position: 'absolute',
                 top: spacing.sm,
