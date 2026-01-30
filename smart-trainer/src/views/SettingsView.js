@@ -6,6 +6,7 @@
 import { colors, spacing, typography, baseStyles, borderRadius, transitions } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { loadSettings, saveSettings, calculatePowerZones } from '../storage/settings.js';
+import { ZWIFT_PLAY_STATE } from '../bluetooth/zwiftPlay.js';
 
 /**
  * Vista de configuración del usuario
@@ -233,7 +234,60 @@ export function SettingsView({ state, onSave }) {
     
     trainerSection.appendChild(trainerFields);
     container.appendChild(trainerSection);
-    
+
+    // === Sección: Mando Zwift Play (para modo juego) ===
+    if (state.zwiftPlayManager) {
+        const zwiftSection = div({ styles: sectionStyles });
+        zwiftSection.appendChild(div({
+            styles: sectionTitleStyles,
+            children: [
+                createElement('span', { text: '🎮 Mando Zwift Play' }),
+            ],
+        }));
+        const zwiftRow = div({ styles: { display: 'flex', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' } });
+        const isZwiftConnected = state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTED;
+        if (isZwiftConnected) {
+            const count = state.zwiftPlayManager.sessions ? state.zwiftPlayManager.sessions.length : 1;
+            zwiftRow.appendChild(createElement('span', {
+                text: `Conectado (${count} mando${count > 1 ? 's' : ''})`,
+                styles: { color: colors.primary, fontWeight: typography.weights.medium },
+            }));
+            zwiftRow.appendChild(button({
+                styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, padding: `${spacing.sm} ${spacing.md}` },
+                text: 'Conectar segundo',
+                events: {
+                    click: () => {
+                        state.zwiftPlayManager.connectSecond().catch((err) => {
+                            if (err.name !== 'NotFoundError') alert(err.message || 'Error al conectar');
+                        });
+                    },
+                },
+            }));
+            zwiftRow.appendChild(button({
+                styles: { ...baseStyles.button, padding: `${spacing.sm} ${spacing.md}` },
+                text: 'Desconectar',
+                events: {
+                    click: () => state.zwiftPlayManager.disconnect(),
+                },
+            }));
+        } else {
+            zwiftRow.appendChild(button({
+                styles: { ...baseStyles.button, padding: `${spacing.sm} ${spacing.md}` },
+                text: state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTING ? 'Conectando…' : 'Conectar mando Zwift Play',
+                attrs: { disabled: state.zwiftPlayState === ZWIFT_PLAY_STATE.CONNECTING },
+                events: {
+                    click: () => {
+                        state.zwiftPlayManager.connect().catch((err) => {
+                            if (err.name !== 'NotFoundError') alert(err.message || 'Error al conectar');
+                        });
+                    },
+                },
+            }));
+        }
+        zwiftSection.appendChild(zwiftRow);
+        container.appendChild(zwiftSection);
+    }
+
     // === Botones de acción ===
     const actionsStyles = {
         display: 'flex',

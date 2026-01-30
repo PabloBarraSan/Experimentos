@@ -1,266 +1,199 @@
 /**
- * GameEngine - Motor principal del juego
- * Smart Trainer - Power Rush
+ * GameEngine - Motor de 3 Carriles (Endless Runner)
  */
 
-import { createGameState, resetGameState, calculateWorldSpeed, GAME_STATUS } from './GameState.js';
-import { updateCyclist } from './entities/Cyclist.js';
-import { updateObstacle } from './entities/Obstacle.js';
-import { updateCollectible } from './entities/Collectible.js';
-import { updateSpawnSystem, cleanupEntities } from './systems/SpawnSystem.js';
-import { updatePhysicsSystem, updateComboTimer } from './systems/PhysicsSystem.js';
-import { updateScoreSystem, finishGame } from './systems/ScoreSystem.js';
-import { UI_STRIP_HEIGHT } from './GameRenderer.js';
+import { createGameState, resetGameState, calculateWorldSpeed, GAME_STATUS, LANES, LANE_WIDTH } from './GameState.js';
 
-/**
- * Crear instancia del motor del juego
- */
+// CONFIGURACIÓN DEL JUEGO
+const SPAWN_DISTANCE = -100; // Donde aparecen los objetos (al fondo)
+const COLLISION_THRESHOLD = 1.5; // Distancia Z para considerar choque
+const LANE_SWITCH_SPEED = 10.0; // Qué tan rápido se mueve lateralmente la bici
+
 export function createGameEngine(options = {}) {
-    const {
-        canvas,
-        ftp = 200,
-        onScoreUpdate = () => {},
-        onGameOver = () => {},
-        onAchievement = () => {},
-    } = options;
-    
-    // Estado del juego
+    const { canvas, ftp = 200, onScoreUpdate = () => {}, onGameOver = () => {} } = options;
+
     let state = createGameState(ftp);
-    let lastTimestamp = 0;
-    let animationFrameId = null;
+    let lastTime = 0;
+    let animId = null;
     let renderer = null;
-    
-    // Dimensiones del canvas
-    const getCanvasSize = () => ({
-        width: canvas.width,
-        height: canvas.height,
-    });
-    
-    /**
-     * Game loop principal
-     */
+
+    // --- BUCLE PRINCIPAL ---
     function gameLoop(timestamp) {
-        const deltaTime = timestamp - lastTimestamp;
-        lastTimestamp = timestamp;
-        
+        const dt = (timestamp - lastTime) / 1000; // Delta time en SEGUNDOS
+        lastTime = timestamp;
+
         if (state.status === GAME_STATUS.PLAYING) {
-            update(deltaTime);
+            update(dt);
         }
-        
-        render();
-        
-        animationFrameId = requestAnimationFrame(gameLoop);
+
+        if (renderer) renderer.render(state);
+        animId = requestAnimationFrame(gameLoop);
     }
-    
-    /**
-     * Actualizar lógica del juego
-     */
-    function update(deltaTime) {
-        const { width, height } = getCanvasSize();
-        const groundY = height - UI_STRIP_HEIGHT;
-        
-        // Actualizar velocidad del mundo según potencia
-        state.worldSpeed = calculateWorldSpeed(state.bikeData.power, state.ftp);
-        
-        // Actualizar posición del mundo
-        state.worldPosition += state.worldSpeed;
-        
-        // Actualizar ciclista
-        state.cyclist = updateCyclist(
-            state.cyclist,
-            state.bikeData,
-            state.ftp,
-            deltaTime
-        );
-        
-        // Actualizar obstáculos
-        for (const obstacle of state.obstacles) {
-            updateObstacle(obstacle, state.worldSpeed, deltaTime);
+
+    // --- LÓGICA DEL JUEGO ---
+    function update(dt) {
+        // 1. Calcular velocidad basada en pedaleo
+        const speed = calculateWorldSpeed(state.bikeData.power, state.ftp);
+        state.worldSpeed = speed;
+        state.distanceTraveled += speed * dt;
+
+        // 2. Mover Ciclista (Suavizado lateral)
+        // El 'lane' es el objetivo (-1, 0, 1), 'x' es la posición visual real
+        const targetX = state.cyclist.lane * LANE_WIDTH;
+        // Interpolación lineal (Lerp) para movimiento suave
+        state.cyclist.x += (targetX - state.cyclist.x) * LANE_SWITCH_SPEED * dt;
+
+        // 3. Generador de Obstáculos (Spawn System)
+        state.timeSinceLastSpawn += dt;
+        const spawnRate = 2.0; // Segundos entre objetos (base)
+
+        if (state.timeSinceLastSpawn > spawnRate) {
+            spawnEntity();
+            state.timeSinceLastSpawn = 0;
         }
-        
-        // Actualizar coleccionables
-        for (const collectible of state.collectibles) {
-            updateCollectible(collectible, state.worldSpeed, deltaTime);
-        }
-        
-        // Sistema de spawn
-        updateSpawnSystem(state, width, deltaTime);
-        
-        // Sistema de física y colisiones
-        updatePhysicsSystem(state, groundY, deltaTime);
-        
-        // Sistema de puntuación
-        updateScoreSystem(state, deltaTime);
-        
-        // Actualizar combo timer
-        updateComboTimer(state, deltaTime);
-        
-        // Limpiar entidades inactivas
-        cleanupEntities(state);
-        
-        // Actualizar screen shake
-        if (state.screenShake > 0) {
-            state.screenShake -= deltaTime;
-        }
-        
-        // Actualizar flash effect
-        if (state.flashEffect) {
-            state.flashEffect.duration -= deltaTime;
-            if (state.flashEffect.duration <= 0) {
-                state.flashEffect = null;
+
+        // 4. Actualizar Entidades (Moverlas hacia el jugador)
+        // OBSTÁCULOS
+        for (let i = state.obstacles.length - 1; i >= 0; i--) {
+            const obs = state.obstacles[i];
+            obs.z += speed * dt; // Mover hacia positivo (hacia la cámara)
+
+            // Detección de Colisión
+            if (obs.active && Math.abs(obs.z) < COLLISION_THRESHOLD && obs.lane === state.cyclist.lane) {
+                console.log("CRASH!");
+                state.lives--;
+                state.screenShake = 0.5;
+                obs.active = false;
+
+                if (state.lives <= 0) gameOver();
             }
+
+            if (obs.z > 10) state.obstacles.splice(i, 1);
         }
-        
-        // Notificar cambios de puntuación
-        onScoreUpdate({
-            score: state.score,
-            lives: state.lives,
-            combo: state.combo,
-            multiplier: state.multiplier,
-        });
-        
-        // Verificar game over
-        if (state.status === GAME_STATUS.GAME_OVER) {
-            const results = finishGame(state);
-            onGameOver(results);
-        }
-    }
-    
-    /**
-     * Renderizar el juego
-     */
-    function render() {
-        if (renderer) {
-            renderer.render(state);
+
+        // COLECCIONABLES (Monedas)
+        for (let i = state.collectibles.length - 1; i >= 0; i--) {
+            const coin = state.collectibles[i];
+            coin.z += speed * dt;
+
+            if (coin.active && Math.abs(coin.z) < COLLISION_THRESHOLD && coin.lane === state.cyclist.lane) {
+                state.score += 100;
+                coin.active = false;
+                onScoreUpdate({ score: state.score, lives: state.lives });
+            }
+
+            if (coin.z > 10) state.collectibles.splice(i, 1);
         }
     }
-    
-    /**
-     * Establecer renderer
-     */
-    function setRenderer(r) {
-        renderer = r;
+
+    // --- SISTEMA DE GENERACIÓN ---
+    function spawnEntity() {
+        const lane = Math.floor(Math.random() * 3) - 1;
+        const isCoin = Math.random() < 0.3;
+
+        if (isCoin) {
+            state.collectibles.push({
+                lane: lane,
+                z: SPAWN_DISTANCE,
+                active: true
+            });
+        } else {
+            state.obstacles.push({
+                lane: lane,
+                z: SPAWN_DISTANCE,
+                active: true
+            });
+        }
     }
-    
-    /**
-     * Actualizar datos del rodillo
-     */
+
+    // --- CONTROLES PÚBLICOS ---
+    function moveLeft() {
+        if (state.cyclist.lane > -1) state.cyclist.lane--;
+    }
+
+    function moveRight() {
+        if (state.cyclist.lane < 1) state.cyclist.lane++;
+    }
+
     function updateBikeData(data) {
         state.bikeData = {
             power: data.power || 0,
             cadence: data.cadence || 0,
             speed: data.speed || 0,
-            heartRate: data.heartRate || 0,
+            heartRate: data.heartRate != null ? data.heartRate : null
         };
     }
-    
-    /**
-     * Iniciar juego
-     */
+
     function start() {
-        state = resetGameState(state);
-        lastTimestamp = performance.now();
-        
-        if (!animationFrameId) {
-            animationFrameId = requestAnimationFrame(gameLoop);
+        if (state.status !== GAME_STATUS.PLAYING) {
+            state = resetGameState(state);
+            state.status = GAME_STATUS.PLAYING;
+            lastTime = performance.now();
         }
+        if (!animId) animId = requestAnimationFrame(gameLoop);
     }
-    
-    /**
-     * Pausar juego
-     */
+
+    function stop() {
+        if (animId) {
+            cancelAnimationFrame(animId);
+            animId = null;
+        }
+        if (state) state.status = GAME_STATUS.MENU;
+    }
+
     function pause() {
         if (state.status === GAME_STATUS.PLAYING) {
             state.status = GAME_STATUS.PAUSED;
         }
     }
-    
-    /**
-     * Reanudar juego
-     */
+
     function resume() {
         if (state.status === GAME_STATUS.PAUSED) {
             state.status = GAME_STATUS.PLAYING;
-            lastTimestamp = performance.now();
+            lastTime = performance.now();
         }
     }
-    
-    /**
-     * Detener juego
-     */
-    function stop() {
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-        if (state) {
-            state.status = GAME_STATUS.MENU;
-        }
-    }
-    
-    /**
-     * Reiniciar juego
-     */
+
     function restart() {
         state = resetGameState(state);
-        lastTimestamp = performance.now();
+        state.status = GAME_STATUS.PLAYING;
+        lastTime = performance.now();
     }
-    
-    /**
-     * Obtener estado actual
-     */
-    function getState() {
-        return state;
+
+    function gameOver() {
+        state.status = GAME_STATUS.GAME_OVER;
+        onGameOver({ score: state.score });
     }
-    
-    /**
-     * Establecer FTP
-     */
-    function setFTP(newFTP) {
-        state.ftp = newFTP;
-    }
-    
-    /**
-     * Forzar salto (para testing o botón manual)
-     */
-    function forceJump() {
-        if (!state.cyclist.isJumping) {
-            state.cyclist.isJumping = true;
-            state.cyclist.vy = -15;
-        }
-    }
-    
-    /**
-     * Forzar agacharse (para botón manual)
-     */
-    function forceDuck(duck) {
-        state.cyclist.manualDuck = duck;
-        state.cyclist.isDucking = duck;
-    }
-    
-    /**
-     * Destruir engine (idempotente: seguro llamar más de una vez)
-     */
+
     function destroy() {
-        if (!state) return;
         stop();
         state = null;
         renderer = null;
     }
-    
-    // API pública
+
+    // Stubs para compatibilidad con GameView (controles salto/agacharse; por ahora solo carriles)
+    function forceJump() {}
+    function forceDuck() {}
+
+    // Arrancar bucle para que se renderice desde el primer frame (menú, pausa, etc.)
+    lastTime = performance.now();
+    animId = requestAnimationFrame(gameLoop);
+
+    // API
     return {
         start,
+        stop,
         pause,
         resume,
-        stop,
         restart,
+        destroy,
         updateBikeData,
-        setRenderer,
-        getState,
-        setFTP,
+        setRenderer: (r) => { renderer = r; },
+        moveLeft,
+        moveRight,
         forceJump,
         forceDuck,
-        destroy,
+        getState: () => state,
+        setFTP: (ftp) => { state.ftp = ftp; }
     };
 }

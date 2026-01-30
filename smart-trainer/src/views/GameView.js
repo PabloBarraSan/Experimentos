@@ -6,19 +6,18 @@
 import { colors, spacing, typography, baseStyles, borderRadius, premiumCardStyles } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { createGameEngine } from '../game/GameEngine.js';
-import { createGameRenderer, UI_STRIP_HEIGHT } from '../game/GameRenderer.js';
+import { createGameRenderer } from '../game/GameRenderer.js';
 import { GAME_STATUS } from '../game/GameState.js';
+import { CONNECTION_STATE } from '../bluetooth/scanner.js';
+import { PLAY_BUTTON_TO_ACTION } from '../bluetooth/zwiftPlay.js';
 
-const METRICS_BAR_HEIGHT = 50;
-const isTouchPrimary = () =>
-    window.matchMedia('(pointer: coarse)').matches ||
-    ('ontouchstart' in window && window.innerWidth <= 768);
 
 /**
  * Vista del juego Power Rush
  */
 export function GameView({ state, onExit }) {
-    const { liveData, settings, bluetoothManager } = state;
+    const { liveData, settings, bluetoothManager, connectionState, zwiftPlayManager } = state;
+    const isDemoMode = connectionState !== CONNECTION_STATE.CONNECTED;
     
     const containerStyles = {
         position: 'fixed',
@@ -86,162 +85,25 @@ export function GameView({ state, onExit }) {
         },
     });
     container.appendChild(exitBtn);
-    
-    // Controles en pantalla (franja inferior, encima de la barra de métricas)
-    const showTouchControls = isTouchPrimary();
-    const controlsContainer = div({
-        styles: {
-            position: 'absolute',
-            bottom: `${METRICS_BAR_HEIGHT}px`,
-            left: '0',
-            right: '0',
-            height: `${UI_STRIP_HEIGHT - METRICS_BAR_HEIGHT}px`,
-            display: showTouchControls ? 'flex' : 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: spacing.lg,
-            zIndex: '1001',
-            pointerEvents: 'none',
-        },
-    });
-    
-    // Botón de saltar
-    const jumpBtn = button({
-        styles: {
-            width: '56px',
-            height: '56px',
-            borderRadius: '50%',
-            backgroundColor: 'rgba(0, 212, 170, 0.5)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            border: `1px solid rgba(255, 255, 255, 0.35)`,
-            color: colors.background,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 12px rgba(0, 212, 170, 0.3)',
-            pointerEvents: 'auto',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            transition: 'transform 0.1s, box-shadow 0.1s',
-        },
-        children: [
-            icon('chevronUp', 28, colors.text),
-        ],
-        attrs: { 
-            title: 'Saltar (Espacio)',
-            'aria-label': 'Saltar',
-        },
-        events: {
-            touchstart: (e) => {
-                e.preventDefault();
-                if (engine) {
-                    const gameState = engine.getState();
-                    if (gameState.status === GAME_STATUS.PLAYING) {
-                        engine.forceJump();
-                        jumpBtn.style.transform = 'scale(0.9)';
-                    }
-                }
+
+    if (zwiftPlayManager && zwiftPlayManager.isConnected()) {
+        const zwiftBadge = createElement('span', {
+            text: 'Mando Zwift',
+            styles: {
+                position: 'absolute',
+                top: spacing.sm,
+                left: spacing.sm,
+                fontSize: '11px',
+                color: colors.textMuted,
+                backgroundColor: 'rgba(0,0,0,0.4)',
+                padding: '4px 8px',
+                borderRadius: borderRadius.sm,
+                zIndex: '1001',
             },
-            touchend: (e) => {
-                e.preventDefault();
-                jumpBtn.style.transform = 'scale(1)';
-            },
-            mousedown: (e) => {
-                e.preventDefault();
-                if (engine) {
-                    const gameState = engine.getState();
-                    if (gameState.status === GAME_STATUS.PLAYING) {
-                        engine.forceJump();
-                        jumpBtn.style.transform = 'scale(0.9)';
-                    }
-                }
-            },
-            mouseup: () => {
-                jumpBtn.style.transform = 'scale(1)';
-            },
-            mouseleave: () => {
-                jumpBtn.style.transform = 'scale(1)';
-            },
-        },
-    });
-    
-    // Botón de agacharse
-    const duckBtn = button({
-        styles: {
-            width: '56px',
-            height: '56px',
-            borderRadius: '50%',
-            backgroundColor: 'rgba(255, 107, 53, 0.5)',
-            backdropFilter: 'blur(10px)',
-            WebkitBackdropFilter: 'blur(10px)',
-            border: `1px solid rgba(255, 255, 255, 0.35)`,
-            color: colors.background,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 12px rgba(255, 107, 53, 0.3)',
-            pointerEvents: 'auto',
-            userSelect: 'none',
-            WebkitUserSelect: 'none',
-            transition: 'transform 0.1s, box-shadow 0.1s',
-        },
-        children: [
-            icon('chevronDown', 28, colors.text),
-        ],
-        attrs: { 
-            title: 'Agacharse (S)',
-            'aria-label': 'Agacharse',
-        },
-        events: {
-            touchstart: (e) => {
-                e.preventDefault();
-                if (engine) {
-                    const gameState = engine.getState();
-                    if (gameState.status === GAME_STATUS.PLAYING) {
-                        engine.forceDuck(true);
-                        duckBtn.style.transform = 'scale(0.9)';
-                    }
-                }
-            },
-            touchend: (e) => {
-                e.preventDefault();
-                if (engine) {
-                    engine.forceDuck(false);
-                }
-                duckBtn.style.transform = 'scale(1)';
-            },
-            mousedown: (e) => {
-                e.preventDefault();
-                if (engine) {
-                    const gameState = engine.getState();
-                    if (gameState.status === GAME_STATUS.PLAYING) {
-                        engine.forceDuck(true);
-                        duckBtn.style.transform = 'scale(0.9)';
-                    }
-                }
-            },
-            mouseup: () => {
-                if (engine) {
-                    engine.forceDuck(false);
-                }
-                duckBtn.style.transform = 'scale(1)';
-            },
-            mouseleave: () => {
-                if (engine) {
-                    engine.forceDuck(false);
-                }
-                duckBtn.style.transform = 'scale(1)';
-            },
-        },
-    });
-    
-    controlsContainer.appendChild(jumpBtn);
-    controlsContainer.appendChild(duckBtn);
-    container.appendChild(controlsContainer);
-    
+        });
+        container.appendChild(zwiftBadge);
+    }
+
     // Variables del motor
     let engine = null;
     let renderer = null;
@@ -272,24 +134,26 @@ export function GameView({ state, onExit }) {
         // Conectar renderer
         engine.setRenderer(renderer);
         
-        // Actualizar datos del rodillo continuamente
+        // Actualizar datos del rodillo (o simulados si no hay conexión)
         dataUpdateInterval = setInterval(() => {
             if (engine) {
-                engine.updateBikeData({
-                    power: liveData.power || 0,
-                    cadence: liveData.cadence || 0,
-                    speed: liveData.speed || 0,
-                    heartRate: liveData.heartRate || 0,
-                });
-                
-                // Auto-start cuando empieza a pedalear
+                const bikeData = isDemoMode
+                    ? { power: 100, cadence: 80, speed: 25, heartRate: 0 }
+                    : {
+                        power: liveData.power || 0,
+                        cadence: liveData.cadence || 0,
+                        speed: liveData.speed || 0,
+                        heartRate: liveData.heartRate || 0,
+                    };
+                engine.updateBikeData(bikeData);
+
                 const gameState = engine.getState();
-                if (gameState.status === GAME_STATUS.MENU && liveData.power > 50) {
+                // Auto-start solo con rodillo cuando empieza a pedalear
+                if (!isDemoMode && gameState.status === GAME_STATUS.MENU && liveData.power > 50) {
                     engine.start();
                 }
-                
-                // Restart en game over con sprint
-                if (gameState.status === GAME_STATUS.GAME_OVER) {
+                // Restart en game over con sprint (solo con rodillo; sin rodillo se usa Espacio)
+                if (!isDemoMode && gameState.status === GAME_STATUS.GAME_OVER) {
                     const powerRatio = liveData.power / settings.ftp;
                     if (powerRatio > 1.2) {
                         engine.restart();
@@ -305,10 +169,35 @@ export function GameView({ state, onExit }) {
         // Mostrar menú inicial
         const gameState = engine.getState();
         gameState.status = GAME_STATUS.MENU;
+
+        // Listener para mandos Zwift Play (mismas acciones que teclado)
+        const handleZwiftButton = (ev) => {
+            if (!engine) return;
+            const action = PLAY_BUTTON_TO_ACTION[ev.button];
+            if (!action) return;
+            const gs = engine.getState();
+            if (action === 'jump') {
+                if (gs.status === GAME_STATUS.PLAYING && ev.pressed) engine.forceJump();
+                else if (gs.status === GAME_STATUS.MENU && ev.pressed) engine.start();
+                else if (gs.status === GAME_STATUS.GAME_OVER && ev.pressed) engine.restart();
+            } else if (action === 'duck') {
+                if (gs.status === GAME_STATUS.PLAYING) engine.forceDuck(ev.pressed);
+            } else if (action === 'pause') {
+                if (ev.pressed) {
+                    if (gs.status === GAME_STATUS.PLAYING) engine.pause();
+                    else if (gs.status === GAME_STATUS.PAUSED) engine.resume();
+                }
+            }
+        };
+        if (zwiftPlayManager && zwiftPlayManager.isConnected()) {
+            zwiftPlayManager.onButton = handleZwiftButton;
+        }
+        container._zwiftHandler = handleZwiftButton;
     });
-    
+
     // Limpiar al desmontar
     container.cleanup = () => {
+        if (zwiftPlayManager) zwiftPlayManager.onButton = null;
         if (dataUpdateInterval) {
             clearInterval(dataUpdateInterval);
         }
@@ -334,6 +223,18 @@ export function GameView({ state, onExit }) {
         const gameState = engine.getState();
         
         switch (e.key) {
+            case 'ArrowLeft':
+                if (gameState.status === GAME_STATUS.PLAYING) {
+                    e.preventDefault();
+                    engine.moveLeft();
+                }
+                break;
+            case 'ArrowRight':
+                if (gameState.status === GAME_STATUS.PLAYING) {
+                    e.preventDefault();
+                    engine.moveRight();
+                }
+                break;
             case 'Escape':
                 if (gameState.status === GAME_STATUS.PLAYING) {
                     engine.pause();

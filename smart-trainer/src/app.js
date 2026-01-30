@@ -7,11 +7,13 @@ import { colors, spacing, typography, baseStyles, borderRadius, transitions } fr
 import { createElement, div, render } from './utils/dom.js';
 import { BluetoothManager, CONNECTION_STATE } from './bluetooth/scanner.js';
 import { HeartRateManager, HR_CONNECTION_STATE } from './bluetooth/heartRate.js';
+import { ZwiftPlayManager, ZWIFT_PLAY_STATE } from './bluetooth/zwiftPlay.js';
 import { HomeView } from './views/HomeView.js';
 import { TrainingView } from './views/TrainingView.js';
 import { GameView } from './views/GameView.js';
 import { RideView } from './views/RideView.js';
 import { HistoryView } from './views/HistoryView.js';
+import { SettingsView } from './views/SettingsView.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './router.js';
 
@@ -29,6 +31,10 @@ const AppState = {
     hrConnectionState: HR_CONNECTION_STATE.DISCONNECTED,
     hrDeviceName: null,
     hrSensorLocation: null,
+
+    // Zwift Play (mandos BLE)
+    zwiftPlayManager: null,
+    zwiftPlayState: ZWIFT_PLAY_STATE.DISCONNECTED,
     
     // Datos en tiempo real del rodillo
     liveData: {
@@ -242,7 +248,7 @@ function renderCurrentView() {
             const gameView = GameView({
                 state: AppState,
                 onExit: () => {
-                    navigateTo('training');
+                    navigateTo('home');
                 }
             });
             gameView.setAttribute('data-game-view', 'true');
@@ -342,6 +348,23 @@ function renderCurrentView() {
                         })
                     );
                 });
+            break;
+        }
+
+        case 'settings': {
+            cleanupFullscreenViews();
+            const settingsWrapper = div({
+                styles: { flex: '1', minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' },
+                attrs: { 'data-view': 'settings' },
+            });
+            settingsWrapper.appendChild(SettingsView({
+                state: AppState,
+                onSave: (newSettings) => {
+                    AppState.settings = { ...AppState.settings, ...newSettings };
+                    notify();
+                },
+            }));
+            container.appendChild(settingsWrapper);
             break;
         }
 
@@ -465,7 +488,15 @@ async function init() {
             }
         },
     });
-    
+
+    // Gestor Zwift Play (mandos BLE para juego)
+    AppState.zwiftPlayManager = new ZwiftPlayManager();
+    AppState.zwiftPlayManager.onStateChange = (state) => {
+        AppState.zwiftPlayState = state;
+        notify();
+        renderApp();
+    };
+
     // Cargar configuración guardada
     loadSettings();
     

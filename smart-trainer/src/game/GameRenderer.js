@@ -1,467 +1,332 @@
 /**
- * GameRenderer - Renderizado del juego
- * Smart Trainer - Power Rush
+ * GameRenderer - Renderizado 3D con Three.js
+ * Smart Trainer - Power Rush (Versión Corregida: Perspectiva Frontal)
  */
 
-import { renderCyclist } from './entities/Cyclist.js';
-import { renderObstacle } from './entities/Obstacle.js';
-import { renderCollectible } from './entities/Collectible.js';
-import { getCurrentPowerZone, GAME_STATUS } from './GameState.js';
+export const UI_STRIP_HEIGHT = 100; // Necesario para que el Engine calcule el suelo
 
-/** Altura de la franja inferior reservada para UI (métricas + controles) */
-export const UI_STRIP_HEIGHT = 140;
-/** Altura visual de la carretera por encima de la franja UI */
-const ROAD_HEIGHT = 60;
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+import { getCurrentPowerZone, GAME_STATUS, LANE_WIDTH } from './GameState.js';
 
-// Colores del fondo según zona
-const BG_COLORS = {
-    1: '#1a1a2e',
-    2: '#16213e',
-    3: '#1a1a1a',
-    4: '#2d132c',
-    5: '#3d0000',
-    6: '#4a0000',
-    7: '#4a004a',
-};
+// =============================================================================
+// COLORES Y CONFIGURACIÓN UI
+// =============================================================================
+const BG_COLORS = { 1: '#1a1a2e', 2: '#16213e', 3: '#1a1a1a', 4: '#2d132c', 5: '#3d0000', 6: '#4a0000', 7: '#4a004a' };
 
-/**
- * Crear instancia del renderer
- */
 export function createGameRenderer(canvas) {
-    const ctx = canvas.getContext('2d');
-    let width = canvas.width;
-    let height = canvas.height;
+    // 1. CONFIGURACIÓN THREE.JS
+    // --------------------------------------------------------
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+    renderer.setSize(canvas.width, canvas.height);
+    renderer.shadowMap.enabled = true;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x111111, 0.02);
+    scene.background = new THREE.Color(0x111111);
+
+    // CÁMARA: La bajamos un poco para ver más "carretera"
+    const camera = new THREE.PerspectiveCamera(60, canvas.width / canvas.height, 0.1, 1000);
+    camera.position.set(0, 2.5, 6); 
+    camera.lookAt(0, 1, -10); // Miramos hacia el horizonte infinito
+
+    // LUCES
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0x00d4aa, 2);
+    dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    // Luz del ciclista (Faro delantero)
+    const headLight = new THREE.SpotLight(0xffffff, 10);
+    headLight.position.set(0, 2, 0);
+    headLight.target.position.set(0, 0, -10);
+    headLight.angle = Math.PI / 6;
+    headLight.penumbra = 0.5;
+    scene.add(headLight);
+    scene.add(headLight.target);
+
+    // SUELO
+    const gridHelper = new THREE.GridHelper(200, 200, 0x00d4aa, 0x222222);
+    scene.add(gridHelper);
     
-    // Offscreen canvas para optimización
-    const bgCanvas = document.createElement('canvas');
-    const bgCtx = bgCanvas.getContext('2d');
+    const planeGeometry = new THREE.PlaneGeometry(50, 200);
+    const planeMaterial = new THREE.MeshBasicMaterial({ color: 0x0a0a0a });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.rotation.x = -Math.PI / 2;
+    plane.position.y = -0.1;
+    scene.add(plane);
+
+    const collectiblesGroup = new THREE.Group();
+    scene.add(collectiblesGroup);
+
+    const obstaclesGroup = new THREE.Group();
+    scene.add(obstaclesGroup);
+
+    const streetlightsGroup = new THREE.Group();
+    scene.add(streetlightsGroup);
+
+    // 2. CARGAR ASSETS
+    // --------------------------------------------------------
+    const loader = new GLTFLoader();
     
-    /**
-     * Redimensionar canvas
-     */
+    // A) CICLISTA
+    let bikeModel = null;
+    loader.load('./assets/models/ciclista.glb', (gltf) => {
+        bikeModel = gltf.scene;
+        bikeModel.scale.set(1.5, 1.5, 1.5); 
+        bikeModel.position.set(0, 0, 0);
+        
+        // CORRECCIÓN 1: ROTARLO 180 GRADOS PARA QUE MIRE AL FRENTE
+        bikeModel.rotation.y = Math.PI; 
+        
+        scene.add(bikeModel);
+        console.log("✅ Ciclista cargado");
+    }, undefined, (err) => console.error("Error ciclista:", err));
+
+    // B) MONEDA
+    let coinTemplate = null;
+    loader.load('./assets/models/moneda.glb', (gltf) => {
+        coinTemplate = gltf.scene;
+        coinTemplate.scale.set(0.5, 0.5, 0.5);
+        console.log("✅ Moneda cargada");
+    }, undefined, (err) => console.error("Error moneda:", err));
+
+    // C) BARRERA (obstáculo) — escala grande y rojo neón
+    let obstacleTemplate = null;
+    loader.load('./assets/models/barrera.glb', (gltf) => {
+        obstacleTemplate = gltf.scene;
+        obstacleTemplate.scale.set(5, 5, 5);
+        obstacleTemplate.traverse((child) => {
+            if (child.isMesh) {
+                child.material = new THREE.MeshStandardMaterial({
+                    color: 0xff0000,
+                    emissive: 0xff0000,
+                    emissiveIntensity: 0.8,
+                    roughness: 0.4
+                });
+            }
+        });
+        console.log("✅ Barrera cargada, escalada y pintada");
+    }, undefined, (err) => console.error("Error barrera:", err));
+
+    // D) FAROLAS (decoración, borde carretera)
+    let streetlightTemplate = null;
+    loader.load('./assets/models/farola.glb', (gltf) => {
+        streetlightTemplate = gltf.scene;
+        streetlightTemplate.scale.set(2, 2, 2);
+        streetlightTemplate.traverse((child) => {
+            if (child.isMesh) {
+                child.material = new THREE.MeshStandardMaterial({
+                    color: 0x333333,
+                    emissive: 0xffaa33,
+                    emissiveIntensity: 0.6,
+                    roughness: 0.5
+                });
+            }
+        });
+        console.log("✅ Farola cargada");
+    }, undefined, (err) => console.error("Error farola:", err));
+
+    // 3. CAPA DE INTERFAZ 2D (HUD)
+    // --------------------------------------------------------
+    const hudCanvas = document.createElement('canvas');
+    hudCanvas.style.position = 'absolute';
+    hudCanvas.style.top = canvas.offsetTop + 'px';
+    hudCanvas.style.left = canvas.offsetLeft + 'px';
+    hudCanvas.style.pointerEvents = 'none';
+    hudCanvas.width = canvas.width;
+    hudCanvas.height = canvas.height;
+    document.body.appendChild(hudCanvas);
+    const ctx = hudCanvas.getContext('2d');
+
     function resize() {
-        const rect = canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-        
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
-        
-        bgCanvas.width = canvas.width;
-        bgCanvas.height = canvas.height;
-        bgCtx.scale(dpr, dpr);
-        
-        width = rect.width;
-        height = rect.height;
-    }
-    
-    /**
-     * Renderizar frame completo
-     */
-    function render(state) {
-        // Aplicar screen shake
-        ctx.save();
-        if (state.screenShake > 0) {
-            const intensity = state.screenShake / 100;
-            const shakeX = (Math.random() - 0.5) * intensity * 10;
-            const shakeY = (Math.random() - 0.5) * intensity * 10;
-            ctx.translate(shakeX, shakeY);
-        }
-        
-        // Limpiar
-        ctx.clearRect(0, 0, width, height);
-        
-        // Fondo
-        renderBackground(ctx, state, width, height);
-        
-        // Carretera (por encima de la franja UI)
-        const groundY = height - UI_STRIP_HEIGHT;
-        renderRoad(ctx, state, width, height, groundY);
-        
-        // Obstáculos
-        for (const obstacle of state.obstacles) {
-            if (obstacle.active) {
-                renderObstacle(ctx, obstacle, groundY);
-            }
-        }
-        
-        // Coleccionables
-        for (const collectible of state.collectibles) {
-            if (collectible.active) {
-                renderCollectible(ctx, collectible, groundY);
-            }
-        }
-        
-        // Ciclista
-        renderCyclist(ctx, state.cyclist, groundY, state.cyclist.isTurbo);
-        
-        // Partículas
-        renderParticles(ctx, state.particles, groundY);
-        
-        // Flash effect
-        if (state.flashEffect) {
-            renderFlashEffect(ctx, state.flashEffect, width, height);
-        }
-        
-        ctx.restore();
-        
-        // HUD (sin shake)
-        renderHUD(ctx, state, width, height);
-        
-        // Métricas del rodillo
-        renderBikeMetrics(ctx, state, width, height);
-        
-        // Pantallas especiales
-        if (state.status === GAME_STATUS.PAUSED) {
-            renderPausedScreen(ctx, width, height);
-        } else if (state.status === GAME_STATUS.GAME_OVER) {
-            renderGameOverScreen(ctx, state, width, height);
-        } else if (state.status === GAME_STATUS.MENU) {
-            renderMenuScreen(ctx, state, width, height);
+        const parent = canvas.parentElement;
+        if (parent) {
+            canvas.width = parent.clientWidth;
+            canvas.height = parent.clientHeight;
+            renderer.setSize(canvas.width, canvas.height);
+            camera.aspect = canvas.width / canvas.height;
+            camera.updateProjectionMatrix();
+            hudCanvas.width = canvas.width;
+            hudCanvas.height = canvas.height;
+            hudCanvas.style.top = canvas.offsetTop + 'px';
+            hudCanvas.style.left = canvas.offsetLeft + 'px';
         }
     }
-    
-    /**
-     * Renderizar fondo
-     */
-    function renderBackground(ctx, state, w, h) {
-        const zone = getCurrentPowerZone(state.bikeData.power, state.ftp);
-        const bgColor = BG_COLORS[zone.zone] || BG_COLORS[3];
-        
-        // Gradiente vertical
-        const gradient = ctx.createLinearGradient(0, 0, 0, h);
-        gradient.addColorStop(0, bgColor);
-        gradient.addColorStop(0.6, '#000000');
-        gradient.addColorStop(1, '#111111');
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, w, h);
-        
-        // Línea de horizonte
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, h * 0.4);
-        ctx.lineTo(w, h * 0.4);
-        ctx.stroke();
-        
-        // Estrellas (solo en zonas bajas)
-        if (zone.zone <= 3) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            const starOffset = (state.worldPosition * 0.1) % 100;
-            for (let i = 0; i < 20; i++) {
-                const x = ((i * 73 + starOffset) % w);
-                const y = (i * 37) % (h * 0.35);
-                ctx.beginPath();
-                ctx.arc(x, y, 1, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-    }
-    
-    /**
-     * Renderizar carretera (solo en zona de juego, por encima de la franja UI)
-     */
-    function renderRoad(ctx, state, w, h, groundY) {
-        const roadTop = groundY - ROAD_HEIGHT;
-        // Carretera principal (solo ROAD_HEIGHT px por encima de groundY)
-        ctx.fillStyle = '#222222';
-        ctx.fillRect(0, roadTop, w, ROAD_HEIGHT);
-        
-        // Borde superior de la carretera
-        ctx.strokeStyle = '#444444';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(0, roadTop);
-        ctx.lineTo(w, roadTop);
-        ctx.stroke();
-        
-        // Líneas de carretera (animadas)
-        ctx.strokeStyle = '#555555';
-        ctx.lineWidth = 4;
-        ctx.setLineDash([40, 30]);
-        
-        const lineOffset = (state.worldPosition * 2) % 70;
-        ctx.beginPath();
-        ctx.moveTo(-lineOffset, roadTop + 40);
-        ctx.lineTo(w, roadTop + 40);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        // Marcadores de distancia
-        const distanceMarkerInterval = 500; // Cada 500 metros virtuales
-        const markerOffset = state.distance % distanceMarkerInterval;
-        
-        ctx.fillStyle = '#666666';
-        ctx.font = '12px monospace';
-        ctx.textAlign = 'center';
-        
-        for (let i = 0; i < 3; i++) {
-            const x = w - (markerOffset * 0.5 + i * distanceMarkerInterval * 0.5);
-            if (x > 0 && x < w) {
-                const km = Math.floor((state.distance + i * distanceMarkerInterval) / 1000);
-                ctx.fillText(`${km}km`, x, roadTop + 55);
-                
-                // Línea vertical
-                ctx.strokeStyle = '#444444';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(x, roadTop + 50);
-                ctx.lineTo(x, roadTop + 55);
-                ctx.stroke();
-            }
-        }
-    }
-    
-    /**
-     * Renderizar partículas
-     */
-    function renderParticles(ctx, particles, groundY) {
-        for (const p of particles) {
-            if (p.life <= 0) continue;
-            
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, groundY - p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.globalAlpha = 1;
-    }
-    
-    /**
-     * Renderizar efecto de flash
-     */
-    function renderFlashEffect(ctx, flash, w, h) {
-        ctx.fillStyle = flash.color;
-        ctx.globalAlpha = flash.duration / 300 * 0.3;
-        ctx.fillRect(0, 0, w, h);
-        ctx.globalAlpha = 1;
-    }
-    
-    /**
-     * Renderizar HUD
-     */
-    function renderHUD(ctx, state, w, h) {
-        const padding = 20;
-        
-        // Fondo del HUD
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(0, 0, w, 60);
-        
-        // Vidas
-        ctx.font = '24px sans-serif';
-        ctx.textAlign = 'left';
-        for (let i = 0; i < state.maxLives; i++) {
-            ctx.fillStyle = i < state.lives ? '#ff4444' : '#444444';
-            ctx.fillText('❤️', padding + i * 30, 38);
-        }
-        
-        // Puntuación
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 24px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(state.score.toLocaleString(), w / 2, 40);
-        
-        // Combo / Multiplicador
-        if (state.combo > 0) {
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 18px sans-serif';
-            ctx.textAlign = 'right';
-            ctx.fillText(`x${state.multiplier}`, w - padding - 80, 25);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '14px sans-serif';
-            ctx.fillText(`COMBO ${state.combo}`, w - padding - 80, 45);
-        }
-        
-        // High Score
-        ctx.fillStyle = '#888888';
-        ctx.font = '12px sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText(`HI: ${state.highScore.toLocaleString()}`, w - padding, 40);
-    }
-    
-    /**
-     * Renderizar métricas del rodillo
-     */
-    function renderBikeMetrics(ctx, state, w, h) {
-        const barHeight = 50;
-        const y = h - barHeight;
-        
-        // Fondo
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, y, w, barHeight);
-        
-        // Borde superior
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
-        
-        const zone = getCurrentPowerZone(state.bikeData.power, state.ftp);
-        
-        // Potencia
-        ctx.fillStyle = zone.color;
-        ctx.font = 'bold 24px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${state.bikeData.power}W`, 20, y + 33);
-        
-        // Barra de potencia
-        const barWidth = 150;
-        const barX = 120;
-        const powerRatio = Math.min(2, state.bikeData.power / state.ftp);
-        
-        ctx.fillStyle = '#333333';
-        ctx.fillRect(barX, y + 15, barWidth, 20);
-        
-        ctx.fillStyle = zone.color;
-        ctx.fillRect(barX, y + 15, barWidth * (powerRatio / 2), 20);
-        
-        // Marca de FTP
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(barX + barWidth / 2, y + 12);
-        ctx.lineTo(barX + barWidth / 2, y + 38);
-        ctx.stroke();
-        
-        // Cadencia
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '18px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`${state.bikeData.cadence} rpm`, w / 2, y + 33);
-        
-        // Velocidad virtual
-        const virtualSpeed = (state.worldSpeed * 3.2).toFixed(1);
-        ctx.fillText(`${virtualSpeed} km/h`, w / 2 + 100, y + 33);
-        
-        // Distancia
-        ctx.fillStyle = '#888888';
-        ctx.font = '14px monospace';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${(state.distance / 1000).toFixed(2)} km`, w - 20, y + 33);
-    }
-    
-    /**
-     * Renderizar pantalla de pausa
-     */
-    function renderPausedScreen(ctx, w, h) {
-        // Overlay oscuro
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, w, h);
-        
-        // Texto
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('PAUSADO', w / 2, h / 2);
-        
-        ctx.font = '18px sans-serif';
-        ctx.fillStyle = '#888888';
-        ctx.fillText('Pedalea para continuar', w / 2, h / 2 + 40);
-    }
-    
-    /**
-     * Renderizar pantalla de game over
-     */
-    function renderGameOverScreen(ctx, state, w, h) {
-        // Overlay oscuro
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-        ctx.fillRect(0, 0, w, h);
-        
-        // Título
-        ctx.fillStyle = '#ff4444';
-        ctx.font = 'bold 48px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('GAME OVER', w / 2, h / 2 - 80);
-        
-        // Puntuación
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 36px monospace';
-        ctx.fillText(state.score.toLocaleString(), w / 2, h / 2 - 20);
-        
-        // Estadísticas
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = '#888888';
-        ctx.fillText(`Distancia: ${(state.distance / 1000).toFixed(2)} km`, w / 2, h / 2 + 30);
-        ctx.fillText(`Tiempo: ${formatTime(state.playTime)}`, w / 2, h / 2 + 55);
-        
-        // High score
-        if (state.score >= state.highScore) {
-            ctx.fillStyle = '#ffd700';
-            ctx.font = 'bold 20px sans-serif';
-            ctx.fillText('🏆 NUEVO RÉCORD! 🏆', w / 2, h / 2 + 100);
-        }
-        
-        // Instrucciones
-        ctx.fillStyle = '#00d4aa';
-        ctx.font = '18px sans-serif';
-        ctx.fillText('Sprint para reiniciar', w / 2, h / 2 + 150);
-    }
-    
-    /**
-     * Renderizar pantalla de menú
-     */
-    function renderMenuScreen(ctx, state, w, h) {
-        // Fondo
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, w, h);
-        
-        // Título
-        ctx.fillStyle = '#00d4aa';
-        ctx.font = 'bold 56px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('POWER RUSH', w / 2, h / 2 - 60);
-        
-        // Subtítulo
-        ctx.fillStyle = '#888888';
-        ctx.font = '18px sans-serif';
-        ctx.fillText('Smart Trainer Game Mode', w / 2, h / 2 - 20);
-        
-        // High score
-        ctx.fillStyle = '#ffd700';
-        ctx.font = '20px monospace';
-        ctx.fillText(`High Score: ${state.highScore.toLocaleString()}`, w / 2, h / 2 + 30);
-        
-        // Instrucciones
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '24px sans-serif';
-        ctx.fillText('¡Pedalea para comenzar!', w / 2, h / 2 + 100);
-        
-        // Controles
-        ctx.fillStyle = '#00d4aa';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.fillText('CONTROLES', w / 2, h / 2 + 150);
-        
-        ctx.fillStyle = '#888888';
-        ctx.font = '14px sans-serif';
-        ctx.fillText('⬆️ Botón o Espacio = Saltar', w / 2, h / 2 + 180);
-        ctx.fillText('⬇️ Botón o S = Agacharse', w / 2, h / 2 + 205);
-        ctx.fillText('O automático: Sprint >120% FTP = Saltar | Cadencia <60 = Agacharse', w / 2, h / 2 + 230);
-    }
-    
-    /**
-     * Formatear tiempo
-     */
-    function formatTime(ms) {
-        const seconds = Math.floor(ms / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${minutes}:${secs.toString().padStart(2, '0')}`;
-    }
-    
-    // Inicializar
-    resize();
     window.addEventListener('resize', resize);
-    
-    // API pública
+    resize();
+
+    // 4. BUCLE DE RENDERIZADO PRINCIPAL (CORREGIDO)
+    // --------------------------------------------------------
+    function render(state) {
+        // --- A) MUNDO 3D ---
+
+        // 1. CICLISTA (posición X = carril suavizado, Y = salto) + faro que persigue
+        if (bikeModel) {
+            bikeModel.position.x = state.cyclist.x;
+            const jumpHeight = Math.max(0, state.cyclist.y * 0.05);
+            bikeModel.position.y = jumpHeight;
+            if (state.bikeData.cadence > 0) {
+                bikeModel.rotation.z = Math.sin(Date.now() * 0.005) * 0.05;
+            }
+            headLight.position.x = bikeModel.position.x;
+            headLight.position.y = bikeModel.position.y + 2;
+            headLight.target.position.x = bikeModel.position.x;
+            headLight.target.position.z = bikeModel.position.z - 10;
+        }
+
+        // 2. SUELO (scroll por distancia recorrida)
+        const distance = state.distanceTraveled != null ? state.distanceTraveled : 0;
+        gridHelper.position.z = (distance * 0.5) % 10;
+
+        // 3. OBSTÁCULOS (barreras) y MONEDAS
+        while (obstaclesGroup.children.length) obstaclesGroup.remove(obstaclesGroup.children[0]);
+        while (collectiblesGroup.children.length) collectiblesGroup.remove(collectiblesGroup.children[0]);
+
+        // 3a. Obstáculos (barreras) — lane y z desde el engine
+        if (obstacleTemplate && state.obstacles && state.obstacles.length > 0) {
+            state.obstacles.forEach(obs => {
+                if (obs.active) {
+                    const mesh = obstacleTemplate.clone();
+                    mesh.position.x = obs.lane * LANE_WIDTH;
+                    mesh.position.z = obs.z;
+                    mesh.position.y = 0;
+                    if (mesh.position.z < 10 && mesh.position.z > -110) {
+                        obstaclesGroup.add(mesh);
+                    }
+                }
+            });
+        }
+
+        // 3b. Monedas — lane y z desde el engine
+        if (coinTemplate && state.collectibles && state.collectibles.length > 0) {
+            state.collectibles.forEach(coin => {
+                if (coin.active) {
+                    const mesh = coinTemplate.clone();
+                    mesh.position.x = coin.lane * LANE_WIDTH;
+                    mesh.position.z = coin.z;
+                    mesh.position.y = 0.5;
+                    if (mesh.position.z < 10 && mesh.position.z > -110) {
+                        mesh.rotation.y = Date.now() * 0.003;
+                        collectiblesGroup.add(mesh);
+                    }
+                }
+            });
+        }
+
+        // 3c. Farolas (decoración, borde carretera, scroll con el mundo)
+        while (streetlightsGroup.children.length) streetlightsGroup.remove(streetlightsGroup.children[0]);
+        if (streetlightTemplate) {
+            const baseZ = 10 - (distance * 0.5) % 25;
+            for (let n = 0; n < 12; n++) {
+                const z = baseZ - n * 25;
+                if (z > -100 && z < 15) {
+                    const left = streetlightTemplate.clone();
+                    left.position.set(-6, 0, z);
+                    streetlightsGroup.add(left);
+                    const right = streetlightTemplate.clone();
+                    right.position.set(6, 0, z);
+                    streetlightsGroup.add(right);
+                }
+            }
+        }
+
+        renderer.render(scene, camera);
+
+        // --- B) HUD 2D ---
+        ctx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+        
+        if (state.status === GAME_STATUS.PLAYING || state.status === GAME_STATUS.PAUSED) {
+            renderTopDashboard(ctx, state, hudCanvas.width, hudCanvas.height);
+            if (state.status === GAME_STATUS.PAUSED) {
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(0, 0, hudCanvas.width, hudCanvas.height);
+                ctx.fillStyle = '#00d4aa';
+                ctx.font = 'bold 28px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('PAUSADO', hudCanvas.width / 2, hudCanvas.height / 2);
+            }
+        } else if (state.status === GAME_STATUS.MENU) {
+            renderMenuScreen(ctx, state, hudCanvas.width, hudCanvas.height);
+        } else if (state.status === GAME_STATUS.GAME_OVER) {
+            renderGameOverScreen(ctx, state, hudCanvas.width, hudCanvas.height);
+        }
+    }
+
+    // Dashboard superior: métricas del entrenamiento
+    function renderTopDashboard(ctx, state, w, h) {
+        const barHeight = 56;
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.fillRect(0, 0, w, barHeight);
+        ctx.strokeStyle = 'rgba(0, 212, 170, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, 0, w, barHeight);
+
+        const pad = 16;
+        const col = (x, text, color) => {
+            ctx.fillStyle = color || '#e0e0e0';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(text, x, 22);
+        };
+        const val = (x, text, color) => {
+            ctx.fillStyle = color || '#fff';
+            ctx.font = 'bold 18px monospace';
+            ctx.fillText(text, x, 42);
+        };
+
+        let x = pad;
+        const zone = getCurrentPowerZone(state.bikeData.power, state.ftp);
+        col(x, 'Potencia', zone.color);
+        val(x, `${state.bikeData.power || 0} W`, zone.color);
+        x += 90;
+        col(x, 'Cadencia', '#aaa');
+        val(x, `${state.bikeData.cadence || 0} RPM`, '#fff');
+        x += 90;
+        col(x, 'Velocidad', '#aaa');
+        val(x, `${state.bikeData.speed || 0} km/h`, '#fff');
+        x += 85;
+        col(x, 'FC', '#aaa');
+        val(x, state.bikeData.heartRate != null ? `${state.bikeData.heartRate} bpm` : '--', '#fff');
+
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px monospace';
+        ctx.fillText(`SCORE: ${state.score}`, w * 0.5 - 60, 36);
+        ctx.textAlign = 'right';
+        ctx.fillText(`❤️ ${state.lives}`, w - pad, 36);
+    }
+
+    function renderMenuScreen(ctx, state, w, h) {
+        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        ctx.fillRect(0,0,w,h);
+        ctx.fillStyle = '#00d4aa';
+        ctx.font = 'bold 40px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("POWER RUSH 3D", w/2, h/2);
+        ctx.fillStyle = 'white';
+        ctx.font = '20px sans-serif';
+        ctx.fillText("Pedalea para empezar", w/2, h/2 + 50);
+    }
+
+    function renderGameOverScreen(ctx, state, w, h) {
+        ctx.fillStyle = 'rgba(50,0,0,0.8)';
+        ctx.fillRect(0,0,w,h);
+        ctx.fillStyle = 'red';
+        ctx.font = 'bold 40px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("GAME OVER", w/2, h/2);
+    }
+
     return {
         render,
         resize,
         destroy: () => {
             window.removeEventListener('resize', resize);
-        },
+            if(hudCanvas.parentNode) hudCanvas.parentNode.removeChild(hudCanvas);
+        }
     };
 }

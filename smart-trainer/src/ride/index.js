@@ -50,5 +50,8 @@ export {
 // Motor principal
 export { createRideEngine } from './RideEngine.js';
 
-// Renderer
+// Renderer (2D Canvas)
 export { createRideRenderer, METRICS_BAR_HEIGHT } from './RideRenderer.js';
+
+// Renderer 3D (Three.js)
+export { RideRenderer3D, createRideRenderer3D, METRICS_BAR_HEIGHT as METRICS_BAR_HEIGHT_3D } from './RideRenderer3D.js';

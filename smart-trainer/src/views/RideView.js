@@ -6,7 +6,7 @@
 import { colors, spacing, typography, baseStyles, borderRadius, premiumCardStyles } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { createRideEngine } from '../ride/RideEngine.js';
-import { createRideRenderer, METRICS_BAR_HEIGHT } from '../ride/RideRenderer.js';
+import { createRideRenderer3D, METRICS_BAR_HEIGHT } from '../ride/RideRenderer3D.js';
 import { RIDE_STATUS } from '../ride/RideState.js';
 import { getAvailableWorlds, getWorldConfig } from '../ride/worlds/WorldConfig.js';
 
@@ -368,7 +368,7 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
         canvas.height = rect.height;
         
         // Crear renderer
-        renderer = createRideRenderer(canvas);
+        renderer = createRideRenderer3D(canvas);
         
         // Crear motor del ride
         engine = createRideEngine({
