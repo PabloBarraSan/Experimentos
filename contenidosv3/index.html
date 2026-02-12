@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Contenidos - Búsqueda Visible</title>
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap');
+
+        /* Base */
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            color: #334155;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .slide-down { animation: slideDown 0.2s ease-out; }
+        @keyframes slideDown {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .flex-1 { flex: 1; }
+        .flex-shrink-0 { flex-shrink: 0; }
+        .items-center { align-items: center; }
+        .items-end { align-items: flex-end; }
+        .justify-between { justify-content: space-between; }
+        .justify-end { justify-content: flex-end; }
+        .justify-center { justify-content: center; }
+        .gap-1 { gap: 0.25rem; }
+        .gap-2 { gap: 0.5rem; }
+        .gap-4 { gap: 1rem; }
+        .relative { position: relative; }
+        .absolute { position: absolute; }
+        .sticky { position: sticky; }
+        .overflow-hidden { overflow: hidden; }
+        .overflow-y-auto { overflow-y: auto; }
+        .cursor-pointer { cursor: pointer; }
+        .whitespace-nowrap { white-space: nowrap; }
+        .line-clamp-1 {
+            display: -webkit-box;
+            -webkit-line-clamp: 1;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .layout-header {
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            z-index: 30;
+            flex-shrink: 0;
+        }
+
+        .layout-header-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+            letter-spacing: -0.025em;
+        }
+
+        .badge-count {
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            background: #f3f4f6;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #6b7280;
+            border: 1px solid #e5e7eb;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.15s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-primary:active { transform: scale(0.98); }
+
+        .btn-secondary {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: #334155;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            transition: all 0.15s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .btn-secondary:hover { background: #f9fafb; border-color: #cbd5e1; }
+        .btn-secondary.active { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+
+        .header-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .header-actions .header-divider { width: 1px; height: 1.25rem; background: #e5e7eb; margin: 0 0.25rem; }
+        .view-segmented {
+            display: inline-flex;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            background: #f9fafb;
+        }
+        .view-segmented button {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            border: none;
+            background: transparent;
+            color: #64748b;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            transition: all 0.15s;
+        }
+        .view-segmented button:hover { color: #334155; }
+        .view-segmented button.active { background: #fff; color: #1e293b; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+        .header-dropdown { position: relative; }
+        .header-dropdown-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.25rem;
+            min-width: 10rem;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            z-index: 100;
+            padding: 0.25rem 0;
+        }
+        .header-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #334155;
+            text-align: left;
+        }
+        .header-dropdown-item:hover { background: #f9fafb; }
+        .header-dropdown-item i { width: 1rem; height: 1rem; flex-shrink: 0; }
+
+        .col-config-dropdown {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.25rem;
+            width: 14rem;
+            max-height: 18rem;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            z-index: 100;
+            padding: 0.5rem;
+            columns: 2;
+            column-gap: 1rem;
+        }
+        .col-config-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.375rem 0.5rem;
+            font-size: 0.75rem;
+            break-inside: avoid;
+            cursor: pointer;
+        }
+        .col-config-item:hover { background: #f9fafb; border-radius: 0.25rem; }
+        .col-config-item input { accent-color: #2563eb; cursor: pointer; }
+
+        .bulk-dropdown-wrap { position: relative; }
+
+        /* Toolbar - Premium inline filters */
+        .toolbar {
+            padding: 0.75rem 1.5rem;
+            background: #fff;
+            border-bottom: 1px solid #f1f5f9;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        /* Toolbar - Tokens unificados */
+        .toolbar { --tb-height: 2rem; --tb-radius: 0.375rem; --tb-fs: 0.8125rem; --tb-bg: #f8fafc; --tb-border: #e2e8f0; --tb-hover: #f1f5f9; --tb-focus: #bfdbfe; }
+
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+            max-width: 360px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .search-input {
+            width: 100%;
+            height: var(--tb-height);
+            padding: 0 1rem 0 2.25rem;
+            background: var(--tb-bg);
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius);
+            font-size: var(--tb-fs);
+            font-weight: 500;
+            color: #334155;
+            transition: all 0.15s;
+            outline: none;
+        }
+        .search-input::placeholder { color: #94a3b8; }
+        .search-input:focus {
+            background: #fff;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.2);
+        }
+
+        .filter-chips { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            height: var(--tb-height);
+            padding: 0 0.625rem;
+            font-size: var(--tb-fs);
+            font-weight: 500;
+            color: #64748b;
+            background: var(--tb-bg);
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .filter-chip:hover { background: var(--tb-hover); color: #334155; border-color: #cbd5e1; }
+        .filter-chip.active { background: #eff6ff; color: #1d4ed8; border-color: var(--tb-focus); }
+        .filter-chip i { width: 0.875rem; height: 0.875rem; flex-shrink: 0; opacity: 0.8; }
+        .filter-chip-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 0.25rem;
+            min-width: 10rem;
+            max-height: 16rem;
+            overflow-y: auto;
+            background: #fff;
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.15);
+            z-index: 100;
+            padding: 0.25rem;
+        }
+        .filter-chip-item {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8125rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            color: #334155;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+        .filter-chip-item:hover { background: #f8fafc; }
+        .filter-chip-item.active { background: #eff6ff; color: #1d4ed8; font-weight: 500; }
+        .filter-clear {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            height: var(--tb-height);
+            padding: 0 0.5rem;
+            font-size: var(--tb-fs);
+            font-weight: 500;
+            color: #64748b;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: var(--tb-radius);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .filter-clear:hover { color: #dc2626; background: #fef2f2; }
+        .filter-clear i { width: 0.875rem; height: 0.875rem; }
+
+        .toolbar-right { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+        .selection-badge {
+            background: #2563eb;
+            color: #fff;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            padding: 0.125rem 0.375rem;
+            border-radius: 9999px;
+            min-width: 1.25rem;
+            text-align: center;
+        }
+        .bulk-dropdown-hint {
+            padding: 0.75rem 1rem;
+            font-size: 0.8125rem;
+            color: #64748b;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .header-dropdown-item.bulk-action { padding: 0.5rem 1rem; font-size: 0.8125rem; }
+
+        .toolbar .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--tb-height);
+            height: var(--tb-height);
+            padding: 0;
+            color: #64748b;
+            background: var(--tb-bg);
+            border: 1px solid var(--tb-border);
+            border-radius: var(--tb-radius);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .toolbar .btn-icon:hover {
+            background: var(--tb-hover);
+            color: #334155;
+            border-color: #cbd5e1;
+        }
+        .toolbar .btn-icon i { width: 1rem; height: 1rem; }
+
+
+        /* Content area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            background: #fff;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 0.75rem 1rem;
+            display: grid;
+            grid-template-columns: 1fr 5fr 3fr 2fr 1fr;
+            gap: 1rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            align-items: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .table-header-cell-center { display: flex; justify-content: center; align-items: center; }
+        .table-header-cell-right { text-align: right; }
+
+        .checkbox-cell {
+            width: 1rem;
+            height: 1rem;
+            accent-color: #2563eb;
+            border-radius: 0.25rem;
+            cursor: pointer;
+        }
+
+        .bulk-dropdown-menu {
+            position: absolute;
+            right: 0;
+            top: 100%;
+            margin-top: 0.5rem;
+            width: 12rem;
+            background: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            border: 1px solid #f3f4f6;
+            color: #334155;
+            z-index: 50;
+            padding: 0.25rem 0;
+        }
+
+        .bulk-dropdown-item {
+            width: 100%;
+            text-align: left;
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: inherit;
+        }
+        .bulk-dropdown-item:hover { background: #f9fafb; }
+        .bulk-dropdown-item.danger { color: #dc2626; }
+
+        .bulk-dropdown-divider { height: 1px; background: #f3f4f6; margin: 0.25rem 0; }
+
+        /* List container */
+        .list-container { flex: 1; padding-bottom: 2.5rem; }
+
+        /* Row item */
+        .row-item {
+            display: grid;
+            grid-template-columns: 1fr 5fr 3fr 2fr 1fr;
+            gap: 1rem;
+            padding: 0.75rem 1rem;
+            align-items: center;
+            border-bottom: 1px solid #f3f4f6;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .row-item:hover { background: rgba(239, 246, 255, 0.3); }
+        .row-item.selected { background: #f0f9ff; }
+
+        .row-item:hover .row-title { color: #2563eb; }
+
+        .row-cell-center { display: flex; justify-content: center; }
+        .row-cell-right { display: flex; justify-content: flex-end; align-items: center; position: relative; }
+
+        .row-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+            transition: color 0.15s;
+        }
+
+        .row-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.6875rem;
+            color: #94a3b8;
+        }
+
+        .row-type-block { display: flex; flex-direction: column; gap: 0.375rem; }
+        .row-type-label {
+            display: flex;
+            align-items: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #334155;
+        }
+        .row-type-icon { width: 0.875rem; height: 0.875rem; margin-right: 0.375rem; }
+        .row-type-icon--noticia { color: #2563eb; }
+        .row-type-icon--evento { color: #ea580c; }
+        .row-categories { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+
+        .category-pill {
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.625rem;
+            font-weight: 500;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #475569;
+            white-space: nowrap;
+        }
+        .promo-pill {
+            margin-left: 0.5rem;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.625rem;
+            font-weight: 600;
+            background: #fef3c7;
+            border: 1px solid #fcd34d;
+            color: #b45309;
+            white-space: nowrap;
+        }
+
+        .row-date {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        .row-date-time { font-size: 0.625rem; color: #94a3b8; font-weight: 400; margin-top: 0.125rem; }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .status-published { color: #15803d; }
+        .status-draft { color: #64748b; }
+        .status-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 9999px;
+        }
+        .status-dot--published {
+            background: #22c55e;
+            box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+        }
+        .status-dot--draft { background: #cbd5e1; }
+
+        .row-edit-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            background: none;
+            border: none;
+            border-radius: 0.375rem;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .row-edit-btn:hover { color: #2563eb; background: #eff6ff; }
+        .row-edit-btn i { width: 1rem; height: 1rem; }
+
+        /* Footer / Pagination */
+        .footer {
+            padding: 0.75rem 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f9fafb;
+            font-size: 0.75rem;
+            color: #6b7280;
+            flex-shrink: 0;
+        }
+
+        .footer-left { display: flex; align-items: center; gap: 0.5rem; }
+        .footer-divider { width: 1px; height: 1rem; background: #d1d5db; margin: 0 0.5rem; }
+
+        .footer-select {
+            background: #fff;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            padding: 0.125rem 0.25rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .pagination-btns { display: flex; align-items: center; gap: 0.25rem; }
+
+        .pagination-btn {
+            padding: 0.375rem;
+            border-radius: 0.25rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #4b5563;
+        }
+        .pagination-btn:hover {
+            background: #fff;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .pagination-btn.active {
+            width: 1.5rem;
+            height: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #2563eb;
+            color: #fff;
+            font-weight: 500;
+        }
+        .pagination-btn:disabled { opacity: 0.5; }
+
+        .loading-state, .error-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 1.5rem;
+            gap: 1rem;
+            color: #64748b;
+        }
+        .loading-spinner {
+            width: 2.5rem;
+            height: 2.5rem;
+            border: 3px solid #e5e7eb;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn-retry {
+            padding: 0.5rem 1rem;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        .btn-retry:hover { background: #1d4ed8; }
+
+        /* Top nav bar */
+        .top-nav {
+            border-bottom: 8px solid rgb(246, 74, 89);
+            background-color: rgb(28, 25, 23);
+            flex-shrink: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 3px rgb(222, 222, 222);
+        }
+        .top-nav ul {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            color: #fff;
+            font-family: Lato, "Helvetica Neue", Arial, Helvetica, sans-serif;
+        }
+        .top-nav .item {
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .top-nav .item a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .top-nav .item a:hover { opacity: 0.85; }
+        .top-nav .item--muted { opacity: 0.7; }
+        .top-nav .item--right { margin-left: auto; }
+        .top-nav .item--right .item { padding: 4px 8px; }
+        .top-nav .btn-soporte {
+            color: rgb(231, 193, 48);
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 10px 16px;
+            border: 0;
+            box-shadow: 0 0 1px 1px rgb(231, 193, 48);
+            font-size: 1em;
+            font-family: inherit;
+            background-color: transparent;
+        }
+        .top-nav .btn-soporte:hover { opacity: 0.9; }
+        .top-nav .btn-icon {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: #22c55e;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+        .top-nav .lang-dropdown {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 0.25rem;
+            color: #fff;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="top-nav">
+        <ul>
+            <li class="item">
+                <a href="https://public.digitalvalue.es/github/zity-components-m/src/apps/">
+                    <img src="https://cdn.digitalvalue.es/alcantir/assets/5cc03ffd1d8c420100aa90fe?w=300" alt="" style="height: 20px; width: auto;">
+                </a>
+            </li>
+            <li class="item item--muted">
+                <a href="https://public.digitalvalue.es/github/zity-components-m/src/apps/">Panell de Serveis</a>
+            </li>
+            <li class="item">
+                <a href="#!./" style="color: white;">Editor de Continguts</a>
+            </li>
+            <li class="item item--right" style="display: flex; flex-wrap: wrap; align-items: center;">
+                <span class="item">
+                    <button class="btn-soporte"><i data-lucide="help-circle" style="width:1rem;height:1rem;vertical-align:middle"></i> <strong>Soporte</strong></button>
+                </span>
+                <span class="item">admin.alcantir</span>
+                <span class="item">alcantir</span>
+                <span class="item">
+                    <button class="btn-icon" title="Usuario"><i data-lucide="user" style="width:1.25rem;height:1.25rem;color:#22c55e"></i></button>
+                </span>
+                <span class="item">
+                    <div class="lang-dropdown">
+                        <span>VA</span>
+                        <i data-lucide="globe" style="width:1rem;height:1rem"></i>
+                    </div>
+                </span>
+            </li>
+        </ul>
+    </nav>
+
+    <header class="layout-header">
+        <div class="flex items-center gap-4">
+            <h1 class="layout-header-title">Artículos</h1>
+            <span class="badge-count">0 registros</span>
+        </div>
+        <div class="header-actions">
+            <button class="btn-primary" id="btn-nuevo">
+                <i data-lucide="plus" style="width:1rem;height:1rem"></i>
+                <span>Nuevo</span>
+            </button>
+            <div class="header-divider"></div>
+            <div class="header-dropdown">
+                <button class="btn-secondary" id="btn-exportar">
+                    Exportar <i data-lucide="chevron-down" style="width:0.875rem;height:0.875rem"></i>
+                </button>
+                <div id="exportar-menu" class="header-dropdown-menu hidden">
+                    <button class="header-dropdown-item" data-export="json"><i data-lucide="file-json"></i> JSON</button>
+                    <button class="header-dropdown-item" data-export="csv"><i data-lucide="file-spreadsheet"></i> CSV</button>
+                </div>
+            </div>
+            <div class="view-segmented">
+                <button id="btn-vista-tabla" class="active" title="Vista tabla">
+                    <i data-lucide="table" style="width:0.875rem;height:0.875rem"></i> Tabla
+                </button>
+                <button id="btn-vista-calendario" title="Vista calendario">
+                    <i data-lucide="calendar" style="width:0.875rem;height:0.875rem"></i> Calendario
+                </button>
+            </div>
+            <div class="header-divider"></div>
+            <div class="header-dropdown">
+                <button class="btn-secondary" id="btn-mas">
+                    <i data-lucide="more-horizontal" style="width:1rem;height:1rem"></i> Más
+                </button>
+                <div id="mas-menu" class="header-dropdown-menu hidden" style="min-width:12rem">
+                    <button class="header-dropdown-item" id="btn-importar-csv"><i data-lucide="upload"></i> Importar CSV</button>
+                    <button class="header-dropdown-item" id="btn-mezclar-csv"><i data-lucide="git-merge"></i> Mezclar CSV</button>
+                    <div style="height:1px;background:#e5e7eb;margin:0.25rem 0"></div>
+                    <button class="header-dropdown-item" id="btn-grafico"><i data-lucide="chart-pie"></i> Estadísticas</button>
+                    <button class="header-dropdown-item" id="btn-ayuda"><i data-lucide="help-circle"></i> Ayuda</button>
+                    <div style="height:1px;background:#e5e7eb;margin:0.25rem 0"></div>
+                    <button class="header-dropdown-item" id="btn-col-config-trigger"><i data-lucide="columns"></i> Configurar columnas</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <div class="search-wrapper">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" class="search-input" id="search-input" placeholder="Buscar artículos...">
+        </div>
+        <div class="filter-chips">
+            <div class="header-dropdown" style="position:relative">
+                <button class="filter-chip" id="filter-chip-tipo">
+                    <i data-lucide="tag"></i>
+                    <span id="filter-chip-tipo-label">Tipo</span>
+                    <i data-lucide="chevron-down" style="width:0.75rem;height:0.75rem"></i>
+                </button>
+                <div id="filter-tipo-menu" class="filter-chip-dropdown hidden"></div>
+            </div>
+            <div class="header-dropdown" style="position:relative">
+                <button class="filter-chip" id="filter-chip-category">
+                    <i data-lucide="folder"></i>
+                    <span id="filter-chip-category-label">Categoría</span>
+                    <i data-lucide="chevron-down" style="width:0.75rem;height:0.75rem"></i>
+                </button>
+                <div id="filter-category-menu" class="filter-chip-dropdown hidden"></div>
+            </div>
+            <button class="filter-clear hidden" id="filter-clear" title="Limpiar filtros">
+                <i data-lucide="x"></i> Limpiar
+            </button>
+        </div>
+        <div class="toolbar-right">
+            <div class="header-dropdown" style="position:relative">
+                <button class="filter-chip" id="btn-procesos-masivos">
+                    <i data-lucide="layers" style="width:0.875rem;height:0.875rem"></i>
+                    <span>Procesos Masivos</span>
+                    <span class="selection-badge hidden" id="selection-badge">0</span>
+                    <i data-lucide="chevron-down" style="width:0.75rem;height:0.75rem"></i>
+                </button>
+                <div id="bulk-dropdown" class="filter-chip-dropdown hidden" style="right:0; left:auto; min-width:240px">
+                    <div class="bulk-dropdown-hint hidden" id="bulk-dropdown-hint">Selecciona artículos para usar procesos masivos</div>
+                    <button class="header-dropdown-item bulk-action">Publicar masivo</button>
+                    <button class="header-dropdown-item bulk-action">Despublicar masivo</button>
+                    <div style="height:1px;background:#e5e7eb;margin:0.25rem 0"></div>
+                    <button class="header-dropdown-item bulk-action">Añadir categorías</button>
+                    <button class="header-dropdown-item bulk-action">Sustituir categorías</button>
+                    <button class="header-dropdown-item bulk-action">Sustituir nodeTypes</button>
+                    <button class="header-dropdown-item bulk-action">Cambiar de colección</button>
+                    <div style="height:1px;background:#e5e7eb;margin:0.25rem 0"></div>
+                    <button class="header-dropdown-item bulk-action" style="color:#dc2626">Eliminar seleccionados</button>
+                </div>
+            </div>
+            <div class="header-dropdown" style="position:relative">
+                <button class="btn-icon" id="btn-col-config" title="Configurar columnas">
+                    <i data-lucide="columns"></i>
+                </button>
+                <div id="col-config-menu" class="col-config-dropdown hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="content-area">
+        <div class="table-header">
+            <div class="table-header-cell-center" id="th-checkbox"><input type="checkbox" id="checkbox-all-header" class="checkbox-cell"></div>
+            <div>Título / Resumen</div>
+            <div>Tipo & Categorías</div>
+            <div>Fecha</div>
+            <div class="table-header-cell-right">Editar</div>
+        </div>
+
+        <div id="list-container" class="list-container"></div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-left">
+            <span id="footer-text">Mostrando 1-20 de 0</span>
+            <div class="footer-divider"></div>
+            <div class="flex items-center gap-1">
+                <span>Mostrar</span>
+                <select class="footer-select" id="footer-select-limit">
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+        <div class="pagination-btns flex items-center gap-1">
+            <button class="pagination-btn" id="pagination-prev"><i data-lucide="chevron-left" style="width:1rem;height:1rem"></i></button>
+            <div id="pagination-pages" class="flex items-center gap-1"></div>
+            <button class="pagination-btn" id="pagination-next"><i data-lucide="chevron-right" style="width:1rem;height:1rem"></i></button>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
