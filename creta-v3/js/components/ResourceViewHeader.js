@@ -16,10 +16,10 @@ function getResourceSubtitle(resource) {
 }
 
 const calendarActions = [
-    { label: 'Buscar citas', icon: 'search', color: '#ea580c', hoverBg: '#fff7ed', hoverBorder: '#fed7aa', onclick: () => window.handleSearchAppointments?.() },
-    { label: 'Gestionar horarios', icon: 'schedule', color: '#7c3aed', hoverBg: '#faf5ff', hoverBorder: '#e9d5ff', onclick: () => window.handleManageSchedules?.() },
-    { label: 'Clonar Semana', icon: 'content_copy', color: '#14b8a6', hoverBg: '#f0fdfa', hoverBorder: '#99f6e4', onclick: () => window.handleCloneWeek?.() },
-    { label: 'Eliminar Semana', icon: 'delete', color: '#ef4444', hoverBg: '#fef2f2', hoverBorder: '#fecaca', onclick: () => window.handleDeleteWeek?.() }
+    { label: 'Buscar citas', icon: 'search', onclick: () => window.handleSearchAppointments?.() },
+    { label: 'Gestionar horarios', icon: 'schedule', onclick: () => window.handleManageSchedules?.() },
+    { label: 'Clonar Semana', icon: 'content_copy', onclick: () => window.handleCloneWeek?.() },
+    { label: 'Eliminar Semana', icon: 'delete', onclick: () => window.handleDeleteWeek?.() }
 ];
 
 const quickActions = [
@@ -123,86 +123,82 @@ export const ResourceViewHeader = {
                     m(FlexCol, { gap: 0, style: { flex: 1, minWidth: 0 } }, [
                         m(FlexRow, {
                             alignItems: 'center',
-                            gap: '0.75rem',
+                            gap: '1rem',
                             flexWrap: 'wrap'
                         }, [
-                            m(H1, {
-                                fontSize: isCalendar ? '1.25rem' : '1rem',
-                                fontWeight: 'bold',
-                                color: '#111827',
-                                margin: 0,
-                                lineHeight: 1.2
-                            }, title),
+                            m(FlexCol, { gap: 0 }, [
+                                m(H1, {
+                                    fontSize: isCalendar ? '1.25rem' : '1rem',
+                                    fontWeight: 'bold',
+                                    color: '#111827',
+                                    margin: 0,
+                                    lineHeight: 1.2
+                                }, title),
+                                subtitle && m(SmallText, {
+                                    style: {
+                                        fontSize: '0.75rem',
+                                        color: '#6b7280',
+                                        margin: 0,
+                                        marginTop: '0.25rem'
+                                    }
+                                }, subtitle)
+                            ]),
                             isCalendar && resource && m(FlexRow, {
+                                alignItems: 'center',
                                 gap: '0.5rem',
-                                flexWrap: 'wrap',
-                                alignItems: 'center'
+                                flexWrap: 'wrap'
                             }, [
                                 m(Div, {
                                     style: {
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         gap: '0.375rem',
-                                        padding: '0.375rem 0.75rem',
-                                        borderRadius: '9999px',
+                                        padding: '0.375rem 0.5rem',
+                                        borderRadius: '0.5rem',
+                                        color: '#6b7280',
                                         fontSize: '0.75rem',
-                                        fontWeight: 500,
-                                        backgroundColor: '#eff6ff',
-                                        color: '#1d4ed8',
-                                        border: '1px solid #bfdbfe'
+                                        backgroundColor: 'transparent'
                                     }
                                 }, [
-                                    m(Icon, { icon: 'people', size: 'small', style: { fontSize: '12px' } }),
-                                    `Capacidad: ${resource.seats?.total || 0}`
+                                    m(Icon, { icon: 'people', size: 'small', style: { fontSize: '16px' } }),
+                                    m('span', resource.seats?.total ?? 0)
                                 ]),
                                 resource.maxAppointmentsPerUser && m(Div, {
                                     style: {
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         gap: '0.375rem',
-                                        padding: '0.375rem 0.75rem',
-                                        borderRadius: '9999px',
+                                        padding: '0.375rem 0.5rem',
+                                        borderRadius: '0.5rem',
+                                        color: '#6b7280',
                                         fontSize: '0.75rem',
-                                        fontWeight: 500,
-                                        backgroundColor: '#faf5ff',
-                                        color: '#7c3aed',
-                                        border: '1px solid #e9d5ff'
+                                        backgroundColor: 'transparent'
                                     }
                                 }, [
-                                    m(Icon, { icon: 'schedule', size: 'small', style: { fontSize: '12px' } }),
-                                    `Máx. usuario: ${resource.maxAppointmentsPerUser}`
+                                    m(Icon, { icon: 'schedule', size: 'small', style: { fontSize: '16px' } }),
+                                    m('span', resource.maxAppointmentsPerUser)
                                 ]),
                                 m(Div, {
                                     style: {
                                         display: 'inline-flex',
                                         alignItems: 'center',
                                         gap: '0.375rem',
-                                        padding: '0.375rem 0.75rem',
-                                        borderRadius: '9999px',
+                                        padding: '0.375rem 0.5rem',
+                                        borderRadius: '0.5rem',
+                                        color: '#6b7280',
                                         fontSize: '0.75rem',
-                                        fontWeight: 500,
-                                        backgroundColor: resource.published ? '#f0fdf4' : '#f8fafc',
-                                        color: resource.published ? '#15803d' : '#475569',
-                                        border: `1px solid ${resource.published ? '#bbf7d0' : '#e2e8f0'}`
+                                        backgroundColor: 'transparent'
                                     }
                                 }, [
                                     m(Icon, {
                                         icon: resource.published ? 'check_circle' : 'pause_circle',
                                         size: 'small',
-                                        style: { fontSize: '12px' }
+                                        style: { fontSize: '16px' }
                                     }),
-                                    resource.published ? 'Activo' : 'Pausado'
+                                    m('span', resource.published ? 'Activo' : 'Pausado')
                                 ])
                             ])
-                        ]),
-                        subtitle && m(SmallText, {
-                            style: {
-                                fontSize: '0.75rem',
-                                color: '#6b7280',
-                                margin: 0,
-                                marginTop: '0.25rem'
-                            }
-                        }, subtitle)
+                        ])
                     ])
                 ])
             ]),
@@ -221,23 +217,20 @@ export const ResourceViewHeader = {
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '0.5rem',
-                            padding: '0.5rem 0.875rem',
+                            padding: '0.5rem 0.75rem',
                             borderRadius: '0.5rem',
+                            color: '#6b7280',
                             fontSize: '0.875rem',
-                            fontWeight: 500,
-                            backgroundColor: 'white',
-                            color: '#334155',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                            backgroundColor: 'transparent',
+                            border: 'none',
                             cursor: 'pointer'
                         },
                         hover: {
-                            backgroundColor: action.hoverBg,
-                            color: action.color,
-                            borderColor: action.hoverBorder
+                            backgroundColor: '#f3f4f6',
+                            color: '#374151'
                         }
                     }, [
-                        m(Icon, { icon: action.icon, size: 'small', style: { fontSize: '0.875rem', color: action.color } }),
+                        m(Icon, { icon: action.icon, size: 'small', style: { fontSize: '18px' } }),
                         m('span', action.label)
                     ])
                 ))
