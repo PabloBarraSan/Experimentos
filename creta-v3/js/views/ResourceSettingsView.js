@@ -143,9 +143,6 @@ export const ResourceSettingsView = {
             gap: '0',
             style: { backgroundColor: '#f8fafc' }
         }, [
-            // Header
-            renderHeader(resource, state),
-            
             // Main Content
             m(FlexRow, {
                 gap: '2rem',
@@ -171,54 +168,6 @@ export const ResourceSettingsView = {
         ]);
     }
 };
-
-function renderHeader(resource, state) {
-    return m(Segment, {
-        type: 'primary',
-        style: {
-            padding: '1rem 1.5rem',
-            marginBottom: 0,
-            borderBottom: '1px solid #e2e8f0',
-            backgroundColor: 'white',
-            marginTop: 0
-        }
-    }, [
-        m(FlexRow, {
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '1rem',
-            flexWrap: 'wrap'
-        }, [
-            m(FlexRow, {
-                alignItems: 'center',
-                gap: '1rem'
-            }, [
-                m(Button, {
-                    type: 'default',
-                    onclick: () => {
-                        const resourceId = resource._id;
-                        m.route.set(`/resource/${resourceId}/admin`);
-                    },
-                    style: {
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.5rem 1rem'
-                    }
-                }, [
-                    m(Icon, { icon: 'arrow_back', size: 'small' }),
-                    m(Text, { fontSize: '0.875rem', margin: 0 }, 'Volver')
-                ]),
-                m(H1, {
-                    fontSize: '1.5rem',
-                    fontWeight: 'bold',
-                    color: '#1e293b',
-                    margin: 0
-                }, resource.title || resource.name || 'Sin título')
-            ])
-        ])
-    ]);
-}
 
 function renderSidebar(state) {
     return m(FlexCol, {

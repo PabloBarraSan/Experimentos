@@ -332,25 +332,18 @@ function renderSidebar(resource, stats, appointmentsData) {
 }
 
 function renderScheduleGrid(resource, appointmentsData) {
-    // Show reservations view for ticket type (theaters/shows), slots view for others
-    const isTicketType = resource.type === 'ticket';
-    
-    // Store appointments data globally for sidebar access (same as calendar view)
+    // Reservas agrupadas por slot para todos los tipos de recurso
     window.currentAppointmentsData = appointmentsData;
-    
-    // Ensure sidebar HTML is present (shared component)
     ensureSidebarHTML();
-    
+
     return m(Segment, {
         type: 'primary',
-        style: { 
+        style: {
             padding: '1.5rem',
             boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
         }
     }, [
-        isTicketType 
-            ? m(ReservationsView, { resource, appointmentsData })
-            : m(SlotsView, { resource, appointmentsData })
+        m(ReservationsView, { resource, appointmentsData })
     ]);
 }
 
@@ -362,8 +355,9 @@ const ReservationsView = {
         vnode.state.showPast = false; // Show only future reservations by default
         vnode.state.allReservations = extractReservations(vnode.attrs.appointmentsData);
         vnode.state.currentPage = 1;
-        vnode.state.itemsPerPage = 20;
+        vnode.state.itemsPerPage = 10; // Grupos de slots por página
         vnode.state.selectedReservation = null;
+        vnode.state.viewMode = 'list'; // 'list' | 'cards'
     },
     
     view: (vnode) => {
@@ -399,21 +393,84 @@ const ReservationsView = {
             
             return matchesSearch && matchesStatus;
         });
-        
+
+        // Agrupar reservas por slot
+        const reservationsBySlot = {};
+        filteredReservations.forEach(reservation => {
+            const slot = reservation.slot;
+            const slotKey = slot?._id || (slot?.start ? `${slot.start}-${slot?.title || ''}` : 'no-slot');
+            if (!reservationsBySlot[slotKey]) {
+                reservationsBySlot[slotKey] = { slot, reservations: [] };
+            }
+            reservationsBySlot[slotKey].reservations.push(reservation);
+        });
+
+        // Ordenar grupos por fecha del slot (más cercano primero)
+        const slotGroups = Object.values(reservationsBySlot).sort((a, b) => {
+            const dateA = a.slot?.start ? new Date(a.slot.start) : new Date(0);
+            const dateB = b.slot?.start ? new Date(b.slot.start) : new Date(0);
+            return dateA - dateB;
+        });
+
+        const paginatedGroups = slotGroups.slice(
+            (state.currentPage - 1) * state.itemsPerPage,
+            state.currentPage * state.itemsPerPage
+        );
+
+        // Vista tarjetas: slots filtrados y agrupados por fecha
+        const filteredSlots = (appointmentsData?.slots || []).filter(slot => {
+            if (!state.showPast && slot.start) {
+                const slotDate = new Date(slot.start);
+                slotDate.setHours(0, 0, 0, 0);
+                if (slotDate < now) return false;
+            }
+            if (state.searchTerm) {
+                const searchLower = state.searchTerm.toLowerCase();
+                const slotTitle = (slot.title || '').toLowerCase();
+                const slotDateStr = slot.start ? formatDate(new Date(slot.start)) : '';
+                if (!slotTitle.includes(searchLower) && !slotDateStr.toLowerCase().includes(searchLower)) return false;
+            }
+            return true;
+        });
+        filteredSlots.sort((a, b) => {
+            const dA = a.start ? new Date(a.start) : new Date(0);
+            const dB = b.start ? new Date(b.start) : new Date(0);
+            return dA - dB;
+        });
+        const slotsByDate = {};
+        filteredSlots.forEach(slot => {
+            const isoMatch = slot.start?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            const dateKey = isoMatch ? `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}` : 'no-date';
+            if (!slotsByDate[dateKey]) slotsByDate[dateKey] = [];
+            slotsByDate[dateKey].push(slot);
+        });
+        const slotDateGroups = Object.keys(slotsByDate).sort((a, b) => {
+            if (a === 'no-date') return 1;
+            if (b === 'no-date') return -1;
+            return a.localeCompare(b);
+        });
+        const paginatedSlotGroups = slotDateGroups.slice(
+            (state.currentPage - 1) * state.itemsPerPage,
+            state.currentPage * state.itemsPerPage
+        );
+
         return m(FlexCol, {
             gap: '1.5rem'
         }, [
-            // Reservation Sidebar
-            state.selectedReservation && m(ReservationSidebar, {
-                reservation: state.selectedReservation,
-                onClose: () => {
-                    state.selectedReservation = null;
-                    m.redraw();
-                }
-            }),
-            
+            // Reservation Sidebar (o fragmento vacío para evitar hole)
+            state.selectedReservation
+                ? m(ReservationSidebar, {
+                    key: 'sidebar',
+                    reservation: state.selectedReservation,
+                    onClose: () => {
+                        state.selectedReservation = null;
+                        m.redraw();
+                    }
+                })
+                : m.fragment({ key: 'sidebar' }),
             // Header
             m(FlexRow, {
+                key: 'header',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
@@ -437,7 +494,9 @@ const ReservationsView = {
                         fontSize: '0.875rem',
                         color: '#64748b',
                         margin: 0
-                    }, `${filteredReservations.length} reserva${filteredReservations.length !== 1 ? 's' : ''}`)
+                    }, state.viewMode === 'list'
+                        ? `${filteredReservations.length} reserva${filteredReservations.length !== 1 ? 's' : ''}`
+                        : `${filteredSlots.length} slot${filteredSlots.length !== 1 ? 's' : ''}`)
                 ]),
                 m(Button, {
                     type: 'default',
@@ -478,9 +537,9 @@ const ReservationsView = {
                     }, 'print')
                 ])
             ]),
-            
             // Search and Filters
             m(FlexRow, {
+                key: 'filters',
                 gap: '1rem',
                 flexWrap: 'wrap',
                 alignItems: 'center'
@@ -613,385 +672,60 @@ const ReservationsView = {
                             borderRadius: '0.5rem'
                         }
                     }, 'Canceladas')
-                ])
-            ]),
-            
-            // Reservations List
-            filteredReservations.length > 0 ? m(FlexCol, {
-                gap: '0',
-                style: {
-                    marginTop: '1rem',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '0.75rem',
-                    overflow: 'hidden'
-                }
-            }, filteredReservations
-                .slice((state.currentPage - 1) * state.itemsPerPage, state.currentPage * state.itemsPerPage)
-                .map((reservation, index) => 
-                    m(ReservationCard, { 
-                        key: reservation.id || index, 
-                        reservation,
-                        isLast: index === Math.min(state.itemsPerPage - 1, filteredReservations.length - (state.currentPage - 1) * state.itemsPerPage - 1),
-                        onclick: () => {
-                            state.selectedReservation = reservation;
-                            m.redraw();
-                        }
-                    })
-                )
-            ) : m(Div, {
-                style: {
-                    padding: '3rem',
-                    textAlign: 'center',
-                    color: '#94a3b8'
-                }
-            }, [
-                m('span', {
-                    class: 'material-icons',
-                    style: {
-                        fontSize: '3rem',
-                        marginBottom: '1rem',
-                        display: 'block',
-                        color: '#cbd5e1'
-                    }
-                }, 'search_off'),
-                m(Text, {
-                    fontSize: '0.875rem',
-                    margin: 0
-                }, 'No se encontraron reservas')
-            ]),
-            
-            // Pagination Info (moved to bottom)
-            filteredReservations.length > 0 && m(FlexRow, {
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                style: {
-                    padding: '1rem 0',
-                    marginTop: '1rem'
-                }
-            }, [
-                m(SmallText, {
-                    fontSize: '0.875rem',
-                    color: '#64748b',
-                    margin: 0
-                }, `Mostrando ${((state.currentPage - 1) * state.itemsPerPage) + 1}-${Math.min(state.currentPage * state.itemsPerPage, filteredReservations.length)} de ${filteredReservations.length}`),
-                m(FlexRow, {
-                    gap: '0.5rem',
-                    alignItems: 'center'
-                }, [
-                    m(Button, {
-                        type: 'default',
-                        size: 'small',
-                        onclick: () => {
-                            if (state.currentPage > 1) {
-                                state.currentPage--;
-                                m.redraw();
-                            }
-                        },
-                        disabled: state.currentPage === 1,
-                        style: {
-                            fontSize: '0.875rem',
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: '0.5rem',
-                            opacity: state.currentPage === 1 ? 0.5 : 1,
-                            cursor: state.currentPage === 1 ? 'not-allowed' : 'pointer'
-                        }
-                    }, 'Anterior'),
-                    m(Text, {
-                        fontSize: '0.875rem',
-                        color: '#64748b',
-                        margin: 0
-                    }, `Página ${state.currentPage} de ${Math.ceil(filteredReservations.length / state.itemsPerPage)}`),
-                    m(Button, {
-                        type: 'default',
-                        size: 'small',
-                        onclick: () => {
-                            const maxPage = Math.ceil(filteredReservations.length / state.itemsPerPage);
-                            if (state.currentPage < maxPage) {
-                                state.currentPage++;
-                                m.redraw();
-                            }
-                        },
-                        disabled: state.currentPage >= Math.ceil(filteredReservations.length / state.itemsPerPage),
-                        style: {
-                            fontSize: '0.875rem',
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: '0.5rem',
-                            opacity: state.currentPage >= Math.ceil(filteredReservations.length / state.itemsPerPage) ? 0.5 : 1,
-                            cursor: state.currentPage >= Math.ceil(filteredReservations.length / state.itemsPerPage) ? 'not-allowed' : 'pointer'
-                        }
-                    }, 'Siguiente')
-                ])
-            ])
-        ]);
-    }
-};
+                ]),
 
-// Slots View Component
-const SlotsView = {
-    oninit: (vnode) => {
-        vnode.state.searchTerm = '';
-        vnode.state.showPast = false;
-        vnode.state.currentPage = 1;
-        vnode.state.itemsPerPage = 20;
-        vnode.state.selectedSlot = null;
-    },
-    
-    view: (vnode) => {
-        const { resource, appointmentsData } = vnode.attrs;
-        const state = vnode.state;
-        
-        if (!appointmentsData || !appointmentsData.slots) {
-            return m(Div, {
-                style: {
-                    padding: '3rem',
-                    textAlign: 'center',
-                    color: '#94a3b8'
-                }
-            }, [
-                m('span', {
-                    class: 'material-icons',
-                    style: {
-                        fontSize: '3rem',
-                        marginBottom: '1rem',
-                        display: 'block',
-                        color: '#cbd5e1'
-                    }
-                }, 'event_busy'),
-                m(Text, {
-                    fontSize: '0.875rem',
-                    margin: 0
-                }, 'No hay slots disponibles')
-            ]);
-        }
-        
-        // Filter slots
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        
-        let filteredSlots = appointmentsData.slots.filter(slot => {
-            // Date filter
-            if (!state.showPast && slot.start) {
-                const slotDate = new Date(slot.start);
-                slotDate.setHours(0, 0, 0, 0);
-                if (slotDate < now) {
-                    return false;
-                }
-            }
-            
-            // Search filter
-            const searchLower = state.searchTerm.toLowerCase();
-            if (state.searchTerm) {
-                const slotTitle = (slot.title || '').toLowerCase();
-                const slotDate = slot.start ? formatDate(new Date(slot.start)) : '';
-                return slotTitle.includes(searchLower) || slotDate.toLowerCase().includes(searchLower);
-            }
-            
-            return true;
-        });
-        
-        // Sort slots by date (closest first)
-        filteredSlots.sort((a, b) => {
-            const dateA = a.start ? new Date(a.start) : new Date(0);
-            const dateB = b.start ? new Date(b.start) : new Date(0);
-            return dateA - dateB;
-        });
-        
-        // Group slots by date (extract date from ISO string to avoid timezone issues)
-        const slotsByDate = {};
-        filteredSlots.forEach(slot => {
-            if (slot.start) {
-                // Extract date components from the ISO string directly to avoid timezone conversion issues
-                // slot.start is like "2025-11-16T11:00:00.000Z"
-                const isoMatch = slot.start.match(/^(\d{4})-(\d{2})-(\d{2})/);
-                let dateKey;
-                
-                if (isoMatch) {
-                    // Use the date from ISO string directly (YYYY-MM-DD) - this is the actual date, not affected by timezone
-                    dateKey = `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
-                } else {
-                    // Fallback: use local date components
-                    const slotDate = new Date(slot.start);
-                    const year = slotDate.getFullYear();
-                    const month = String(slotDate.getMonth() + 1).padStart(2, '0');
-                    const day = String(slotDate.getDate()).padStart(2, '0');
-                    dateKey = `${year}-${month}-${day}`;
-                }
-                
-                if (!slotsByDate[dateKey]) {
-                    slotsByDate[dateKey] = [];
-                }
-                slotsByDate[dateKey].push(slot);
-            } else {
-                // Slots without date go to a special group
-                if (!slotsByDate['no-date']) {
-                    slotsByDate['no-date'] = [];
-                }
-                slotsByDate['no-date'].push(slot);
-            }
-        });
-        
-        // Convert to array and sort by date
-        const dateGroups = Object.keys(slotsByDate).sort((a, b) => {
-            if (a === 'no-date') return 1;
-            if (b === 'no-date') return -1;
-            return a.localeCompare(b);
-        });
-        
-        // Get paginated groups
-        const paginatedGroups = dateGroups.slice(
-            (state.currentPage - 1) * state.itemsPerPage,
-            state.currentPage * state.itemsPerPage
-        );
-        
-        return m(FlexCol, {
-            gap: '1.5rem'
-        }, [
-            
-            // Header
-            m(FlexRow, {
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '1rem'
-            }, [
+                // Vista: Listado / Tarjetas
                 m(FlexRow, {
                     alignItems: 'center',
-                    gap: '1rem',
-                    flexWrap: 'wrap'
-                }, [
-                    m(H2, {
-                        fontSize: '1.125rem',
-                        fontWeight: 'bold',
-                        color: '#1e293b',
-                        margin: 0
-                    }, [
-                        m(Icon, { icon: 'schedule', size: 'small', style: { marginRight: '0.5rem' } }),
-                        'Slots'
-                    ]),
-                    m(SmallText, {
-                        fontSize: '0.875rem',
-                        color: '#64748b',
-                        margin: 0
-                    }, `${filteredSlots.length} slot${filteredSlots.length !== 1 ? 's' : ''}`)
-                ]),
-                m(Button, {
-                    type: 'default',
-                    onclick: () => {
-                        // TODO: Implementar impresión de slots
-                        console.log('Imprimir slots:', filteredSlots);
-                    },
-                    style: {
-                        backgroundColor: '#b45309',
-                        color: 'white',
-                        border: 'none',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '0.5rem',
-                        boxShadow: '0 2px 4px 0 rgba(180, 83, 9, 0.2)',
-                        transition: 'all 0.2s ease',
-                        fontWeight: 500,
-                        fontSize: '0.875rem',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                    },
-                    hover: {
-                        backgroundColor: '#92400e',
-                        boxShadow: '0 4px 12px 0 rgba(180, 83, 9, 0.3)',
-                        transform: 'translateY(-1px)'
-                    }
-                }, [
-                    m('span', {
-                        class: 'material-icons',
-                        style: {
-                            fontSize: '18px',
-                            color: 'white',
-                            userSelect: 'none',
-                            opacity: 1
-                        },
-                        oncreate: (vnode) => {
-                            vnode.dom.style.setProperty('color', 'white', 'important');
-                        }
-                    }, 'print'),
-                    m(Text, { fontSize: '0.875rem', fontWeight: 500, margin: 0 }, 'Imprimir slots')
-                ])
-            ]),
-            
-            // Search and Filters
-            m(FlexRow, {
-                gap: '1rem',
-                flexWrap: 'wrap',
-                alignItems: 'center'
-            }, [
-                // Search Input
-                m(Div, {
-                    style: {
-                        flex: 1,
-                        minWidth: '250px',
-                        position: 'relative'
-                    }
-                }, [
-                    m('span', {
-                        class: 'material-icons',
-                        style: {
-                            position: 'absolute',
-                            left: '0.75rem',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            fontSize: '18px',
-                            color: '#94a3b8',
-                            pointerEvents: 'none'
-                        }
-                    }, 'search'),
-                    m(Input, {
-                        placeholder: 'Buscar por título o fecha...',
-                        value: state.searchTerm,
-                        oninput: (e) => {
-                            state.searchTerm = e.target.value;
-                            state.currentPage = 1;
-                            m.redraw();
-                        },
-                        style: {
-                            width: '100%',
-                            paddingLeft: '2.5rem',
-                            fontSize: '0.875rem'
-                        }
-                    })
-                ]),
-                
-                // Show Past Toggle
-                m(FlexRow, {
-                    alignItems: 'center',
-                    gap: '0.5rem',
+                    gap: '0.25rem',
                     style: {
                         backgroundColor: '#f1f5f9',
-                        padding: '0.5rem 0.75rem',
+                        padding: '0.25rem',
                         borderRadius: '0.5rem',
                         border: '1px solid #e2e8f0'
                     }
                 }, [
-                    m(Switch, {
-                        isActive: state.showPast,
-                        onchange: () => {
-                            state.showPast = !state.showPast;
-                            state.currentPage = 1;
-                            m.redraw();
-                        }
-                    }),
-                    m(SmallText, {
-                        fontSize: '0.875rem',
-                        margin: 0,
-                        cursor: 'pointer',
+                    m(Tappable, {
+                        title: 'Vista listado (reservas por slot)',
                         onclick: () => {
-                            state.showPast = !state.showPast;
+                            state.viewMode = 'list';
                             state.currentPage = 1;
                             m.redraw();
+                        },
+                        style: {
+                            padding: '0.375rem 0.5rem',
+                            borderRadius: '0.375rem',
+                            backgroundColor: state.viewMode === 'list' ? '#e2e8f0' : 'transparent',
+                            color: state.viewMode === 'list' ? '#1e293b' : '#64748b',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
                         }
-                    }, 'Mostrar pasados')
+                    }, m(Icon, { icon: 'list', size: 'small', style: { fontSize: '18px' } })),
+                    m(Tappable, {
+                        title: 'Vista tarjetas (slots)',
+                        onclick: () => {
+                            state.viewMode = 'cards';
+                            state.currentPage = 1;
+                            m.redraw();
+                        },
+                        style: {
+                            padding: '0.375rem 0.5rem',
+                            borderRadius: '0.375rem',
+                            backgroundColor: state.viewMode === 'cards' ? '#e2e8f0' : 'transparent',
+                            color: state.viewMode === 'cards' ? '#1e293b' : '#64748b',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }
+                    }, m(Icon, { icon: 'view_module', size: 'small', style: { fontSize: '18px' } }))
                 ])
             ]),
             
-            // Slots List (grouped by date)
-            filteredSlots.length > 0 ? m(FlexCol, {
+            // Reservations List (agrupadas por slot) o Tarjetas de slots
+            (state.viewMode === 'list' ? slotGroups.length > 0 : filteredSlots.length > 0)
+                ? m(FlexCol, {
+                key: `content-${state.viewMode}`,
                 gap: '0',
                 style: {
                     marginTop: '1rem',
@@ -999,65 +733,129 @@ const SlotsView = {
                     borderRadius: '0.75rem',
                     overflow: 'hidden'
                 }
-            }, paginatedGroups.map((dateKey, groupIndex) => {
-                const dateSlots = slotsByDate[dateKey];
-                const isLastGroup = groupIndex === paginatedGroups.length - 1;
-                // Parse dateKey (YYYY-MM-DD) using local timezone to avoid timezone issues
-                let dateObj = null;
-                if (dateKey !== 'no-date') {
-                    const [year, month, day] = dateKey.split('-').map(Number);
-                    dateObj = new Date(year, month - 1, day); // month is 0-indexed
-                }
-                
-                // Build children array: date header + slot cards
-                const children = [
-                    // Date Header (with key)
-                    m(Div, {
-                        key: `date-header-${dateKey}`,
-                        style: {
-                            padding: '0.75rem 1rem',
-                            backgroundColor: '#f8fafc',
-                            borderBottom: '1px solid #e2e8f0',
-                            borderTop: groupIndex > 0 ? '1px solid #e2e8f0' : 'none'
-                        }
+            }, state.viewMode === 'list'
+                ? paginatedGroups.map((group, groupIndex) => {
+                    const { slot, reservations } = group;
+                    const slotKey = slot?._id || (slot?.start ? `${slot.start}-${slot?.title || ''}` : 'no-slot');
+                    const startDate = slot?.start ? new Date(slot.start) : null;
+                    const endDate = slot?.end ? new Date(slot.end) : null;
+                    const isLastGroup = groupIndex === paginatedGroups.length - 1;
+
+                    return m(FlexCol, {
+                        key: slotKey,
+                        gap: 0
                     }, [
-                        m(Text, {
-                            fontSize: '0.875rem',
-                            fontWeight: 600,
-                            color: '#475569',
-                            margin: 0,
+                        m(Div, {
+                            key: `header-${slotKey}`,
+                            onclick: () => {
+                                if (slot?._id && window.openSlotDetails) {
+                                    window.openSlotDetails(slot._id);
+                                }
+                            },
                             style: {
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
+                                padding: '0.75rem 1rem',
+                                backgroundColor: '#f8fafc',
+                                borderBottom: '1px solid #e2e8f0',
+                                borderTop: groupIndex > 0 ? '1px solid #e2e8f0' : 'none',
+                                cursor: slot?._id ? 'pointer' : 'default'
+                            },
+                            onmouseenter: (e) => {
+                                if (slot?._id) e.currentTarget.style.backgroundColor = '#f1f5f9';
+                            },
+                            onmouseleave: (e) => {
+                                e.currentTarget.style.backgroundColor = '#f8fafc';
                             }
                         }, [
-                            m('span', { 
-                                class: 'material-icons', 
-                                style: { fontSize: '18px', color: '#64748b' } 
-                            }, 'calendar_today'),
-                            dateObj ? formatDate(dateObj) : 'Sin fecha'
-                        ])
-                    ])
-                ];
-                
-                // Add slot cards (all with keys)
-                dateSlots.forEach((slot, slotIndex) => {
-                    children.push(
-                        m(SlotCard, { 
-                            key: slot._id || `slot-${dateKey}-${slotIndex}`, 
-                            slot,
-                            resource,
-                            isLast: isLastGroup && slotIndex === dateSlots.length - 1
-                        })
-                    );
-                });
-                
-                return m(FlexCol, {
-                    key: dateKey,
-                    gap: '0'
-                }, children);
-            })) : m(Div, {
+                            m(Text, {
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                color: '#475569',
+                                margin: 0,
+                                style: {
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    flexWrap: 'wrap'
+                                }
+                            }, [
+                                m('span', {
+                                    class: 'material-icons',
+                                    style: { fontSize: '18px', color: '#64748b' }
+                                }, 'calendar_today'),
+                                startDate ? formatDate(startDate) : 'Sin fecha',
+                                startDate && endDate && m(Text, {
+                                    fontSize: '0.875rem',
+                                    padding: '0 0.5rem',
+                                    color: '#64748b',
+                                    margin: 0
+                                }, '·'),
+                                startDate && endDate && m(Text, {
+                                    fontSize: '0.875rem',
+                                    color: '#64748b',
+                                    margin: 0
+                                }, `${startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`),
+                                slot?.title && m(Text, {
+                                    fontSize: '0.875rem',
+                                    color: '#64748b',
+                                    margin: 0
+                                }, `· ${slot.title}`)
+                            ])
+                        ]),
+                        ...reservations.map((reservation, resIndex) =>
+                            m(ReservationCard, {
+                                key: reservation.id || `${slotKey}-${resIndex}`,
+                                reservation,
+                                isLast: isLastGroup && resIndex === reservations.length - 1,
+                                onclick: () => {
+                                    state.selectedReservation = reservation;
+                                    m.redraw();
+                                }
+                            })
+                        )
+                    ]);
+                })
+                : paginatedSlotGroups.map((dateKey, groupIndex) => {
+                    const dateSlots = slotsByDate[dateKey];
+                    const [y, mo, d] = dateKey === 'no-date' ? [null, null, null] : dateKey.split('-').map(Number);
+                    const dateObj = dateKey !== 'no-date' ? new Date(y, mo - 1, d) : null;
+                    const isLastGroup = groupIndex === paginatedSlotGroups.length - 1;
+
+                    return m(FlexCol, {
+                        key: dateKey,
+                        gap: 0
+                    }, [
+                        m(Div, {
+                            key: `date-${dateKey}`,
+                            style: {
+                                padding: '0.75rem 1rem',
+                                backgroundColor: '#f8fafc',
+                                borderBottom: '1px solid #e2e8f0',
+                                borderTop: groupIndex > 0 ? '1px solid #e2e8f0' : 'none'
+                            }
+                        }, [
+                            m(Text, {
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                color: '#475569',
+                                margin: 0,
+                                style: { display: 'flex', alignItems: 'center', gap: '0.5rem' }
+                            }, [
+                                m('span', { class: 'material-icons', style: { fontSize: '18px', color: '#64748b' } }, 'calendar_today'),
+                                dateObj ? formatDate(dateObj) : 'Sin fecha'
+                            ])
+                        ]),
+                        ...dateSlots.map((slot, slotIndex) =>
+                            m(SlotCard, {
+                                key: slot._id || `slot-${dateKey}-${slotIndex}`,
+                                slot,
+                                resource,
+                                isLast: isLastGroup && slotIndex === dateSlots.length - 1
+                            })
+                        )
+                    ]);
+                })
+            ) : m(Div, {
+                key: 'content-empty',
                 style: {
                     padding: '3rem',
                     textAlign: 'center',
@@ -1076,11 +874,13 @@ const SlotsView = {
                 m(Text, {
                     fontSize: '0.875rem',
                     margin: 0
-                }, 'No se encontraron slots')
+                }, state.viewMode === 'list' ? 'No se encontraron reservas' : 'No se encontraron slots')
             ]),
             
-            // Pagination
-            filteredSlots.length > 0 && m(FlexRow, {
+            // Pagination Info (o fragmento vacío para evitar hole)
+            ((state.viewMode === 'list' && slotGroups.length > 0) || (state.viewMode === 'cards' && filteredSlots.length > 0))
+                ? m(FlexRow, {
+                key: 'pagination',
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 style: {
@@ -1092,7 +892,9 @@ const SlotsView = {
                     fontSize: '0.875rem',
                     color: '#64748b',
                     margin: 0
-                }, `Mostrando ${((state.currentPage - 1) * state.itemsPerPage) + 1}-${Math.min(state.currentPage * state.itemsPerPage, dateGroups.length)} de ${dateGroups.length} fecha${dateGroups.length !== 1 ? 's' : ''}`),
+                }, state.viewMode === 'list'
+                    ? `${filteredReservations.length} reserva${filteredReservations.length !== 1 ? 's' : ''} en ${slotGroups.length} slot${slotGroups.length !== 1 ? 's' : ''} · Página ${state.currentPage} de ${Math.ceil(slotGroups.length / state.itemsPerPage)}`
+                    : `${filteredSlots.length} slot${filteredSlots.length !== 1 ? 's' : ''} en ${slotDateGroups.length} fecha${slotDateGroups.length !== 1 ? 's' : ''} · Página ${state.currentPage} de ${Math.ceil(slotDateGroups.length / state.itemsPerPage)}`),
                 m(FlexRow, {
                     gap: '0.5rem',
                     alignItems: 'center'
@@ -1115,106 +917,49 @@ const SlotsView = {
                             cursor: state.currentPage === 1 ? 'not-allowed' : 'pointer'
                         }
                     }, 'Anterior'),
-                    m(Text, {
-                        fontSize: '0.875rem',
-                        color: '#64748b',
-                        margin: 0
-                    }, `Página ${state.currentPage} de ${Math.ceil(dateGroups.length / state.itemsPerPage)}`),
                     m(Button, {
                         type: 'default',
                         size: 'small',
                         onclick: () => {
-                            const maxPage = Math.ceil(dateGroups.length / state.itemsPerPage);
+                            const totalGroups = state.viewMode === 'list' ? slotGroups.length : slotDateGroups.length;
+                            const maxPage = Math.ceil(totalGroups / state.itemsPerPage);
                             if (state.currentPage < maxPage) {
                                 state.currentPage++;
                                 m.redraw();
                             }
                         },
-                        disabled: state.currentPage >= Math.ceil(dateGroups.length / state.itemsPerPage),
+                        disabled: state.currentPage >= Math.ceil((state.viewMode === 'list' ? slotGroups.length : slotDateGroups.length) / state.itemsPerPage),
                         style: {
                             fontSize: '0.875rem',
                             padding: '0.5rem 0.75rem',
                             borderRadius: '0.5rem',
-                            opacity: state.currentPage >= Math.ceil(dateGroups.length / state.itemsPerPage) ? 0.5 : 1,
-                            cursor: state.currentPage >= Math.ceil(dateGroups.length / state.itemsPerPage) ? 'not-allowed' : 'pointer'
+                            opacity: state.currentPage >= Math.ceil((state.viewMode === 'list' ? slotGroups.length : slotDateGroups.length) / state.itemsPerPage) ? 0.5 : 1,
+                            cursor: state.currentPage >= Math.ceil((state.viewMode === 'list' ? slotGroups.length : slotDateGroups.length) / state.itemsPerPage) ? 'not-allowed' : 'pointer'
                         }
                     }, 'Siguiente')
                 ])
             ])
+                : m.fragment({ key: 'pagination' })
         ]);
     }
 };
 
-// Slot Card Component
+// Slot Card Component (vista tarjetas)
 const SlotCard = {
     view: (vnode) => {
-        const { slot, isLast } = vnode.attrs;
-        
+        const { slot, resource, isLast } = vnode.attrs;
         const startDate = slot.start ? new Date(slot.start) : null;
         const endDate = slot.end ? new Date(slot.end) : null;
         const totalSeats = slot.seats?.total || 0;
         const remainingSeats = slot.seats?.remaining || 0;
         const bookedSeats = totalSeats - remainingSeats;
-        const confirmedCount = slot.appointments?.length || 0;
-        const pendingCount = slot.pendingAppointments?.length || 0;
-        const canceledCount = slot.canceledAppointments?.length || 0;
-        
-        // Determine slot status
         let statusLabel = 'Disponible';
-        let statusColor = '#22c55e';
-        if (remainingSeats === 0) {
-            statusLabel = 'Completo';
-            statusColor = '#ef4444';
-        } else if (remainingSeats <= totalSeats * 0.2) {
-            statusLabel = 'Casi completo';
-            statusColor = '#f59e0b';
-        }
-        
+        if (remainingSeats === 0) statusLabel = 'Completo';
+        else if (totalSeats > 0 && remainingSeats <= totalSeats * 0.2) statusLabel = 'Casi completo';
+
         return m(Div, {
-            oncreate: (vnode) => {
-                const element = vnode.dom;
-                // Add hover listeners
-                element.addEventListener('mouseenter', () => {
-                    element.style.backgroundColor = '#f0f9ff';
-                    element.style.borderLeftColor = '#2563eb';
-                    element.style.boxShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.1)';
-                });
-                element.addEventListener('mouseleave', () => {
-                    element.style.backgroundColor = 'white';
-                    element.style.borderLeftColor = 'transparent';
-                    element.style.boxShadow = 'none';
-                });
-                // Add click listener
-                element.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    console.log('🟢 SlotCard clicked!', slot._id);
-                    console.log('🟢 window.openSlotDetails:', typeof window.openSlotDetails);
-                    console.log('🟢 window.currentAppointmentsData:', !!window.currentAppointmentsData);
-                    
-                    if (slot._id) {
-                        if (window.openSlotDetails) {
-                            console.log('🟢 Calling openSlotDetails with:', slot._id);
-                            window.openSlotDetails(slot._id);
-                        } else {
-                            console.error('🔴 window.openSlotDetails no está disponible');
-                        }
-                    } else {
-                        console.error('🔴 Slot sin _id');
-                    }
-                });
-            },
-            oncreate: (vnode) => {
-                const element = vnode.dom;
-                element.addEventListener('mouseenter', () => {
-                    element.style.backgroundColor = '#f0f9ff';
-                    element.style.borderLeftColor = '#2563eb';
-                    element.style.boxShadow = '0 1px 3px 0 rgba(0, 0, 0, 0.1)';
-                });
-                element.addEventListener('mouseleave', () => {
-                    element.style.backgroundColor = 'white';
-                    element.style.borderLeftColor = 'transparent';
-                    element.style.boxShadow = 'none';
-                });
+            onclick: () => {
+                if (slot._id && window.openSlotDetails) window.openSlotDetails(slot._id);
             },
             style: {
                 padding: '1rem',
@@ -1222,11 +967,21 @@ const SlotCard = {
                 borderBottom: isLast ? 'none' : '1px solid #e2e8f0',
                 borderLeft: '3px solid transparent',
                 transition: 'all 0.2s ease',
-                cursor: 'pointer',
+                cursor: slot._id ? 'pointer' : 'default',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: '1rem'
+            },
+            onmouseenter: (e) => {
+                if (slot._id) {
+                    e.currentTarget.style.backgroundColor = '#f0f9ff';
+                    e.currentTarget.style.borderLeftColor = '#2563eb';
+                }
+            },
+            onmouseleave: (e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.borderLeftColor = 'transparent';
             }
         }, [
             m(FlexRow, {
@@ -1244,11 +999,7 @@ const SlotCard = {
                         fontWeight: 600,
                         color: '#1e293b',
                         margin: 0,
-                        style: {
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }
+                        style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
                     }, slot.title || 'Sin título'),
                     startDate && endDate && m(Text, {
                         fontSize: '0.75rem',
@@ -1272,11 +1023,7 @@ const SlotCard = {
                     m(Label, {
                         type: remainingSeats === 0 ? 'negative' : remainingSeats <= totalSeats * 0.2 ? 'warning' : 'positive',
                         size: 'small',
-                        style: {
-                            fontSize: '0.75rem',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '9999px'
-                        }
+                        style: { fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '9999px' }
                     }, statusLabel),
                     m(Text, {
                         fontSize: '0.75rem',
@@ -1286,18 +1033,12 @@ const SlotCard = {
                 ]),
                 m('span', {
                     class: 'material-icons',
-                    style: {
-                        fontSize: '18px',
-                        color: '#cbd5e1',
-                        flexShrink: 0
-                    }
+                    style: { fontSize: '18px', color: '#cbd5e1', flexShrink: 0 }
                 }, 'chevron_right')
             ])
         ]);
     }
 };
-
-// Slot Sidebar is now handled by shared component (components/SlotSidebar.js)
 
 // Reservation Card Component
 const ReservationCard = {

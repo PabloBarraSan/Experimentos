@@ -77,7 +77,7 @@ export const ResourceViewHeader = {
                 style: { flex: 1, minWidth: 0 }
             }, [
                 m(Tappable, {
-                    onclick: () => m.route.set(isCalendar && resource?._id ? `/resource/${resource._id}/admin` : '/'),
+                    onclick: () => m.route.set((isCalendar || variant === 'settings') && resource?._id ? `/resource/${resource._id}/admin` : '/'),
                     style: {
                         display: 'flex',
                         alignItems: 'center',

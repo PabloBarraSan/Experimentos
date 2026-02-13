@@ -162,10 +162,7 @@ window.app = {
                 },
                 render: () => {
                     return m(App, [
-                        m(Breadcrumbs, {
-                            currentPath: m.route.get(),
-                            resource: window.app.currentResource
-                        }),
+                        m(ResourceViewHeader, { resource: window.app.currentResource, variant: 'settings' }),
                         m(ResourceSettingsView, { resource: window.app.currentResource })
                     ]);
                 }
