@@ -5,6 +5,7 @@ import { H1, H2, Text, SmallText } from '../../../DView/texts.js';
 import { Button, Icon, Card, Label, Segment } from '../../../DView/elements.js';
 import { Input, Switch } from '../../../DView/forms.js';
 import { Modal, ModalHeader, ModalContent, ModalFooter } from '../../../DView/dialogs.js';
+import { ResourceViewHeader } from '../components/ResourceViewHeader.js';
 import { fetchAppointments, calculateStats, getDateRange } from '../api.js';
 import { ensureSidebarHTML } from '../components/SlotSidebar.js';
 import { formatDate } from '../utils/dateUtils.js';
@@ -76,529 +77,256 @@ export const AdminView = {
             ]);
         }
 
-        return m(FlexCol, { gap: '1.5rem' }, [
-            // Header
-            renderHeader(resource),
-            
-            // Main Content
-            renderContent(resource, state.stats, state.appointmentsData),
-            
-            // Schedule Grid
-            renderScheduleGrid(resource, state.appointmentsData)
+        return m(FlexCol, { gap: 0, style: { flex: 1 } }, [
+            m(ResourceViewHeader, { resource }),
+            m('div', {
+                class: 'admin-resource-layout',
+                style: {
+                    display: 'grid',
+                    gap: '1.5rem',
+                    flex: 1,
+                    minWidth: 0,
+                    width: '100%'
+                }
+            }, [
+                renderSidebar(resource, state.stats, state.appointmentsData),
+                renderScheduleGrid(resource, state.appointmentsData)
+            ])
         ]);
     }
 };
 
-function renderHeader(resource) {
-    // Definir acciones rápidas (botones de DetailView)
-    const quickActions = [
-        {
-            title: "Sala d'espera",
-            icon: "person",
-            onclick: () => {}
-        },
-        {
-            title: "Administrador de torns",
-            icon: "vpn_key",
-            onclick: () => {}
-        },
-        {
-            title: "Sol·licitud de torns",
-            icon: "confirmation_number",
-            onclick: () => {}
-        },
-        {
-            title: "Solicitud de turnos 2",
-            icon: "confirmation_number",
-            onclick: () => {}
-        },
-        {
-            title: "Panell de comandaments",
-            icon: "view_column",
-            onclick: () => {}
-        },
-        {
-            title: "Lector de QR",
-            icon: "qr_code",
-            onclick: () => {}
-        },
-        {
-            title: "Citaprevia web",
-            icon: "language",
-            onclick: () => {}
-        },
-        {
-            title: "App mòbil",
-            icon: "phone_iphone",
-            onclick: () => {}
-        }
-    ];
+const sidebarActions = [
+    { label: 'Calendari cites', icon: 'event', color: '#2563eb', route: 'calendar' },
+    { label: 'Gestionar Horaris', icon: 'schedule', color: '#7c3aed', route: null },
+    { label: 'Imprimir reserves', icon: 'print', color: '#b45309', route: null },
+    { label: 'Ajustos del recurs', icon: 'settings', color: '#059669', route: 'settings' },
+    { label: 'Admin Torns', icon: 'people', color: '#0d9488', route: null }
+];
 
-    return m(Segment, {
-        type: 'primary',
-        style: { 
-            padding: '1.5rem', 
-            marginBottom: '1.5rem',
-            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
-        }
+function renderSidebar(resource, stats, appointmentsData) {
+    return m(FlexCol, {
+        style: { minWidth: 0, gap: '2rem' }
     }, [
-        // Primera fila: Título y botón volver
-        m(FlexRow, {
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '1rem',
-            flexWrap: 'wrap',
-            style: { marginBottom: '1rem' }
-        }, [
-            m(FlexRow, {
-                alignItems: 'center',
-                gap: '0.75rem',
-                flexWrap: 'wrap'
-            }, [
-                m(Button, {
-                    type: 'default',
-                    onclick: () => m.route.set('/'),
-                    style: {
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        padding: 0,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#f1f5f9',
-                        color: '#64748b',
-                        flexShrink: 0
-                    },
-                    hover: {
-                        backgroundColor: '#e2e8f0',
-                        color: '#475569'
-                    }
-                }, [
-                    m(Icon, { icon: 'arrow_back', size: 'small' })
-                ]),
-                m(FlexCol, { gap: '0.25rem' }, [
-                    resource.subtitle && m(SmallText, {
-                        style: {
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold',
-                            color: '#2563eb',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            margin: 0
-                        }
-                    }, resource.subtitle),
-                    m(H1, {
-                        fontSize: '1.875rem',
-                        fontWeight: 'bold',
-                        color: '#1e293b',
-                        margin: 0
-                    }, resource.title || resource.name)
-                ])
-            ]),
-            m(FlexRow, {
-                gap: '0.5rem',
-                flexWrap: 'wrap',
-                justifyContent: 'flex-end'
-            }, [
-                m(Label, {
-                    type: 'tertiary',
-                    size: 'small',
-                    style: { fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '9999px' }
-                }, `Tipus: ${resource.type}`),
-                m(Label, {
-                    type: resource.published ? 'positive' : 'tertiary',
-                    size: 'small',
-                    style: { fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '9999px' }
-                }, resource.published ? 'Publicat' : 'No Publicat'),
-                m(Label, {
-                    type: 'tertiary',
-                    size: 'small',
-                    style: { fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '9999px' }
-                }, [
-                    m(Icon, { icon: 'check_circle', size: 'small', style: { color: '#22c55e', marginRight: '0.25rem' } }),
-                    'Autoconfirmat'
-                ]),
-                m(Label, {
-                    type: 'tertiary',
-                    size: 'small',
-                    style: { fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '9999px' }
-                }, [
-                    m(Icon, { icon: 'people', size: 'small', style: { marginRight: '0.25rem' } }),
-                    resource.seats?.total || 0
-                ]),
-                m(Label, {
-                    type: 'tertiary',
-                    size: 'small',
-                    style: { fontSize: '0.75rem', padding: '0.25rem 0.75rem', borderRadius: '9999px' }
-                }, [
-                    m(Icon, { icon: 'credit_card', size: 'small', style: { color: '#22c55e', marginRight: '0.25rem' } }),
-                    'Pago'
-                ])
-            ])
-        ]),
-        
-        // Segunda fila: Barra de herramientas compacta con acciones rápidas
+        // Tarjeta: Imagen + KPIs + Chart
         m(Div, {
             style: {
-                paddingTop: '1rem',
-                borderTop: '1px solid #e2e8f0'
+                backgroundColor: 'white',
+                borderRadius: '0.75rem',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                overflow: 'hidden'
             }
         }, [
-            m(FlexRow, {
-                gap: '0.5rem',
-                flexWrap: 'wrap',
-                alignItems: 'center'
-            }, [
-                m(SmallText, {
-                    style: {
-                        fontSize: '0.75rem',
-                        color: '#64748b',
-                        fontWeight: 500,
-                        marginRight: '0.5rem',
-                        margin: 0
-                    }
-                }, 'Acciones rápidas:'),
-                ...quickActions.map(action => 
-                    m(Tappable, {
-                        onclick: action.onclick,
-                        style: {
-                            padding: '0.5rem 0.75rem',
-                            borderRadius: '0.5rem',
-                            backgroundColor: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            transition: 'all 0.2s ease',
-                            fontSize: '0.875rem',
-                            color: '#475569',
-                            whiteSpace: 'nowrap',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                        },
-                        hover: {
-                            backgroundColor: '#e0f2fe',
-                            border: '1px solid #93c5fd',
-                            color: '#2563eb',
-                            transform: 'translateY(-1px)',
-                            boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.1)',
-                            outline: 'none'
-                        },
-                        title: action.title
-                    }, [
-                        m(Icon, { 
-                            icon: action.icon, 
-                            size: 'small',
-                            style: { fontSize: '16px', flexShrink: 0 }
-                        }),
-                        m(Text, {
-                            fontSize: '0.875rem',
-                            margin: 0,
-                            style: {
-                                display: 'inline'
-                            }
-                        }, action.title)
-                    ])
-                )
-            ])
-        ])
-    ]);
-}
-
-function renderContent(resource, stats, appointmentsData) {
-    return m(Segment, {
-        type: 'primary',
-        style: { 
-            padding: '1.5rem',
-            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
-        }
-    }, [
-        m(Grid, {
-            columns: {
-                mobile: 1,
-                tablet: 1,
-                computer: 3
-            },
-            style: { gap: '2rem' }
-        }, [
-            // Left Column: Image & Description
-            m(FlexCol, {
+            m(Div, {
                 style: {
-                    gridColumn: 'span 1',
-                    '@media (min-width: 1024px)': { gridColumn: 'span 1' }
+                    height: '128px',
+                    backgroundColor: '#f3f4f6',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1rem'
+                }
+            }, [
+                m('img', {
+                    src: resource.photo || 'https://via.placeholder.com/400x300',
+                    alt: resource.name,
+                    style: {
+                        maxHeight: '100%',
+                        width: 'auto',
+                        objectFit: 'contain'
+                    },
+                    onerror: (e) => {
+                        e.target.style.display = 'none';
+                    }
+                })
+            ]),
+            m(Div, {
+                style: {
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr 1fr',
+                    borderTop: '1px solid #f3f4f6',
+                    borderBottom: '1px solid #f3f4f6',
+                    backgroundColor: 'rgba(249, 250, 251, 0.5)'
                 }
             }, [
                 m(Div, {
                     style: {
-                        borderRadius: '0.75rem',
-                        overflow: 'hidden',
-                        border: '1px solid #e2e8f0',
-                        aspectRatio: '16/9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: '#f8fafc',
-                        marginBottom: '1.5rem',
-                        boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)'
+                        padding: '0.75rem',
+                        textAlign: 'center',
+                        borderRight: '1px solid #f3f4f6'
                     }
                 }, [
-                    m('img', {
-                        src: resource.photo || 'https://via.placeholder.com/400x300',
-                        alt: resource.name,
-                        style: {
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover'
-                        },
-                        onerror: (e) => {
-                            e.target.style.display = 'none';
-                        }
-                    })
+                    m(Text, { fontSize: '1.125rem', fontWeight: 'bold', color: '#111827', margin: 0 }, stats.totalSlots),
+                    m(SmallText, { fontSize: '0.625rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, margin: 0 }, 'Slots')
                 ]),
                 m(Div, {
                     style: {
-                        color: '#475569',
-                        fontSize: '0.875rem',
-                        lineHeight: '1.6'
+                        padding: '0.75rem',
+                        textAlign: 'center',
+                        borderRight: '1px solid #f3f4f6'
                     }
-                }, m.trust(resource.description?.und || '<p style="color: #94a3b8;">Sin descripción</p>'))
-            ]),
-            
-            // Middle Column: Stats & Chart
-            m(FlexCol, {
-                style: {
-                    gridColumn: 'span 1',
-                    '@media (min-width: 1024px)': { gridColumn: 'span 1' },
-                    display: 'flex',
-                    flexDirection: 'column'
-                },
-                gap: '1.5rem'
-            }, [
-                // Stats Cards
-                m(Grid, {
-                    columns: 3,
-                    style: { gap: '1.5rem' }
                 }, [
-                    m(Div, {
-                        style: {
-                            textAlign: 'center',
-                            padding: '1rem'
-                        }
-                    }, [
-                        m(Text, {
-                            fontSize: '2rem',
-                            fontWeight: 'bold',
-                            color: '#1e293b',
-                            marginBottom: '0.5rem',
-                            margin: 0
-                        }, stats.totalSlots),
-                        m(SmallText, {
-                            fontSize: '0.75rem',
-                            color: '#64748b',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            fontWeight: 500,
-                            margin: 0
-                        }, 'Slots')
-                    ]),
-                    m(Div, {
-                        style: {
-                            textAlign: 'center',
-                            padding: '1rem'
-                        }
-                    }, [
-                        m(Text, {
-                            fontSize: '2rem',
-                            fontWeight: 'bold',
-                            color: '#1e293b',
-                            marginBottom: '0.5rem',
-                            margin: 0
-                        }, stats.confirmedAppointments),
-                        m(SmallText, {
-                            fontSize: '0.75rem',
-                            color: '#64748b',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            fontWeight: 500,
-                            margin: 0
-                        }, 'Reservas')
-                    ]),
-                    m(Div, {
-                        style: {
-                            textAlign: 'center',
-                            padding: '1rem'
-                        }
-                    }, [
-                        m(Text, {
-                            fontSize: '2rem',
-                            fontWeight: 'bold',
-                            color: '#1e293b',
-                            marginBottom: '0.5rem',
-                            margin: 0
-                        }, stats.availableSeats),
-                        m(SmallText, {
-                            fontSize: '0.75rem',
-                            color: '#64748b',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            fontWeight: 500,
-                            margin: 0
-                        }, 'Disponibles')
-                    ])
+                    m(Text, { fontSize: '1.125rem', fontWeight: 'bold', color: '#111827', margin: 0 }, stats.confirmedAppointments),
+                    m(SmallText, { fontSize: '0.625rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, margin: 0 }, 'Reservas')
                 ]),
-                
-                // Chart
                 m(Div, {
                     style: {
-                        paddingTop: '1.5rem',
-                        borderTop: '1px solid #f1f5f9',
-                        marginTop: '1rem'
+                        padding: '0.75rem',
+                        textAlign: 'center'
                     }
                 }, [
-                    m('div', { 
-                        id: 'chart-container',
-                        style: { 
-                            width: '100%',
-                            minHeight: '220px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        } 
-                    })
+                    m(Text, { fontSize: '1.125rem', fontWeight: 'bold', color: '#059669', margin: 0 }, stats.availableSeats),
+                    m(SmallText, { fontSize: '0.625rem', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, margin: 0 }, 'Libres')
                 ])
             ]),
-            
-            // Right Column: Action Buttons
             m(Div, {
-                    style: {
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1.25rem',
-                        gridColumn: 'span 1',
-                        width: '100%'
-                    }
+                style: {
+                    padding: '1rem',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '0.75rem',
+                    alignItems: 'center'
+                }
             }, [
-                m(Button, {
-                    type: 'blue',
-                    fluid: true,
+                m('div', {
+                    id: 'chart-container',
+                    style: {
+                        minHeight: '60px'
+                    }
+                }),
+                m(FlexCol, {
+                    style: { gap: '0.25rem', minWidth: 0 }
+                }, [
+                    m(FlexRow, { alignItems: 'center', gap: '0.5rem' }, [
+                        m(Div, { style: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' } }),
+                        m(SmallText, { fontSize: '0.75rem', color: '#4b5563', margin: 0 }, 'Confirmades')
+                    ]),
+                    m(FlexRow, { alignItems: 'center', gap: '0.5rem' }, [
+                        m(Div, { style: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b' } }),
+                        m(SmallText, { fontSize: '0.75rem', color: '#4b5563', margin: 0 }, 'Pendents')
+                    ]),
+                    m(FlexRow, { alignItems: 'center', gap: '0.5rem' }, [
+                        m(Div, { style: { width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#ef4444' } }),
+                        m(SmallText, { fontSize: '0.75rem', color: '#4b5563', margin: 0 }, 'Cancel·lades')
+                    ])
+                ])
+            ])
+        ]),
+
+        // Configuración (flags)
+        m(Div, {
+            style: {
+                backgroundColor: 'white',
+                borderRadius: '0.75rem',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                padding: '1rem'
+            }
+        }, [
+            m(SmallText, {
+                style: {
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                    color: '#9ca3af',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    marginBottom: '0.75rem',
+                    display: 'block'
+                }
+            }, 'Configuració'),
+            m(FlexRow, {
+                gap: '0.5rem',
+                flexWrap: 'wrap'
+            }, [
+                m(Div, {
+                    style: {
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '0.75rem',
+                        color: '#4b5563',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                    }
+                }, [
+                    m(Icon, { icon: 'check_circle', size: 'small', style: { fontSize: '12px' } }),
+                    'Autoconfirmat'
+                ]),
+                m(Div, {
+                    style: {
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#f3f4f6',
+                        border: '1px solid #e5e7eb',
+                        fontSize: '0.75rem',
+                        color: '#4b5563',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                    }
+                }, [
+                    m(Icon, { icon: 'event_seat', size: 'small', style: { fontSize: '12px' } }),
+                    `${resource.seats?.total ?? 0} Seient`
+                ])
+            ])
+        ]),
+
+        // Botonera de acciones (vertical)
+        m(Div, {
+            style: {
+                backgroundColor: 'white',
+                borderRadius: '0.75rem',
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                overflow: 'hidden'
+            }
+        }, [
+            m(Div, { style: { padding: '0.25rem' } }, sidebarActions.map(action =>
+                m(Tappable, {
                     onclick: () => {
-                        const resource = window.app.currentResource;
-                        if (resource && resource._id) {
+                        if (action.route === 'calendar' && resource?._id) {
                             m.route.set(`/resource/${resource._id}/calendar`);
-                        }
-                    },
-                    style: {
-                        justifyContent: 'flex-start',
-                        padding: '1rem 1.25rem',
-                        borderRadius: '0.75rem',
-                        boxShadow: '0 2px 4px 0 rgba(0, 0, 0, 0.08)',
-                        transition: 'all 0.2s ease',
-                        border: 'none',
-                        fontWeight: 500,
-                        fontSize: '0.9375rem',
-                        marginBottom: 0
-                    },
-                    hover: {
-                        boxShadow: '0 4px 12px 0 rgba(37, 99, 235, 0.25)',
-                        transform: 'translateY(-2px)'
-                    }
-                }, [
-                    m('span', {
-                        class: 'material-icons',
-                        style: {
-                            fontSize: '18px',
-                            marginRight: '0.875rem',
-                            color: 'white',
-                            userSelect: 'none',
-                            opacity: 1
-                        },
-                        oncreate: (vnode) => {
-                            vnode.dom.style.setProperty('color', 'white', 'important');
-                        }
-                    }, 'event'),
-                    m(Text, { fontSize: '0.9375rem', fontWeight: 500, margin: 0 }, 'Calendari cites')
-                ]),
-                m(Button, {
-                    type: 'default',
-                    fluid: true,
-                    onclick: () => {},
-                    style: {
-                        backgroundColor: '#7c3aed',
-                        color: 'white',
-                        border: 'none',
-                        justifyContent: 'flex-start',
-                        padding: '1rem 1.25rem',
-                        borderRadius: '0.75rem',
-                        boxShadow: '0 2px 4px 0 rgba(124, 58, 237, 0.2)',
-                        transition: 'all 0.2s ease',
-                        fontWeight: 500,
-                        fontSize: '0.9375rem',
-                        marginBottom: 0
-                    },
-                    hover: {
-                        backgroundColor: '#6d28d9',
-                        boxShadow: '0 4px 12px 0 rgba(124, 58, 237, 0.3)',
-                        transform: 'translateY(-2px)'
-                    }
-                }, [
-                    m('span', {
-                        class: 'material-icons',
-                        style: {
-                            fontSize: '18px',
-                            marginRight: '0.875rem',
-                            color: 'white',
-                            userSelect: 'none',
-                            opacity: 1
-                        },
-                        oncreate: (vnode) => {
-                            vnode.dom.style.setProperty('color', 'white', 'important');
-                        }
-                    }, 'schedule'),
-                    m(Text, { fontSize: '0.9375rem', fontWeight: 500, margin: 0 }, 'Gestionar Horaris')
-                ]),
-                m(Button, {
-                    type: 'positive',
-                    fluid: true,
-                    onclick: () => {
-                        const resource = window.app.currentResource;
-                        if (resource && resource._id) {
+                        } else if (action.route === 'settings' && resource?._id) {
                             m.route.set(`/resource/${resource._id}/settings`);
                         }
                     },
                     style: {
-                        justifyContent: 'flex-start',
-                        padding: '1rem 1.25rem',
-                        borderRadius: '0.75rem',
-                        boxShadow: '0 2px 4px 0 rgba(34, 197, 94, 0.2)',
-                        transition: 'all 0.2s ease',
-                        border: 'none',
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '0.5rem',
+                        color: '#374151',
+                        fontSize: '0.875rem',
                         fontWeight: 500,
-                        fontSize: '0.9375rem',
-                        marginBottom: 0
+                        cursor: 'pointer',
+                        textAlign: 'left'
                     },
                     hover: {
-                        boxShadow: '0 4px 12px 0 rgba(34, 197, 94, 0.3)',
-                        transform: 'translateY(-2px)'
+                        backgroundColor: '#f9fafb',
+                        color: action.color
                     }
                 }, [
-                    m('span', {
-                        class: 'material-icons',
+                    m(Div, {
                         style: {
-                            fontSize: '18px',
-                            marginRight: '0.875rem',
-                            color: 'white',
-                            userSelect: 'none',
-                            opacity: 1
-                        },
-                        oncreate: (vnode) => {
-                            vnode.dom.style.setProperty('color', 'white', 'important');
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '0.5rem',
+                            backgroundColor: `${action.color}20`,
+                            color: action.color,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0
                         }
-                    }, 'settings'),
-                    m(Text, { fontSize: '0.9375rem', fontWeight: 500, margin: 0 }, 'Ajustos del recurs')
+                    }, m(Icon, { icon: action.icon, size: 'small', style: { fontSize: '16px' } })),
+                    m(Text, { fontSize: '0.875rem', margin: 0 }, action.label)
                 ])
-            ])
+            ))
         ])
     ]);
 }
@@ -713,6 +441,7 @@ const ReservationsView = {
                 ]),
                 m(Button, {
                     type: 'default',
+                    title: 'Imprimir reservas',
                     onclick: () => {
                         // TODO: Implementar impresión de reservas filtradas
                         console.log('Imprimir reservas:', filteredReservations);
@@ -721,15 +450,13 @@ const ReservationsView = {
                         backgroundColor: '#b45309',
                         color: 'white',
                         border: 'none',
-                        padding: '0.5rem 1rem',
+                        padding: '0.5rem',
                         borderRadius: '0.5rem',
                         boxShadow: '0 2px 4px 0 rgba(180, 83, 9, 0.2)',
                         transition: 'all 0.2s ease',
-                        fontWeight: 500,
-                        fontSize: '0.875rem',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.5rem'
+                        justifyContent: 'center'
                     },
                     hover: {
                         backgroundColor: '#92400e',
@@ -748,8 +475,7 @@ const ReservationsView = {
                         oncreate: (vnode) => {
                             vnode.dom.style.setProperty('color', 'white', 'important');
                         }
-                    }, 'print'),
-                    m(Text, { fontSize: '0.875rem', fontWeight: 500, margin: 0 }, 'Imprimir reservas')
+                    }, 'print')
                 ])
             ]),
             

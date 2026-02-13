@@ -1,30 +1,31 @@
 // Dashboard View Component using Mithril and DView
 
 import { FlexCol, FlexRow, Tappable, Div } from '../../../DView/layout.js';
-import { H1, H2, Text, SmallText } from '../../../DView/texts.js';
+import { H2, Text, SmallText } from '../../../DView/texts.js';
 import { Button, Icon, Label, Segment } from '../../../DView/elements.js';
 import { Input, Switch, Checkbox, TranslationInput } from '../../../DView/forms.js';
 import { Modal, ModalHeader, ModalContent, ModalFooter, openDialog } from '../../../DView/dialogs.js';
 
 export const DashboardView = {
     oninit: (vnode) => {
-        vnode.state.searchTerm = '';
-        vnode.state.showUnpublished = false;
-        vnode.state.filterType = 'all';
         vnode.state.bentoGridId = `bento-grid-${Math.random().toString(36).substring(2, 9)}`;
         vnode.state.editingGroup = null;
     },
     
     view: (vnode) => {
-        const { app } = vnode.attrs;
-        const state = vnode.state;
-        
+        const { app = window.app, state: stateAttr } = vnode.attrs;
+        const state = stateAttr || {
+            searchTerm: '',
+            showUnpublished: false,
+            filterType: 'all'
+        };
+
         // Filter resources
-        const sortedGroups = Object.keys(app.groupedData || {}).sort();
+        const groupedData = (app && app.groupedData) || {};
+        const sortedGroups = Object.keys(groupedData).sort();
         const filteredGroups = {};
-        
         sortedGroups.forEach(groupName => {
-            let resources = app.groupedData[groupName] || [];
+            let resources = groupedData[groupName] || [];
             
             // Verificar si el grupo está publicado (todos los recursos están publicados)
             const groupPublished = resources.every(r => r.published);
@@ -51,294 +52,41 @@ export const DashboardView = {
             }
         });
         
+        const localState = vnode.state;
         return m(FlexCol, { gap: '2rem' }, [
-            // Page Header
-            m(FlexCol, { gap: '0.5rem' }, [
-                m(H1, { fontSize: '1.875rem', fontWeight: 'bold', color: '#0f172a' }, 
-                    'Cita previa y Reservas'),
-                m(Text, { fontSize: '1.125rem', color: '#64748b', maxWidth: '48rem' },
-                    'Gestiona las reservas y citas con el personal del ayuntamiento.')
-            ]),
-            
-            // Toolbar / Filters
-            m(Segment, { type: 'primary', style: { padding: '1rem', } }, [
-                m('div', {
-                    class: 'toolbar-container',
-                    style: {
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '1rem'
-                    }
-                }, [
-                    // Search and Filters
-                    m('div', {
-                        class: 'search-filters-container',
-                        style: {
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '1rem',
-                            flex: 1
-                        }
-                    }, [
-                        // Search Input
-                        m('div', {
-                            class: 'search-input-wrapper',
-                            style: {
-                                width: '100%'
-                            }
-                        }, [
-                            m('span', {
-                                class: 'material-icons'
-                            }, 'search'),
-                            m(Input, {
-                                placeholder: 'Busca grupos o recursos...',
-                                value: state.searchTerm,
-                                oninput: (e) => {
-                                    state.searchTerm = e.target.value;
-                                    m.redraw();
-                                },
-                                style: {
-                                    width: '100%'
-                                }
-                            })
-                        ]),
-                        
-                        // Type Filters
-                        m(FlexRow, {
-                            gap: '0.5rem',
-                            alignItems: 'center',
-                            style: {
-                                overflowX: 'auto',
-                                paddingBottom: '0.25rem',
-                                '@media (min-width: 640px)': { paddingBottom: 0 }
-                            }
-                        }, [
-                            m(Button, {
-                                type: state.filterType === 'all' ? 'blue' : 'default',
-                                size: 'small',
-                                onclick: () => {
-                                    state.filterType = 'all';
-                                    m.redraw();
-                                },
-                                style: {
-                                    fontSize: '0.75rem',
-                                    padding: '0.375rem 0.75rem',
-                                    borderRadius: '9999px',
-                                    whiteSpace: 'nowrap'
-                                }
-                            }, 'Todos'),
-                            m(Button, {
-                                type: state.filterType === 'booking' ? 'blue' : 'default',
-                                size: 'small',
-                                onclick: () => {
-                                    state.filterType = 'booking';
-                                    m.redraw();
-                                },
-                                style: {
-                                    fontSize: '0.75rem',
-                                    padding: '0.375rem 0.75rem',
-                                    borderRadius: '9999px',
-                                    whiteSpace: 'nowrap'
-                                }
-                            }, 'Reservas'),
-                            m(Button, {
-                                type: state.filterType === 'bon' ? 'blue' : 'default',
-                                size: 'small',
-                                onclick: () => {
-                                    state.filterType = 'bon';
-                                    m.redraw();
-                                },
-                                style: {
-                                    fontSize: '0.75rem',
-                                    padding: '0.375rem 0.75rem',
-                                    borderRadius: '9999px',
-                                    whiteSpace: 'nowrap'
-                                }
-                            }, 'Bonos'),
-                            m(Button, {
-                                type: state.filterType === 'appointment' ? 'blue' : 'default',
-                                size: 'small',
-                                onclick: () => {
-                                    state.filterType = 'appointment';
-                                    m.redraw();
-                                },
-                                style: {
-                                    fontSize: '0.75rem',
-                                    padding: '0.375rem 0.75rem',
-                                    borderRadius: '9999px',
-                                    whiteSpace: 'nowrap'
-                                }
-                            }, 'Citas')
-                        ])
-                    ]),
-                    
-                    // Actions Toolbar
-                    m('div', {
-                        class: 'actions-toolbar',
-                        style: {
-                            display: 'flex',
-                            gap: '0.75rem',
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                            justifyContent: 'center'
-                        }
-                    }, [
-                        // Navigation Links
-                        m(Segment, {
-                            type: 'secondary',
-                            style: {
-                                padding: '0.25rem',
-                                display: 'flex',
-                                gap: '0.25rem',
-                                alignItems: 'center'
-                            }
-                        }, [
-                            m('a', {
-                                href: '#/kiosko',
-                                onclick: (e) => {
-                                    e.preventDefault();
-                                    m.route.set('/kiosko');
-                                },
-                                class: 'toolbar-button'
-                            }, [
-                                m('span', { class: 'material-icons' }, 'confirmation_number'),
-                                m(Text, { fontSize: '0.875rem', margin: 0 }, 'Kiosko')
-                            ]),
-                            m('a', {
-                                href: './citaprevia_web.html',
-                                target: '_blank',
-                                class: 'toolbar-button'
-                            }, [
-                                m('span', { class: 'material-icons' }, 'language'),
-                                m(Text, { fontSize: '0.875rem', margin: 0 }, 'Web')
-                            ]),
-                            m('a', {
-                                href: '#/tv',
-                                onclick: (e) => {
-                                    e.preventDefault();
-                                    m.route.set('/tv');
-                                },
-                                class: 'toolbar-button'
-                            }, [
-                                m('span', { class: 'material-icons' }, 'tv'),
-                                m(Text, { fontSize: '0.875rem', margin: 0 }, 'TV')
-                            ]),
-                            m('a', {
-                                href: '#/stats',
-                                onclick: (e) => {
-                                    e.preventDefault();
-                                    m.route.set('/stats');
-                                },
-                                class: 'toolbar-button'
-                            }, [
-                                m('span', { class: 'material-icons' }, 'bar_chart'),
-                                m(Text, { fontSize: '0.875rem', margin: 0 }, 'Stats')
-                            ])
-                        ]),
-                        
-                        m(Div, {
-                            style: {
-                                height: '32px',
-                                width: '1px',
-                                backgroundColor: '#e2e8f0',
-                                margin: '0 0.25rem'
-                            }
-                        }),
-                        
-                        // Toggle Unpublished
-                        m(FlexRow, {
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            style: {
-                                backgroundColor: '#f1f5f9',
-                                padding: '0.5rem 0.75rem',
-                                borderRadius: '0.5rem',
-                                border: '1px solid #e2e8f0'
-                            }
-                        }, [
-                            m(Switch, {
-                                isActive: state.showUnpublished,
-                                onchange: () => {
-                                    state.showUnpublished = !state.showUnpublished;
-                                    m.redraw();
-                                }
-                            }),
-                            m(SmallText, { 
-                                fontSize: '0.875rem',
-                                margin: 0,
-                                cursor: 'pointer',
-                                onclick: () => {
-                                    state.showUnpublished = !state.showUnpublished;
-                                    m.redraw();
-                                }
-                            }, 'Mostrar No Publicados')
-                        ]),
-                        
-                        // Settings Button
-                        m(Button, {
-                            type: 'default',
-                            onclick: () => {},
-                            style: {
-                                padding: '0.5rem 0.75rem',
-                                borderRadius: '0.5rem',
-                                minWidth: 'auto'
-                            }
-                        }, [
-                            m('span', { class: 'material-icons', style: { fontSize: '18px' } }, 'settings')
-                        ]),
-                        
-                        // Add Button
-                        m(Button, {
-                            type: 'positive',
-                            onclick: () => {},
-                            style: {
-                                padding: '0.5rem 1rem',
-                                borderRadius: '0.5rem',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem'
-                            }
-                        }, [
-                            m(Text, { fontSize: '0.875rem', fontWeight: 500, margin: 0 }, 'Añadir'),
-                            m('span', { class: 'material-icons', style: { fontSize: '18px' } }, 'add')
-                        ])
-                    ])
-                ])
-            ]),
-            
             // Resources Grid - Masonry Style
             m('style', `
-                #${vnode.state.bentoGridId} {
+                #${localState.bentoGridId} {
                     column-count: 1;
                     column-gap: 1.5rem;
                     padding-bottom: 3rem;
                 }
                 
                 @media (min-width: 640px) {
-                    #${vnode.state.bentoGridId} {
+                    #${localState.bentoGridId} {
                         column-count: 2;
                     }
                 }
                 
                 @media (min-width: 1024px) {
-                    #${vnode.state.bentoGridId} {
+                    #${localState.bentoGridId} {
                         column-count: 3;
                     }
                 }
                 
                 @media (min-width: 1400px) {
-                    #${vnode.state.bentoGridId} {
+                    #${localState.bentoGridId} {
                         column-count: 4;
                     }
                 }
                 
                 @media (min-width: 1800px) {
-                    #${vnode.state.bentoGridId} {
+                    #${localState.bentoGridId} {
                         column-count: 4;
                     }
                 }
                 
-                #${vnode.state.bentoGridId} .masonry-card {
+                #${localState.bentoGridId} .masonry-card {
                     break-inside: avoid;
                     page-break-inside: avoid;
                     margin-bottom: 1.5rem !important;
@@ -347,16 +95,16 @@ export const DashboardView = {
                     vertical-align: top;
                 }
                 
-                #${vnode.state.bentoGridId} > .masonry-card {
+                #${localState.bentoGridId} > .masonry-card {
                     margin-bottom: 1.5rem !important;
                 }
                 
-                #${vnode.state.bentoGridId} .masonry-card:hover > div {
+                #${localState.bentoGridId} .masonry-card:hover > div {
                     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
                 }
             `),
             m(Div, {
-                id: vnode.state.bentoGridId,
+                id: localState.bentoGridId,
                 class: 'masonry-grid'
             }, Object.keys(filteredGroups).map(groupName => {
                 const resources = filteredGroups[groupName];
@@ -428,7 +176,7 @@ export const DashboardView = {
                             ]),
                             m(Tappable, {
                                 onclick: () => {
-                                    state.editingGroup = groupName;
+                                    localState.editingGroup = groupName;
                                     m.redraw();
                                 },
                                 style: {
@@ -549,11 +297,11 @@ export const DashboardView = {
             })),
             
             // Edit Group Modal
-            state.editingGroup && m(EditGroupModal, {
-                groupName: state.editingGroup,
-                resources: filteredGroups[state.editingGroup] || [],
+            localState.editingGroup && m(EditGroupModal, {
+                groupName: localState.editingGroup,
+                resources: filteredGroups[localState.editingGroup] || [],
                 onClose: () => {
-                    state.editingGroup = null;
+                    localState.editingGroup = null;
                     m.redraw();
                 }
             })

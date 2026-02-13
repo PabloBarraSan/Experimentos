@@ -3,9 +3,11 @@
 import { fetchResources, fetchGroups } from './api.js';
 import { App } from './components/App.js';
 import { Breadcrumbs } from './components/Breadcrumbs.js';
+import { DashboardFiltersBar } from './components/DashboardFiltersBar.js';
 import { DashboardView } from './views/DashboardView.js';
 import { AdminView } from './views/AdminView.js';
 import { ResourceSettingsView } from './views/ResourceSettingsView.js';
+import { ResourceViewHeader } from './components/ResourceViewHeader.js';
 import { renderCalendarView } from './views/CalendarView.js';
 
 // Make app globally accessible
@@ -98,16 +100,28 @@ window.app = {
      * Setup Mithril routes
      */
     setupRoutes: function () {
+        const DashboardPage = {
+            oninit: (vnode) => {
+                vnode.state.dashboardState = {
+                    searchTerm: '',
+                    showUnpublished: false,
+                    filterType: 'all'
+                };
+            },
+            view: (vnode) => {
+                const state = vnode.state.dashboardState;
+                return m(App, {
+                    subHeader: m(DashboardFiltersBar, { state })
+                }, [
+                    m(Breadcrumbs, { currentPath: m.route.get() }),
+                    m(DashboardView, { app: vnode.attrs.app, state })
+                ]);
+            }
+        };
+
         m.route(document.getElementById('app'), '/', {
             '/': {
-                view: () => {
-                    return m(App, [
-                        m(Breadcrumbs, {
-                            currentPath: m.route.get()
-                        }),
-                        m(DashboardView, { app: window.app })
-                    ]);
-                }
+                view: () => m(DashboardPage, { app: window.app })
             },
             '/resource/:id/admin': {
                 onmatch: async (args, requestedPath) => {
@@ -119,10 +133,6 @@ window.app = {
                 },
                 render: () => {
                     return m(App, [
-                        m(Breadcrumbs, {
-                            currentPath: m.route.get(),
-                            resource: window.app.currentResource
-                        }),
                         m(AdminView, { resource: window.app.currentResource })
                     ]);
                 }
@@ -137,10 +147,7 @@ window.app = {
                 },
                 render: () => {
                     return m(App, [
-                        m(Breadcrumbs, {
-                            currentPath: m.route.get(),
-                            resource: window.app.currentResource
-                        }),
+                        m(ResourceViewHeader, { resource: window.app.currentResource, variant: 'calendar' }),
                         m(CalendarViewWrapper, { resource: window.app.currentResource })
                     ]);
                 }

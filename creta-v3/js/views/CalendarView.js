@@ -225,13 +225,12 @@ export async function renderCalendarView(resource, container) {
     );
 
 
-    // Render the calendar view
-    const headerHtml = renderCalendarHeader(resource);
+    // Render the calendar view (header is now ResourceViewHeader in app.js)
     const toolbarHtml = renderToolbar();
     const calendarHtml = renderWeeklyCalendar(resource, appointmentsData);
     const sidebarHtml = renderSidebarHTML();
 
-    container.innerHTML = headerHtml + toolbarHtml + calendarHtml + sidebarHtml;
+    container.innerHTML = toolbarHtml + calendarHtml + sidebarHtml;
 
     // Store appointments data globally for access
     window.currentAppointmentsData = appointmentsData;
@@ -240,89 +239,6 @@ export async function renderCalendarView(resource, container) {
 // Sidebar functions moved to shared component (components/SlotSidebar.js)
 // Functions are exposed globally via SlotSidebar.js for backward compatibility
 
-
-/**
- * Render the calendar header with resource information
- * @param {Object} resource - Resource object
- * @returns {string} HTML string
- */
-function renderCalendarHeader(resource) {
-    const resourceName = resource.title || resource.name || 'Recurso';
-    const groupName = resource.subtitle || '';
-    const imgUrl = resource.photo ? `${resource.photo}?w=80&h=80&thumbnail=true` : null;
-    
-    return `
-        <!-- Main Header Card -->
-        <div style="background-color: white; border-radius: 0.5rem; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
-            <div style="padding: 1rem 1.5rem;">
-                <!-- Top Row: Title and Action Buttons -->
-                <div style="display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-                    <div style="flex: 1; display: flex; align-items: flex-start; gap: 0.75rem; min-width: 0;">
-                        ${imgUrl ? `
-                        <img src="${imgUrl}" 
-                             alt="${resourceName}" 
-                             style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); flex-shrink: 0;"
-                             onerror="this.style.display='none'">
-                        ` : ''}
-                        <div style="flex: 1; min-width: 0;">
-                            <h1 style="font-size: 1.25rem; font-weight: 600; color: #0f172a; margin: 0;">${resourceName}</h1>
-                            ${groupName ? `<p style="font-size: 0.875rem; color: #64748b; margin-top: 0.25rem; margin-bottom: 0;">${groupName}</p>` : ''}
-                            <!-- Stats Pills - Below title for better association -->
-                            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.75rem;">
-                                <span style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;">
-                                    <i class="fa-solid fa-users" style="font-size: 0.75rem;"></i>
-                                    Capacidad: ${resource.seats?.total || 0}
-                                </span>
-                                ${resource.maxAppointmentsPerUser ? `
-                                <span style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; background-color: #faf5ff; color: #7c3aed; border: 1px solid #e9d5ff;">
-                                    <i class="fa-solid fa-user-clock" style="font-size: 0.75rem;"></i>
-                                    Máx. usuario: ${resource.maxAppointmentsPerUser}
-                                </span>
-                                ` : ''}
-                                <span style="display: inline-flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; ${resource.published ? 'background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;' : 'background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0;'}">
-                                    <i class="fa-solid fa-${resource.published ? 'check-circle' : 'circle-pause'}" style="font-size: 0.75rem;"></i>
-                                    ${resource.published ? 'Activo' : 'Pausado'}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Quick Actions - Top right, more visible -->
-                    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; align-self: flex-start;">
-                        <button onclick="handleSearchAppointments()" 
-                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.backgroundColor='#fff7ed'; this.style.color='#c2410c'; this.style.borderColor='#fed7aa'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
-                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
-                            <i class="fa-solid fa-search" style="font-size: 0.875rem; color: #ea580c;"></i>
-                            <span>Buscar citas</span>
-                        </button>
-                        <button onclick="handleManageSchedules()" 
-                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.backgroundColor='#faf5ff'; this.style.color='#7c3aed'; this.style.borderColor='#e9d5ff'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
-                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
-                            <i class="fa-solid fa-calendar" style="font-size: 0.875rem; color: #7c3aed;"></i>
-                            <span>Gestionar horarios</span>
-                        </button>
-                        <button id="1" onclick="handleCloneWeek()" 
-                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.backgroundColor='#f0fdfa'; this.style.color='#0d9488'; this.style.borderColor='#99f6e4'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
-                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
-                            <i class="fa-solid fa-clone" style="font-size: 0.875rem; color: #14b8a6;"></i>
-                            <span>Clonar Semana</span>
-                        </button>
-                        <button id="2" onclick="handleDeleteWeek()" 
-                                style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.875rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; background-color: white; color: #334155; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; cursor: pointer;"
-                                onmouseenter="this.style.backgroundColor='#fef2f2'; this.style.color='#dc2626'; this.style.borderColor='#fecaca'; this.style.boxShadow='0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)';"
-                                onmouseleave="this.style.backgroundColor='white'; this.style.color='#334155'; this.style.borderColor='#e2e8f0'; this.style.boxShadow='0 1px 2px 0 rgba(0, 0, 0, 0.05)';">
-                            <i class="fa-solid fa-trash" style="font-size: 0.875rem; color: #ef4444;"></i>
-                            <span>Eliminar Semana</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
 
 /**
  * Render the toolbar with actions
@@ -402,16 +318,17 @@ function renderWeeklyCalendar(resource, appointmentsData) {
 
                     <!-- Right: Date Range Display -->
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <div style="width: 40px; height: 40px; border-radius: 0.5rem; background-color: white; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
-                            <i class="fa-solid fa-calendar" style="color: #2563eb;"></i>
-                        </div>
-                        <div>
-                            <h2 style="font-size: 1.25rem; font-weight: bold; color: #0f172a; line-height: 1.25; margin: 0;">
-                                ${formatWeekRange(currentWeek, calendarState.viewMode)}
-                            </h2>
-                            <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.125rem; margin-bottom: 0;">
-                                ${calendarState.viewMode === 'day' ? 'Vista diaria' : calendarState.viewMode === 'week' ? 'Vista semanal' : 'Vista mensual'}
-                            </p>
+                            <div style="width: 40px; height: 40px; border-radius: 0.5rem; background-color: white; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);">
+                                <i class="fa-solid fa-calendar" style="color: #2563eb;"></i>
+                            </div>
+                            <div>
+                                <h2 style="font-size: 1.25rem; font-weight: bold; color: #0f172a; line-height: 1.25; margin: 0;">
+                                    ${formatWeekRange(currentWeek, calendarState.viewMode)}
+                                </h2>
+                                <p style="font-size: 0.75rem; color: #64748b; margin-top: 0.125rem; margin-bottom: 0;">
+                                    ${calendarState.viewMode === 'day' ? 'Vista diaria' : calendarState.viewMode === 'week' ? 'Vista semanal' : 'Vista mensual'}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>

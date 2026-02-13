@@ -6,6 +6,7 @@ import { Icon } from '../../../DView/elements.js';
 
 export const App = {
     view: (vnode) => {
+        const subHeader = vnode.attrs.subHeader;
         return m(FlexCol, {
             style: {
                 minHeight: '100vh',
@@ -17,17 +18,19 @@ export const App = {
         }, [
             // Header
             m(Header),
-            
-            // Main Content
-            m(FlexCol, {
+            // Sub-header (e.g. filters bar for dashboard)
+            subHeader || null,
+            // Main Content - alineado con header zone
+            m('div', {
+                class: 'app-content-zone app-main-content',
                 style: {
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
-                    maxWidth: '1800px',
+                    maxWidth: 'var(--content-max-width, 1800px)',
                     width: '100%',
                     margin: '0 auto',
-                    padding: '2rem 1rem'
+                    padding: '2rem var(--content-padding-x, 1.5rem)'
                 }
             }, [
                 m(FlexCol, { gap: '1.5rem', style: { flex: 1 } }, vnode.children)
@@ -39,17 +42,22 @@ export const App = {
     }
 };
 
-// Header Component
+// Header Component - Nivel 1: Identidad y navegación global
 const Header = {
     view: () => {
         return m(Div, {
+            class: 'app-header',
             style: {
-                backgroundColor: 'rgb(28, 25, 23)',
-                borderBottom: '8px solid #ef4444',
-                padding: '0.5rem 1rem'
+                backgroundColor: 'var(--header-bg, rgb(28, 25, 23))',
+                borderBottom: '6px solid var(--header-accent, #ef4444)',
+                padding: '0.75rem 0'
             }
         }, [
+            m(Div, {
+                class: 'app-header-zone app-header-inner'
+            }, [
             m(FlexRow, {
+                class: 'app-header-row',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
@@ -57,6 +65,7 @@ const Header = {
             }, [
                 // Logo section
                 m(FlexRow, {
+                    class: 'app-header-left',
                     alignItems: 'center',
                     gap: '1rem'
                 }, [
@@ -67,57 +76,36 @@ const Header = {
                         m('img', {
                             src: 'https://cdn.digitalvalue.es/alcantir/assets/5cc03ffd1d8c420100aa90fe?w=300',
                             alt: 'Logo',
-                            style: {
-                                height: '20px',
-                                width: 'auto',
-                                opacity: 0.7
-                            }
+                            class: 'app-header-logo'
                         })
                     ]),
                     m('a', {
                         href: 'https://public.digitalvalue.es/github/zity-components-m/src/apps/',
-                        style: {
-                            color: 'white',
-                            fontSize: '0.875rem',
-                            opacity: 0.7,
-                            textDecoration: 'none',
-                            display: window.innerWidth >= 640 ? 'block' : 'none'
-                        }
+                        class: 'app-header-panell'
                     }, 'Panell de Serveis'),
                     m('a', {
                         href: '#/',
+                        class: 'app-header-creta',
                         oncreate: (vnode) => {
                             vnode.dom.onclick = (e) => {
                                 e.preventDefault();
                                 m.route.set('/');
                             };
-                        },
-                        style: {
-                            color: 'white',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            textDecoration: 'none'
                         }
                     }, 'CRETA. Citas, Reservas, Entradas, Turnos y Autorizaciones')
                 ]),
                 
                 // Right menu
                 m(FlexRow, {
+                    class: 'app-header-right',
                     alignItems: 'center',
                     gap: '0.5rem',
                     flexWrap: 'wrap'
                 }, [
-                    m(Text, {
-                        color: 'white',
-                        fontSize: '0.875rem',
-                        padding: '0.5rem 0.75rem'
-                    }, 'admin.pinto'),
-                    m(Text, {
-                        color: 'white',
-                        fontSize: '0.875rem',
-                        padding: '0.5rem 0.75rem'
-                    }, 'pinto'),
+                    m('span', { class: 'app-header-user' }, 'admin.pinto'),
+                    m('span', { class: 'app-header-user' }, 'pinto'),
                     m(Tappable, {
+                        class: 'app-header-icon-btn',
                         style: {
                             background: 'transparent',
                             border: '1px solid white',
@@ -137,6 +125,7 @@ const Header = {
                     ]),
                     m(LanguageDropdown)
                 ])
+            ])
             ])
         ])
     }
@@ -171,17 +160,21 @@ const LanguageDropdown = {
     }
 };
 
-// Footer Component
+// Footer Component - alineado con content zone
 const Footer = {
     view: () => {
         return m(Div, {
             style: {
                 backgroundColor: '#111827',
                 color: 'white',
-                padding: '0.75rem 1rem',
+                padding: '0.75rem 0',
                 marginTop: 'auto'
             }
         }, [
+            m(Div, {
+                class: 'app-header-zone',
+                style: { padding: '0 1.5rem' }
+            }, [
             m(FlexRow, {
                 alignItems: 'center',
                 gap: '0.75rem',
@@ -240,6 +233,7 @@ const Footer = {
                     }, 'info@ayuntamientoentumovil.es'),
                     m(SmallText, { color: '#9ca3af' }, 'v3.0')
                 ])
+            ])
             ])
         ])
     }

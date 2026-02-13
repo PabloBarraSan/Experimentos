@@ -28,10 +28,10 @@ export function initializeChart(stats, container) {
 
     if (!hasData) {
         chartContainer.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: center; height: 200px; color: #94a3b8;">
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 60px; color: #94a3b8;">
                 <div style="text-align: center;">
-                    <i class="fa-solid fa-chart-pie" style="font-size: 2.5rem; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
-                    <p style="font-size: 0.875rem; color: #94a3b8;">No hay datos de citas disponibles</p>
+                    <i class="fa-solid fa-chart-pie" style="font-size: 1.25rem; margin-bottom: 0.25rem; color: #cbd5e1; display: block;"></i>
+                    <p style="font-size: 0.6875rem; color: #94a3b8; margin: 0;">No hay datos</p>
                 </div>
             </div>
         `;
@@ -49,7 +49,7 @@ export function initializeChart(stats, container) {
         new frappe.Chart(chartContainer, {
             data: data,
             type: 'pie',
-            height: 200,
+            height: 120,
             colors: ['#22c55e', '#f59e0b', '#ef4444']
         });
     }
