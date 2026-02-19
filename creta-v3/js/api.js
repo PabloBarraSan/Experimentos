@@ -1,6 +1,6 @@
 // API Module - Handles all API calls for the Creta application
 
-const API_BASE_URL = 'https://public.digitalvalue.es:8867/v2/pinto';
+const API_BASE_URL = 'https://public.digitalvalue.es:8867/v2/alcantir';
 
 /**
  * Fetch all resources from the API
@@ -131,9 +131,13 @@ export function calculateStats(appointmentsData) {
  * @returns {Object} Object with start and end timestamps
  */
 export function getDateRange() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfNextYear = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+    
     return {
-        start: 1738364400000,  // 2025-02-01 00:00:00
-        end: 1769900400000     // 2026-02-01 00:00:00
+        start: startOfToday.getTime(),
+        end: endOfNextYear.getTime()
     };
 }
 

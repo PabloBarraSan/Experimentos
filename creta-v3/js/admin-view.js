@@ -80,7 +80,7 @@ function renderContent(resource, stats, appointmentsData) {
                 <!-- Image & Description (Left) -->
                 <div class="lg:col-span-4 space-y-4">
                     <div class="rounded-lg overflow-hidden border border-slate-200 aspect-video flex items-center justify-center bg-slate-50">
-                        <img src="${resource.photo || 'https://via.placeholder.com/400x300'}" class="w-full h-full object-cover" alt="${resource.name}">
+                        <img src="${resource.photo || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmNWY5Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5NGEzYjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCI+U2luIEltYWdlPC90ZXh0Pjwvc3ZnPg=='}" class="w-full h-full object-cover" alt="${resource.name}">
                     </div>
                     <div class="prose prose-sm text-slate-600 max-w-none">
                         ${resource.description?.und || '<p>Sin descripción</p>'}
@@ -148,7 +148,7 @@ function renderScheduleGrid(resource, appointmentsData) {
     const gridRows = generateGridRows(resource, appointmentsData);
 
     return `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="bg-white rounded-xl shadow-sm p-6">
             <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
                 <h3 class="text-lg font-bold text-slate-800"><i class="fa-regular fa-calendar-days mr-2"></i>Horarios y Disponibilidad</h3>
                 <div class="flex items-center gap-2">
@@ -160,9 +160,8 @@ function renderScheduleGrid(resource, appointmentsData) {
                 </div>
             </div>
             
-            <!-- Grid Visualization -->
             <div class="overflow-x-auto">
-                <div class="min-w-[800px] border border-slate-200 rounded-lg">
+                <div class="min-w-[800px]">
                     ${gridRows}
                 </div>
             </div>
@@ -170,48 +169,87 @@ function renderScheduleGrid(resource, appointmentsData) {
     `;
 }
 
-/**
- * Generate grid rows from virtualSettings
- * @param {Object} resource - Resource object
- * @param {Object} appointmentsData - Appointments data from API
- * @returns {string} HTML string
- */
 function generateGridRows(resource, appointmentsData) {
     if (!resource.virtualSettings) {
         return '<div class="p-4 text-center text-slate-500">No hay configuración de horarios disponible</div>';
     }
 
-    // Get virtual settings as array
     const virtualSettings = Object.values(resource.virtualSettings);
+    const slots = appointmentsData?.slots || [];
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    
+    // Get current week days
+    const today = new Date();
+    const weekDays = [];
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        weekDays.push({
+            date: date,
+            dayOfWeek: date.getDay(),
+            dateStr: date.toISOString().substring(0, 10),
+            display: `${dayNames[date.getDay()]} ${date.getDate()}`
+        });
+    }
 
-    // Create header row
     let html = `
-        <div class="grid grid-cols-${virtualSettings.length + 1} bg-slate-50 border-b border-slate-200 text-sm font-medium text-slate-500">
-            <div class="p-3 border-r border-slate-200">Hora</div>
+        <div class="grid grid-cols-${virtualSettings.length + 1} text-sm font-medium text-slate-500 bg-slate-100 rounded-t-lg">
+            <div class="p-3">Día</div>
     `;
 
     virtualSettings.forEach(vs => {
-        html += `<div class="p-3 border-r border-slate-200 text-center last:border-r-0">${vs.name || vs.title}</div>`;
+        html += `
+            <div class="p-3 text-center">
+                <div class="font-medium text-slate-700">${vs.name || vs.title || 'Horario'}</div>
+                <div class="text-xs text-slate-500">${vs.startHour || ''} - ${vs.endHour || ''}</div>
+            </div>
+        `;
     });
 
     html += '</div>';
 
-    // Generate time slots (simplified - showing sample hours)
-    const hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'];
-
-    hours.forEach(hour => {
+    weekDays.forEach((dayInfo, index) => {
+        const matchingSettings = virtualSettings.filter(vs => 
+            vs.days && vs.days.includes(dayInfo.dayOfWeek)
+        );
+        
+        // Skip days with no settings
+        if (matchingSettings.length === 0) return;
+        
         html += `
-            <div class="grid grid-cols-${virtualSettings.length + 1} border-b border-slate-100 last:border-0 hover:bg-slate-50 transition">
-                <div class="p-3 text-sm text-slate-500 border-r border-slate-200 font-mono">${hour}</div>
+            <div class="grid grid-cols-${virtualSettings.length + 1} ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50'} border-b border-slate-100">
+                <div class="p-3 text-sm text-slate-600">
+                    <div class="font-medium">${dayInfo.display}</div>
+                </div>
         `;
 
-        virtualSettings.forEach(() => {
-            // Randomly show available/booked for demo (in production, use real data)
-            const isAvailable = Math.random() > 0.3;
+        virtualSettings.forEach(vs => {
+            const isDayConfigured = vs.days && vs.days.includes(dayInfo.dayOfWeek);
+            
+            if (!isDayConfigured) {
+                html += `<div class="p-3"></div>`;
+                return;
+            }
+
+            const slotForDay = slots.find(s => {
+                if (!s.start) return false;
+                const slotDate = s.start.substring(0, 10);
+                return slotDate === dayInfo.dateStr && (s.settingId === vs.id || s.settingId === vs._id);
+            });
+
+            const hasAppointment = slotForDay?.appointments?.some(app => app.confirmed && app.status === 'requested');
+            const isAvailable = !hasAppointment;
+            const remainingSeats = slotForDay?.seats?.remaining ?? vs.seats ?? 0;
+            
+            const settingImage = vs.photo || vs.image || '';
+
             html += `
-                <div class="p-2 border-r border-slate-200 last:border-r-0">
-                    <div class="${isAvailable ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'} text-xs p-2 rounded text-center cursor-pointer hover:${isAvailable ? 'bg-green-200' : 'bg-blue-200'} transition">
-                        ${isAvailable ? 'Libre' : 'Reserva'}
+                <div class="p-2">
+                    <div class="text-center cursor-pointer hover:scale-105 transition-transform">
+                        ${settingImage ? `<img src="${settingImage}" class="w-10 h-10 rounded-full mx-auto mb-1 object-cover" alt="">` : ''}
+                        <div class="${isAvailable ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'} text-xs px-2 py-1 rounded-lg font-medium">
+                            ${isAvailable ? `${remainingSeats} libres` : 'Reservado'}
+                        </div>
                     </div>
                 </div>
             `;

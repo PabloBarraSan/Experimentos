@@ -207,7 +207,7 @@ export const DashboardView = {
                         }
                     }, resources.map((res, index) => {
                         const imgUrl = res.photo ? `${res.photo}?w=210&h=140&thumbnail=true` : 
-                                      'https://via.placeholder.com/210x140?text=No+Image';
+                                      'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjEwIiBoZWlnaHQ9IjE0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmNWY5Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5NGEzYjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNSI+U2luIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
                         const resName = res.name || res.title || "Sin nombre";
                         const isLast = index === resources.length - 1;
                         
@@ -239,7 +239,7 @@ export const DashboardView = {
                                     transition: 'transform 0.3s ease'
                                 },
                                 onerror: (e) => {
-                                    e.target.src = 'https://via.placeholder.com/210x140?text=Error';
+                                    e.target.style.display = 'none';
                                 },
                                 onmouseenter: (e) => {
                                     e.target.style.transform = 'scale(1.05)';

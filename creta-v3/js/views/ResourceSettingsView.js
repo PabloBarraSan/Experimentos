@@ -203,7 +203,7 @@ function renderSidebar(state) {
                 }
             }, [
                 m('img', {
-                    src: window.app?.currentResource?.photo || 'https://via.placeholder.com/400x300',
+                    src: window.app?.currentResource?.photo || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjFmNWY5Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5NGEzYjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyMCI+U2luIGltYWdlPC90ZXh0Pjwvc3ZnPg==',
                     alt: 'Resource photo',
                     style: {
                         width: '100%',

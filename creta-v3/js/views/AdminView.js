@@ -417,7 +417,7 @@ const ReservationsView = {
             state.currentPage * state.itemsPerPage
         );
 
-        // Vista tarjetas: slots filtrados y agrupados por fecha
+        // Vista tarjetas: slots filtrados y agrupados por fecha (solo slots reales)
         const filteredSlots = (appointmentsData?.slots || []).filter(slot => {
             if (!state.showPast && slot.start) {
                 const slotDate = new Date(slot.start);
@@ -957,12 +957,15 @@ const SlotCard = {
         if (remainingSeats === 0) statusLabel = 'Completo';
         else if (totalSeats > 0 && remainingSeats <= totalSeats * 0.2) statusLabel = 'Casi completo';
 
+        // Get image from slot or resource
+        const slotImage = slot.image || resource?.photo || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2YxZjVmOSIvPjx0ZXh0IHg9IjUwIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5NGEzYjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiI+PC90ZXh0Pjwvc3ZnPg==';
+
         return m(Div, {
             onclick: () => {
                 if (slot._id && window.openSlotDetails) window.openSlotDetails(slot._id);
             },
             style: {
-                padding: '1rem',
+                padding: '0.75rem',
                 backgroundColor: 'white',
                 borderBottom: isLast ? 'none' : '1px solid #e2e8f0',
                 borderLeft: '3px solid transparent',
@@ -984,6 +987,16 @@ const SlotCard = {
                 e.currentTarget.style.borderLeftColor = 'transparent';
             }
         }, [
+            m('img', {
+                src: slotImage,
+                style: {
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '0.375rem',
+                    objectFit: 'cover',
+                    flexShrink: 0
+                }
+            }),
             m(FlexRow, {
                 alignItems: 'center',
                 gap: '1rem',

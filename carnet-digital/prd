@@ -1,0 +1,189 @@
+PRD Técnico: App "Ciudadano 360" (Versión Mithril.js)
+
+Versión: 2.0 (Definitiva)
+Fecha: 18 Febrero 2026
+Framework: Mithril.js (SPA)
+Objetivo: Desarrollar la aplicación municipal de referencia con enfoque en UX contextual ("Smart Profile") y seguridad anti-fraude ("Secure QR").
+
+1. Resumen del Producto
+
+Una Single Page Application (SPA) ultraligera que centraliza la identidad digital del ciudadano. Transforma el perfil de usuario en un "Dashboard Inteligente" que anticipa las necesidades (acceso a pistas, citas médicas) y gestiona la identidad familiar con un solo toque.
+
+Principios de Diseño:
+
+Mobile First & Offline First: Debe funcionar en el búnker del polideportivo.
+
+Contexto > Contenido: Mostrar solo lo relevante para el momento actual.
+
+Seguridad Híbrida: Validación visual y digital sin hardware costoso.
+
+2. Arquitectura Técnica (Mithril.js Stack)
+
+Core: Mithril.js (v2.x).
+
+Routing: m.route para navegación (Hash routing recomendado para compatibilidad PWA).
+
+Estado: Patrón simple de Store (POJO) o mithril/stream si se requiere reactividad compleja.
+
+QR Generation: qrcode (npm package) renderizado en un nodo del Virtual DOM (oncreate hook).
+
+Persistencia: localStorage para guardar el estado del "Selector Familiar" y credenciales cacheadas.
+
+Estilos: TailwindCSS (para desarrollo rápido de las tarjetas y animaciones).
+
+3. Componentes Clave (Especificación UI/UX)
+
+3.1. FamilySelector (Componente Global)
+
+Ubicación: Header fijo.
+
+Lógica:
+
+Mantiene un array users[] (Yo, Hijo1, Hijo2).
+
+Al hacer click en un avatar, actualiza AppState.currentUser.
+
+Dispara un evento m.redraw() para que toda la app (tarjetas, agenda, QR) se refresque con los datos del usuario seleccionado.
+
+3.2. SmartCardStack (El Cerebro)
+
+Este componente decide qué mostrar en la "Hero Section" basándose en la hora y los datos.
+
+Regla 1 (Urgencia): Si reserva.hora_inicio < hora_actual + 1h, mostrar componente SecureQRCard.
+
+Regla 2 (Default): Si no hay urgencia, mostrar MemberCard (Carnet Biblioteca/Abono) o NextAppointmentCard.
+
+3.3. SecureQRCard (El Núcleo de Seguridad)
+
+Este es el componente complejo que evita las capturas.
+
+Estado Local:
+
+isRevealed: boolean (Default: false).
+
+isLivenessActive: boolean (Animaciones de fondo).
+
+Estructura DOM (Mithril View):
+
+Capa Fondo: div.animated-bg (CSS Keyframes).
+
+Capa QR (Canvas): Contenedor con filter: blur(10px) si !isRevealed.
+
+Capa Foto: Imagen circular absoluta (z-index: 10) sobre el centro del QR.
+
+Trigger: Botón inferior con eventos ontouchstart / onmousedown (PC).
+
+Comportamiento:
+
+Al mantener pulsado: Eliminar filtro blur, aumentar brillo (si es posible), iniciar animación de "escaneo".
+
+Al soltar: Restaurar blur inmediatamente.
+
+4. Plan de Desarrollo (Task List)
+
+Fase 1: Configuración y Core (Sprints 1-2)
+
+[ ] Setup: Inicializar proyecto Vite + Mithril.js + TailwindCSS.
+
+[ ] Routing: Configurar rutas base (/, /perfil, /reservas, /login).
+
+[ ] Store: Crear Store.js para manejar el usuario activo y la lista de familiares simulada (mock data).
+
+[ ] API Service: Crear ApiService.js usando m.request para llamadas asíncronas.
+
+Fase 2: El "Smart Profile" (Sprints 3-4)
+
+[ ] Componente FamilyHeader:
+
+[ ] Maquetar lista horizontal de avatares.
+
+[ ] Lógica de selección: Cambiar el ID en el Store y repintar la vista.
+
+[ ] Lógica Contextual:
+
+[ ] Crear función getHeroContext(user) que devuelva el tipo de tarjeta a mostrar según la hora del sistema.
+
+[ ] Componente Wallet:
+
+[ ] Visualización gráfica de bonos (círculos CSS).
+
+[ ] Botón "Recarga Rápida" condicional (if usos < 2).
+
+Fase 3: Módulo de Seguridad QR (Sprint 5) - CRÍTICO
+
+[ ] Integración Librería QR:
+
+[ ] Crear componente QRCodeWrapper.
+
+[ ] Usar hook oncreate para generar el QR en el canvas cuando el componente se monta.
+
+[ ] Fusión de Imagen (Canvas):
+
+[ ] Implementar script para dibujar la foto del usuario (Store.currentUser.photo) en el centro del QR tras su generación.
+
+[ ] Interacción "Hold-to-Reveal":
+
+[ ] Implementar manejadores de eventos:
+
+m('button', {
+    ontouchstart: () => State.isRevealed = true,
+    ontouchend: () => State.isRevealed = false
+}, 'MANTENER PARA ENTRAR')
+
+
+[ ] Reloj de Seguridad:
+
+[ ] Crear componente LiveClock que se actualice cada segundo (setInterval en oninit, clearInterval en onremove).
+
+Fase 4: Offline y UX (Sprint 6)
+
+[ ] Persistencia: Guardar lastKnownReservations en localStorage cada vez que haya conexión exitosa.
+
+[ ] Fallback: Si m.request falla, cargar datos de localStorage y mostrar aviso "Modo Offline".
+
+[ ] Animaciones CSS: Crear keyframes para el fondo "vivo" (anti-captura estática).
+
+5. Modelo de Datos (JSON)
+
+Ejemplo de estructura que el Store de Mithril debe manejar:
+
+{
+  "currentUserIndex": 0,
+  "familyGroup": [
+    {
+      "id": "u1",
+      "name": "Laura",
+      "role": "TITULAR",
+      "photo": "url_foto_laura.jpg",
+      "activeReservations": [
+        {
+          "type": "PADEL",
+          "resource": "Pista 4",
+          "startTime": "2026-02-18T18:00:00", 
+          "qrCode": "TOKEN_SEGURO_123"
+        }
+      ],
+      "wallets": [
+        { "type": "PISCINA", "usesLeft": 4, "total": 10 }
+      ]
+    },
+    {
+      "id": "u2",
+      "name": "Pablo",
+      "role": "HIJO",
+      "photo": "url_foto_pablo.jpg",
+      ...
+    }
+  ]
+}
+
+
+6. Criterios de Aceptación (QA)
+
+Cambio Rápido: Al cambiar de "Laura" a "Pablo", el QR y los bonos deben cambiar en < 200ms.
+
+Prueba de Captura: Si se hace una captura de pantalla sin pulsar el botón, el QR debe salir borroso en la imagen.
+
+Prueba Offline: Poner el móvil en "Modo Avión" y refrescar la app; el QR de la reserva de hoy debe seguir apareciendo.
+
+Legibilidad: El torno debe leer el QR con la foto incrustada en menos de 1 segundo (ajustar nivel de corrección de error 'H' si falla).
