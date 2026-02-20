@@ -23,20 +23,6 @@ export const DashboardView = {
         // Filter resources
         const groupedData = (app && app.groupedData) || {};
         const sortedGroups = Object.keys(groupedData).sort();
-
-        // DEBUG: Verificar por qué se filtra cada grupo
-        console.log('[DashboardView] === FILTRO DE GRUPOS ===');
-        sortedGroups.forEach(groupName => {
-            const resources = groupedData[groupName] || [];
-            const groupPublished = resources.every(r => r.published);
-            const publishedCount = resources.filter(r => r.published).length;
-            const unpublishedCount = resources.filter(r => !r.published).length;
-            console.log(`[DashboardView] "${groupName}": ${resources.length} total, ${publishedCount} pub, ${unpublishedCount} no-pub, groupPublished=${groupPublished}, filtrado=${!state.showUnpublished && !groupPublished}`);
-        });
-
-        // DEBUG
-        console.log('[DashboardView] showUnpublished:', state.showUnpublished);
-        console.log('[DashboardView] filterType:', state.filterType);
         const filteredGroups = {};
         sortedGroups.forEach(groupName => {
             let resources = groupedData[groupName] || [];
@@ -72,12 +58,6 @@ export const DashboardView = {
             }
         });
 
-        // DEBUG: Mostrar grupos filtrados
-        console.log('[DashboardView] Grupos filtrados:', Object.keys(filteredGroups));
-        if (filteredGroups['Eventos y entradas']) {
-            console.log('[DashboardView] Recursos en "Eventos y entradas":', filteredGroups['Eventos y entradas'].map(r => r.name));
-        }
-        
         const localState = vnode.state;
         return m(FlexCol, { gap: '2rem' }, [
             // Resources Grid - Masonry Style
