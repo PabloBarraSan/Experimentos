@@ -571,6 +571,16 @@ export const AdminView = {
             ]),
             // Media query inline para móvil
             m('style', `
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-8px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
                 @media (max-width: 900px) {
                     .admin-resource-layout {
                         grid-template-columns: 1fr !important;
@@ -905,21 +915,9 @@ const ReservationsView = {
         const viewMode = state.viewMode;
         const isListMode = viewMode === I18N.VIEW_MODES.LIST;
 
-        return m(FlexCol, {
-            gap: '1.5rem'
+        return m('div', {
+            style: { position: 'relative' }
         }, [
-            // Reservation Sidebar (modal)
-            state.selectedReservation
-                ? m(ReservationSidebar, {
-                    key: 'sidebar',
-                    reservation: state.selectedReservation,
-                    onClose: () => {
-                        state.selectedReservation = null;
-                        m.redraw();
-                    }
-                })
-                : m.fragment({ key: 'sidebar' }),
-
             // Header
             renderReservationsHeader(
                 isListMode ? filteredReservations.length : filteredSlots.length,
@@ -1295,12 +1293,9 @@ function renderContent(isListMode, state, resource, slotGroups, slotDateGroups, 
 
     return m(FlexCol, {
         key: `content-${state.viewMode}`,
-        gap: '0',
+        gap: '0.75rem',
         style: {
-            marginTop: '1rem',
-            border: `1px solid ${COLORS.slate[200]}`,
-            borderRadius: '0.75rem',
-            overflow: 'hidden'
+            marginTop: '1.5rem'
         }
     }, isListMode
         ? paginatedGroups.map((group, groupIndex) =>
@@ -1324,12 +1319,17 @@ function renderSlotGroup(group, groupIndex, totalGroups, state, reservationsBySl
     const slotKey = getSlotKey(slot);
     const startDate = slot?.start ? new Date(slot.start) : null;
     const endDate = slot?.end ? new Date(slot.end) : null;
-    const isLastGroup = groupIndex === totalGroups - 1;
 
-    return m(FlexCol, {
+    return m(Div, {
         key: slotKey,
-        gap: 0
+        style: {
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            border: `1px solid ${COLORS.slate[200]}`,
+            overflow: 'hidden'
+        }
     }, [
+        // Header del slot
         m(Div, {
             key: `header-${slotKey}`,
             onclick: () => {
@@ -1338,10 +1338,9 @@ function renderSlotGroup(group, groupIndex, totalGroups, state, reservationsBySl
                 }
             },
             style: {
-                padding: '0.75rem 1rem',
+                padding: '0.625rem 1rem',
                 backgroundColor: COLORS.slate[50],
-                borderBottom: `1px solid ${COLORS.slate[200]}`,
-                borderTop: groupIndex > 0 ? `1px solid ${COLORS.slate[200]}` : 'none',
+                borderBottom: `1px solid ${COLORS.slate[100]}`,
                 cursor: slot?._id ? 'pointer' : 'not-allowed'
             },
             onmouseenter: (e) => {
@@ -1352,7 +1351,7 @@ function renderSlotGroup(group, groupIndex, totalGroups, state, reservationsBySl
             }
         }, [
             m(Text, {
-                fontSize: '0.875rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
                 color: COLORS.slate[600],
                 margin: 0,
@@ -1365,38 +1364,74 @@ function renderSlotGroup(group, groupIndex, totalGroups, state, reservationsBySl
             }, [
                 m('span', {
                     class: 'material-icons',
-                    style: { fontSize: '18px', color: COLORS.slate[500] }
+                    style: { fontSize: '16px', color: COLORS.slate[500] }
                 }, 'calendar_today'),
                 startDate ? formatDate(startDate) : I18N.SIN_FECHA,
                 startDate && endDate && m(Text, {
-                    fontSize: '0.875rem',
-                    padding: '0 0.5rem',
-                    color: COLORS.slate[500],
+                    fontSize: '0.8125rem',
+                    padding: '0 0.375rem',
+                    color: COLORS.slate[400],
                     margin: 0
                 }, '·'),
                 startDate && endDate && m(Text, {
-                    fontSize: '0.875rem',
+                    fontSize: '0.8125rem',
                     color: COLORS.slate[500],
                     margin: 0
-                }, `${startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`),
-                slot?.title && m(Text, {
-                    fontSize: '0.875rem',
-                    color: COLORS.slate[500],
-                    margin: 0
-                }, `· ${slot.title}`)
+                }, `${startDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`)
             ])
         ]),
-        ...reservations.map((reservation, resIndex) =>
-            m(ReservationCard, {
-                key: reservation.id || `${slotKey}-${resIndex}`,
+        // Lista de reservas
+        ...reservations.map((reservation, resIndex) => {
+            const isSelected = state.selectedReservation?.id === reservation.id;
+            const cardKey = reservation.id || `${slotKey}-${resIndex}`;
+            const card = m(ReservationCard, {
+                key: cardKey,
                 reservation,
-                isLast: isLastGroup && resIndex === reservations.length - 1,
-                onclick: () => {
-                    state.selectedReservation = reservation;
+                isLast: resIndex === reservations.length - 1,
+                isSelected: isSelected,
+                onclick: (e) => {
+                    e.stopPropagation();
+                    console.log('Click on reservation:', reservation.id, reservation.userName);
+                    state.selectedReservation = state.selectedReservation?.id === reservation.id ? null : reservation;
                     m.redraw();
                 }
-            })
-        )
+            });
+            if (isSelected) {
+                return m(Div, { key: `card-wrap-${cardKey}`, style: { position: 'relative' } }, [
+                    card,
+                    m(ReservationActionsDropdown, {
+                        key: `dropdown-${reservation.id}`,
+                        reservation: reservation,
+                        onClose: () => {
+                            state.selectedReservation = null;
+                            m.redraw();
+                        },
+                        onAction: (actionId, res) => {
+                            console.log('Action:', actionId, res);
+                            switch (actionId) {
+                                case 'edit':
+                                    break;
+                                case 'info':
+                                    break;
+                                case 'print':
+                                    window.print();
+                                    break;
+                                case 'notes':
+                                    break;
+                                case 'message':
+                                    break;
+                                case 'delete':
+                                    if (confirm(I18N.CONFIRM_CANCEL)) {
+                                        console.log('Delete reservation:', res.id);
+                                    }
+                                    break;
+                            }
+                        }
+                    })
+                ]);
+            }
+            return card;
+        })
     ]);
 }
 
@@ -1411,29 +1446,32 @@ function renderDateGroup(dateKey, groupIndex, totalGroups, slotsByDate, resource
     const dateSlots = slotsByDate[dateKey];
     const [y, mo, d] = dateKey === 'no-date' ? [null, null, null] : dateKey.split('-').map(Number);
     const dateObj = dateKey !== 'no-date' ? new Date(y, mo - 1, d) : null;
-    const isLastGroup = groupIndex === totalGroups - 1;
 
-    return m(FlexCol, {
+    return m(Div, {
         key: dateKey,
-        gap: 0
+        style: {
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            border: `1px solid ${COLORS.slate[200]}`,
+            overflow: 'hidden'
+        }
     }, [
         m(Div, {
             key: `date-${dateKey}`,
             style: {
-                padding: '0.75rem 1rem',
+                padding: '0.625rem 1rem',
                 backgroundColor: COLORS.slate[50],
-                borderBottom: `1px solid ${COLORS.slate[200]}`,
-                borderTop: groupIndex > 0 ? `1px solid ${COLORS.slate[200]}` : 'none'
+                borderBottom: `1px solid ${COLORS.slate[100]}`
             }
         }, [
             m(Text, {
-                fontSize: '0.875rem',
+                fontSize: '0.8125rem',
                 fontWeight: 600,
                 color: COLORS.slate[600],
                 margin: 0,
                 style: { display: 'flex', alignItems: 'center', gap: '0.5rem' }
             }, [
-                m('span', { class: 'material-icons', style: { fontSize: '18px', color: COLORS.slate[500] } }, 'calendar_today'),
+                m('span', { class: 'material-icons', style: { fontSize: '16px', color: COLORS.slate[500] } }, 'calendar_today'),
                 dateObj ? formatDate(dateObj) : I18N.SIN_FECHA
             ])
         ]),
@@ -1442,7 +1480,7 @@ function renderDateGroup(dateKey, groupIndex, totalGroups, slotsByDate, resource
                 key: slot._id || `slot-${dateKey}-${slotIndex}`,
                 slot,
                 resource,
-                isLast: isLastGroup && slotIndex === dateSlots.length - 1
+                isLast: slotIndex === dateSlots.length - 1
             })
         )
     ]);
@@ -1497,7 +1535,7 @@ function renderPagination(state, isListMode, slotGroups, slotDateGroups) {
         alignItems: 'center',
         style: {
             padding: '1rem 0',
-            marginTop: '1rem'
+            marginTop: '1.5rem'
         }
     }, [
         m(SmallText, {
@@ -1686,144 +1724,290 @@ const SlotCard = {
 // RESERVATION CARD COMPONENT
 // ============================================================================
 
-/** @type {import('mithril').Component<{reservation: Object, isLast: boolean, onclick: Function}>} */
+/** @type {import('mithril').Component<{reservation: Object, isLast: boolean, onclick: Function, isSelected?: boolean}>} */
 const ReservationCard = {
     /**
      * @param {import('mithril').Vnode} vnode
      */
     view: (vnode) => {
-        const { reservation, isLast } = vnode.attrs;
+        const { reservation, isSelected, onclick } = vnode.attrs;
         const status = getStatusColor(reservation.status);
+        const isActive = isSelected;
 
-        return m(Div, {
-            onclick: vnode.attrs.onclick,
+        return m('button', {
+            type: 'button',
+            onclick: onclick,
             style: {
-                padding: '0.875rem 1rem',
-                backgroundColor: 'white',
-                borderBottom: isLast ? 'none' : `1px solid ${COLORS.slate[100]}`,
-                transition: 'background-color 0.15s ease',
+                width: '100%',
+                padding: '0.5rem 0.75rem',
+                backgroundColor: isActive ? '#eff6ff' : 'white',
+                transition: 'all 0.15s ease',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: '1rem'
+                gap: '0.5rem',
+                borderLeft: isActive ? `3px solid ${COLORS.primary}` : '3px solid transparent',
+                borderRight: 'none',
+                borderTop: 'none',
+                borderBottom: 'none',
+                textAlign: 'left',
+                fontFamily: 'inherit'
             },
             onmouseenter: (e) => {
-                e.currentTarget.style.backgroundColor = COLORS.slate[50];
+                if (!isActive) {
+                    e.currentTarget.style.backgroundColor = COLORS.slate[50];
+                }
             },
             onmouseleave: (e) => {
-                e.currentTarget.style.backgroundColor = 'white';
+                if (!isActive) {
+                    e.currentTarget.style.backgroundColor = 'white';
+                }
             }
         }, [
+            // === LADO IZQUIERDO: Status + Info ===
             m(FlexRow, {
                 alignItems: 'center',
-                gap: '1rem',
+                gap: '0.5rem',
                 flex: 1,
                 style: { minWidth: 0 }
             }, [
-                m(Label, {
-                    type: reservation.status === 'confirmed' ? 'positive' :
-                          reservation.status === 'pending' ? 'warning' : 'negative',
-                    size: 'small',
+                // Status badge
+                m('div', {
                     style: {
-                        fontSize: '0.75rem',
-                        padding: '0.25rem 0.5rem',
+                        padding: '0.125rem 0.375rem',
                         borderRadius: '9999px',
-                        flexShrink: 0
+                        backgroundColor: status.bg,
+                        color: status.text,
+                        fontSize: '0.625rem',
+                        fontWeight: 600,
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '0.025em'
                     }
                 }, status.label),
-                m(FlexCol, {
-                    flex: 1,
+                // Nombre - más prominente
+                m(Text, {
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    color: COLORS.slate[800],
+                    margin: 0,
+                    style: {
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                    }
+                }, reservation.userName || I18N.SIN_NOMBRE),
+                // Email con icono
+                reservation.email && m(FlexRow, {
+                    alignItems: 'center',
                     gap: '0.25rem',
-                    style: { minWidth: 0 }
+                    style: { flexShrink: 0 }
                 }, [
-                    m(Text, {
-                        fontSize: '0.875rem',
-                        fontWeight: 500,
-                        color: COLORS.slate[800],
-                        margin: 0,
+                    m('span', {
+                        class: 'material-icons',
                         style: {
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
+                            fontSize: '12px',
+                            color: COLORS.slate[400]
                         }
-                    }, reservation.userName || I18N.SIN_NOMBRE),
-                    m(FlexRow, {
-                        gap: '1rem',
-                        flexWrap: 'wrap',
-                        style: { fontSize: '0.75rem', color: COLORS.slate[500] }
-                    }, [
-                        reservation.email && m(Text, {
-                            fontSize: '0.75rem',
-                            margin: 0,
-                            style: {
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                            }
-                        }, reservation.email),
-                        reservation.telephone && m(Text, {
-                            fontSize: '0.75rem',
-                            margin: 0
-                        }, reservation.telephone)
-                    ])
-                ])
-            ]),
-            m(FlexRow, {
-                alignItems: 'center',
-                gap: '1rem',
-                flexShrink: 0,
-                style: { textAlign: 'right' }
-            }, [
-                m(FlexCol, {
-                    alignItems: 'flex-end',
-                    gap: '0.25rem'
-                }, [
+                    }, 'email'),
                     m(Text, {
-                        fontSize: '0.875rem',
-                        fontWeight: 500,
-                        color: COLORS.slate[800],
-                        margin: 0
-                    }, formatDate(reservation.date)),
-                    reservation.time && m(Text, {
-                        fontSize: '0.75rem',
+                        fontSize: '0.6875rem',
                         color: COLORS.slate[500],
                         margin: 0
-                    }, reservation.time)
+                    }, reservation.email)
                 ]),
-                m(FlexRow, {
-                    gap: '0.5rem',
+                // Teléfono con icono
+                reservation.telephone && m(FlexRow, {
                     alignItems: 'center',
-                    flexShrink: 0
+                    gap: '0.25rem',
+                    style: { flexShrink: 0 }
                 }, [
-                    reservation.turn && m(Label, {
-                        type: 'tertiary',
-                        size: 'small',
+                    m('span', {
+                        class: 'material-icons',
                         style: {
-                            fontSize: '0.75rem',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '9999px'
+                            fontSize: '12px',
+                            color: COLORS.slate[400]
                         }
-                    }, reservation.maskedTurn || reservation.turn),
-                    m(Label, {
-                        type: 'tertiary',
-                        size: 'small',
-                        style: {
-                            fontSize: '0.75rem',
-                            padding: '0.25rem 0.5rem',
-                            borderRadius: '9999px'
-                        }
-                    }, `${reservation.seats}p`)
-                ]),
+                    }, 'phone'),
+                    m(Text, {
+                        fontSize: '0.6875rem',
+                        color: COLORS.slate[500],
+                        margin: 0
+                    }, reservation.telephone)
+                ])
+            ]),
+            // === LADO DERECHO: Fecha + Turno + Asientos ===
+            m(FlexRow, {
+                alignItems: 'center',
+                gap: '0.375rem',
+                flexShrink: 0
+            }, [
+                // Fecha
+                m(Text, {
+                    fontSize: '0.6875rem',
+                    fontWeight: 500,
+                    color: COLORS.slate[600],
+                    margin: 0
+                }, formatDate(reservation.date)),
+                // Turno
+                reservation.turn && m('div', {
+                    style: {
+                        padding: '0.125rem 0.375rem',
+                        borderRadius: '9999px',
+                        backgroundColor: COLORS.slate[100],
+                        color: COLORS.slate[600],
+                        fontSize: '0.625rem',
+                        fontWeight: 500
+                    }
+                }, reservation.maskedTurn || reservation.turn),
+                // Asientos
+                m('div', {
+                    style: {
+                        padding: '0.125rem 0.375rem',
+                        borderRadius: '9999px',
+                        backgroundColor: COLORS.slate[100],
+                        color: COLORS.slate[600],
+                        fontSize: '0.625rem',
+                        fontWeight: 500
+                    }
+                }, `${reservation.seats}p`),
+                // Chevron
                 m('span', {
                     class: 'material-icons',
                     style: {
-                        fontSize: '18px',
-                        color: COLORS.slate[300],
-                        flexShrink: 0
+                        fontSize: '14px',
+                        color: COLORS.slate[300]
                     }
                 }, 'chevron_right')
             ])
+        ]);
+    }
+};
+
+// ============================================================================
+// RESERVATION ACTIONS DROPDOWN (INLINE)
+// ============================================================================
+
+const RESERVATION_ACTIONS = [
+    { id: 'edit', icon: 'edit', label: 'Editar', color: COLORS.slate[700], bg: 'transparent', hoverBg: COLORS.slate[100] },
+    { id: 'info', icon: 'info', label: 'Info', color: COLORS.primary, bg: 'transparent', hoverBg: '#dbeafe' },
+    { id: 'print', icon: 'print', label: 'Imprimir', color: COLORS.slate[700], bg: 'transparent', hoverBg: COLORS.slate[100] },
+    { id: 'notes', icon: 'sticky_note_2', label: 'Notas', color: '#b45309', bg: 'transparent', hoverBg: '#fef3c7' },
+    { id: 'message', icon: 'send', label: 'Enviar mensaje', color: '#059669', bg: 'transparent', hoverBg: '#d1fae5' },
+    { id: 'delete', icon: 'delete', label: 'Eliminar', color: COLORS.danger, bg: 'transparent', hoverBg: '#fee2e2' }
+];
+
+/** @type {import('mithril').Component<{reservation: Object, onClose: Function, onAction: Function}>} */
+const ReservationActionsDropdown = {
+    view: (vnode) => {
+        const { reservation, onClose, onAction } = vnode.attrs;
+        const status = getStatusColor(reservation.status);
+
+        return m(Div, {
+            style: {
+                position: 'absolute',
+                right: '0.5rem',
+                top: '100%',
+                zIndex: 1000,
+                minWidth: '180px',
+                backgroundColor: 'white',
+                borderRadius: '0.5rem',
+                border: `1px solid ${COLORS.slate[200]}`,
+                boxShadow: '0 4px 12px -2px rgba(0, 0, 0, 0.15)',
+                animation: 'fadeIn 0.15s ease',
+                marginTop: '0.25rem'
+            },
+            onclick: (e) => e.stopPropagation()
+        }, [
+            // Header
+            m(Div, {
+                style: {
+                    padding: '0.5rem 0.75rem',
+                    borderBottom: `1px solid ${COLORS.slate[100]}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                }
+            }, [
+                m('div', {
+                    style: {
+                        padding: '0.125rem 0.375rem',
+                        borderRadius: '9999px',
+                        backgroundColor: status.bg,
+                        color: status.text,
+                        fontSize: '0.625rem',
+                        fontWeight: 600,
+                        letterSpacing: '0.025em'
+                    }
+                }, status.label),
+                m(Text, {
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: COLORS.slate[800],
+                    margin: 0,
+                    style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+                }, reservation.userName || I18N.SIN_NOMBRE),
+                m('button', {
+                    type: 'button',
+                    onclick: onClose,
+                    style: {
+                        marginLeft: 'auto',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '0.25rem',
+                        borderRadius: '0.25rem',
+                        display: 'flex',
+                        alignItems: 'center'
+                    }
+                }, [
+                    m('span', {
+                        class: 'material-icons',
+                        style: { fontSize: '14px', color: COLORS.slate[400] }
+                    }, 'close')
+                ])
+            ]),
+            // Actions list
+            m(Div, {
+                style: { padding: '0.25rem' }
+            }, RESERVATION_ACTIONS.map(action =>
+                m('button', {
+                    type: 'button',
+                    onclick: () => {
+                        onAction(action.id, reservation);
+                        onClose();
+                    },
+                    style: {
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: action.bg,
+                        color: action.color,
+                        fontSize: '0.8125rem',
+                        fontWeight: 500,
+                        border: 'none',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.1s ease'
+                    },
+                    onmouseenter: (e) => {
+                        e.currentTarget.style.backgroundColor = action.hoverBg;
+                    },
+                    onmouseleave: (e) => {
+                        e.currentTarget.style.backgroundColor = action.bg;
+                    }
+                }, [
+                    m('span', {
+                        class: 'material-icons',
+                        style: { fontSize: '16px' }
+                    }, action.icon),
+                    action.label
+                ])
+            ))
         ]);
     }
 };
