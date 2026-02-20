@@ -7,47 +7,54 @@
  */
 function extractUserName(app) {
     let userName = '';
-    
+
+    // Priority 1: Check extra fields (NOMBRE, APELLIDOS)
+    if (app.extra) {
+        const firstName = (app.extra.NOMBRE || '').trim();
+        const lastName = (app.extra.APELLIDOS || '').trim();
+        if (firstName || lastName) {
+            return `${firstName} ${lastName}`.trim();
+        }
+    }
+
+    // Priority 2: Check if user object has meaningful data (not just shadow: true)
     if (app.user && typeof app.user === 'object') {
-        // Check if user object has meaningful data (not just shadow: true)
         const userKeys = Object.keys(app.user);
-        const hasUserData = userKeys.some(key => 
-            key !== 'shadow' && 
+        const hasUserData = userKeys.some(key =>
+            key !== 'shadow' &&
             (app.user[key] != null && app.user[key] !== '')
         );
-        
+
         if (hasUserData) {
-            // Safely extract firstName and lastName, handling null/undefined/empty strings
             const firstName = (app.user.firstName != null ? String(app.user.firstName) : '').trim();
             const lastName = (app.user.lastName != null ? String(app.user.lastName) : '').trim();
-            
-            // Combine names only if at least one is not empty
+
             if (firstName || lastName) {
                 userName = `${firstName} ${lastName}`.trim();
             }
         }
     }
-    
+
     // Fallback if still empty - try username
     if (!userName && app.user?.username) {
         userName = String(app.user.username).trim();
     }
-    
+
     // Fallback if still empty - try email
     if (!userName && app.user?.email) {
         userName = String(app.user.email).split('@')[0].trim();
     }
-    
+
     // Final fallback - use userId if available
     if (!userName && app.userId) {
         userName = `Usuario ID: ${app.userId}`;
     }
-    
+
     // Last resort
     if (!userName) {
         userName = 'Sin nombre';
     }
-    
+
     return userName;
 }
 
@@ -91,12 +98,12 @@ export function extractReservations(appointmentsData) {
         if (slot.appointments && slot.appointments.length > 0) {
             slot.appointments.forEach(app => {
                 const userName = extractUserName(app);
-                
+
                 reservations.push({
                     id: app._id,
                     userName: userName,
-                    email: app.user?.email,
-                    telephone: app.user?.telephone,
+                    email: app.extra?.email || app.user?.email || null,
+                    telephone: app.extra?.TELÉFONO || app.user?.telephone || null,
                     date: slotDate,
                     time: slot.title || '',
                     seats: app.seats || 1,
@@ -115,12 +122,12 @@ export function extractReservations(appointmentsData) {
         if (slot.pendingAppointments && slot.pendingAppointments.length > 0) {
             slot.pendingAppointments.forEach(app => {
                 const userName = extractUserName(app);
-                
+
                 reservations.push({
                     id: app._id,
                     userName: userName,
-                    email: app.user?.email,
-                    telephone: app.user?.telephone,
+                    email: app.extra?.email || app.user?.email || null,
+                    telephone: app.extra?.TELÉFONO || app.user?.telephone || null,
                     date: slotDate,
                     time: slot.title || '',
                     seats: app.seats || 1,
@@ -134,17 +141,17 @@ export function extractReservations(appointmentsData) {
                 });
             });
         }
-        
+
         // Canceled appointments
         if (slot.canceledAppointments && slot.canceledAppointments.length > 0) {
             slot.canceledAppointments.forEach(app => {
                 const userName = extractUserName(app);
-                
+
                 reservations.push({
                     id: app._id,
                     userName: userName,
-                    email: app.user?.email,
-                    telephone: app.user?.telephone,
+                    email: app.extra?.email || app.user?.email || null,
+                    telephone: app.extra?.TELÉFONO || app.user?.telephone || null,
                     date: slotDate,
                     time: slot.title || '',
                     seats: app.seats || 1,

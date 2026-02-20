@@ -308,22 +308,30 @@ function filterSlots(slots, filters) {
 function generateAllSlots(resource, existingSlots, startTimestamp, endTimestamp) {
     const virtualSettings = resource.virtualSettings ? Object.values(resource.virtualSettings) : [];
 
+    // Si no hay virtualSettings, devolver slots existentes
     if (virtualSettings.length === 0) {
         return existingSlots || [];
     }
 
-    // Crear map de slots existentes por fecha+title para rápido acceso
-    const existingSlotsMap = {};
-    (existingSlots || []).forEach(slot => {
+    // Si no hay slots existentes, generar todos desde virtualSettings
+    if (!existingSlots || existingSlots.length === 0) {
+        return generateSlotsFromVirtualSettings(resource, virtualSettings, startTimestamp, endTimestamp);
+    }
+
+    // Crear set de claves de slots existentes
+    const existingKeys = new Set();
+    existingSlots.forEach(slot => {
         const key = `${slot.start?.split('T')[0]}-${slot.title}`;
-        existingSlotsMap[key] = slot;
+        existingKeys.add(key);
     });
 
-    const allSlots = [];
+    // Iniciar con todos los slots existentes (preserva los appointments)
+    const allSlots = [...existingSlots];
+
+    // Agregar slots generados que no existen
     const startDate = new Date(startTimestamp);
     const endDate = new Date(endTimestamp);
 
-    // Generar slots para cada virtualSetting
     virtualSettings.forEach(setting => {
         const days = setting.days || [];
         const startHour = setting.startHour || '00:00';
@@ -331,26 +339,21 @@ function generateAllSlots(resource, existingSlots, startTimestamp, endTimestamp)
         const from = setting.from ? new Date(setting.from) : startDate;
         const until = setting.until ? new Date(setting.until) : endDate;
 
-        // Iterar por cada día del rango
         const currentDate = new Date(from);
         currentDate.setHours(0, 0, 0, 0);
 
         while (currentDate <= until && currentDate <= endDate) {
             const dayOfWeek = currentDate.getDay();
 
-            // Verificar si este día aplica para este setting
             if (days.includes(dayOfWeek) && currentDate >= startDate) {
                 const dateStr = currentDate.toISOString().split('T')[0];
                 const slotKey = `${dateStr}-${setting.title}`;
 
-                if (existingSlotsMap[slotKey]) {
-                    // Usar slot existente
-                    allSlots.push(existingSlotsMap[slotKey]);
-                } else {
-                    // Generar slot vacío
+                // Solo agregar si no existe
+                if (!existingKeys.has(slotKey)) {
                     const totalSeats = setting.seats || resource.seats?.total || 0;
                     allSlots.push({
-                        _id: null, // Sin ID porque no existe en BD
+                        _id: null,
                         start: `${dateStr}T${startHour}:00.000Z`,
                         end: `${dateStr}T${endHour}:00.000Z`,
                         title: setting.title,
@@ -359,14 +362,13 @@ function generateAllSlots(resource, existingSlots, startTimestamp, endTimestamp)
                             remaining: totalSeats
                         },
                         resourceId: resource._id,
-                        isGenerated: true, // Flag para identificar slots generados
+                        isGenerated: true,
                         settingId: setting.id,
                         photo: setting.photo
                     });
                 }
             }
 
-            // Siguiente día
             currentDate.setDate(currentDate.getDate() + 1);
         }
     });
@@ -374,6 +376,51 @@ function generateAllSlots(resource, existingSlots, startTimestamp, endTimestamp)
     // Ordenar por fecha
     allSlots.sort((a, b) => new Date(a.start) - new Date(b.start));
 
+    return allSlots;
+}
+
+function generateSlotsFromVirtualSettings(resource, virtualSettings, startTimestamp, endTimestamp) {
+    const allSlots = [];
+    const startDate = new Date(startTimestamp);
+    const endDate = new Date(endTimestamp);
+
+    virtualSettings.forEach(setting => {
+        const days = setting.days || [];
+        const startHour = setting.startHour || '00:00';
+        const endHour = setting.endHour || '23:59';
+        const from = setting.from ? new Date(setting.from) : startDate;
+        const until = setting.until ? new Date(setting.until) : endDate;
+
+        const currentDate = new Date(from);
+        currentDate.setHours(0, 0, 0, 0);
+
+        while (currentDate <= until && currentDate <= endDate) {
+            const dayOfWeek = currentDate.getDay();
+
+            if (days.includes(dayOfWeek) && currentDate >= startDate) {
+                const dateStr = currentDate.toISOString().split('T')[0];
+                const totalSeats = setting.seats || resource.seats?.total || 0;
+                allSlots.push({
+                    _id: null,
+                    start: `${dateStr}T${startHour}:00.000Z`,
+                    end: `${dateStr}T${endHour}:00.000Z`,
+                    title: setting.title,
+                    seats: {
+                        total: totalSeats,
+                        remaining: totalSeats
+                    },
+                    resourceId: resource._id,
+                    isGenerated: true,
+                    settingId: setting.id,
+                    photo: setting.photo
+                });
+            }
+
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+    });
+
+    allSlots.sort((a, b) => new Date(a.start) - new Date(b.start));
     return allSlots;
 }
 
@@ -485,10 +532,14 @@ export const AdminView = {
                 const slotsWithAppointments = appointmentsData.slots.filter(s => s.appointments?.length > 0).length;
                 const slotsWithoutAppointments = appointmentsData.slots.filter(s => !s.appointments?.length || s.appointments.length === 0).length;
                 console.log(`[AdminView] Slots con reservas: ${slotsWithAppointments}, sin reservas: ${slotsWithoutAppointments}`);
-                // Mostrar fechas de los slots
-                appointmentsData.slots.forEach((slot, i) => {
-                    console.log(`[AdminView] Slot ${i+1}:`, slot.start, slot.title, slot.seats);
-                });
+                // Mostrar estructura del primer slot con appointments
+                const slotWithApps = appointmentsData.slots.find(s => s.appointments?.length > 0);
+                if (slotWithApps) {
+                    console.log('[AdminView] Slot con appointments:', JSON.stringify(slotWithApps, null, 2));
+                } else {
+                    // Buscar en otros campos
+                    console.log('[AdminView] Estructura del slot 1:', JSON.stringify(appointmentsData.slots[0], null, 2));
+                }
             }
 
             const stats = calculateStats(appointmentsData);
@@ -883,7 +934,19 @@ const ReservationsView = {
         vnode.state.searchTerm = '';
         vnode.state.filterStatus = CONFIG.DEFAULT_FILTER_STATUS;
         vnode.state.showPast = false;
+
+        // Debug: log input data
+        console.log('[ReservationsView] Input appointmentsData:', vnode.attrs.appointmentsData ? `slots: ${vnode.attrs.appointmentsData.slots?.length}` : 'null');
+        console.log('[ReservationsView] Sample slot:', vnode.attrs.appointmentsData?.slots?.[0]);
+
         vnode.state.allReservations = extractReservations(vnode.attrs.appointmentsData);
+
+        // Debug: log extracted reservations
+        const totalReservations = vnode.state.allReservations.length;
+        const confirmed = vnode.state.allReservations.filter(r => r.status === 'confirmed').length;
+        const pending = vnode.state.allReservations.filter(r => r.status === 'pending').length;
+        const canceled = vnode.state.allReservations.filter(r => r.status === 'canceled').length;
+        console.log(`[ReservationsView] Reservas extraídas: ${totalReservations} (confirmed: ${confirmed}, pending: ${pending}, canceled: ${canceled})`);
         vnode.state.currentPage = 1;
         vnode.state.itemsPerPage = CONFIG.ITEMS_PER_PAGE;
         vnode.state.selectedReservation = null;
@@ -915,27 +978,29 @@ const ReservationsView = {
         const viewMode = state.viewMode;
         const isListMode = viewMode === I18N.VIEW_MODES.LIST;
 
-        return m('div', {
+        return m(FlexCol, {
+            key: 'reservations-container',
+            gap: '1rem',
             style: { position: 'relative' }
         }, [
             // Header
-            renderReservationsHeader(
+            m('div', { key: 'header' }, renderReservationsHeader(
                 isListMode ? filteredReservations.length : filteredSlots.length,
                 isListMode ? slotGroups.length : slotDateGroups.length,
                 state,
                 filteredReservations
-            ),
+            )),
 
             // Search and Filters
-            renderFilters(state),
+            m('div', { key: 'filters' }, renderFilters(state)),
 
             // Content
-            (isListMode ? slotGroups.length > 0 : filteredSlots.length > 0)
+            m('div', { key: 'content' }, (isListMode ? slotGroups.length > 0 : filteredSlots.length > 0)
                 ? renderContent(isListMode, state, resource, slotGroups, slotDateGroups, slotsByDate, reservationsBySlot)
-                : renderEmptyState(isListMode),
+                : renderEmptyState(isListMode)),
 
             // Pagination
-            renderPagination(state, isListMode, slotGroups, slotDateGroups)
+            m('div', { key: 'pagination' }, renderPagination(state, isListMode, slotGroups, slotDateGroups))
         ]);
     }
 };
@@ -1285,26 +1350,153 @@ function renderViewModeToggle(state) {
  * @param {Object} reservationsBySlot
  */
 function renderContent(isListMode, state, resource, slotGroups, slotDateGroups, slotsByDate, reservationsBySlot) {
-    const paginatedGroups = getPaginatedGroups(
-        isListMode ? slotGroups : slotDateGroups,
-        state.currentPage,
-        state.itemsPerPage
-    );
+    // If list mode, render flat grouped by date (no nested boxes)
+    if (isListMode) {
+        return renderFlatDateList(state, reservationsBySlot);
+    }
+
+    const paginatedGroups = getPaginatedGroups(slotDateGroups, state.currentPage, state.itemsPerPage);
 
     return m(FlexCol, {
         key: `content-${state.viewMode}`,
         gap: '0.75rem',
-        style: {
-            marginTop: '1.5rem'
-        }
-    }, isListMode
-        ? paginatedGroups.map((group, groupIndex) =>
-            renderSlotGroup(group, groupIndex, paginatedGroups.length, state, reservationsBySlot)
-        )
-        : paginatedGroups.map((dateKey, groupIndex) =>
-            renderDateGroup(dateKey, groupIndex, paginatedGroups.length, slotsByDate, resource)
-        )
-    );
+        style: { marginTop: '1.5rem' }
+    }, paginatedGroups.map((dateKey, groupIndex) =>
+        renderDateGroup(dateKey, groupIndex, paginatedGroups.length, slotsByDate, resource)
+    ));
+}
+
+/**
+ * Render a flat list grouped by date (no nested slot boxes)
+ * @param {Object} state
+ * @param {Object} reservationsBySlot
+ */
+function renderFlatDateList(state, reservationsBySlot) {
+    // Group reservations by date (using date string YYYY-MM-DD as key)
+    const reservationsByDate = {};
+    Object.values(reservationsBySlot).forEach(group => {
+        group.reservations.forEach(res => {
+            // Convert Date to YYYY-MM-DD string for grouping
+            let dateKey = 'sin-fecha';
+            if (res.date) {
+                const d = new Date(res.date);
+                if (!isNaN(d.getTime())) {
+                    dateKey = d.toISOString().split('T')[0];
+                }
+            }
+            if (!reservationsByDate[dateKey]) {
+                reservationsByDate[dateKey] = [];
+            }
+            reservationsByDate[dateKey].push({ ...res, slot: group.slot });
+        });
+    });
+
+    // Sort dates (string sort works for YYYY-MM-DD)
+    const sortedDates = Object.keys(reservationsByDate).sort();
+
+    // Paginate
+    const pageSize = state.itemsPerPage || 10;
+    const currentPage = state.currentPage || 1;
+    const paginatedDates = sortedDates.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+    if (paginatedDates.length === 0) {
+        return renderEmptyState(true);
+    }
+
+    return m(FlexCol, {
+        gap: '0',
+        style: { marginTop: '1rem' }
+    }, paginatedDates.map(dateKey => {
+        const reservations = reservationsByDate[dateKey];
+        const dateObj = dateKey !== 'sin-fecha' ? new Date(dateKey) : null;
+
+        return [
+            // Date header (sticky-like)
+            m(Div, {
+                key: `date-header-${dateKey}`,
+                style: {
+                    position: 'sticky',
+                    top: '0',
+                    backgroundColor: COLORS.slate[50],
+                    padding: '0.5rem 1rem',
+                    borderBottom: `1px solid ${COLORS.slate[200]}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    zIndex: 10
+                }
+            }, [
+                m('span', {
+                    class: 'material-icons',
+                    style: { fontSize: '16px', color: COLORS.slate[500] }
+                }, 'calendar_today'),
+                m(Text, {
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    color: COLORS.slate[600],
+                    margin: 0,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                }, dateObj ? formatDate(dateObj) : 'Sin fecha'),
+                m(Div, {
+                    style: {
+                        marginLeft: 'auto',
+                        backgroundColor: COLORS.slate[200],
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: '9999px',
+                        fontSize: '0.625rem',
+                        fontWeight: 600,
+                        color: COLORS.slate[600]
+                    }
+                }, `${reservations.length}`)
+            ]),
+            // Reservations for this date (flat list, no boxes)
+            ...reservations.map((reservation, resIndex) => {
+                const isSelected = state.selectedReservation?.id === reservation.id;
+                const cardKey = reservation.id || `${dateKey}-${resIndex}`;
+                const card = m(ReservationCard, {
+                    key: cardKey,
+                    reservation,
+                    isLast: resIndex === reservations.length - 1,
+                    isSelected: isSelected,
+                    onclick: (e) => {
+                        e.stopPropagation();
+                        state.selectedReservation = state.selectedReservation?.id === reservation.id ? null : reservation;
+                        m.redraw();
+                    }
+                });
+                if (isSelected) {
+                    return m(Div, { key: `card-wrap-${cardKey}`, style: { position: 'relative', backgroundColor: 'white' } }, [
+                        card,
+                        m(ReservationActionsDropdown, {
+                            key: `dropdown-${reservation.id}`,
+                            reservation: reservation,
+                            onClose: () => {
+                                state.selectedReservation = null;
+                                m.redraw();
+                            },
+                            onAction: (actionId, res) => {
+                                console.log('Action:', actionId, res);
+                                switch (actionId) {
+                                    case 'edit': break;
+                                    case 'info': break;
+                                    case 'print': window.print(); break;
+                                    case 'notes': break;
+                                    case 'message': break;
+                                    case 'delete':
+                                        if (confirm(I18N.CONFIRM_CANCEL)) {
+                                            console.log('Delete reservation:', res.id);
+                                        }
+                                        break;
+                                }
+                            }
+                        })
+                    ]);
+                }
+                return card;
+            })
+        ];
+    }));
 }
 
 /**
@@ -1326,7 +1518,7 @@ function renderSlotGroup(group, groupIndex, totalGroups, state, reservationsBySl
             backgroundColor: 'white',
             borderRadius: '0.5rem',
             border: `1px solid ${COLORS.slate[200]}`,
-            overflow: 'hidden'
+            overflow: 'visible'
         }
     }, [
         // Header del slot
@@ -1453,7 +1645,7 @@ function renderDateGroup(dateKey, groupIndex, totalGroups, slotsByDate, resource
             backgroundColor: 'white',
             borderRadius: '0.5rem',
             border: `1px solid ${COLORS.slate[200]}`,
-            overflow: 'hidden'
+            overflow: 'visible'
         }
     }, [
         m(Div, {
@@ -1521,8 +1713,21 @@ function renderEmptyState(isListMode) {
  * @param {Array} slotDateGroups
  */
 function renderPagination(state, isListMode, slotGroups, slotDateGroups) {
-    const totalItems = isListMode ? slotGroups.length : slotDateGroups.length;
-    const hasContent = isListMode ? slotGroups.length > 0 : slotDateGroups.length > 0;
+    // In list mode, count unique dates from reservations
+    let totalItems, hasContent;
+    if (isListMode) {
+        const uniqueDates = new Set();
+        slotGroups.forEach(group => {
+            group.reservations.forEach(res => {
+                if (res.date) uniqueDates.add(res.date);
+            });
+        });
+        totalItems = uniqueDates.size;
+        hasContent = totalItems > 0;
+    } else {
+        totalItems = slotDateGroups.length;
+        hasContent = slotDateGroups.length > 0;
+    }
     const totalPages = getTotalPages(totalItems, state.itemsPerPage);
 
     if (!hasContent) {
@@ -1750,7 +1955,7 @@ const ReservationCard = {
                 borderLeft: isActive ? `3px solid ${COLORS.primary}` : '3px solid transparent',
                 borderRight: 'none',
                 borderTop: 'none',
-                borderBottom: 'none',
+                borderBottom: `1px solid ${COLORS.slate[100]}`,
                 textAlign: 'left',
                 fontFamily: 'inherit'
             },
@@ -1843,13 +2048,13 @@ const ReservationCard = {
                 gap: '0.375rem',
                 flexShrink: 0
             }, [
-                // Fecha
+                // Turno (solo mostrar hora del slot)
                 m(Text, {
                     fontSize: '0.6875rem',
                     fontWeight: 500,
                     color: COLORS.slate[600],
                     margin: 0
-                }, formatDate(reservation.date)),
+                }, reservation.slot?.start ? new Date(reservation.slot.start).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : ''),
                 // Turno
                 reservation.turn && m('div', {
                     style: {

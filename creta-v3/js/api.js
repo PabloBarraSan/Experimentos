@@ -1,6 +1,11 @@
 // API Module - Handles all API calls for the Creta application
 
-const API_BASE_URL = 'https://public.digitalvalue.es:8867/v2/alcantir';
+// Get realm from URL parameter, default to 'alcantir'
+const urlParams = new URLSearchParams(window.location.search);
+const REALM = urlParams.get('realm') || 'alcantir';
+const API_BASE_URL = `https://public.digitalvalue.es:8867/v2/${REALM}`;
+
+console.log(`[API] Using realm: ${REALM}`);
 
 /**
  * Fetch all resources from the API
