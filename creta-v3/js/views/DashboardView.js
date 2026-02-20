@@ -23,15 +23,35 @@ export const DashboardView = {
         // Filter resources
         const groupedData = (app && app.groupedData) || {};
         const sortedGroups = Object.keys(groupedData).sort();
+
+        // DEBUG: Verificar por qué se filtra cada grupo
+        console.log('[DashboardView] === FILTRO DE GRUPOS ===');
+        sortedGroups.forEach(groupName => {
+            const resources = groupedData[groupName] || [];
+            const groupPublished = resources.every(r => r.published);
+            const publishedCount = resources.filter(r => r.published).length;
+            const unpublishedCount = resources.filter(r => !r.published).length;
+            console.log(`[DashboardView] "${groupName}": ${resources.length} total, ${publishedCount} pub, ${unpublishedCount} no-pub, groupPublished=${groupPublished}, filtrado=${!state.showUnpublished && !groupPublished}`);
+        });
+
+        // DEBUG
+        console.log('[DashboardView] showUnpublished:', state.showUnpublished);
+        console.log('[DashboardView] filterType:', state.filterType);
         const filteredGroups = {};
         sortedGroups.forEach(groupName => {
             let resources = groupedData[groupName] || [];
-            
-            // Verificar si el grupo está publicado (todos los recursos están publicados)
-            const groupPublished = resources.every(r => r.published);
-            
-            // Filtrar grupos no publicados a menos que showUnpublished esté activo
-            if (!state.showUnpublished && !groupPublished) {
+
+            // Excluir grupos especiales/borrador
+            const excludedGroups = ['PARA BORRAR', 'Subtítulo de prueba'];
+            if (excludedGroups.includes(groupName)) {
+                return;
+            }
+
+            // Verificar si el grupo tiene AL MENOS un recurso publicado
+            const hasPublishedResources = resources.some(r => r.published);
+
+            // Filtrar grupos sin recursos publicados a menos que showUnpublished esté activo
+            if (!state.showUnpublished && !hasPublishedResources) {
                 return; // Saltar este grupo
             }
             
@@ -51,6 +71,12 @@ export const DashboardView = {
                 filteredGroups[groupName] = resources;
             }
         });
+
+        // DEBUG: Mostrar grupos filtrados
+        console.log('[DashboardView] Grupos filtrados:', Object.keys(filteredGroups));
+        if (filteredGroups['Eventos y entradas']) {
+            console.log('[DashboardView] Recursos en "Eventos y entradas":', filteredGroups['Eventos y entradas'].map(r => r.name));
+        }
         
         const localState = vnode.state;
         return m(FlexCol, { gap: '2rem' }, [

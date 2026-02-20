@@ -24,12 +24,40 @@ window.app = {
         try {
             this.data = await fetchResources();
             this.groups = await fetchGroups();
+
+            // DEBUG
+            console.log('[App] Total resources:', this.data.length);
+            console.log('[App] Total groups:', this.groups.length);
+
+            // DEBUG: Verificar resources por groupId
+            const resourcesByGroup = {};
+            this.data.forEach(r => {
+                const g = r.groupId || 'SIN_GRUPO';
+                if (!resourcesByGroup[g]) resourcesByGroup[g] = 0;
+                resourcesByGroup[g]++;
+            });
+            console.log('[App] Resources por groupId:', resourcesByGroup);
         } catch (error) {
             console.warn("Failed to load resources or groups", error);
             this.data = [];
             this.groups = [];
         } finally {
             this.processData();
+
+            // DEBUG
+            console.log('[App] Grupos finales:', Object.keys(this.groupedData));
+            Object.keys(this.groupedData).forEach(g => {
+                console.log(`[App] Grupo "${g}": ${this.groupedData[g].length} recursos`);
+                if (g === 'Eventos y entradas') {
+                    this.groupedData[g].forEach(r => {
+                        console.log(`[App]   - ${r.name} (${r._id}) groupId=${r.groupId}`);
+                    });
+                }
+            });
+
+            // DEBUG: Verificar si Teatro Municipal está en algún grupo
+            const teatro = this.data.find(r => r._id === '616e8e3bcf33264c1dc38340');
+            console.log('[App] Teatro Municipal published:', teatro?.published);
         }
 
         // Setup Mithril routes
