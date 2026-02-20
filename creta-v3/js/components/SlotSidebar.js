@@ -37,7 +37,8 @@ export function ensureSidebarHTML() {
  * @param {string} slotId - ID of the clicked slot
  */
 export function openSlotDetails(slotId) {
-    const data = window.currentAppointmentsData;
+    //优先使用AdminView传递的数据，其次fallback a window.__adminAppointmentsData
+    const data = window.__adminAppointmentsData || window.currentAppointmentsData;
     if (!data || !data.slots) return;
 
     const slot = data.slots.find(s => s._id === slotId);
