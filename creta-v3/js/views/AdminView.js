@@ -4,7 +4,8 @@ import { FlexCol, FlexRow, Tappable, Div } from '../../../DView/layout.js';
 import { H2, Text, SmallText } from '../../../DView/texts.js';
 import { Button, Icon, Label, Segment } from '../../../DView/elements.js';
 import { Input, Switch } from '../../../DView/forms.js';
-import { Modal, ModalHeader, ModalContent, ModalFooter } from '../../../DView/dialogs.js';
+import { Modal, ModalHeader, ModalContent, ModalFooter, openDialog } from '../../../DView/dialogs.js';
+import { ScheduleModal } from '../components/ScheduleModal.js';
 import { ResourceViewHeader } from '../components/ResourceViewHeader.js';
 import { fetchAppointments, calculateStats, getDateRange } from '../api.js';
 import { ensureSidebarHTML } from '../components/SlotSidebar.js';
@@ -744,7 +745,7 @@ function renderSidebar(resource, stats) {
         m(Div, { style: createCardStyle({ overflow: 'hidden' }) }, [
             m(Div, { style: { padding: '0.25rem' } }, sidebarActions.map(action =>
                 m(Tappable, {
-                    onclick: () => handleSidebarAction(resource, action.route),
+                    onclick: () => handleSidebarAction(resource, action.route, action.label),
                     style: {
                         width: '100%',
                         display: 'flex',
@@ -865,11 +866,13 @@ function createFlagBadge(icon, label) {
  * @param {Object} resource
  * @param {string|null} route
  */
-function handleSidebarAction(resource, route) {
+function handleSidebarAction(resource, route, actionLabel) {
     if (route === 'calendar' && resource?._id) {
         m.route.set(`/resource/${resource._id}/calendar`);
     } else if (route === 'settings' && resource?._id) {
         m.route.set(`/resource/${resource._id}/settings`);
+    } else if (actionLabel === 'Gestionar Horarios') {
+        openDialog(ScheduleModal, { resource });
     }
 }
 

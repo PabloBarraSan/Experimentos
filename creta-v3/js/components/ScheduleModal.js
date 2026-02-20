@@ -6,6 +6,35 @@ import { Button, Icon } from '../../../DView/elements.js';
 import { Input, Switch } from '../../../DView/forms.js';
 import { Modal, ModalHeader, ModalContent, ModalFooter } from '../../../DView/dialogs.js';
 
+// Color constants
+const COLORS = {
+    primary: '#3b82f6',
+    success: '#22c55e',
+    warning: '#f59e0b',
+    danger: '#ef4444',
+    slate: {
+        50: '#f8fafc',
+        100: '#f1f5f9',
+        200: '#e2e8f0',
+        400: '#94a3b8',
+        500: '#64748b',
+        600: '#475569',
+        700: '#334155',
+        800: '#1e293b'
+    }
+};
+
+// Days of week
+const DAYS_OF_WEEK = [
+    { value: 1, label: 'L', fullLabel: 'Lunes' },
+    { value: 2, label: 'M', fullLabel: 'Martes' },
+    { value: 3, label: 'X', fullLabel: 'Miércoles' },
+    { value: 4, label: 'J', fullLabel: 'Jueves' },
+    { value: 5, label: 'V', fullLabel: 'Viernes' },
+    { value: 6, label: 'S', fullLabel: 'Sábado' },
+    { value: 0, label: 'D', fullLabel: 'Domingo' }
+];
+
 export const ScheduleModal = {
     oninit: (vnode) => {
         const { resource, schedules = [] } = vnode.attrs;
