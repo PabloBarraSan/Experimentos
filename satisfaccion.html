@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Encuesta de Satisfacción</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --text-muted: #94a3b8;
+            --success: #22c55e;
+            --face-1: #ef4444;
+            --face-2: #f97316;
+            --face-3: #eab308;
+            --face-4: #84cc16;
+            --face-5: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        .faces-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
+        }
+
+        .face-btn {
+            background: var(--card-bg);
+            border: 3px solid transparent;
+            border-radius: 1rem;
+            padding: 1rem;
+            cursor: pointer;
+            font-size: 3.5rem;
+            transition: all 0.2s ease;
+            line-height: 1;
+            min-width: 80px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .face-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .face-btn:active {
+            transform: scale(0.95);
+        }
+
+        .face-btn.selected {
+            border-color: var(--success);
+            background: rgba(34, 197, 94, 0.15);
+            animation: pulse 0.3s ease;
+        }
+
+        .face-btn[data-value="1"] { border-color: var(--face-1); }
+        .face-btn[data-value="2"] { border-color: var(--face-2); }
+        .face-btn[data-value="3"] { border-color: var(--face-3); }
+        .face-btn[data-value="4"] { border-color: var(--face-4); }
+        .face-btn[data-value="5"] { border-color: var(--face-5); }
+
+        .face-btn[data-value="1"].selected { background: rgba(239, 68, 68, 0.2); }
+        .face-btn[data-value="2"].selected { background: rgba(249, 115, 22, 0.2); }
+        .face-btn[data-value="3"].selected { background: rgba(234, 179, 8, 0.2); }
+        .face-btn[data-value="4"].selected { background: rgba(132, 204, 22, 0.2); }
+        .face-btn[data-value="5"].selected { background: rgba(34, 197, 94, 0.2); }
+
+        .face-label {
+            display: block;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        /* Pantalla de agradecimiento */
+        .thank-you {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .thank-you.visible {
+            display: block;
+        }
+
+        .thank-you .icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+        }
+
+        .thank-you .message {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--success);
+            margin-bottom: 0.5rem;
+        }
+
+        .thank-you .submessage {
+            color: var(--text-muted);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .survey-screen.hidden {
+            display: none;
+        }
+
+        /* Área de comentario opcional */
+        .comment-section {
+            margin-top: 2rem;
+            display: none;
+        }
+
+        .comment-section.visible {
+            display: block;
+        }
+
+        .comment-section textarea {
+            width: 100%;
+            max-width: 400px;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 2px solid var(--card-bg);
+            background: var(--card-bg);
+            color: var(--text);
+            font-size: 1rem;
+            resize: none;
+            font-family: inherit;
+        }
+
+        .comment-section textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .comment-section textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .submit-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 0.75rem;
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .submit-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            .title {
+                font-size: 1.5rem;
+            }
+
+            .face-btn {
+                font-size: 2.5rem;
+                min-width: 60px;
+                min-height: 60px;
+            }
+
+            .faces-container {
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- Pantalla de encuesta -->
+        <div class="survey-screen" id="surveyScreen">
+            <h1 class="title">¿Cómo fue tu atención?</h1>
+            <p class="subtitle">Tu opinión nos ayuda a mejorar</p>
+
+            <div class="faces-container">
+                <button class="face-btn" data-value="1" aria-label="Muy insatisfecho">
+                    😢
+                    <span class="face-label">1</span>
+                </button>
+                <button class="face-btn" data-value="2" aria-label="Insatisfecho">
+                    😕
+                    <span class="face-label">2</span>
+                </button>
+                <button class="face-btn" data-value="3" aria-label="Neutral">
+                    😐
+                    <span class="face-label">3</span>
+                </button>
+                <button class="face-btn" data-value="4" aria-label="Satisfecho">
+                    🙂
+                    <span class="face-label">4</span>
+                </button>
+                <button class="face-btn" data-value="5" aria-label="Muy satisfecho">
+                    😊
+                    <span class="face-label">5</span>
+                </button>
+            </div>
+
+            <div class="comment-section" id="commentSection">
+                <textarea
+                    id="commentInput"
+                    placeholder="¿Quieres añadir un comentario? (opcional)"
+                    rows="3"
+                ></textarea>
+                <br>
+                <button class="submit-btn" id="submitBtn">Enviar</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de agradecimiento -->
+        <div class="thank-you" id="thankYouScreen">
+            <div class="icon">✓</div>
+            <div class="message">¡Gracias!</div>
+            <div class="submessage">Tu opinión ha sido registrada</div>
+        </div>
+    </div>
+
+    <script>
+        const surveyScreen = document.getElementById('surveyScreen');
+        const thankYouScreen = document.getElementById('thankYouScreen');
+        const faceButtons = document.querySelectorAll('.face-btn');
+        const commentSection = document.getElementById('commentSection');
+        const commentInput = document.getElementById('commentInput');
+        const submitBtn = document.getElementById('submitBtn');
+
+        let selectedValue = null;
+
+        // Manejar selección de cara
+        faceButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Quitar selección anterior
+                faceButtons.forEach(b => b.classList.remove('selected'));
+
+                // Seleccionar nueva cara
+                btn.classList.add('selected');
+                selectedValue = btn.dataset.value;
+
+                // Mostrar área de comentario
+                commentSection.classList.add('visible');
+
+                // Enfocar el textarea
+                setTimeout(() => {
+                    commentInput.focus();
+                }, 100);
+            });
+        });
+
+        // Enviar valoración
+        function submitRating() {
+            if (!selectedValue) return;
+
+            const data = {
+                rating: parseInt(selectedValue),
+                comment: commentInput.value.trim(),
+                timestamp: new Date().toISOString()
+            };
+
+            // Guardar en localStorage
+            saveToLocalStorage(data);
+
+            // Mostrar pantalla de agradecimiento
+            surveyScreen.classList.add('hidden');
+            thankYouScreen.classList.add('visible');
+
+            // Auto-reset después de 5 segundos
+            setTimeout(resetSurvey, 5000);
+        }
+
+        // Guardar en localStorage
+        function saveToLocalStorage(data) {
+            try {
+                const surveys = JSON.parse(localStorage.getItem('satisfaccion_encuestas') || '[]');
+                surveys.push(data);
+                localStorage.setItem('satisfaccion_encuestas', JSON.stringify(surveys));
+                console.log('Encuesta guardada:', data);
+            } catch (error) {
+                console.error('Error guardando encuesta:', error);
+            }
+        }
+
+        // Reiniciar encuesta
+        function resetSurvey() {
+            selectedValue = null;
+            faceButtons.forEach(b => b.classList.remove('selected'));
+            commentInput.value = '';
+            commentSection.classList.remove('visible');
+            thankYouScreen.classList.remove('visible');
+            surveyScreen.classList.remove('hidden');
+        }
+
+        // Event listeners
+        submitBtn.addEventListener('click', submitRating);
+
+        // Permitir enviar con Enter en el textarea
+        commentInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitRating();
+            }
+        });
+    </script>
+
+</body>
+
+</html>

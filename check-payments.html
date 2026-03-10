@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validador de Pagos - Pinto</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f8fafc;
+            --danger: #ef4444;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: var(--primary);
+            margin-top: 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .label-button {
+            display: inline-block;
+            background: #475569;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .results {
+            margin-top: 2rem;
+        }
+
+        .issue-card {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid var(--danger);
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+
+        .issue-card h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+        }
+
+        .issue-card p {
+            margin: 0.25rem 0;
+            color: #94a3b8;
+            font-size: 0.875rem;
+        }
+
+        .status {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .status.loading {
+            background: #334155;
+        }
+
+        .status.success {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            border-left: 4px solid var(--success);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Analizador de Pagos (datospinto.json)</h1>
+        <p>Este programa comprueba que todos los <code>appointments</code> dentro de <code>slots</code> tengan un
+            <code>paymentId</code>.</p>
+
+        <div class="controls">
+            <label for="fileInput" class="label-button">Seleccionar Archivo JSON</label>
+            <input type="file" id="fileInput" accept=".json">
+            <button id="checkLocalBtn">Comprobar datospinto.json (Local)</button>
+        </div>
+
+        <div id="status" class="status" style="display: none;"></div>
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const checkLocalBtn = document.getElementById('checkLocalBtn');
+        const statusDiv = document.getElementById('status');
+        const resultsDiv = document.getElementById('results');
+
+        function updateStatus(message, type = 'loading') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+        }
+
+        async function processJSON(data) {
+            resultsDiv.innerHTML = '';
+            updateStatus('Analizando datos...', 'loading');
+
+            try {
+                if (!data.slots || !Array.isArray(data.slots)) {
+                    throw new Error('El formato del JSON no es válido (falta el array "slots")');
+                }
+
+                let totalAppointments = 0;
+                let missingPayments = [];
+
+                data.slots.forEach((slot, slotIndex) => {
+                    if (slot.appointments && Array.isArray(slot.appointments)) {
+                        slot.appointments.forEach((app) => {
+                            totalAppointments++;
+                            if (!app.paymentId) {
+                                missingPayments.push({
+                                    slotId: slot._id,
+                                    slotTitle: slot.title,
+                                    slotStart: slot.start,
+                                    app: app
+                                });
+                            }
+                        });
+                    }
+                });
+
+                if (missingPayments.length === 0) {
+                    updateStatus(`¡Todo correcto! Se analizaron ${totalAppointments} citas y todas tienen paymentId.`, 'success');
+                } else {
+                    updateStatus(`Se encontraron ${missingPayments.length} citas sin paymentId de un total de ${totalAppointments}.`, 'loading');
+
+                    missingPayments.forEach(item => {
+                        const card = document.createElement('div');
+                        card.className = 'issue-card';
+                        card.innerHTML = `
+                        <h3>Cita sin PaymentId: ${item.app.user?.firstName || 'Sin nombre'} ${item.app.user?.lastName || ''}</h3>
+                        <p><strong>ID Cita:</strong> ${item.app._id}</p>
+                        <p><strong>Slot:</strong> ${item.slotTitle} (${new Date(item.slotStart).toLocaleString()})</p>
+                        <p><strong>DNI:</strong> ${item.app.extra?.DNICIF || 'N/A'}</p>
+                        <p><strong>Email:</strong> ${item.app.user?.email || 'N/A'}</p>
+                    `;
+                        resultsDiv.appendChild(card);
+                    });
+                }
+            } catch (error) {
+                updateStatus(`Error: ${error.message}`, 'loading');
+                console.error(error);
+            }
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    processJSON(data);
+                } catch (err) {
+                    updateStatus('Error al parsear el archivo JSON.', 'loading');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        checkLocalBtn.addEventListener('click', async () => {
+            // En un entorno de navegador normal no podemos leer archivos locales arbitrarios por seguridad,
+            // pero podemos intentar cargarlo si está en el mismo servidor o pedir al usuario que lo seleccione.
+            updateStatus('Intenta cargarlo seleccionándolo con el botón de "Seleccionar Archivo" para mayor fiabilidad.');
+        });
+    </script>
+
+</body>
+
+</html>
