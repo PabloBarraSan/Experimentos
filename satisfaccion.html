@@ -49,9 +49,9 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 800px;
             width: 100%;
-            padding: 2rem;
+            padding: 3rem;
             text-align: center;
             background: var(--bg);
             border-radius: 1.5rem;
@@ -60,7 +60,7 @@
         }
 
         .title {
-            font-size: 1.75rem;
+            font-size: 2rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
             color: var(--text);
@@ -68,29 +68,35 @@
 
         .subtitle {
             color: var(--text-muted);
-            font-size: 1rem;
+            font-size: 1.125rem;
             margin-bottom: 3rem;
         }
 
         .faces-container {
             display: flex;
             justify-content: center;
-            gap: 0.75rem;
+            align-items: flex-start;
+            gap: 1.5rem;
             flex-wrap: nowrap;
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .face-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .face-btn {
             background: var(--bg-secondary);
             border: 3px solid var(--card-border);
             border-radius: 1rem;
-            padding: 0.75rem;
+            padding: 1.25rem;
             cursor: pointer;
-            font-size: 2.5rem;
+            font-size: 3.5rem;
             transition: all 0.2s ease;
             line-height: 1;
-            width: 60px;
-            height: 60px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -126,10 +132,9 @@
         .face-btn[data-value="5"].selected { background: rgba(34, 197, 94, 0.15); }
 
         .face-label {
-            display: block;
-            font-size: 0.875rem;
+            font-size: 1.25rem;
+            font-weight: 600;
             color: var(--text-muted);
-            margin-top: 0.5rem;
         }
 
         @keyframes pulse {
@@ -230,11 +235,45 @@
         }
 
         /* Responsive */
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             .container {
                 margin: 0.5rem;
-                padding: 1.5rem;
+                padding: 2rem 1.5rem;
                 border-radius: 1rem;
+            }
+
+            .title {
+                font-size: 1.75rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+                margin-bottom: 2rem;
+            }
+
+            .faces-container {
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+
+            .face-btn {
+                font-size: 3rem;
+                padding: 1rem;
+            }
+
+            .face-label {
+                font-size: 1rem;
+            }
+
+            .submit-btn {
+                width: 100%;
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 1.5rem 1rem;
             }
 
             .title {
@@ -243,49 +282,31 @@
 
             .subtitle {
                 font-size: 0.9rem;
-                margin-bottom: 2rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .faces-container {
+                gap: 0.75rem;
             }
 
             .face-btn {
                 font-size: 2.5rem;
-                min-width: 60px;
-                min-height: 60px;
                 padding: 0.75rem;
             }
 
-            .faces-container {
-                gap: 0.5rem;
-                flex-wrap: wrap;
+            .face-label {
+                font-size: 0.875rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .face-btn {
+                font-size: 2rem;
+                padding: 0.5rem;
             }
 
             .face-label {
                 font-size: 0.75rem;
-            }
-
-            .submit-btn {
-                width: 100%;
-                padding: 1rem;
-            }
-
-            .thank-you .icon {
-                font-size: 4rem;
-            }
-
-            .thank-you .message {
-                font-size: 1.25rem;
-            }
-        }
-
-        @media (max-width: 400px) {
-            .face-btn {
-                font-size: 2rem;
-                min-width: 50px;
-                min-height: 50px;
-            }
-
-            .faces-container {
-                gap: 0.35rem;
-                flex-wrap: wrap;
             }
         }
 
@@ -308,13 +329,16 @@
             .faces-container {
                 margin-bottom: 1rem;
                 flex-wrap: wrap;
+                gap: 0.5rem;
             }
 
             .face-btn {
-                font-size: 1.75rem;
-                min-width: 45px;
-                min-height: 45px;
+                font-size: 2rem;
                 padding: 0.5rem;
+            }
+
+            .face-label {
+                font-size: 0.75rem;
             }
 
             .comment-section textarea {
@@ -333,26 +357,26 @@
             <p class="subtitle">Tu opinión nos ayuda a mejorar</p>
 
             <div class="faces-container">
-                <button class="face-btn" data-value="1" aria-label="Muy insatisfecho">
-                    😢
+                <div class="face-wrapper">
+                    <button class="face-btn" data-value="1" aria-label="Muy insatisfecho">😢</button>
                     <span class="face-label">1</span>
-                </button>
-                <button class="face-btn" data-value="2" aria-label="Insatisfecho">
-                    😕
+                </div>
+                <div class="face-wrapper">
+                    <button class="face-btn" data-value="2" aria-label="Insatisfecho">😕</button>
                     <span class="face-label">2</span>
-                </button>
-                <button class="face-btn" data-value="3" aria-label="Neutral">
-                    😐
+                </div>
+                <div class="face-wrapper">
+                    <button class="face-btn" data-value="3" aria-label="Neutral">😐</button>
                     <span class="face-label">3</span>
-                </button>
-                <button class="face-btn" data-value="4" aria-label="Satisfecho">
-                    🙂
+                </div>
+                <div class="face-wrapper">
+                    <button class="face-btn" data-value="4" aria-label="Satisfecho">🙂</button>
                     <span class="face-label">4</span>
-                </button>
-                <button class="face-btn" data-value="5" aria-label="Muy satisfecho">
-                    😊
+                </div>
+                <div class="face-wrapper">
+                    <button class="face-btn" data-value="5" aria-label="Muy satisfecho">😊</button>
                     <span class="face-label">5</span>
-                </button>
+                </div>
             </div>
 
             <div class="comment-section" id="commentSection">
