@@ -75,8 +75,8 @@
         .faces-container {
             display: flex;
             justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
+            gap: 0.75rem;
+            flex-wrap: nowrap;
             margin-bottom: 2rem;
         }
 
@@ -84,17 +84,18 @@
             background: var(--bg-secondary);
             border: 3px solid var(--card-border);
             border-radius: 1rem;
-            padding: 1rem;
+            padding: 0.75rem;
             cursor: pointer;
-            font-size: 3.5rem;
+            font-size: 2.5rem;
             transition: all 0.2s ease;
             line-height: 1;
-            min-width: 80px;
-            min-height: 80px;
+            width: 60px;
+            height: 60px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: var(--shadow);
+            flex-shrink: 0;
         }
 
         .face-btn:hover {
@@ -254,6 +255,7 @@
 
             .faces-container {
                 gap: 0.5rem;
+                flex-wrap: wrap;
             }
 
             .face-label {
@@ -283,6 +285,7 @@
 
             .faces-container {
                 gap: 0.35rem;
+                flex-wrap: wrap;
             }
         }
 
@@ -304,6 +307,7 @@
 
             .faces-container {
                 margin-bottom: 1rem;
+                flex-wrap: wrap;
             }
 
             .face-btn {
