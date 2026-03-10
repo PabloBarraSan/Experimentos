@@ -8,16 +8,21 @@
     <style>
         :root {
             --primary: #4f46e5;
-            --bg: #0f172a;
-            --card-bg: #1e293b;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
+            --primary-light: #6366f1;
+            --bg: #ffffff;
+            --bg-secondary: #f8fafc;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
             --success: #22c55e;
             --face-1: #ef4444;
             --face-2: #f97316;
             --face-3: #eab308;
             --face-4: #84cc16;
             --face-5: #22c55e;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
         * {
@@ -25,9 +30,13 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        html, body {
+            height: 100%;
+        }
+
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg);
+            background-color: var(--bg-secondary);
             color: var(--text);
             margin: 0;
             padding: 0;
@@ -44,6 +53,10 @@
             width: 100%;
             padding: 2rem;
             text-align: center;
+            background: var(--bg);
+            border-radius: 1.5rem;
+            box-shadow: var(--shadow-lg);
+            margin: 1rem;
         }
 
         .title {
@@ -68,8 +81,8 @@
         }
 
         .face-btn {
-            background: var(--card-bg);
-            border: 3px solid transparent;
+            background: var(--bg-secondary);
+            border: 3px solid var(--card-border);
             border-radius: 1rem;
             padding: 1rem;
             cursor: pointer;
@@ -81,10 +94,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: var(--shadow);
         }
 
         .face-btn:hover {
             transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
         }
 
         .face-btn:active {
@@ -93,7 +108,7 @@
 
         .face-btn.selected {
             border-color: var(--success);
-            background: rgba(34, 197, 94, 0.15);
+            background: rgba(34, 197, 94, 0.1);
             animation: pulse 0.3s ease;
         }
 
@@ -103,11 +118,11 @@
         .face-btn[data-value="4"] { border-color: var(--face-4); }
         .face-btn[data-value="5"] { border-color: var(--face-5); }
 
-        .face-btn[data-value="1"].selected { background: rgba(239, 68, 68, 0.2); }
-        .face-btn[data-value="2"].selected { background: rgba(249, 115, 22, 0.2); }
-        .face-btn[data-value="3"].selected { background: rgba(234, 179, 8, 0.2); }
-        .face-btn[data-value="4"].selected { background: rgba(132, 204, 22, 0.2); }
-        .face-btn[data-value="5"].selected { background: rgba(34, 197, 94, 0.2); }
+        .face-btn[data-value="1"].selected { background: rgba(239, 68, 68, 0.15); }
+        .face-btn[data-value="2"].selected { background: rgba(249, 115, 22, 0.15); }
+        .face-btn[data-value="3"].selected { background: rgba(234, 179, 8, 0.15); }
+        .face-btn[data-value="4"].selected { background: rgba(132, 204, 22, 0.15); }
+        .face-btn[data-value="5"].selected { background: rgba(34, 197, 94, 0.15); }
 
         .face-label {
             display: block;
@@ -172,8 +187,8 @@
             max-width: 400px;
             padding: 1rem;
             border-radius: 0.75rem;
-            border: 2px solid var(--card-bg);
-            background: var(--card-bg);
+            border: 2px solid var(--card-border);
+            background: var(--bg-secondary);
             color: var(--text);
             font-size: 1rem;
             resize: none;
@@ -193,18 +208,20 @@
             background: var(--primary);
             color: white;
             border: none;
-            padding: 1rem 2rem;
+            padding: 1rem 2.5rem;
             border-radius: 0.75rem;
             font-size: 1.125rem;
             font-weight: 600;
             cursor: pointer;
             margin-top: 1rem;
             transition: all 0.2s ease;
+            box-shadow: var(--shadow);
         }
 
         .submit-btn:hover {
-            opacity: 0.9;
+            background: var(--primary-light);
             transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
         }
 
         .submit-btn:active {
@@ -212,23 +229,92 @@
         }
 
         /* Responsive */
-        @media (max-width: 480px) {
+        @media (max-width: 600px) {
             .container {
+                margin: 0.5rem;
                 padding: 1.5rem;
+                border-radius: 1rem;
             }
 
             .title {
                 font-size: 1.5rem;
             }
 
+            .subtitle {
+                font-size: 0.9rem;
+                margin-bottom: 2rem;
+            }
+
             .face-btn {
                 font-size: 2.5rem;
                 min-width: 60px;
                 min-height: 60px;
+                padding: 0.75rem;
             }
 
             .faces-container {
                 gap: 0.5rem;
+            }
+
+            .face-label {
+                font-size: 0.75rem;
+            }
+
+            .submit-btn {
+                width: 100%;
+                padding: 1rem;
+            }
+
+            .thank-you .icon {
+                font-size: 4rem;
+            }
+
+            .thank-you .message {
+                font-size: 1.25rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .face-btn {
+                font-size: 2rem;
+                min-width: 50px;
+                min-height: 50px;
+            }
+
+            .faces-container {
+                gap: 0.35rem;
+            }
+        }
+
+        /* Landscape mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .container {
+                padding: 1rem;
+                margin: 0.5rem;
+            }
+
+            .title {
+                font-size: 1.25rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .subtitle {
+                margin-bottom: 1rem;
+            }
+
+            .faces-container {
+                margin-bottom: 1rem;
+            }
+
+            .face-btn {
+                font-size: 1.75rem;
+                min-width: 45px;
+                min-height: 45px;
+                padding: 0.5rem;
+            }
+
+            .comment-section textarea {
+                padding: 0.5rem;
             }
         }
     </style>
