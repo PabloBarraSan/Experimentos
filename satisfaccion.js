@@ -313,9 +313,12 @@ function initFaceButtons() {
             // Mostrar área de comentario
             commentSection.classList.add('visible');
 
-            // Enfocar el textarea
+            // Enfocar el primer botón de opciones si existe
             setTimeout(() => {
-                commentInput.focus();
+                const firstOption = document.querySelector('.comment-rating-btn, .comment-yesno-btn, .comment-option-btn');
+                if (firstOption) {
+                    firstOption.focus();
+                }
             }, 100);
         });
     });
