@@ -9,6 +9,7 @@
         :root {
             --primary: #4f46e5;
             --primary-light: #6366f1;
+            --primary-dark: #4338ca;
             --bg: #ffffff;
             --bg-secondary: #f8fafc;
             --card-bg: #ffffff;
@@ -49,36 +50,63 @@
         }
 
         .container {
-            max-width: 800px;
+            max-width: 500px;
             width: 100%;
-            padding: 3rem;
+            padding: 2.5rem 2rem;
             text-align: center;
             background: var(--bg);
             border-radius: 1.5rem;
             box-shadow: var(--shadow-lg);
             margin: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--face-1), var(--face-2), var(--face-3), var(--face-4), var(--face-5));
+        }
+
+        .header-badge {
+            display: inline-block;
+            background: var(--bg-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1.5rem;
         }
 
         .title {
-            font-size: 2rem;
+            font-size: 1.75rem;
             font-weight: 700;
             margin-bottom: 0.5rem;
             color: var(--text);
+            line-height: 1.2;
         }
 
         .subtitle {
             color: var(--text-muted);
-            font-size: 1.125rem;
-            margin-bottom: 3rem;
+            font-size: 1rem;
+            margin-bottom: 2rem;
+            line-height: 1.5;
         }
 
         .faces-container {
             display: flex;
             justify-content: center;
             align-items: flex-start;
-            gap: 1.5rem;
-            flex-wrap: nowrap;
-            margin-bottom: 2.5rem;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 2rem;
         }
 
         .face-wrapper {
@@ -90,18 +118,20 @@
 
         .face-btn {
             background: var(--bg-secondary);
-            border: 3px solid var(--card-border);
+            border: 2px solid var(--card-border);
             border-radius: 1rem;
-            padding: 1.25rem;
+            padding: 0.875rem;
             cursor: pointer;
-            font-size: 3.5rem;
-            transition: all 0.2s ease;
+            font-size: 2.5rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             line-height: 1;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: var(--shadow);
             flex-shrink: 0;
+            width: 64px;
+            height: 64px;
         }
 
         .face-btn:hover {
@@ -132,7 +162,7 @@
         .face-btn[data-value="5"].selected { background: rgba(34, 197, 94, 0.15); }
 
         .face-label {
-            font-size: 1.25rem;
+            font-size: 0.875rem;
             font-weight: 600;
             color: var(--text-muted);
         }
@@ -154,19 +184,21 @@
         }
 
         .thank-you .icon {
-            font-size: 5rem;
+            font-size: 4rem;
             margin-bottom: 1rem;
+            line-height: 1;
         }
 
         .thank-you .message {
             font-size: 1.5rem;
-            font-weight: 600;
+            font-weight: 700;
             color: var(--success);
             margin-bottom: 0.5rem;
         }
 
         .thank-you .submessage {
             color: var(--text-muted);
+            font-size: 0.95rem;
         }
 
         @keyframes fadeIn {
@@ -180,25 +212,31 @@
 
         /* Área de comentario opcional */
         .comment-section {
-            margin-top: 2rem;
+            margin-top: 1.5rem;
             display: none;
+            animation: slideUp 0.3s ease;
         }
 
         .comment-section.visible {
             display: block;
         }
 
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .comment-section textarea {
             width: 100%;
-            max-width: 400px;
             padding: 1rem;
             border-radius: 0.75rem;
             border: 2px solid var(--card-border);
             background: var(--bg-secondary);
             color: var(--text);
-            font-size: 1rem;
+            font-size: 0.95rem;
             resize: none;
             font-family: inherit;
+            transition: border-color 0.2s ease;
         }
 
         .comment-section textarea:focus {
@@ -210,18 +248,24 @@
             color: var(--text-muted);
         }
 
+        .button-group {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
         .submit-btn {
             background: var(--primary);
             color: white;
             border: none;
-            padding: 1rem 2.5rem;
+            padding: 0.875rem 1.5rem;
             border-radius: 0.75rem;
-            font-size: 1.125rem;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 1rem;
             transition: all 0.2s ease;
             box-shadow: var(--shadow);
+            flex: 1;
         }
 
         .submit-btn:hover {
@@ -234,46 +278,104 @@
             transform: translateY(0);
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container {
-                margin: 0.5rem;
-                padding: 2rem 1.5rem;
-                border-radius: 1rem;
-            }
-
-            .title {
-                font-size: 1.75rem;
-            }
-
-            .subtitle {
-                font-size: 1rem;
-                margin-bottom: 2rem;
-            }
-
-            .faces-container {
-                gap: 1rem;
-                flex-wrap: wrap;
-            }
-
-            .face-btn {
-                font-size: 3rem;
-                padding: 1rem;
-            }
-
-            .face-label {
-                font-size: 1rem;
-            }
-
-            .submit-btn {
-                width: 100%;
-                padding: 1rem;
-            }
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
+        .skip-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: 2px solid var(--card-border);
+            padding: 0.875rem 1.5rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+        }
+
+        .skip-btn:hover {
+            background: var(--bg-secondary);
+            border-color: var(--text-muted);
+        }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Error message */
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--face-1);
+            color: var(--face-1);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: block;
+            animation: shake 0.4s ease;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Realm indicator */
+        .realm-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            background: var(--bg-secondary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+        }
+
+        /* Privacy link */
+        .privacy-link {
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .privacy-link a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .privacy-link a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
         @media (max-width: 480px) {
             .container {
-                padding: 1.5rem 1rem;
+                margin: 0.5rem;
+                padding: 2rem 1.25rem;
+                border-radius: 1rem;
             }
 
             .title {
@@ -282,35 +384,32 @@
 
             .subtitle {
                 font-size: 0.9rem;
-                margin-bottom: 1.5rem;
             }
 
             .faces-container {
-                gap: 0.75rem;
+                gap: 0.5rem;
             }
 
             .face-btn {
-                font-size: 2.5rem;
-                padding: 0.75rem;
-            }
-
-            .face-label {
-                font-size: 0.875rem;
-            }
-        }
-
-        @media (max-width: 360px) {
-            .face-btn {
+                width: 56px;
+                height: 56px;
                 font-size: 2rem;
-                padding: 0.5rem;
+                padding: 0.75rem;
             }
 
             .face-label {
                 font-size: 0.75rem;
             }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .submit-btn, .skip-btn {
+                width: 100%;
+            }
         }
 
-        /* Landscape mobile */
         @media (max-height: 500px) and (orientation: landscape) {
             .container {
                 padding: 1rem;
@@ -323,22 +422,19 @@
             }
 
             .subtitle {
-                margin-bottom: 1rem;
+                margin-bottom: 0.75rem;
             }
 
             .faces-container {
-                margin-bottom: 1rem;
-                flex-wrap: wrap;
+                margin-bottom: 0.75rem;
                 gap: 0.5rem;
             }
 
             .face-btn {
-                font-size: 2rem;
+                width: 48px;
+                height: 48px;
+                font-size: 1.75rem;
                 padding: 0.5rem;
-            }
-
-            .face-label {
-                font-size: 0.75rem;
             }
 
             .comment-section textarea {
@@ -353,29 +449,34 @@
     <div class="container">
         <!-- Pantalla de encuesta -->
         <div class="survey-screen" id="surveyScreen">
-            <h1 class="title">¿Cómo fue tu atención?</h1>
-            <p class="subtitle">Tu opinión nos ayuda a mejorar</p>
+            <div class="realm-indicator" id="realmIndicator"></div>
+
+            <div class="header-badge" id="headerBadge">Encuesta de Satisfacción</div>
+            <h1 class="title" id="surveyTitle">¿Cómo fue tu atención?</h1>
+            <p class="subtitle" id="surveySubtitle">Tu opinión nos ayuda a mejorar</p>
+
+            <div class="error-message" id="errorMessage"></div>
 
             <div class="faces-container">
                 <div class="face-wrapper">
                     <button class="face-btn" data-value="1" aria-label="Muy insatisfecho">😢</button>
-                    <span class="face-label">1</span>
+                    <span class="face-label">Muy mal</span>
                 </div>
                 <div class="face-wrapper">
                     <button class="face-btn" data-value="2" aria-label="Insatisfecho">😕</button>
-                    <span class="face-label">2</span>
+                    <span class="face-label">Mal</span>
                 </div>
                 <div class="face-wrapper">
                     <button class="face-btn" data-value="3" aria-label="Neutral">😐</button>
-                    <span class="face-label">3</span>
+                    <span class="face-label">Regular</span>
                 </div>
                 <div class="face-wrapper">
                     <button class="face-btn" data-value="4" aria-label="Satisfecho">🙂</button>
-                    <span class="face-label">4</span>
+                    <span class="face-label">Bien</span>
                 </div>
                 <div class="face-wrapper">
                     <button class="face-btn" data-value="5" aria-label="Muy satisfecho">😊</button>
-                    <span class="face-label">5</span>
+                    <span class="face-label">Muy bien</span>
                 </div>
             </div>
 
@@ -385,8 +486,10 @@
                     placeholder="¿Quieres añadir un comentario? (opcional)"
                     rows="3"
                 ></textarea>
-                <br>
-                <button class="submit-btn" id="submitBtn">Enviar</button>
+                <div class="button-group">
+                    <button class="submit-btn" id="submitBtn">Enviar</button>
+                    <button class="skip-btn" id="skipBtn">Omitir</button>
+                </div>
             </div>
         </div>
 
@@ -396,93 +499,14 @@
             <div class="message">¡Gracias!</div>
             <div class="submessage">Tu opinión ha sido registrada</div>
         </div>
+
+        <div class="privacy-link" id="privacyLink">
+            <a href="#" id="privacyBtn">Política de privacidad</a>
+        </div>
     </div>
 
-    <script>
-        const surveyScreen = document.getElementById('surveyScreen');
-        const thankYouScreen = document.getElementById('thankYouScreen');
-        const faceButtons = document.querySelectorAll('.face-btn');
-        const commentSection = document.getElementById('commentSection');
-        const commentInput = document.getElementById('commentInput');
-        const submitBtn = document.getElementById('submitBtn');
-
-        let selectedValue = null;
-
-        // Manejar selección de cara
-        faceButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Quitar selección anterior
-                faceButtons.forEach(b => b.classList.remove('selected'));
-
-                // Seleccionar nueva cara
-                btn.classList.add('selected');
-                selectedValue = btn.dataset.value;
-
-                // Mostrar área de comentario
-                commentSection.classList.add('visible');
-
-                // Enfocar el textarea
-                setTimeout(() => {
-                    commentInput.focus();
-                }, 100);
-            });
-        });
-
-        // Enviar valoración
-        function submitRating() {
-            if (!selectedValue) return;
-
-            const data = {
-                rating: parseInt(selectedValue),
-                comment: commentInput.value.trim(),
-                timestamp: new Date().toISOString()
-            };
-
-            // Guardar en localStorage
-            saveToLocalStorage(data);
-
-            // Mostrar pantalla de agradecimiento
-            surveyScreen.classList.add('hidden');
-            thankYouScreen.classList.add('visible');
-
-            // Auto-reset después de 5 segundos
-            setTimeout(resetSurvey, 5000);
-        }
-
-        // Guardar en localStorage
-        function saveToLocalStorage(data) {
-            try {
-                const surveys = JSON.parse(localStorage.getItem('satisfaccion_encuestas') || '[]');
-                surveys.push(data);
-                localStorage.setItem('satisfaccion_encuestas', JSON.stringify(surveys));
-                console.log('Encuesta guardada:', data);
-            } catch (error) {
-                console.error('Error guardando encuesta:', error);
-            }
-        }
-
-        // Reiniciar encuesta
-        function resetSurvey() {
-            selectedValue = null;
-            faceButtons.forEach(b => b.classList.remove('selected'));
-            commentInput.value = '';
-            commentSection.classList.remove('visible');
-            thankYouScreen.classList.remove('visible');
-            surveyScreen.classList.remove('hidden');
-        }
-
-        // Event listeners
-        submitBtn.addEventListener('click', submitRating);
-
-        // Permitir enviar con Enter en el textarea
-        commentInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                submitRating();
-            }
-        });
-    </script>
-
+    <!-- Cargar script externo -->
+    <script src="satisfaccion.js"></script>
 </body>
 
 </html>
