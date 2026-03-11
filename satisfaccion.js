@@ -18,6 +18,7 @@ const PRIVACY_URL = urlParams.get('privacyUrl') || null;
 
 // Variables para la configuración de la encuesta
 let surveyConfig = null;
+let chainConfig = null; // Config de la encuesta enlazada
 let chainSurveys = []; // Encuestas enlazadas
 let currentStep = 1; // 1 = rating, 2 = comentarios (si hay chain)
 
@@ -213,6 +214,9 @@ function renderChainOptions(chainId, container, promptEl) {
             console.log('[Encuesta] Renderizando como freeText por defecto');
             renderFreeTextOptions(container, config);
         }
+
+        // Guardar config de la encuesta enlazada
+        chainConfig = config;
     })
     .catch(err => console.error('[Encuesta] Error chain:', err));
 }
@@ -385,10 +389,28 @@ async function submitRating(skipComment = false) {
     isSubmitting = true;
     setButtonLoading(true);
 
-    // Preparar datos del voto principal
+    // Preparar datos del voto - formato completo según el ejemplo del usuario
     const voteData = {
-        answer: formatVote(parseInt(selectedValue))
+        _id: SURVEY_ID,
+        title: surveyConfig?.title || {},
+        link: surveyConfig?.link || '',
+        description: surveyConfig?.description || {},
+        showResults: surveyConfig?.showResults || false,
+        shouldConfirmAnswer: surveyConfig?.shouldConfirmAnswer || false,
+        startTime: surveyConfig?.startTime || '',
+        endTime: surveyConfig?.endTime || '',
+        endPublicationTime: surveyConfig?.endPublicationTime || '',
+        ratingRange: surveyConfig?.ratingRange || [1, 5],
+        app: APP_ID || surveyConfig?.app || '',
+        isActive: surveyConfig?.isActive || true,
+        displayType: surveyConfig?.displayType || 'rating',
+        credentials: surveyConfig?.credentials || 'none',
+        isChild: surveyConfig?.isChild || false,
+        submittedMessage: surveyConfig?.submittedMessage || {},
+        rating: parseInt(selectedValue)
     };
+
+    console.log('[Encuesta] Voto principal:', JSON.stringify(voteData));
 
     try {
         // 1. Enviar voto principal
