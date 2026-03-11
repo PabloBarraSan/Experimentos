@@ -192,16 +192,26 @@ function renderChainOptions(chainId, container, promptEl) {
             promptEl.textContent = typeof config.title === 'object' ? config.title.es || config.title.ca || '¿Quieres añadir un comentario?' : config.title;
         }
 
+        // Mostrar botones siempre cuando hay chain
+        const buttonGroup = document.querySelector('#commentStep .button-group');
+        if (buttonGroup) {
+            buttonGroup.style.display = 'flex';
+        }
+
         // Según el tipo de encuesta, renderizar opciones
-        const displayType = config.displayType || config.displaytype || 'options';
+        const displayType = config.displayType || config.displaytype || config.type || 'options';
+        console.log('[Encuesta] DisplayType chain:', displayType);
 
         if (displayType === 'rating' || displayType === 'ratingStars') {
-            // Renderizar estrellas/números
             renderRatingOptions(container, config);
         } else if (displayType === 'yesNo') {
             renderYesNoOptions(container);
         } else if (displayType === 'options' || displayType === 'optionsMultiple') {
             renderTextOptions(container, config);
+        } else {
+            // Por defecto, intentar renderizar como freeText (respuesta libre)
+            console.log('[Encuesta] Renderizando como freeText por defecto');
+            renderFreeTextOptions(container, config);
         }
     })
     .catch(err => console.error('[Encuesta] Error chain:', err));
