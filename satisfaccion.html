@@ -467,6 +467,33 @@
             color: var(--primary);
         }
 
+        /* Free text input */
+        .free-text-input {
+            margin-bottom: 1.5rem;
+        }
+
+        .comment-textarea {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 2px solid var(--card-border);
+            background: var(--bg-secondary);
+            color: var(--text);
+            font-size: 0.95rem;
+            font-family: inherit;
+            resize: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .comment-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .comment-textarea::placeholder {
+            color: var(--text-muted);
+        }
+
         /* Responsive */
         @media (max-width: 480px) {
             .container {

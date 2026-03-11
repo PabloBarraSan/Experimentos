@@ -274,6 +274,15 @@ function renderYesNoOptions(container) {
  * Renderizar opciones de texto
  */
 function renderTextOptions(container, config) {
+    const displayType = config.displayType || config.displaytype || 'options';
+
+    // Si es respuesta libre (freeText), renderizar textarea
+    if (displayType === 'freeText' || displayType === 'text' || displayType === 'textarea') {
+        renderFreeTextOptions(container, config);
+        return;
+    }
+
+    // Si es options u optionsMultiple, renderizar botones
     const answers = config.answers || config.proposals || [];
     const wrapper = document.createElement('div');
     wrapper.className = 'comment-options-list';
@@ -295,6 +304,32 @@ function renderTextOptions(container, config) {
 
     container.appendChild(wrapper);
     window.commentRatingValue = null;
+}
+
+/**
+ * Renderizar input de texto libre
+ */
+function renderFreeTextOptions(container, config) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'free-text-input';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'comment-textarea';
+    textarea.placeholder = config.placeholder || 'Escribe tu comentario...';
+    textarea.rows = config.rows || 4;
+    textarea.dataset.maxLength = config.maxLength || 500;
+
+    textarea.addEventListener('input', () => {
+        // Para freeText se guarda el valor directamente como string
+        window.commentRatingValue = textarea.value;
+    });
+
+    wrapper.appendChild(textarea);
+    container.appendChild(wrapper);
+    window.commentRatingValue = '';
+
+    // Enfocar el textarea
+    setTimeout(() => textarea.focus(), 100);
 }
 
 /**
