@@ -18,6 +18,8 @@ const PRIVACY_URL = urlParams.get('privacyUrl') || null;
 
 // Variables para la configuración de la encuesta
 let surveyConfig = null;
+let chainSurveys = []; // Encuestas enlazadas
+let currentStep = 1; // 1 = rating, 2 = comentarios (si hay chain)
 
 // Elementos del DOM
 const surveyScreen = document.getElementById('surveyScreen');
@@ -42,8 +44,8 @@ let isSubmitting = false;
 async function fetchSurveyConfig() {
     if (!SURVEY_ID) return null;
 
-    let apiUrl = `${API_BASE_URL}/${REALM}${API_SURVEYS_PATH}/${SURVEY_ID}`;
-    if (APP_ID) apiUrl += `?app=${APP_ID}`;
+    let apiUrl = `${API_BASE_URL}/${REALM}${API_SURVEYS_PATH}/${SURVEY_ID}?expand=true`;
+    if (APP_ID) apiUrl += `&app=${APP_ID}`;
 
     try {
         const response = await fetch(apiUrl, {
@@ -57,6 +59,11 @@ async function fetchSurveyConfig() {
         if (response.ok) {
             surveyConfig = await response.json();
             console.log('[Encuesta] Configuración:', surveyConfig);
+
+            // Guardar encuestas enlazadas (chain)
+            chainSurveys = surveyConfig.chain || [];
+            console.log('[Encuesta] Encuestas enlazadas:', chainSurveys);
+
             return surveyConfig;
         }
     } catch (error) {
@@ -131,6 +138,163 @@ async function initFromParams() {
     if (SURVEY_ID) {
         await fetchSurveyConfig();
     }
+
+    // Configurar UI según si hay encuestas enlazadas
+    setTimeout(() => setupCommentSection(), 100);
+}
+
+/**
+ * Configurar la sección de comentarios según el tipo de encuesta
+ */
+function setupCommentSection() {
+    const commentStep = document.getElementById('commentStep');
+    const ratingOnlySection = document.getElementById('ratingOnlySection');
+    const commentOptions = document.getElementById('commentOptions');
+    const commentPrompt = document.getElementById('commentPrompt');
+
+    // Ocultar botones antiguos
+    const oldButtonGroup = document.querySelector('.comment-section .button-group');
+    if (oldButtonGroup) {
+        oldButtonGroup.style.display = 'none';
+    }
+
+    if (chainSurveys && chainSurveys.length > 0) {
+        // Hay encuestas enlazadas - mostrar paso 2
+        commentStep.style.display = 'block';
+        ratingOnlySection.style.display = 'none';
+
+        // Construir opciones de la primera encuesta enlazada
+        const chainId = chainSurveys[0];
+        renderChainOptions(chainId, commentOptions, commentPrompt);
+    } else {
+        // Sin chain - mostrar solo botón de enviar
+        commentStep.style.display = 'none';
+        ratingOnlySection.style.display = 'block';
+    }
+}
+
+/**
+ * Renderizar las opciones de la encuesta enlazada
+ */
+function renderChainOptions(chainId, container, promptEl) {
+    // Obtener config de la encuesta enlazada
+    fetch(`${API_BASE_URL}/${REALM}${API_SURVEYS_PATH}/${chainId}${APP_ID ? '?app=' + APP_ID : ''}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept-Language': 'es' }
+    })
+    .then(res => res.json())
+    .then(config => {
+        console.log('[Encuesta] Config chain:', config);
+
+        // Actualizar prompt
+        if (config.title) {
+            promptEl.textContent = typeof config.title === 'object' ? config.title.es || config.title.ca || '¿Quieres añadir un comentario?' : config.title;
+        }
+
+        // Según el tipo de encuesta, renderizar opciones
+        const displayType = config.displayType || config.displaytype || 'options';
+
+        if (displayType === 'rating' || displayType === 'ratingStars') {
+            // Renderizar estrellas/números
+            renderRatingOptions(container, config);
+        } else if (displayType === 'yesNo') {
+            renderYesNoOptions(container);
+        } else if (displayType === 'options' || displayType === 'optionsMultiple') {
+            renderTextOptions(container, config);
+        }
+    })
+    .catch(err => console.error('[Encuesta] Error chain:', err));
+}
+
+/**
+ * Renderizar opciones de rating para comments
+ */
+function renderRatingOptions(container, config) {
+    const maxRating = 5;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'comment-rating';
+
+    for (let i = 1; i <= maxRating; i++) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'comment-rating-btn';
+        btn.dataset.value = i;
+        btn.textContent = i;
+        btn.addEventListener('click', () => selectCommentRating(i, wrapper));
+        wrapper.appendChild(btn);
+    }
+
+    container.appendChild(wrapper);
+    window.commentRatingValue = null;
+}
+
+function selectCommentRating(value, container) {
+    // Quitar selección anterior
+    container.querySelectorAll('.comment-rating-btn').forEach(b => b.classList.remove('selected'));
+    // Seleccionar nuevo
+    container.querySelector(`[data-value="${value}"]`).classList.add('selected');
+    window.commentRatingValue = value;
+}
+
+/**
+ * Renderizar opciones Sí/No
+ */
+function renderYesNoOptions(container) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'comment-yesno';
+
+    const yesBtn = document.createElement('button');
+    yesBtn.type = 'button';
+    yesBtn.className = 'comment-yesno-btn';
+    yesBtn.textContent = 'Sí';
+    yesBtn.addEventListener('click', () => {
+        wrapper.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+        yesBtn.classList.add('selected');
+        window.commentRatingValue = true;
+    });
+
+    const noBtn = document.createElement('button');
+    noBtn.type = 'button';
+    noBtn.className = 'comment-yesno-btn';
+    noBtn.textContent = 'No';
+    noBtn.addEventListener('click', () => {
+        wrapper.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+        noBtn.classList.add('selected');
+        window.commentRatingValue = false;
+    });
+
+    wrapper.appendChild(yesBtn);
+    wrapper.appendChild(noBtn);
+    container.appendChild(wrapper);
+    window.commentRatingValue = null;
+}
+
+/**
+ * Renderizar opciones de texto
+ */
+function renderTextOptions(container, config) {
+    const answers = config.answers || config.proposals || [];
+    const wrapper = document.createElement('div');
+    wrapper.className = 'comment-options-list';
+
+    answers.forEach(answer => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'comment-option-btn';
+        btn.dataset.id = answer._id;
+        const text = typeof answer.title === 'object' ? answer.title.es || answer.title.ca || answer.text : answer.text || answer.title;
+        btn.textContent = text;
+        btn.addEventListener('click', () => {
+            wrapper.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            window.commentRatingValue = answer._id;
+        });
+        wrapper.appendChild(btn);
+    });
+
+    container.appendChild(wrapper);
+    window.commentRatingValue = null;
 }
 
 /**
@@ -159,7 +323,7 @@ function initFaceButtons() {
 
 /**
  * Enviar valoración a la API
- * @param {boolean} skipComment - Si true, envía sin comentario
+ * @param {boolean} skipComment - Si true, omite el comentario
  */
 async function submitRating(skipComment = false) {
     if (!selectedValue || isSubmitting) return;
@@ -173,32 +337,19 @@ async function submitRating(skipComment = false) {
     isSubmitting = true;
     setButtonLoading(true);
 
-    // Preparar datos del voto - formatear según el tipo de encuesta
+    // Preparar datos del voto principal
     const voteData = {
         answer: formatVote(parseInt(selectedValue))
     };
 
-    // Añadir comentario si existe y no se omite
-    if (!skipComment && commentInput.value.trim()) {
-        voteData.answer = {
-            rating: parseInt(selectedValue),
-            comment: commentInput.value.trim()
-        };
-    }
-
-    // Construir URL con parámetros opcionales
-    let apiUrl = `${API_BASE_URL}/${REALM}${API_SURVEYS_PATH}/${SURVEY_ID}/vote`;
-    const queryParams = [];
-    if (APP_ID) queryParams.push(`app=${APP_ID}`);
-    if (queryParams.length > 0) {
-        apiUrl += '?' + queryParams.join('&');
-    }
-
-    console.log('[Encuesta] Enviando voto a:', apiUrl);
-    console.log('[Encuesta] Datos:', JSON.stringify(voteData));
-
     try {
-        const response = await fetch(apiUrl, {
+        // 1. Enviar voto principal
+        let apiUrl = `${API_BASE_URL}/${REALM}${API_SURVEYS_PATH}/${SURVEY_ID}/vote`;
+        if (APP_ID) apiUrl += `?app=${APP_ID}`;
+
+        console.log('[Encuesta] Enviando voto principal a:', apiUrl);
+
+        let response = await fetch(apiUrl, {
             method: 'POST',
             credentials: 'include',
             headers: {
@@ -208,18 +359,45 @@ async function submitRating(skipComment = false) {
             body: JSON.stringify(voteData)
         });
 
-        const responseData = await response.json().catch(() => ({}));
-        console.log('[Encuesta] Respuesta:', response.status, responseData);
+        let responseData = await response.json().catch(() => ({}));
+        console.log('[Encuesta] Respuesta principal:', response.status, responseData);
 
         if (!response.ok) {
-            throw new Error(responseData.message || responseData.error || `Error HTTP ${response.status}`);
+            throw new Error(responseData.message || responseData.error || `Error al enviar valoración`);
+        }
+
+        // 2. Si hay encuestas enlazadas y no se omite, enviar comentario
+        if (chainSurveys && chainSurveys.length > 0 && !skipComment && window.commentRatingValue !== null) {
+            const chainId = chainSurveys[0];
+
+            let chainApiUrl = `${API_BASE_URL}/${REALM}${API_SURVEYS_PATH}/${chainId}/vote`;
+            if (APP_ID) chainApiUrl += `?app=${APP_ID}`;
+
+            const chainVoteData = {
+                answer: window.commentRatingValue
+            };
+
+            console.log('[Encuesta] Enviando comentario a:', chainApiUrl, chainVoteData);
+
+            response = await fetch(chainApiUrl, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept-Language': 'es'
+                },
+                body: JSON.stringify(chainVoteData)
+            });
+
+            responseData = await response.json().catch(() => ({}));
+            console.log('[Encuesta] Respuesta comentario:', response.status, responseData);
         }
 
         // Éxito - mostrar pantalla de agradecimiento
         surveyScreen.classList.add('hidden');
         thankYouScreen.classList.add('visible');
 
-        console.log('[Encuesta] Voto enviado correctamente:', voteData);
+        console.log('[Encuesta] Voto(s) enviado(s) correctamente');
 
     } catch (error) {
         console.error('[Encuesta] Error al enviar:', error);
@@ -262,16 +440,25 @@ function setButtonLoading(loading) {
  * Inicializar event listeners
  */
 function initEventListeners() {
+    // Botones del paso con chain
     submitBtn.addEventListener('click', () => submitRating(false));
     skipBtn.addEventListener('click', () => submitRating(true));
 
-    // Permitir enviar con Enter en el textarea
-    commentInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && !isSubmitting) {
-            e.preventDefault();
-            submitRating(false);
-        }
-    });
+    // Botón simple sin chain
+    const submitBtnSimple = document.getElementById('submitBtnSimple');
+    if (submitBtnSimple) {
+        submitBtnSimple.addEventListener('click', () => submitRating(false));
+    }
+
+    // Permitir enviar con Enter (si hay input de comentario legacy)
+    if (commentInput) {
+        commentInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !isSubmitting) {
+                e.preventDefault();
+                submitRating(false);
+            }
+        });
+    }
 }
 
 // Inicializar cuando el DOM esté listo

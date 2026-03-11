@@ -370,6 +370,103 @@
             text-decoration: underline;
         }
 
+        /* Comment section styles */
+        .comment-prompt {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+
+        .comment-rating {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .comment-rating-btn {
+            width: 48px;
+            height: 48px;
+            border: 2px solid var(--card-border);
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .comment-rating-btn:hover {
+            border-color: var(--primary);
+            background: rgba(79, 70, 229, 0.1);
+        }
+
+        .comment-rating-btn.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+
+        .comment-yesno {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .comment-yesno-btn {
+            padding: 0.75rem 2rem;
+            border: 2px solid var(--card-border);
+            border-radius: 0.75rem;
+            background: var(--bg-secondary);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .comment-yesno-btn:hover {
+            border-color: var(--primary);
+        }
+
+        .comment-yesno-btn.selected {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+        }
+
+        .comment-options-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .comment-option-btn {
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--card-border);
+            border-radius: 0.75rem;
+            background: var(--bg-secondary);
+            font-size: 0.95rem;
+            color: var(--text);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .comment-option-btn:hover {
+            border-color: var(--primary);
+            background: rgba(79, 70, 229, 0.05);
+        }
+
+        .comment-option-btn.selected {
+            border-color: var(--primary);
+            background: rgba(79, 70, 229, 0.1);
+            color: var(--primary);
+        }
+
         /* Responsive */
         @media (max-width: 480px) {
             .container {
@@ -481,14 +578,21 @@
             </div>
 
             <div class="comment-section" id="commentSection">
-                <textarea
-                    id="commentInput"
-                    placeholder="¿Quieres añadir un comentario? (opcional)"
-                    rows="3"
-                ></textarea>
-                <div class="button-group">
-                    <button class="submit-btn" id="submitBtn">Enviar</button>
-                    <button class="skip-btn" id="skipBtn">Omitir</button>
+                <!-- Paso 2: Comentarios (solo si hay encuestas enlazadas) -->
+                <div id="commentStep" style="display: none;">
+                    <p class="comment-prompt" id="commentPrompt">¿Quieres añadir un comentario?</p>
+                    <div id="commentOptions" class="comment-options"></div>
+                    <div class="button-group">
+                        <button class="submit-btn" id="submitBtn">Enviar</button>
+                        <button class="skip-btn" id="skipBtn">Omitir</button>
+                    </div>
+                </div>
+
+                <!-- Paso 1: Solo rating (sin chain) -->
+                <div id="ratingOnlySection" style="display: none;">
+                    <div class="button-group">
+                        <button class="submit-btn" id="submitBtnSimple">Enviar</button>
+                    </div>
                 </div>
             </div>
         </div>
