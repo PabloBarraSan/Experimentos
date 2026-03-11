@@ -15,6 +15,7 @@ const APP_ID = urlParams.get('app') || null;
 const TITLE = urlParams.get('title') || null;
 const SUBTITLE = urlParams.get('subtitle') || null;
 const PRIVACY_URL = urlParams.get('privacyUrl') || null;
+const AUTO_RESET = 8; // segundos hasta reset automático
 
 // Variables para la configuración de la encuesta
 let surveyConfig = null;
@@ -437,7 +438,12 @@ async function submitRating(skipComment = false) {
         }
 
         // 2. Si hay encuestas enlazadas y no se omite, enviar comentario
-        if (chainSurveys && chainSurveys.length > 0 && !skipComment && window.commentRatingValue !== null) {
+        // Solo enviar comentario si hay valor y no está vacío
+        const hasCommentValue = window.commentRatingValue !== null &&
+                                window.commentRatingValue !== '' &&
+                                window.commentRatingValue !== undefined;
+
+        if (chainSurveys && chainSurveys.length > 0 && hasCommentValue) {
             const chainId = chainSurveys[0];
 
             let chainApiUrl = `${API_BASE_URL}/${REALM}${API_SURVEYS_PATH}/${chainId}/vote`;
@@ -468,6 +474,13 @@ async function submitRating(skipComment = false) {
         thankYouScreen.classList.add('visible');
 
         console.log('[Encuesta] Voto(s) enviado(s) correctamente');
+
+        // Auto-reset después de X segundos para permitir nuevo voto
+        const AUTO_RESET_DELAY = AUTO_RESET * 1000;
+        console.log(`[Encuesta] Reseteando en ${AUTO_RESET} segundos...`);
+        setTimeout(() => {
+            resetSurvey();
+        }, AUTO_RESET_DELAY);
 
     } catch (error) {
         console.error('[Encuesta] Error al enviar:', error);
@@ -509,6 +522,58 @@ function setButtonLoading(loading) {
 /**
  * Inicializar event listeners
  */
+/**
+ * Resettear la encuesta para el siguiente votante
+ */
+function resetSurvey() {
+    // Resetear valores
+    selectedValue = null;
+    window.commentRatingValue = null;
+    isSubmitting = false;
+
+    // Quitar selección de caras
+    faceButtons.forEach(b => b.classList.remove('selected'));
+
+    // Ocultar pantalla de agradecimiento
+    thankYouScreen.classList.remove('visible');
+
+    // Mostrar pantalla de encuesta
+    surveyScreen.classList.remove('hidden');
+
+    // Resetear comment section - primero limpiar opciones
+    const commentOptions = document.getElementById('commentOptions');
+    if (commentOptions) {
+        commentOptions.innerHTML = '';
+    }
+
+    // Ocultar comment section hasta seleccionar rating
+    commentSection.classList.remove('visible');
+
+    // Ocultar commentStep y mostrar ratingOnlySection según corresponda
+    const commentStep = document.getElementById('commentStep');
+    const ratingOnlySection = document.getElementById('ratingOnlySection');
+    const buttonGroup = document.querySelector('#commentStep .button-group');
+
+    if (buttonGroup) {
+        buttonGroup.style.display = 'none';
+    }
+
+    // Ocultar ambos pasos inicialmente
+    if (commentStep) commentStep.style.display = 'none';
+    if (ratingOnlySection) {
+        if (chainSurveys && chainSurveys.length > 0) {
+            ratingOnlySection.style.display = 'none';
+        } else {
+            ratingOnlySection.style.display = 'block';
+        }
+    }
+
+    // Resetear botones
+    setButtonLoading(false);
+
+    console.log('[Encuesta] Encuesta reseteada para nuevo voto');
+}
+
 function initEventListeners() {
     // Botones del paso con chain
     submitBtn.addEventListener('click', () => submitRating(false));
