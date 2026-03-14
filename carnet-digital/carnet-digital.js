@@ -6,12 +6,20 @@ var CarnetDigital = {
   state: {
     isLoading: true,
     error: null,
-    carnetData: null
+    carnetData: null,
+    currentTime: new Date(),
+    timerId: null
   },
 
   // Ciclo de vida: cargar datos de la API
   oninit: function() {
     var self = this;
+
+    // Iniciar reloj cada segundo
+    self.state.timerId = setInterval(function() {
+      self.state.currentTime = new Date();
+      m.redraw();
+    }, 1000);
 
     m.request({
       method: 'GET',
@@ -27,6 +35,13 @@ var CarnetDigital = {
       self.state.isLoading = false;
       m.redraw();
     });
+  },
+
+  // Limpiar intervalo al desmontar componente
+  onremove: function() {
+    if (this.state.timerId) {
+      clearInterval(this.state.timerId);
+    }
   },
 
   view: function() {
@@ -77,6 +92,7 @@ var CarnetDigital = {
     // Datos del carnet
     var carnet = state.carnetData;
     var badges = carnet.badges || [];
+    var timeString = state.currentTime.toLocaleTimeString();
 
     // Render principal
     return m('div', {
@@ -128,6 +144,39 @@ var CarnetDigital = {
           m('div', {
             style: { 'font-size': '12px', 'opacity': '0.7', 'margin-top': '4px' }
           }, 'Acceso Polideportivo Municipal')
+        ]),
+
+        // Reloj en tiempo real
+        m('div', {
+          style: {
+            'text-align': 'center',
+            'margin-bottom': '16px',
+            'padding': '8px 12px',
+            'background': 'rgba(255, 255, 255, 0.15)',
+            'border-radius': '8px',
+            'display': 'inline-block',
+            'width': '100%'
+          }
+        }, [
+          m('span', {
+            style: {
+              'display': 'inline-block',
+              'width': '8px',
+              'height': '8px',
+              'background': '#22c55e',
+              'border-radius': '50%',
+              'margin-right': '8px',
+              'animation': 'pulse 1s infinite'
+            }
+          }),
+          m('span', {
+            style: {
+              'font-family': 'monospace',
+              'font-size': '14px',
+              'font-weight': '600',
+              'letter-spacing': '1px'
+            }
+          }, timeString)
         ]),
 
         // QR Canvas
