@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull)",
+      "WebFetch(domain:api.digitalvalue.es)"
+    ]
+  }
+}
