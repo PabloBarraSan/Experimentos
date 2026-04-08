@@ -21,13 +21,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
           fetch-depth: 0
 
-      - name: Verify submodule
+      - name: Clone DView submodule
+        run: |
+          rm -rf DView
+          git clone --depth 1 https://github.com/DigitalValue/DView.git DView
+
+      - name: Verify files
         run: |
           ls -la DView/
-          cat DView/util.js | head -5
+          head -3 DView/util.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
