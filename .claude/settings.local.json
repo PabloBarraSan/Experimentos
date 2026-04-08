@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(git pull)",
-      "WebFetch(domain:api.digitalvalue.es)"
+      "WebFetch(domain:api.digitalvalue.es)",
+      "Bash(git submodule:*)",
+      "Bash(git config:*)"
     ]
   }
 }
