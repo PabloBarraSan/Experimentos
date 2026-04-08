@@ -21,8 +21,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
           fetch-depth: 0
+
+      - name: Verify submodule
+        run: |
+          ls -la DView/
+          cat DView/util.js | head -5
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
