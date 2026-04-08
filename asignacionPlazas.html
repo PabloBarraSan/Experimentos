@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asignador de Plazas Aplec Vilareal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .table-fixed-layout {
+            table-layout: fixed;
+            width: 100%;
+        }
+        .table-fixed-layout th, .table-fixed-layout td {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            hyphens: auto;
+            padding: 0.5rem; 
+        }
+        #dropZone.dragover {
+            border-color: #2563eb; /* blue-600 */
+            background-color: #eff6ff; /* blue-50 */
+        }
+        button {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 md:p-8">
+    <div class="container mx-auto max-w-6xl bg-white p-6 md:p-8 rounded-xl shadow-2xl">
+
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-blue-700">Asignador de Plazas Aplec Vilareal</h1>
+            <p class="text-gray-600 mt-2">Carga tu archivo CSV de inscripciones para asignar las plazas automáticamente.</p>
+        </header>
+
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="-mb-px flex space-x-4" aria-label="Tabs">
+                <button id="tabButtonAplec" class="tab-button active" data-tab="aplec">APLEC</button>
+                <button id="tabButtonXicaes" class="tab-button" data-tab="xicaes">XICAES</button>
+                <button id="tabButtonPasqua" class="tab-button" data-tab="pasqua">PASQUA</button>
+            </nav>
+        </div>
+
+        <div id="tabContentAplec" class="tab-content active">
+            </div>
+        <div id="tabContentXicaes" class="tab-content">
+            </div>
+        <div id="tabContentPasqua" class="tab-content">
+            </div>
+        
+        <section id="capacidadesInfoCurrentTab" class="mb-8 p-6 bg-blue-50 rounded-lg shadow">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Capacidad de los Turnos (<span id="currentTabNameDisplay">APLEC</span>)</h2>
+            <div id="listaCapacidadesCurrentTab" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                </div>
+        </section>
+
+        <section id="pasquaConfig" class="mb-8 p-6 bg-blue-50 rounded-lg shadow hidden">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Configuración PASQUA</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="block text-sm text-gray-700">
+                    Capacidad CEIP Angelina Abad
+                    <input id="capAngelina" type="number" min="0" value="60" class="mt-1 w-full border border-gray-300 rounded p-2">
+                </label>
+                <label class="block text-sm text-gray-700">
+                    Capacidad CEIP Pascual Nacher
+                    <input id="capPascual" type="number" min="0" value="60" class="mt-1 w-full border border-gray-300 rounded p-2">
+                </label>
+            </div>
+            <button id="aplicarCapacidadesPasquaBtn" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow">
+                Aplicar capacidades
+            </button>
+            <p class="mt-2 text-xs text-gray-600">Al cambiar capacidades, será necesario volver a procesar las inscripciones.</p>
+        </section>
+
+        <section class="mb-8 p-6 bg-green-50 rounded-lg shadow">
+            <h2 class="text-2xl font-semibold text-green-600 mb-4">1. Cargar Archivo de Inscripciones (.csv) para <span class="currentTabNameDisplaySimple">APLEC</span></h2>
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-green-500 transition-colors">
+                <input type="file" id="csvFile" accept=".csv" class="hidden">
+                <p id="dropZoneText" class="text-gray-500">Arrastra y suelta tu archivo CSV aquí, o <span class="text-green-600 font-semibold">haz clic para seleccionar</span>.</p>
+                <p id="fileName" class="mt-2 text-sm text-gray-700"></p>
+            </div>
+            <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label class="block text-sm text-gray-700">
+                    Número de sorteo (inicio circular)
+                    <input id="sorteoInicio" type="number" min="1" value="1" class="mt-1 w-full border border-gray-300 rounded p-2">
+                </label>
+                <div class="text-xs text-gray-600 self-end">
+                    El orden de asignación empezará en este número y seguirá en círculo hasta volver al 1.
+                </div>
+            </div>
+            <div id="pasquaPasteBlock" class="mt-6 hidden">
+                <label class="block text-sm text-gray-700 mb-2">Pega aquí los datos (CSV o tabulado)</label>
+                <textarea id="pasquaText" rows="6" class="w-full border border-gray-300 rounded p-3 text-sm" placeholder="ID;Angelina;Pascual&#10;1;1;2&#10;2;2;1"></textarea>
+                <button id="procesarTextoPasquaBtn" class="mt-3 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow">
+                    Procesar texto (PASQUA)
+                </button>
+            </div>
+            <button id="procesarBtn" class="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50" disabled>
+                2. Procesar Inscripciones (<span class="currentTabNameDisplaySimple">APLEC</span>)
+            </button>
+        </section>
+
+        <div id="mensajeEstado" class="my-4 p-4 rounded-lg text-center text-sm" role="alert"></div>
+
+        <section id="resultadosContainer" class="mt-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-6 text-center">Resultados de la Asignación (<span class="currentTabNameDisplaySimple">APLEC</span>)</h2>
+            
+            <div class="grid md:grid-cols-2 gap-6 mb-8">
+                <div class="p-6 bg-indigo-50 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-indigo-600 mb-4">Solicitantes Asignados</h3>
+                    <div id="asignadosDiv" class="max-h-96 overflow-y-auto space-y-2">
+                        <p class="text-gray-500 italic">Aún no se han procesado asignaciones.</p>
+                    </div>
+                </div>
+
+                <div class="p-6 bg-red-50 rounded-lg shadow">
+                    <h3 class="text-xl font-semibold text-red-600 mb-4">Solicitantes No Asignados</h3>
+                    <div id="noAsignadosDiv" class="max-h-96 overflow-y-auto space-y-2">
+                        <p class="text-gray-500 italic">Aún no se han procesado asignaciones.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 p-6 bg-yellow-50 rounded-lg shadow">
+                <h3 class="text-xl font-semibold text-yellow-700 mb-4">Estado Final de Ocupación de Turnos</h3>
+                <div id="ocupacionDiv" class="overflow-x-auto">
+                     <p class="text-gray-500 italic">Aún no se han procesado asignaciones.</p>
+                </div>
+            </div>
+
+            <div class="mt-8 text-center">
+                <button id="exportCsvBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-transform transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50" disabled>
+                    Exportar Asignados (CSV) (<span class="currentTabNameDisplaySimple">APLEC</span>)
+                </button>
+            </div>
+
+            <div class="mt-12 p-6 bg-gray-50 rounded-lg shadow">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Detalle de Todas las Inscripciones (<span class="currentTabNameDisplaySimple">APLEC</span>)</h3>
+                <div id="detalleInscripcionesDiv" class="overflow-x-auto max-h-[600px]">
+                     <p class="text-gray-500 italic">Aún no se han procesado asignaciones para mostrar detalles.</p>
+                </div>
+            </div>
+        </section>
+        
+        <footer class="mt-12 text-center text-sm text-gray-500">
+            <p>&copy; <span id="currentYear"></span> Asignador de Plazas. Adaptado para el Aplec de Vilareal.</p>
+        </footer>
+    </div>
+
+    <script>
+        const CERVANTES = "cervantes";
+        const SARTHOU = "sarthou";
+        const ANGELINA = "angelina";
+        const PASCUAL = "pascual";
+        
+        const tabState = {
+            aplec: {
+                capacidades: {},
+                archivoCargado: null,
+                todosLosSolicitantesProcesados: [],
+                encabezadosOriginalesCSV: [],
+                fileName: "",
+                sorteoInicio: 1
+            },
+            xicaes: {
+                capacidades: {},
+                archivoCargado: null,
+                todosLosSolicitantesProcesados: [],
+                encabezadosOriginalesCSV: [],
+                fileName: "",
+                sorteoInicio: 1
+            },
+            pasqua: {
+                capacidades: {},
+                archivoCargado: null,
+                todosLosSolicitantesProcesados: [],
+                encabezadosOriginalesCSV: [],
+                fileName: "",
+                sorteoInicio: 1
+            }
+        };
+        let activeTab = 'aplec'; 
+
+        const knownTurnoIds = { 
+            aplec: [
+                "sarthou1", "sarthou2", "sarthou3",
+                "cervantes1", "cervantes2", "cervantes3", "cervantes4", "cervantes5"
+            ],
+            xicaes: [ 
+                "xicaes1", "xicaes2", "xicaes3", "xicaes4", "xicaes5" 
+            ],
+            pasqua: [
+                ANGELINA,
+                PASCUAL
+            ]
+        };
+        const idColumnNameCSV = "número"; 
+
+        const csvFileInput = document.getElementById('csvFile');
+        const procesarBtn = document.getElementById('procesarBtn');
+        const mensajeEstado = document.getElementById('mensajeEstado');
+        const asignadosDiv = document.getElementById('asignadosDiv');
+        const noAsignadosDiv = document.getElementById('noAsignadosDiv');
+        const ocupacionDiv = document.getElementById('ocupacionDiv');
+        const listaCapacidadesDiv = document.getElementById('listaCapacidadesCurrentTab');
+        const dropZone = document.getElementById('dropZone');
+        const dropZoneText = document.getElementById('dropZoneText');
+        const fileNameDisplay = document.getElementById('fileName');
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const detalleInscripcionesDiv = document.getElementById('detalleInscripcionesDiv');
+        const currentTabNameDisplay = document.getElementById('currentTabNameDisplay');
+        const currentTabNameDisplaySimpleElements = document.querySelectorAll('.currentTabNameDisplaySimple');
+        const tabButtonAplec = document.getElementById('tabButtonAplec');
+        const tabButtonXicaes = document.getElementById('tabButtonXicaes');
+        const tabButtonPasqua = document.getElementById('tabButtonPasqua');
+        const sorteoInicioInput = document.getElementById('sorteoInicio');
+        const pasquaConfig = document.getElementById('pasquaConfig');
+        const capAngelinaInput = document.getElementById('capAngelina');
+        const capPascualInput = document.getElementById('capPascual');
+        const aplicarCapacidadesPasquaBtn = document.getElementById('aplicarCapacidadesPasquaBtn');
+        const pasquaPasteBlock = document.getElementById('pasquaPasteBlock');
+        const pasquaTextArea = document.getElementById('pasquaText');
+        const procesarTextoPasquaBtn = document.getElementById('procesarTextoPasquaBtn');
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        function inicializarCapacidades(tabId) {
+            if (tabId === 'aplec') {
+                return {
+                    "cervantes1": { nombre: "Cervantes - Turno 1", total: 110, asignadas: 0, solicitantes_asignados: [] },
+                    "cervantes2": { nombre: "Cervantes - Turno 2", total: 110, asignadas: 0, solicitantes_asignados: [] },
+                    "cervantes3": { nombre: "Cervantes - Turno 3", total: 90, asignadas: 0, solicitantes_asignados: [] },
+                    "cervantes4": { nombre: "Cervantes - Turno 4", total: 90, asignadas: 0, solicitantes_asignados: [] },
+                    "cervantes5": { nombre: "Cervantes - Turno 5", total: 90, asignadas: 0, solicitantes_asignados: [] },
+                    "sarthou1": { nombre: "Carles Sarthou - Turno 1", total: 110, asignadas: 0, solicitantes_asignados: [] },
+                    "sarthou2": { nombre: "Carles Sarthou - Turno 2", total: 110, asignadas: 0, solicitantes_asignados: [] },
+                    "sarthou3": { nombre: "Carles Sarthou - Turno 3", total: 90, asignadas: 0, solicitantes_asignados: [] },
+                };
+            } else if (tabId === 'xicaes') {
+                return {
+                    "xicaes1": { nombre: "XICAES - Turno 1", total: 20, asignadas: 0, solicitantes_asignados: [] }, 
+                    "xicaes2": { nombre: "XICAES - Turno 2", total: 20, asignadas: 0, solicitantes_asignados: [] }, 
+                    "xicaes3": { nombre: "XICAES - Turno 3", total: 20, asignadas: 0, solicitantes_asignados: [] }, 
+                    "xicaes4": { nombre: "XICAES - Turno 4", total: 15, asignadas: 0, solicitantes_asignados: [] }, 
+                    "xicaes5": { nombre: "XICAES - Turno 5", total: 15, asignadas: 0, solicitantes_asignados: [] }, 
+                };
+            } else if (tabId === 'pasqua') {
+                return {
+                    [ANGELINA]: { nombre: "CEIP Angelina Abad", total: 60, asignadas: 0, solicitantes_asignados: [] },
+                    [PASCUAL]: { nombre: "CEIP Pascual Nacher", total: 60, asignadas: 0, solicitantes_asignados: [] },
+                };
+            }
+            return {};
+        }
+
+        function detectDelimiter(line) {
+            if (line.includes(';')) return ';';
+            if (line.includes('\t')) return '\t';
+            return ',';
+        }
+        
+        function parseCSV(csvText, tabId) {
+            console.log(`[${tabId.toUpperCase()}] Iniciando parseCSV.`);
+            const inscripciones = [];
+            const lineas = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+            
+            if (lineas.length < 2) {
+                mostrarMensaje("Error: El archivo CSV está vacío o no tiene suficientes filas (necesita cabecera y datos).", "error");
+                console.error(`[${tabId.toUpperCase()}] Error en parseCSV: Archivo vacío o sin datos.`);
+                return null;
+            }
+
+            const headerLine = lineas[0];
+            let rawHeaders;
+            let detectedDelimiter = ','; 
+
+            rawHeaders = headerLine.split(',');
+            if (rawHeaders.length === 1 && headerLine.includes(';')) {
+                rawHeaders = headerLine.split(';');
+                detectedDelimiter = ';';
+            } else if (rawHeaders.length <= 1 && headerLine.includes('\t')) { 
+                rawHeaders = headerLine.split('\t');
+                detectedDelimiter = '\t';
+            }
+            // console.log(`[${tabId.toUpperCase()}] Delimitador detectado: '${detectedDelimiter}'`);
+            // console.log(`[${tabId.toUpperCase()}] Encabezados crudos (antes de trim/lowercase):`, rawHeaders);
+
+
+            tabState[tabId].encabezadosOriginalesCSV = rawHeaders.map(h => h.trim().replace(/^"|"$/g, ''));
+            const encabezadoNormalizado = tabState[tabId].encabezadosOriginalesCSV.map(h => h.toLowerCase());
+            // console.log(`[${tabId.toUpperCase()}] Encabezados originales guardados:`, tabState[tabId].encabezadosOriginalesCSV);
+            // console.log(`[${tabId.toUpperCase()}] Encabezados normalizados (para búsqueda):`, encabezadoNormalizado);
+            
+            let idColIdx = encabezadoNormalizado.indexOf(idColumnNameCSV);
+
+            if (idColIdx === -1) {
+                mostrarMensaje(`Error: No se encontró la columna de ID requerida ("${idColumnNameCSV}") en el encabezado del CSV para ${tabId.toUpperCase()}. Encabezados encontrados: ${tabState[tabId].encabezadosOriginalesCSV.join(', ')}`, "error");
+                console.error(`[${tabId.toUpperCase()}] Error en parseCSV: Columna ID "${idColumnNameCSV}" no encontrada.`);
+                return null;
+            }
+            // console.log(`[${tabId.toUpperCase()}] Columna ID ("${idColumnNameCSV}") encontrada en índice: ${idColIdx}`);
+
+            const currentKnownTurnoIdsForTab = knownTurnoIds[tabId] || []; 
+            // console.log(`[${tabId.toUpperCase()}] KnownTurnoIds para esta pestaña (columnas de preferencia que se buscarán):`, currentKnownTurnoIdsForTab);
+            const turnoHeaderIndices = {};
+            let foundPreferenceHeadersCount = 0;
+
+            currentKnownTurnoIdsForTab.forEach(turnoCsvHeader => {
+                const csvHeaderIndex = encabezadoNormalizado.indexOf(turnoCsvHeader.toLowerCase());
+                if (csvHeaderIndex !== -1) {
+                    turnoHeaderIndices[turnoCsvHeader] = csvHeaderIndex; 
+                    foundPreferenceHeadersCount++;
+                    // console.log(`  [${tabId.toUpperCase()}] Mapeado encabezado de preferencia '${turnoCsvHeader}' (esperado) a índice CSV ${csvHeaderIndex}`);
+                } else {
+                     // console.warn(`  [${tabId.toUpperCase()}] Advertencia: El encabezado de preferencia esperado "${turnoCsvHeader}" NO se encontró en el CSV.`);
+                }
+            });
+            // console.log(`[${tabId.toUpperCase()}] Total de encabezados de preferencia mapeados: ${foundPreferenceHeadersCount}`);
+            // console.log(`[${tabId.toUpperCase()}] Objeto turnoHeaderIndices (mapa de 'nombre_columna_preferencia_csv' a su índice):`, turnoHeaderIndices);
+            
+            if (foundPreferenceHeadersCount === 0) { 
+                mostrarMensaje(`Error (${tabId.toUpperCase()}): No se encontró NINGUNA de las columnas de preferencia esperadas (${currentKnownTurnoIdsForTab.join(', ')}) en el encabezado del CSV. Verifique los nombres de las columnas en su archivo.`, "error");
+                console.error(`[${tabId.toUpperCase()}] Error en parseCSV: No se encontraron columnas de preferencia.`);
+                return null;
+            }
+
+            for (let i = 1; i < lineas.length; i++) { 
+                const filaOriginal = lineas[i];
+                const fila = filaOriginal.trim();
+                if (!fila) continue;
+
+                const columnas = fila.split(detectedDelimiter).map(col => col.trim().replace(/^"|"$/g, ''));
+                
+                if (columnas.length <= idColIdx) {
+                    console.warn(`[${tabId.toUpperCase()}] Fila ${i+1} (ID: ${columnas[0] || 'DESCONOCIDO'}) omitida: no tiene suficientes columnas para el ID. Necesita ${idColIdx + 1}, tiene ${columnas.length}. Fila: ${filaOriginal}`);
+                    continue;
+                }
+
+                const idRaw = columnas[idColIdx] || `Solicitante_Fila${i+1}`;
+                const idNumeric = parseInt(idRaw, 10);
+                // console.log(`\n[${tabId.toUpperCase()}] Procesando Fila ${i+1}, ID_raw='${idRaw}'`);
+                
+                let rawData = {};
+                tabState[tabId].encabezadosOriginalesCSV.forEach((header, index) => {
+                    rawData[header] = columnas[index] || "";
+                });
+
+                let rankedPrefs = []; 
+                // console.log(`    [${tabId.toUpperCase()}] Solicitante ${idRaw}: Analizando columnas de preferencia:`);
+                for (const turnoCsvHeader in turnoHeaderIndices) { 
+                    const colIdxForThisTurno = turnoHeaderIndices[turnoCsvHeader];
+                    let rawValueInCell = "NO ENCONTRADO/VACÍO";
+                    let parsedRank = NaN;
+                    let decision = "Ignorado";
+
+                    if (colIdxForThisTurno < columnas.length && columnas[colIdxForThisTurno] !== undefined) { 
+                        rawValueInCell = columnas[colIdxForThisTurno];
+                        if (rawValueInCell.trim() !== "") { 
+                            parsedRank = parseInt(rawValueInCell, 10);
+                            if (!isNaN(parsedRank) && parsedRank > 0) {
+                                rankedPrefs.push({ rank: parsedRank, turno: turnoCsvHeader });
+                                decision = `Añadido como {rank: ${parsedRank}, turno: '${turnoCsvHeader}'}`;
+                            } else {
+                                decision = "Valor no numérico o no positivo, ignorado.";
+                            }
+                        } else {
+                            decision = "Celda vacía, ignorado.";
+                        }
+                    } else {
+                        decision = `Columna (índice ${colIdxForThisTurno}) no presente para esta fila o fuera de rango (total columnas: ${columnas.length}).`;
+                    }
+                    // console.log(`      [${tabId.toUpperCase()}] Columna '${turnoCsvHeader}' (índice CSV ${colIdxForThisTurno}): Valor crudo='${rawValueInCell}', Rank parseado=${isNaN(parsedRank) ? "NaN" : parsedRank}, Decisión: ${decision}`);
+                }
+                // console.log(`    [${tabId.toUpperCase()}] Solicitante ${idRaw}: rankedPrefs (antes de ordenar):`, JSON.parse(JSON.stringify(rankedPrefs)));
+
+                rankedPrefs.sort((a, b) => a.rank - b.rank);
+                const preferenciasOrdenadas = rankedPrefs.map(p => p.turno);
+                // console.log(`    [${tabId.toUpperCase()}] Solicitante ${idRaw}: preferenciasOrdenadas (final para asignación):`, preferenciasOrdenadas);
+                
+                if (idRaw) { 
+                     inscripciones.push({ 
+                        idRaw: idRaw, 
+                        idNumeric: isNaN(idNumeric) ? -1 : idNumeric,
+                        rawData: rawData, 
+                        preferenciasOrdenadas: preferenciasOrdenadas,
+                        turnos_asignados: [] 
+                    });
+                }
+            }
+            
+            // console.log(`[${tabId.toUpperCase()}] Fin parseCSV. Total inscripciones procesadas: ${inscripciones.length}`);
+            mostrarMensaje(`(${tabId.toUpperCase()}) Se han procesado ${inscripciones.length} inscripciones.
+                            <br>ID: columna "${idColumnNameCSV}". Preferencias desde: ${currentKnownTurnoIdsForTab.join(', ')} (se encontraron ${foundPreferenceHeadersCount}).
+                            <br>Revisa la consola (F12) para más detalles.`, "info");
+            return inscripciones;
+        }
+
+        function parseCSVPasqua(csvText) {
+            console.log(`[PASQUA] Iniciando parseCSVPasqua.`);
+            const inscripciones = [];
+            const lineas = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim() !== '');
+            if (lineas.length < 1) {
+                mostrarMensaje("Error: El texto está vacío o no tiene suficientes filas.", "error");
+                return null;
+            }
+
+            const detectedDelimiter = detectDelimiter(lineas[0]);
+            const firstRow = lineas[0].split(detectedDelimiter).map(col => col.trim().replace(/^"|"$/g, ''));
+            const isHeader = firstRow.some(v => /[a-zA-Z]/.test(v));
+
+            tabState.pasqua.encabezadosOriginalesCSV = isHeader
+                ? firstRow
+                : firstRow.map((_, idx) => `col${idx + 1}`);
+
+            const startIndex = isHeader ? 1 : 0;
+            for (let i = startIndex; i < lineas.length; i++) {
+                const filaOriginal = lineas[i];
+                const fila = filaOriginal.trim();
+                if (!fila) continue;
+
+                const columnas = fila.split(detectedDelimiter).map(col => col.trim().replace(/^"|"$/g, ''));
+                const idRaw = columnas[0] || `Solicitante_Fila${i + 1}`;
+                const idNumeric = parseInt(idRaw, 10);
+
+                let rawData = {};
+                tabState.pasqua.encabezadosOriginalesCSV.forEach((header, index) => {
+                    rawData[header] = columnas[index] || "";
+                });
+
+                const rankedPrefs = [];
+                const valAngelina = columnas[1] || "";
+                const valPascual = columnas[2] || "";
+
+                const rankAngelina = parseInt(valAngelina, 10);
+                if (!isNaN(rankAngelina) && (rankAngelina === 1 || rankAngelina === 2)) {
+                    rankedPrefs.push({ rank: rankAngelina, turno: ANGELINA });
+                }
+
+                const rankPascual = parseInt(valPascual, 10);
+                if (!isNaN(rankPascual) && (rankPascual === 1 || rankPascual === 2)) {
+                    rankedPrefs.push({ rank: rankPascual, turno: PASCUAL });
+                }
+
+                rankedPrefs.sort((a, b) => a.rank - b.rank);
+                const preferenciasOrdenadas = rankedPrefs.map(p => p.turno);
+
+                inscripciones.push({
+                    idRaw: idRaw,
+                    idNumeric: isNaN(idNumeric) ? -1 : idNumeric,
+                    rawData: rawData,
+                    preferenciasOrdenadas: preferenciasOrdenadas,
+                    turnos_asignados: []
+                });
+            }
+
+            mostrarMensaje(`(PASQUA) Se han procesado ${inscripciones.length} inscripciones desde texto.`, "info");
+            return inscripciones;
+        }
+
+        function ordenarPorSorteoCircular(listaSolicitantes, sorteoInicio) {
+            const start = parseInt(sorteoInicio, 10);
+            if (isNaN(start) || start < 1) return listaSolicitantes;
+
+            const numericos = listaSolicitantes.filter(s => s.idNumeric !== -1);
+            const noNumericos = listaSolicitantes.filter(s => s.idNumeric === -1);
+            numericos.sort((a, b) => a.idNumeric - b.idNumeric);
+
+            let idx = numericos.findIndex(s => s.idNumeric >= start);
+            if (idx === -1) idx = 0;
+            const ordenados = [...numericos.slice(idx), ...numericos.slice(0, idx)];
+            return [...ordenados, ...noNumericos];
+        }
+        
+        function displayCapacitiesForTab(tabId) {
+            listaCapacidadesDiv.innerHTML = ''; 
+            const capacidades = tabState[tabId].capacidades;
+            if (Object.keys(capacidades).length === 0) {
+                 listaCapacidadesDiv.innerHTML = `<p class="text-gray-500 italic">No hay capacidades definidas para ${tabId.toUpperCase()}.</p>`;
+                 return;
+            }
+            for (const turnoId in capacidades) {
+                const turno = capacidades[turnoId];
+                const div = document.createElement('div');
+                div.className = 'p-3 bg-white rounded shadow-sm border border-blue-200';
+                div.innerHTML = `<span class="font-medium text-blue-700">${turno.nombre}:</span> ${turno.total} plazas`;
+                listaCapacidadesDiv.appendChild(div);
+            }
+        }
+
+        function asignarPlazas(listaSolicitantes, capacidadesInput, tabId) {
+            let capacidades = JSON.parse(JSON.stringify(capacidadesInput));
+            const advertenciasTurnoInvalido = new Set();
+            // Inicializar turnos_asignados para todos los solicitantes
+            listaSolicitantes.forEach(s => { s.turnos_asignados = []; });
+
+            console.log(`[${tabId.toUpperCase()}] INICIO ASIGNACIÓN (Round-Robin). Capacidades iniciales:`, JSON.parse(JSON.stringify(capacidades)));
+
+            let seHizoUnaAsignacionGlobalEnEstaRonda;
+            let ronda = 0;
+            const MAX_RONDAS = listaSolicitantes.length * (Object.keys(knownTurnoIds[tabId] || {}).length || 8) ; // Límite para evitar bucles infinitos
+
+            do {
+                seHizoUnaAsignacionGlobalEnEstaRonda = false;
+                ronda++;
+                console.log(`\n[${tabId.toUpperCase()}] --- INICIO RONDA DE ASIGNACIÓN ${ronda} ---`);
+
+                for (const solicitante of listaSolicitantes) {
+                    // console.log(`  [${tabId.toUpperCase()}] Ronda ${ronda}, Procesando Solicitante: ${solicitante.idRaw}, Preferencias: ${solicitante.preferenciasOrdenadas.join(', ')}, Ya Asignados: ${solicitante.turnos_asignados.join(', ')}`);
+
+                    for (const turno_preferido of solicitante.preferenciasOrdenadas) {
+                        // console.log(`    [${tabId.toUpperCase()}] Sol: ${solicitante.idRaw}, Evaluando preferencia: '${turno_preferido}'`);
+
+                        if (solicitante.turnos_asignados.includes(turno_preferido)) {
+                            // console.log(`      [${tabId.toUpperCase()}] Sol: ${solicitante.idRaw} ya tiene este turno '${turno_preferido}'. Saltando.`);
+                            continue; 
+                        }
+
+                        if (capacidades[turno_preferido]) {
+                            // console.log(`      [${tabId.toUpperCase()}] Info Turno '${turno_preferido}': Asignadas=${capacidades[turno_preferido].asignadas}, Total=${capacidades[turno_preferido].total}`);
+                            if (capacidades[turno_preferido].asignadas < capacidades[turno_preferido].total) {
+                                capacidades[turno_preferido].asignadas++;
+                                solicitante.turnos_asignados.push(turno_preferido);
+                                seHizoUnaAsignacionGlobalEnEstaRonda = true; 
+                                console.log(`        [${tabId.toUpperCase()}] ¡ASIGNADO en Ronda ${ronda}! Sol: ${solicitante.idRaw} a Turno: '${turno_preferido}'. Plazas ocupadas en '${turno_preferido}': ${capacidades[turno_preferido].asignadas}/${capacidades[turno_preferido].total}`);
+                                break; // Mover al siguiente solicitante para esta ronda (una nueva asignación por solicitante por ronda)
+                            } else {
+                                // console.log(`      [${tabId.toUpperCase()}] Turno '${turno_preferido}' LLENO para Sol: ${solicitante.idRaw}.`);
+                            }
+                        } else {
+                            if (turno_preferido && turno_preferido.trim() !== "") {
+                                if (!advertenciasTurnoInvalido.has(turno_preferido)) {
+                                    console.error(`[${tabId.toUpperCase()}] Error CRÍTICO en asignación (Ronda ${ronda}): Solicitante: ${solicitante.idRaw}, Turno de preferencia: '${turno_preferido}'. Este turno NO SE ENCONTRÓ en capacidades. Claves de capacidad: ${Object.keys(capacidades).join(', ')}`);
+                                    advertenciasTurnoInvalido.add(turno_preferido);
+                                }
+                            }
+                        }
+                    } 
+                } 
+                // console.log(`[${tabId.toUpperCase()}] --- FIN RONDA ${ronda} ---. ¿Se hizo alguna asignación en esta ronda?: ${seHizoUnaAsignacionGlobalEnEstaRonda}`);
+                if (ronda > MAX_RONDAS) {
+                    console.warn(`[${tabId.toUpperCase()}] Se alcanzó el límite máximo de rondas (${MAX_RONDAS}). Deteniendo asignación para evitar bucle infinito.`);
+                    break;
+                }
+            } while (seHizoUnaAsignacionGlobalEnEstaRonda); 
+
+            if (advertenciasTurnoInvalido.size > 0) {
+                const mensajePrevio = mensajeEstado.innerHTML; 
+                mostrarMensaje(`${mensajePrevio} <br>(${tabId.toUpperCase()}) Hubo ${advertenciasTurnoInvalido.size} tipos de turnos preferidos que no coincidieron con las capacidades definidas. Revisa la consola (F12).`, "error");
+            }
+            console.log(`[${tabId.toUpperCase()}] FIN TODAS LAS RONDAS DE ASIGNACIÓN (${ronda} rondas). Estado final de capacidades:`, capacidades);
+            return { capacidades_actualizadas: capacidades, solicitantesProcesadosConAsignacion: listaSolicitantes };
+        }
+
+
+        function mostrarResultadosGlobales(tabId) {
+            const state = tabState[tabId];
+            asignadosDiv.innerHTML = '';
+            noAsignadosDiv.innerHTML = '';
+            ocupacionDiv.innerHTML = '';
+            detalleInscripcionesDiv.innerHTML = '';
+
+            const asignadosListaOutput = []; 
+            const noAsignadosLista = [];
+
+            state.todosLosSolicitantesProcesados.forEach(sol => {
+                if (sol.turnos_asignados && sol.turnos_asignados.length > 0) { 
+                    asignadosListaOutput.push(sol);
+                } else {
+                    noAsignadosLista.push(sol);
+                }
+            });
+
+            if (asignadosListaOutput.length > 0) {
+                const ul = document.createElement('ul');
+                ul.className = 'space-y-1';
+                asignadosListaOutput.forEach(sol => {
+                    const li = document.createElement('li');
+                    li.className = 'p-2 bg-indigo-100 rounded text-sm';
+                    const turnosNombres = sol.turnos_asignados.map(t_id => state.capacidades[t_id]?.nombre || t_id).join(', ');
+                    li.textContent = `Solicitante: ${sol.idRaw} -> Turnos: ${turnosNombres}`;
+                    ul.appendChild(li);
+                });
+                asignadosDiv.appendChild(ul);
+                exportCsvBtn.disabled = false;
+            } else {
+                asignadosDiv.innerHTML = `<p class="text-gray-500 italic">No hay solicitantes asignados para ${tabId.toUpperCase()}.</p>`;
+                exportCsvBtn.disabled = true;
+            }
+
+            if (noAsignadosLista.length > 0) {
+                const ul = document.createElement('ul');
+                ul.className = 'space-y-1';
+                noAsignadosLista.forEach(sol => {
+                    const li = document.createElement('li');
+                    li.className = 'p-2 bg-red-100 rounded text-sm';
+                    li.textContent = `Solicitante: ${sol.idRaw}`;
+                    ul.appendChild(li);
+                });
+                noAsignadosDiv.appendChild(ul);
+            } else {
+                noAsignadosDiv.innerHTML = `<p class="text-gray-500 italic">Todos los solicitantes con preferencias válidas y plazas disponibles fueron asignados, o no hubo solicitantes para ${tabId.toUpperCase()}.</p>`;
+            }
+
+            const tablaOcupacion = document.createElement('table');
+            tablaOcupacion.className = 'min-w-full divide-y divide-gray-200 border border-yellow-300 rounded-lg table-fixed-layout';
+            const theadOcupacion = document.createElement('thead');
+            theadOcupacion.className = 'bg-yellow-100';
+            theadOcupacion.innerHTML = `
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">Turno</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">Ocupadas</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">Total</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">Restantes</th>
+                </tr>
+            `;
+            tablaOcupacion.appendChild(theadOcupacion);
+            const tbodyOcupacion = document.createElement('tbody');
+            tbodyOcupacion.className = 'bg-white divide-y divide-gray-200';
+            if (Object.keys(state.capacidades).length > 0) {
+                for (const turnoId in state.capacidades) {
+                    const turno = state.capacidades[turnoId];
+                    const tr = document.createElement('tr');
+                    tr.className = turno.asignadas === turno.total ? 'bg-red-50' : (turno.asignadas > 0 ? 'bg-green-50' : '');
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.nombre}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.asignadas}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.total}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.total - turno.asignadas}</td>
+                    `;
+                    tbodyOcupacion.appendChild(tr);
+                }
+            } else {
+                 tbodyOcupacion.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-gray-500 italic">No hay capacidades definidas para ${tabId.toUpperCase()}.</td></tr>`;
+            }
+            tablaOcupacion.appendChild(tbodyOcupacion);
+            ocupacionDiv.appendChild(tablaOcupacion);
+
+
+            if (state.todosLosSolicitantesProcesados.length > 0 && state.encabezadosOriginalesCSV.length > 0) {
+                const tablaDetalle = document.createElement('table');
+                tablaDetalle.className = 'min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg table-fixed-layout';
+                const theadDetalle = document.createElement('thead');
+                theadDetalle.className = 'bg-gray-100';
+                let headerRowHtml = '<tr>';
+                state.encabezadosOriginalesCSV.forEach(header => {
+                     headerRowHtml += `<th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">${header}</th>`;
+                });
+                headerRowHtml += `<th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Plazas Asignadas</th></tr>`;
+                theadDetalle.innerHTML = headerRowHtml;
+                tablaDetalle.appendChild(theadDetalle);
+
+                const tbodyDetalle = document.createElement('tbody');
+                tbodyDetalle.className = 'bg-white divide-y divide-gray-200';
+                
+                const solicitantesParaTablaDetalle = [...state.todosLosSolicitantesProcesados].sort((a,b) => {
+                    if (a.idNumeric === -1 && b.idNumeric === -1) return 0;
+                    if (a.idNumeric === -1) return 1;
+                    if (b.idNumeric === -1) return -1;
+                    return a.idNumeric - b.idNumeric;
+                });
+
+                solicitantesParaTablaDetalle.forEach(sol => {
+                    const tr = document.createElement('tr');
+                    let rowHtml = '';
+                    state.encabezadosOriginalesCSV.forEach(header => {
+                        rowHtml += `<td class="px-2 py-2 whitespace-nowrap text-sm text-gray-700">${sol.rawData[header] || ''}</td>`;
+                    });
+                    const turnosAsignadosNombres = sol.turnos_asignados && sol.turnos_asignados.length > 0 
+                        ? sol.turnos_asignados.map(t_id => state.capacidades[t_id]?.nombre || t_id).join('; ') 
+                        : 'No asignado';
+                    rowHtml += `<td class="px-2 py-2 whitespace-nowrap text-sm font-semibold ${sol.turnos_asignados && sol.turnos_asignados.length > 0 ? 'text-green-700' : 'text-red-700'}">${turnosAsignadosNombres}</td>`;
+                    tr.innerHTML = rowHtml;
+                    tbodyDetalle.appendChild(tr);
+                });
+                tablaDetalle.appendChild(tbodyDetalle);
+                detalleInscripcionesDiv.appendChild(tablaDetalle);
+
+            } else {
+                detalleInscripcionesDiv.innerHTML = `<p class="text-gray-500 italic">No hay datos de inscripción procesados para mostrar en detalle para ${tabId.toUpperCase()}.</p>`;
+            }
+        }
+
+        function mostrarMensaje(texto, tipo = "info") {
+            mensajeEstado.innerHTML = texto.replace(/\n/g, '<br>'); 
+            mensajeEstado.className = 'my-4 p-4 rounded-lg text-center text-sm'; 
+            switch (tipo) {
+                case "success":
+                    mensajeEstado.classList.add("bg-green-100", "text-green-700");
+                    break;
+                case "warning":
+                    mensajeEstado.classList.add("bg-yellow-100", "text-yellow-700");
+                    break;
+                case "error":
+                    mensajeEstado.classList.add("bg-red-100", "text-red-700");
+                    break;
+                case "info":
+                default:
+                    mensajeEstado.classList.add("bg-blue-100", "text-blue-700");
+                    break;
+            }
+        }
+
+        function procesarInscripcionesConTexto(csvText, currentTabId) {
+            const state = tabState[currentTabId];
+
+            procesarBtn.disabled = true;
+            exportCsvBtn.disabled = true;
+            mostrarMensaje(`Procesando archivo CSV para ${currentTabId.toUpperCase()}...`, "info"); 
+
+            try {
+                state.todosLosSolicitantesProcesados = [];
+                let inscripcionesOriginales = currentTabId === 'pasqua'
+                    ? parseCSVPasqua(csvText)
+                    : parseCSV(csvText, currentTabId);
+
+                if (inscripcionesOriginales && inscripcionesOriginales.length > 0) {
+                    const inscripcionesOrdenadasParaAsignar = ordenarPorSorteoCircular(
+                        inscripcionesOriginales,
+                        state.sorteoInicio
+                    );
+                    
+                    if (!state.capacidades || Object.keys(state.capacidades).length === 0) {
+                        state.capacidades = inicializarCapacidades(currentTabId);
+                    }
+
+                    const { capacidades_actualizadas, solicitantesProcesadosConAsignacion } = asignarPlazas(inscripcionesOrdenadasParaAsignar, state.capacidades, currentTabId);
+                    
+                    state.todosLosSolicitantesProcesados = solicitantesProcesadosConAsignacion;
+                    state.capacidades = capacidades_actualizadas; 
+                    
+                    mostrarResultadosGlobales(currentTabId);
+                    
+                    const numAsignados = state.todosLosSolicitantesProcesados.filter(s => s.turnos_asignados && s.turnos_asignados.length > 0).length;
+                    if (numAsignados > 0) {
+                         mostrarMensaje(`(${currentTabId.toUpperCase()}) Proceso completado. ${numAsignados} solicitantes tienen al menos una plaza. Revisa los resultados.`, "success");
+                    } else if (inscripcionesOriginales.length > 0) {
+                         mostrarMensaje(`(${currentTabId.toUpperCase()}) Proceso completado, pero ningún solicitante pudo ser asignado. Revisa las capacidades y preferencias.`, "warning");
+                    }
+
+                } else if (inscripcionesOriginales) { 
+                     mostrarMensaje(`(${currentTabId.toUpperCase()}) El archivo no contiene datos de inscripción válidos después de la cabecera.`, "warning");
+                     mostrarResultadosGlobales(currentTabId); 
+                } else { 
+                     mostrarResultadosGlobales(currentTabId); 
+                }
+            } catch (error) {
+                console.error(`Error crítico durante el procesamiento para ${currentTabId.toUpperCase()}:`, error);
+                mostrarMensaje(`Error crítico (${currentTabId.toUpperCase()}): ${error.message}. Revisa la consola (F12).`, "error");
+                mostrarResultadosGlobales(currentTabId); 
+            } finally {
+                procesarBtn.disabled = false;
+            }
+        }
+
+        function procesarInscripciones() {
+            const currentTabId = activeTab;
+            const state = tabState[currentTabId];
+
+            if (!state.archivoCargado) {
+                mostrarMensaje(`Por favor, selecciona un archivo CSV primero para ${currentTabId.toUpperCase()}.`, "error");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                procesarInscripcionesConTexto(event.target.result, currentTabId);
+            };
+            reader.onerror = function() {
+                mostrarMensaje(`Error al leer el archivo para ${currentTabId.toUpperCase()}.`, "error");
+                procesarBtn.disabled = false;
+            };
+            reader.readAsText(state.archivoCargado, 'UTF-8'); 
+        }
+
+        function exportarAsignadosCSV() {
+            const state = tabState[activeTab];
+            if (!state.todosLosSolicitantesProcesados || state.todosLosSolicitantesProcesados.length === 0) {
+                mostrarMensaje(`No hay datos de asignación para exportar para ${activeTab.toUpperCase()}.`, "warning");
+                return;
+            }
+
+            const asignacionesIndividuales = [];
+            state.todosLosSolicitantesProcesados.forEach(sol => {
+                if (sol.turnos_asignados && sol.turnos_asignados.length > 0) {
+                    sol.turnos_asignados.forEach(turno_codigo => {
+                        asignacionesIndividuales.push({
+                            idRaw: sol.idRaw,
+                            turno_asignado_codigo: turno_codigo,
+                        });
+                    });
+                }
+            });
+
+
+            if (asignacionesIndividuales.length === 0) {
+                mostrarMensaje(`No hay asignaciones individuales para exportar para ${activeTab.toUpperCase()}.`, "info");
+                return;
+            }
+
+            let csvContent = "ID Solicitante,Turno Asignado Código,Turno Asignado Nombre\n";
+            asignacionesIndividuales.forEach(asig => {
+                const id = asig.idRaw.includes(',') || asig.idRaw.includes(';') ? `"${asig.idRaw}"` : asig.idRaw;
+                const turnoCodigo = asig.turno_asignado_codigo;
+                const turnoNombre = state.capacidades[turnoCodigo]?.nombre || turnoCodigo;
+                csvContent += `${id},${turnoCodigo},"${turnoNombre}"\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", `aplec_${activeTab}_asignados_detalle.csv`); 
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } else {
+                mostrarMensaje("La exportación CSV no es compatible con este navegador.", "error");
+            }
+        }
+        exportCsvBtn.addEventListener('click', exportarAsignadosCSV);
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            
+            tabButtonAplec.classList.toggle('active', tabId === 'aplec');
+            tabButtonXicaes.classList.toggle('active', tabId === 'xicaes');
+            tabButtonPasqua.classList.toggle('active', tabId === 'pasqua');
+
+            const tabNameUpper = tabId.toUpperCase();
+            currentTabNameDisplay.textContent = tabNameUpper;
+            currentTabNameDisplaySimpleElements.forEach(el => el.textContent = tabNameUpper);
+            
+            const state = tabState[tabId];
+            pasquaConfig.classList.toggle('hidden', tabId !== 'pasqua');
+            pasquaPasteBlock.classList.toggle('hidden', tabId !== 'pasqua');
+            if (tabId === 'pasqua') {
+                const caps = state.capacidades || inicializarCapacidades('pasqua');
+                capAngelinaInput.value = caps[ANGELINA]?.total ?? 60;
+                capPascualInput.value = caps[PASCUAL]?.total ?? 60;
+            }
+            sorteoInicioInput.value = state.sorteoInicio || 1;
+            displayCapacitiesForTab(tabId); 
+            fileNameDisplay.textContent = state.fileName;
+            csvFileInput.value = ""; 
+            
+            if (state.todosLosSolicitantesProcesados.length > 0) {
+                mostrarResultadosGlobales(tabId);
+                procesarBtn.disabled = !state.archivoCargado; 
+                exportCsvBtn.disabled = !state.todosLosSolicitantesProcesados.some(s => s.turnos_asignados && s.turnos_asignados.length > 0);
+            } else {
+                asignadosDiv.innerHTML = `<p class="text-gray-500 italic">Aún no se han procesado asignaciones para ${tabNameUpper}.</p>`;
+                noAsignadosDiv.innerHTML = `<p class="text-gray-500 italic">Aún no se han procesado asignaciones para ${tabNameUpper}.</p>`;
+                ocupacionDiv.innerHTML = `<p class="text-gray-500 italic">Aún no se han procesado asignaciones para ${tabNameUpper}.</p>`;
+                detalleInscripcionesDiv.innerHTML = `<p class="text-gray-500 italic">Aún no se han procesado asignaciones para mostrar detalles para ${tabNameUpper}.</p>`;
+                procesarBtn.disabled = !state.archivoCargado;
+                exportCsvBtn.disabled = true;
+            }
+            if (!state.archivoCargado) {
+                dropZoneText.innerHTML = `Arrastra y suelta tu archivo CSV aquí, o <span class="text-green-600 font-semibold">haz clic para seleccionar</span>.`;
+            } else {
+                dropZoneText.innerHTML = `Archivo <span class="font-semibold text-green-600">${state.fileName}</span> cargado. Puedes procesar o cargar uno nuevo.`;
+            }
+             mostrarMensaje(`Pestaña ${tabNameUpper} activa. Carga un archivo o procesa si ya hay uno.`, "info");
+        }
+
+        tabButtonAplec.addEventListener('click', () => switchTab('aplec'));
+        tabButtonXicaes.addEventListener('click', () => switchTab('xicaes'));
+        tabButtonPasqua.addEventListener('click', () => switchTab('pasqua'));
+        sorteoInicioInput.addEventListener('change', () => {
+            const val = parseInt(sorteoInicioInput.value, 10);
+            tabState[activeTab].sorteoInicio = isNaN(val) || val < 1 ? 1 : val;
+        });
+
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault(); 
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type === "text/csv" || file.name.endsWith(".csv") || file.type === "application/vnd.ms-excel") { 
+                    tabState[activeTab].archivoCargado = file;
+                    tabState[activeTab].fileName = file.name;
+                    fileNameDisplay.textContent = `Archivo seleccionado: ${file.name}`;
+                    dropZoneText.innerHTML = `Archivo <span class="font-semibold text-green-600">${file.name}</span> listo para ${activeTab.toUpperCase()}.`;
+                    procesarBtn.disabled = false;
+                    exportCsvBtn.disabled = true; 
+                    mostrarMensaje(`Archivo CSV cargado para ${activeTab.toUpperCase()}. Haz clic en 'Procesar Inscripciones'.`, "info");
+                } else {
+                    mostrarMensaje(`Archivo no válido (${file.name}). Por favor, selecciona un archivo con formato .csv`, "error");
+                    fileNameDisplay.textContent = "";
+                    tabState[activeTab].archivoCargado = null;
+                    tabState[activeTab].fileName = "";
+                    procesarBtn.disabled = true;
+                    exportCsvBtn.disabled = true;
+                }
+            }
+        });
+        
+        dropZone.addEventListener('click', () => {
+            csvFileInput.click();
+        });
+
+        csvFileInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                 if (file.type === "text/csv" || file.name.endsWith(".csv") || file.type === "application/vnd.ms-excel") {
+                    tabState[activeTab].archivoCargado = file;
+                    tabState[activeTab].fileName = file.name;
+                    fileNameDisplay.textContent = `Archivo seleccionado: ${file.name}`;
+                    dropZoneText.innerHTML = `Archivo <span class="font-semibold text-green-600">${file.name}</span> cargado para ${activeTab.toUpperCase()}.`;
+                    procesarBtn.disabled = false;
+                    exportCsvBtn.disabled = true;
+                    mostrarMensaje(`Archivo CSV cargado para ${activeTab.toUpperCase()}. Haz clic en 'Procesar Inscripciones'.`, "info");
+                } else {
+                    mostrarMensaje(`Archivo no válido (${file.name}). Por favor, selecciona un archivo con formato .csv`, "error");
+                    fileNameDisplay.textContent = "";
+                    csvFileInput.value = ""; 
+                    tabState[activeTab].archivoCargado = null;
+                    tabState[activeTab].fileName = "";
+                    procesarBtn.disabled = true;
+                    exportCsvBtn.disabled = true;
+                }
+            } else { 
+                fileNameDisplay.textContent = "";
+            }
+        });
+
+        procesarBtn.addEventListener('click', procesarInscripciones);
+
+        procesarTextoPasquaBtn.addEventListener('click', () => {
+            if (activeTab !== 'pasqua') return;
+            const texto = pasquaTextArea.value.trim();
+            if (!texto) {
+                mostrarMensaje("Pega primero los datos en el cuadro de texto.", "error");
+                return;
+            }
+            procesarInscripcionesConTexto(texto, 'pasqua');
+        });
+
+        aplicarCapacidadesPasquaBtn.addEventListener('click', () => {
+            if (activeTab !== 'pasqua') return;
+            const capAngelina = Math.max(0, parseInt(capAngelinaInput.value, 10) || 0);
+            const capPascual = Math.max(0, parseInt(capPascualInput.value, 10) || 0);
+            tabState.pasqua.capacidades = inicializarCapacidades('pasqua');
+            tabState.pasqua.capacidades[ANGELINA].total = capAngelina;
+            tabState.pasqua.capacidades[PASCUAL].total = capPascual;
+            tabState.pasqua.todosLosSolicitantesProcesados = [];
+            displayCapacitiesForTab('pasqua');
+            mostrarMensaje("Capacidades PASQUA actualizadas. Vuelve a procesar las inscripciones.", "info");
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            tabState.aplec.capacidades = inicializarCapacidades('aplec');
+            tabState.xicaes.capacidades = inicializarCapacidades('xicaes');
+            tabState.pasqua.capacidades = inicializarCapacidades('pasqua');
+            
+            switchTab('aplec'); 
+        });
+
+    </script>
+</body>
+</html>

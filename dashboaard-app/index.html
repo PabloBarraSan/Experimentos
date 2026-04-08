@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fitness Dashboard 2026</title>
+    <!-- Fuentes futuristas y limpias -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* =======================================
+           1. SISTEMA DE VARIABLES SPATIAL UI (2026)
+           ======================================= */
+        :root {
+            /* Paleta Dark Neumorphic & Neon */
+            --bg-base: #050507;
+            
+            /* Colores de Aurora / Glow */
+            --glow-primary: #4f46e5;
+            --glow-secondary: #0ea5e9;
+            --glow-accent: #f43f5e;
+            --glow-success: #10b981;
+            
+            /* Superficies de Cristal (Glassmorphism 3.0) */
+            --glass-surface: rgba(255, 255, 255, 0.03);
+            --glass-surface-hover: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-border-highlight: rgba(255, 255, 255, 0.2);
+            
+            /* Tipografía */
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --text-dim: #475569;
+            
+            --font-sans: 'Figtree', sans-serif;
+            --font-display: 'Outfit', sans-serif;
+            
+            /* Curvas de animación hiper-suaves */
+            --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* =======================================
+           2. FONDOS ANIMADOS (AURORA EFFECT)
+           ======================================= */
+        .ambient-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            overflow: hidden;
+            background: #000;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+
+        .orb-1 {
+            width: 40vw; height: 40vw;
+            background: var(--glow-primary);
+            top: -10%; left: -10%;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 50vw; height: 50vw;
+            background: var(--glow-secondary);
+            bottom: -20%; right: -10%;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 30vw; height: 30vw;
+            background: #1e1b4b;
+            top: 40%; left: 40%;
+            animation-duration: 25s;
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(10vw, 15vh) scale(1.2); }
+        }
+
+        /* =======================================
+           3. CONTENEDOR PRINCIPAL
+           ======================================= */
+        .app-container {
+            width: 100%;
+            max-width: 480px; /* Ancho móvil premium */
+            padding: 40px 24px 100px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* =======================================
+           4. UTILIDADES SPATIAL GLASS
+           ======================================= */
+        .glass-panel {
+            background: var(--glass-surface);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            box-shadow: 0 24px 40px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+            transition: all 0.4s var(--ease-spring);
+        }
+
+        .glass-panel:hover {
+            background: var(--glass-surface-hover);
+            border-color: var(--glass-border-highlight);
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 32px 50px -12px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* =======================================
+           5. HEADER & AVATAR (HOLOGRÁFICO)
+           ======================================= */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 64px;
+            height: 64px;
+        }
+
+        .avatar-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 20px; /* Círculo perfecto es 2020. Squircle es 2026 */
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .avatar-glow {
+            position: absolute;
+            inset: -4px;
+            border-radius: 24px;
+            background: linear-gradient(45deg, var(--glow-primary), var(--glow-secondary));
+            z-index: -1;
+            filter: blur(12px);
+            opacity: 0.7;
+        }
+
+        .level-badge {
+            position: absolute;
+            bottom: -6px;
+            right: -6px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border-highlight);
+            color: #fff;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 0.75rem;
+            width: 28px;
+            height: 28px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .greeting h1 {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+
+        .greeting span {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+        }
+
+        .icon-btn {
+            background: var(--glass-surface);
+            border: 1px solid var(--glass-border);
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            transition: all 0.3s var(--ease-spring);
+        }
+
+        .icon-btn:hover {
+            background: rgba(255,255,255,0.1);
+            transform: scale(1.05);
+        }
+
+        /* =======================================
+           6. STATS GRID (NEO-BENTO)
+           ======================================= */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .bento-card {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* La primera carta ocupa las dos columnas */
+        .bento-card.primary {
+            grid-column: span 2;
+            flex-direction: row;
+            align-items: center;
+            padding: 24px;
+            background: linear-gradient(145deg, rgba(79, 70, 229, 0.15) 0%, rgba(255,255,255,0.02) 100%);
+        }
+
+        .bento-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            color: var(--glow-secondary);
+        }
+
+        .bento-card.primary .bento-icon {
+            margin-bottom: 0;
+            margin-right: 20px;
+            width: 64px;
+            height: 64px;
+            border-radius: 20px;
+            background: rgba(79, 70, 229, 0.2);
+            color: #a5b4fc;
+        }
+
+        .bento-data {
+            flex: 1;
+        }
+
+        .bento-value {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 900;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .bento-value span {
+            font-size: 1rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .bento-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .trend-badge {
+            background: rgba(255,255,255,0.05);
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* =======================================
+           7. AGENDA (TIMELINE FLOTANTE)
+           ======================================= */
+        .agenda-section {
+            margin-bottom: 40px;
+        }
+
+        .calendar-pills {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 24px;
+        }
+
+        .day-pill {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-family: var(--font-sans);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 12px 0;
+            border-radius: 16px;
+            width: 44px;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-spring);
+        }
+
+        .day-pill .name { font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; }
+        .day-pill .num { font-family: var(--font-display); font-size: 1.1rem; font-weight: 800; }
+
+        .day-pill.active {
+            background: var(--text-main);
+            color: var(--bg-base);
+            box-shadow: 0 8px 20px rgba(255,255,255,0.2);
+            transform: scale(1.05);
+        }
+
+        .agenda-event {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .event-time {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            width: 50px;
+        }
+
+        .event-details {
+            flex: 1;
+        }
+
+        .event-details h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .event-details p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* =======================================
+           8. TAREAS (INTERACCIÓN GAMIFICADA)
+           ======================================= */
+        .tasks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            cursor: pointer;
+            text-align: left;
+            border: 1px solid var(--glass-border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-item::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; height: 100%; width: 4px;
+            background: var(--glow-secondary);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .task-item:hover::before { opacity: 1; }
+
+        .custom-checkbox {
+            width: 24px;
+            height: 24px;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s var(--ease-spring);
+        }
+
+        .task-item:hover .custom-checkbox {
+            border-color: var(--glow-secondary);
+            box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
+        }
+
+        .task-item.done {
+            opacity: 0.6;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .task-item.done .custom-checkbox {
+            background: var(--glow-success);
+            border-color: var(--glow-success);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+        }
+
+        .task-item.done h3 {
+            text-decoration: line-through;
+            color: var(--text-muted);
+        }
+
+        .task-content { flex: 1; }
+        .task-content h3 { font-size: 1rem; font-weight: 500; }
+        
+        .xp-badge {
+            font-family: var(--font-display);
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--glow-secondary);
+            background: rgba(14, 165, 233, 0.1);
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
+
+        .task-item.done .xp-badge {
+            color: var(--glow-success);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Fondo Neuronal / Aurora -->
+    <div class="ambient-background">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- App Wrapper -->
+    <main class="app-container">
+        
+        <!-- HEADER -->
+        <header class="header">
+            <div class="user-profile">
+                <div class="avatar-container">
+                    <div class="avatar-glow"></div>
+                    <img src="https://res.cloudinary.com/dlfayoxes/image/upload/v1753430775/avatars/gjacq7u1wcguuyetzzul.png" alt="Usuario" class="avatar-img">
+                    <div class="level-badge">6</div>
+                </div>
+                <div class="greeting">
+                    <span>Bienvenido</span>
+                    <h1 class="text-gradient">Barra</h1>
+                </div>
+            </div>
+            <button class="icon-btn" aria-label="Notificaciones">
+                <i data-lucide="bell"></i>
+            </button>
+        </header>
+
+        <!-- STATS (Neo-Bento) -->
+        <section>
+            <div class="section-title">
+                <h2>Esta semana</h2>
+                <i data-lucide="bar-chart-2" style="color: var(--text-muted); width: 20px;"></i>
+            </div>
+            
+            <div class="bento-grid">
+                <!-- Tarjeta Principal Expandida -->
+                <div class="glass-panel bento-card primary">
+                    <div class="bento-icon">
+                        <i data-lucide="dumbbell" style="width: 28px; height: 28px;"></i>
+                    </div>
+                    <div class="bento-data">
+                        <div class="bento-label">Entrenos</div>
+                        <div class="bento-value text-gradient">1 <span>/ 5</span></div>
+                    </div>
+                    <div class="trend-badge">-4 restantes</div>
+                </div>
+
+                <!-- Tarjeta Secundaria 1 -->
+                <div class="glass-panel bento-card">
+                    <div class="bento-icon" style="color: #f43f5e; background: rgba(244, 63, 94, 0.1);">
+                        <i data-lucide="flame"></i>
+                    </div>
+                    <div class="bento-data">
+                        <div class="bento-label">Tiempo</div>
+                        <div class="bento-value">48<span>m</span></div>
+                    </div>
+                </div>
+
+                <!-- Tarjeta Secundaria 2 -->
+                <div class="glass-panel bento-card">
+                    <div class="bento-icon" style="color: #10b981; background: rgba(16, 185, 129, 0.1);">
+                        <i data-lucide="activity"></i>
+                    </div>
+                    <div class="bento-data">
+                        <div class="bento-label">Volumen</div>
+                        <div class="bento-value">6.4<span>T</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- AGENDA FLOTANTE -->
+        <section class="agenda-section">
+            <div class="section-title">
+                <h2>Agenda <span style="font-weight: 400; color: var(--text-muted);">Marzo</span></h2>
+                <div class="trend-badge" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.1);">
+                    <i data-lucide="flame" style="width: 14px;"></i> 44 sem
+                </div>
+            </div>
+
+            <!-- Selector de días en cápsula -->
+            <div class="calendar-pills">
+                <button class="day-pill active">
+                    <span class="name">LUN</span>
+                    <span class="num">30</span>
+                </button>
+                <button class="day-pill">
+                    <span class="name">MAR</span>
+                    <span class="num">31</span>
+                </button>
+                <button class="day-pill">
+                    <span class="name">MIE</span>
+                    <span class="num">01</span>
+                </button>
+                <button class="day-pill">
+                    <span class="name">JUE</span>
+                    <span class="num">02</span>
+                </button>
+                <button class="day-pill">
+                    <span class="name">VIE</span>
+                    <span class="num">03</span>
+                </button>
+            </div>
+
+            <!-- Evento Holográfico -->
+            <div class="glass-panel agenda-event">
+                <div class="event-time">18:57</div>
+                <div class="event-details">
+                    <h3>Torsodi rvntadet</h3>
+                    <p>0h 48m de sesión</p>
+                </div>
+                <div class="bento-icon" style="width: 40px; height: 40px; margin: 0;">
+                    <i data-lucide="play" style="width: 18px; fill: currentColor;"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAREAS GAMIFICADAS -->
+        <section>
+            <div class="section-title">
+                <h2>Misiones de Hoy</h2>
+                <span class="trend-badge">1/3</span>
+            </div>
+
+            <div class="tasks-list">
+                <!-- Tarea Completada -->
+                <div class="glass-panel task-item done">
+                    <div class="custom-checkbox">
+                        <i data-lucide="check" style="width: 16px;"></i>
+                    </div>
+                    <div class="task-content">
+                        <h3>Registrar peso</h3>
+                    </div>
+                    <div class="xp-badge">+10 XP</div>
+                </div>
+
+                <!-- Tarea Pendiente -->
+                <div class="glass-panel task-item">
+                    <div class="custom-checkbox"></div>
+                    <div class="task-content">
+                        <h3>Registrar asistencia</h3>
+                    </div>
+                    <div class="xp-badge">+10 XP</div>
+                </div>
+
+                <!-- Tarea Pendiente -->
+                <div class="glass-panel task-item">
+                    <div class="custom-checkbox"></div>
+                    <div class="task-content">
+                        <h3>Completar entrenamiento</h3>
+                    </div>
+                    <div class="xp-badge">+25 XP</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Iniciar iconos Lucide
+        lucide.createIcons();
+    </script>
+</body>
+</html>
