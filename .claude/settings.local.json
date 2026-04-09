@@ -37,7 +37,18 @@
       "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/assets/index-CIC059My.js\")",
       "Bash(curl -s \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/\")",
       "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/assets/index-B2OSKOkP.js\")",
-      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/actions/artifacts?per_page=5\")"
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/actions/artifacts?per_page=5\")",
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/contents/contratacion-publica/dist\")",
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/pages\")",
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/branches\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d['workflow_runs'][0]['id']\\)\")",
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/actions/runs/24188653261\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('status:', d['status'], 'conclusion:', d['conclusion'], 'run_number:', d['run_number']\\)\")",
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/actions/deployments?per_page=1\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)[:1000]\\)\")",
+      "Bash(curl -sL \"https://github.com/PabloBarraSan/Experimentos/deployments/24188653261\")",
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/actions/runners\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)[:500]\\)\")"
     ]
   }
 }
