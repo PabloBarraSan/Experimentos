@@ -48,7 +48,11 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)[:1000]\\)\")",
       "Bash(curl -sL \"https://github.com/PabloBarraSan/Experimentos/deployments/24188653261\")",
       "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/actions/runners\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)[:500]\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2\\)[:500]\\)\")",
+      "Bash(ls /home/admin01/Documentos/experimentos/contratacion-publica/*.svg)",
+      "Bash(python3 -m http.server 8080)",
+      "Bash(python3 -m http.server 8081)",
+      "Bash(python3 -m http.server 8082)"
     ]
   }
 }
