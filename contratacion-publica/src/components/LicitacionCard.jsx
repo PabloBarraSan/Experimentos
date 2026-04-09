@@ -79,7 +79,7 @@ export function LicitacionCard({ licitacion, onClick }) {
         <div className="card-detail">
           <span className="card-detail-label">Fecha límite</span>
           <span className="card-detail-value">
-            {formatDate(licitacion.tendersubmissiondeadline)}
+            {formatDate(licitacion.tendersubmissiondeadline || licitacion.enddate)}
           </span>
         </div>
         {licitacion.typecode && (
