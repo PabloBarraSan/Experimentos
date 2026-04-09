@@ -61,6 +61,7 @@ export async function buscarLicitaciones(params = {}) {
 
   if (params.query) queryParts.push(`query=${encodeURIComponent(params.query)}`)
   if (params.winningparty) queryParts.push(`winningparty=${encodeURIComponent(params.winningparty)}`)
+  if (params.contractingparty) queryParts.push(`contractingparty=${encodeURIComponent(params.contractingparty)}`)
   if (params.cpv) queryParts.push(`cpv=${params.cpv}`)
   if (params.status) queryParts.push(`status=${params.status}`)
   if (params.typecode) queryParts.push(`typecode=${params.typecode}`)

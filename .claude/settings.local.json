@@ -35,7 +35,9 @@
       "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/\")",
       "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/favicon.svg\")",
       "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/assets/index-CIC059My.js\")",
-      "Bash(curl -s \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/\")"
+      "Bash(curl -s \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/\")",
+      "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/assets/index-B2OSKOkP.js\")",
+      "Bash(curl -s \"https://api.github.com/repos/PabloBarraSan/Experimentos/actions/artifacts?per_page=5\")"
     ]
   }
 }

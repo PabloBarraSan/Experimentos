@@ -14,6 +14,7 @@ export function useLicitaciones() {
   const filtrosRef = useRef({
     query: '',
     winningparty: '',
+    contractingparty: '',
     cpv: '300',
     status: '',
     typecode: '',
