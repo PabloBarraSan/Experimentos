@@ -29,13 +29,13 @@ export const ScheduleModal = {
                 name: 'Atención al Público',
                 isIndefinite: true,
                 daysConfig: {
-                    1: { active: true, startHour: '09:00', endHour: '14:00' },
-                    2: { active: true, startHour: '09:00', endHour: '14:00' },
-                    3: { active: true, startHour: '09:00', endHour: '14:00' },
-                    4: { active: true, startHour: '09:00', endHour: '14:00' },
-                    5: { active: true, startHour: '09:00', endHour: '14:00' },
-                    6: { active: false, startHour: '09:00', endHour: '14:00' },
-                    0: { active: false, startHour: '09:00', endHour: '14:00' }
+                    1: { active: true, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+                    2: { active: true, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+                    3: { active: true, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+                    4: { active: true, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+                    5: { active: true, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+                    6: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+                    0: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' }
                 },
                 seats: 5,
                 appDuration: 20,
@@ -260,13 +260,41 @@ export const ScheduleModal = {
                 }, day.fullLabel),
 
                 // Horario o cerrado
-                isActive ? m('div', { style: { display: 'flex', alignItems: 'center', flex: 1, gap: '8px' } }, [
+                isActive ? m('div', { style: { display: 'flex', alignItems: 'center', flex: 1, gap: '8px', flexWrap: 'wrap' } }, [
+                    // Turno de mañana
                     TimeSelector(day.value + '_start', config.startHour, (val) => { config.startHour = val; }),
                     m('span', { style: { color: '#94a3b8', fontSize: '0.8rem' } }, 'a'),
                     TimeSelector(day.value + '_end', config.endHour, (val) => { config.endHour = val; }),
 
-                    // Botón para añadir turno de tarde (Mockup visual)
-                    m('button', {
+                    // Turno de tarde
+                    config.hasAfternoonShift ? [
+                        m('div', {
+                            style: {
+                                display: 'flex', alignItems: 'center', gap: '6px',
+                                marginLeft: '8px', padding: '4px 8px',
+                                background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '6px'
+                            }
+                        }, [
+                            m('span', { style: { fontSize: '0.7rem', color: '#9ca3af' } }, 'Tarde:'),
+                            TimeSelector(day.value + '_afternoon_start', config.afternoonStartHour, (val) => { config.afternoonStartHour = val; }),
+                            m('span', { style: { color: '#94a3b8', fontSize: '0.8rem' } }, 'a'),
+                            TimeSelector(day.value + '_afternoon_end', config.afternoonEndHour, (val) => { config.afternoonEndHour = val; }),
+                            // Botón quitar turno de tarde
+                            m('button', {
+                                title: 'Quitar turno de tarde',
+                                style: {
+                                    background: 'transparent', border: 'none', color: '#9ca3af',
+                                    cursor: 'pointer', padding: '2px 4px', fontSize: '14px', lineHeight: 1
+                                },
+                                onmouseover: (e) => { e.currentTarget.style.color = '#ef4444'; },
+                                onmouseout: (e) => { e.currentTarget.style.color = '#9ca3af'; },
+                                onclick: () => { config.hasAfternoonShift = false; m.redraw(); }
+                            }, '×')
+                        ])
+                    ] : null,
+
+                    // Botón añadir turno de tarde
+                    !config.hasAfternoonShift ? m('button', {
                         title: 'Añadir turno de tarde',
                         style: {
                             background: '#f8fafc', border: '1px dashed #cbd5e1', color: '#64748b',
@@ -275,8 +303,9 @@ export const ScheduleModal = {
                             marginLeft: '8px', transition: 'all 0.2s', fontSize: '16px', fontWeight: 600
                         },
                         onmouseover: (e) => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.color = '#3b82f6'; e.currentTarget.style.background = '#eff6ff'; },
-                        onmouseout: (e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#64748b'; e.currentTarget.style.background = '#f8fafc'; }
-                    }, '+')
+                        onmouseout: (e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#64748b'; e.currentTarget.style.background = '#f8fafc'; },
+                        onclick: () => { config.hasAfternoonShift = true; m.redraw(); }
+                    }, '+') : null
                 ]) : m('span', { style: { flex: 1, color: '#9ca3af', fontSize: '0.85rem', fontStyle: 'italic' } }, 'Cerrado')
             ]);
         };
@@ -1664,13 +1693,13 @@ function getDefaultFormData() {
         startDate: '',
         endDate: '',
         daysConfig: {
-            1: { active: false, startHour: '09:00', endHour: '14:00' },
-            2: { active: false, startHour: '09:00', endHour: '14:00' },
-            3: { active: false, startHour: '09:00', endHour: '14:00' },
-            4: { active: false, startHour: '09:00', endHour: '14:00' },
-            5: { active: false, startHour: '09:00', endHour: '14:00' },
-            6: { active: false, startHour: '09:00', endHour: '14:00' },
-            0: { active: false, startHour: '09:00', endHour: '14:00' }
+            1: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+            2: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+            3: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+            4: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+            5: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+            6: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+            0: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' }
         },
         seats: 1,
         appDuration: 15,
@@ -1690,6 +1719,22 @@ function getDefaultFormData() {
 
 // Map legacy schedule format to new daysConfig format
 function mapScheduleToFormData(schedule) {
+    // Normalize day config with afternoon shift support
+    const normalizeDaysConfig = (dc) => {
+        const normalized = { ...dc };
+        for (const key in normalized) {
+            normalized[key] = {
+                active: normalized[key].active || false,
+                startHour: normalized[key].startHour || '09:00',
+                endHour: normalized[key].endHour || '14:00',
+                hasAfternoonShift: normalized[key].hasAfternoonShift || false,
+                afternoonStartHour: normalized[key].afternoonStartHour || '16:00',
+                afternoonEndHour: normalized[key].afternoonEndHour || '20:00'
+            };
+        }
+        return normalized;
+    };
+
     // Check if it's the new format with daysConfig
     if (schedule.daysConfig) {
         return {
@@ -1697,7 +1742,7 @@ function mapScheduleToFormData(schedule) {
             isIndefinite: schedule.isIndefinite !== false,
             startDate: schedule.startDate || '',
             endDate: schedule.endDate || '',
-            daysConfig: { ...schedule.daysConfig },
+            daysConfig: normalizeDaysConfig(schedule.daysConfig),
             seats: schedule.seats || 1,
             appDuration: schedule.appDuration || 15,
             supplement: schedule.supplement || 0,
@@ -1716,13 +1761,13 @@ function mapScheduleToFormData(schedule) {
 
     // Legacy format: convert old days array + startHour/endHour to new format
     const daysConfig = {
-        1: { active: false, startHour: '09:00', endHour: '14:00' },
-        2: { active: false, startHour: '09:00', endHour: '14:00' },
-        3: { active: false, startHour: '09:00', endHour: '14:00' },
-        4: { active: false, startHour: '09:00', endHour: '14:00' },
-        5: { active: false, startHour: '09:00', endHour: '14:00' },
-        6: { active: false, startHour: '09:00', endHour: '14:00' },
-        0: { active: false, startHour: '09:00', endHour: '14:00' }
+        1: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+        2: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+        3: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+        4: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+        5: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+        6: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' },
+        0: { active: false, startHour: '09:00', endHour: '14:00', hasAfternoonShift: false, afternoonStartHour: '16:00', afternoonEndHour: '20:00' }
     };
 
     // Activate days that were in the old days array

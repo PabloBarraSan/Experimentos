@@ -30,7 +30,8 @@
       "Bash(npm install:*)",
       "WebFetch(domain:public.digitalvalue.es)",
       "Bash(npm run:*)",
-      "Bash(curl -s \"https://public.digitalvalue.es/contratacionestado/api.php/potenciales\")"
+      "Bash(curl -s \"https://public.digitalvalue.es/contratacionestado/api.php/potenciales\")",
+      "Bash(git commit:*)"
     ]
   }
 }
