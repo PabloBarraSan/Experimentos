@@ -57,17 +57,18 @@ export async function getContar() {
  * @returns {Promise<Array>} Lista de licitaciones
  */
 export async function buscarLicitaciones(params = {}) {
-  const searchParams = new URLSearchParams()
+  const queryParts = []
 
-  if (params.query) searchParams.set('query', params.query)
-  if (params.winningparty) searchParams.set('winningparty', params.winningparty)
-  if (params.cpv) searchParams.set('cpv', params.cpv)
-  if (params.status) searchParams.set('status', params.status)
-  if (params.typecode) searchParams.set('typecode', params.typecode)
-  if (params.datefrom) searchParams.set('datefrom', params.datefrom)
-  if (params.dateto) searchParams.set('dateto', params.dateto)
+  if (params.query) queryParts.push(`query=${encodeURIComponent(params.query)}`)
+  if (params.winningparty) queryParts.push(`winningparty=${encodeURIComponent(params.winningparty)}`)
+  if (params.cpv) queryParts.push(`cpv=${params.cpv}`)
+  if (params.status) queryParts.push(`status=${params.status}`)
+  if (params.typecode) queryParts.push(`typecode=${params.typecode}`)
+  if (params.datefrom) queryParts.push(`datefrom=${params.datefrom}`)
+  if (params.dateto) queryParts.push(`dateto=${params.dateto}`)
 
-  const url = `${BASE_URL}/buscar${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+  const queryString = queryParts.join('&')
+  const url = `${BASE_URL}/buscar${queryString ? '?' + queryString : ''}`
   const res = await fetch(url)
   const text = await res.text()
 
