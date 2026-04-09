@@ -31,7 +31,11 @@
       "WebFetch(domain:public.digitalvalue.es)",
       "Bash(npm run:*)",
       "Bash(curl -s \"https://public.digitalvalue.es/contratacionestado/api.php/potenciales\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/\")",
+      "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/favicon.svg\")",
+      "Bash(curl -sI \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/assets/index-CIC059My.js\")",
+      "Bash(curl -s \"https://pablobarrasan.github.io/Experimentos/contratacion-publica/\")"
     ]
   }
 }
