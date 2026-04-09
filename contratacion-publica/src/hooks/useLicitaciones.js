@@ -15,7 +15,7 @@ export function useLicitaciones() {
     query: '',
     winningparty: '',
     cpv: '300',
-    status: 'PUB',
+    status: '',
     typecode: '',
     datefrom: '',
     dateto: '',
