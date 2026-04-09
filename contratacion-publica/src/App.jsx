@@ -63,6 +63,21 @@ function App() {
     setSelectedLicitacion(null)
   }
 
+  const handleLimpiar = () => {
+    const filtrosVacios = {
+      query: '',
+      winningparty: '',
+      cpv: '',
+      status: '',
+      typecode: '',
+      datefrom: '',
+      dateto: '',
+    }
+    Object.entries(filtrosVacios).forEach(([clave, valor]) => {
+      actualizarFiltro(clave, valor)
+    })
+  }
+
   const totalPages = Math.ceil(total / limit)
   const totalPagesPotenciales = Math.ceil(potenciales.length / POTENCIALES_LIMIT)
   const startPotenciales = (pagePotenciales - 1) * POTENCIALES_LIMIT
@@ -98,7 +113,7 @@ function App() {
       </header>
 
       <main className="main">
-        <SearchBar filtros={filtros} onFiltroChange={actualizarFiltro} onBuscar={recargar} />
+        <SearchBar filtros={filtros} onFiltroChange={actualizarFiltro} onBuscar={recargar} onLimpiar={handleLimpiar} />
 
         {error && (
           <div className="error-message">
