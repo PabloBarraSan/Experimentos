@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servei de cita prèvia i reserves - Ajuntament de Picassent</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            DEFAULT: '#007680', // El color corporativo original
+                            light: '#009ba6',
+                            dark: '#00555c',
+                            50: '#f0fbfc',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Transiciones suaves para interactividad */
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(0, 118, 128, 0.15), 0 8px 10px -6px rgba(0, 118, 128, 0.1);
+            border-color: #007680;
+        }
+        .news-gradient {
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0) 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen text-gray-800 font-sans">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center">
+                    <img class="h-12 w-auto" src="https://cdn.digitalvalue.es/picassent/assets/69dde776394c449f6bc36bd7" alt="Logo Ajuntament de Picassent" onerror="this.src='https://via.placeholder.com/150x50?text=Logo+Ajuntament'">
+                </div>
+                
+                <!-- Right Actions -->
+                <div class="flex items-center gap-2 sm:gap-6">
+                    <!-- Date/Time (Desktop only) -->
+                    <div class="hidden md:block text-sm text-gray-500 font-medium" id="current-datetime">
+                        14 Abril 2026 <span class="font-bold text-gray-700 ml-2">09:39</span>
+                    </div>
+
+                    <!-- Language Selector -->
+                    <div class="relative group cursor-pointer hidden sm:block">
+                        <button class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                            <span class="font-bold text-sm text-gray-700">VA</span>
+                            <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                        </button>
+                    </div>
+
+                    <!-- My Reservations Button -->
+                    <a href="#" class="flex items-center gap-2 bg-brand text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-lg font-medium hover:bg-brand-light transition shadow-md shadow-brand/20">
+                        <i class="far fa-user"></i>
+                        <span class="hidden sm:inline">Les meues reserves</span>
+                        <span class="sm:hidden">Reserves</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="bg-brand text-white py-12 sm:py-16 relative overflow-hidden">
+        <!-- Abstract background decoration -->
+        <div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-white opacity-5"></div>
+        <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-black opacity-10"></div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight mb-4">
+                Servei de cita prèvia i reserves
+            </h1>
+            <p class="text-lg sm:text-xl text-brand-50 max-w-2xl opacity-90">
+                Selecciona entre els serveis disponibles per realitzar la teua reserva de forma ràpida i senzilla.
+            </p>
+        </div>
+    </section>
+
+    <!-- Breadcrumb -->
+    <div class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex items-center text-sm text-gray-500 gap-2">
+                <a href="#" class="hover:text-brand transition flex items-center gap-1">
+                    <i class="fas fa-home"></i> Inici
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
+        
+        <div class="flex flex-col lg:flex-row gap-8 lg:gap-12">
+            
+            <!-- Left Column: Reservations (Primary Focus) -->
+            <div class="w-full lg:w-2/3">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="bg-brand-50 p-2.5 rounded-lg text-brand">
+                        <i class="fas fa-ticket-alt text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-800">Què necessites reservar?</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    
+                    <!-- Card 1 -->
+                    <a href="#" class="card-hover bg-white border border-gray-100 rounded-xl p-6 flex flex-col h-full cursor-pointer relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <i class="fas fa-running text-6xl text-brand"></i>
+                        </div>
+                        <div class="w-14 h-14 bg-brand-50 text-brand rounded-lg flex items-center justify-center mb-4 border border-brand/10">
+                            <img src="https://zity-dashboard.digitalvalue.es/images/deportes.svg" alt="Deportes" class="w-8 h-8 opacity-80" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <i class="fas fa-table-tennis hidden text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Reserves Esportives</h3>
+                        <p class="text-gray-500 text-sm flex-grow">Reserva pistes de tenis, pàdel i realitza inscripcions a activitats.</p>
+                        <div class="mt-4 flex items-center text-brand font-medium text-sm group-hover:underline">
+                            Reservar ara <i class="fas fa-arrow-right ml-2 text-xs transition-transform group-hover:translate-x-1"></i>
+                        </div>
+                    </a>
+
+                    <!-- Card 2 -->
+                    <a href="#" class="card-hover bg-white border border-gray-100 rounded-xl p-6 flex flex-col h-full cursor-pointer relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <i class="fas fa-calendar-check text-6xl text-brand"></i>
+                        </div>
+                        <div class="w-14 h-14 bg-brand-50 text-brand rounded-lg flex items-center justify-center mb-4 border border-brand/10">
+                            <img src="https://zity-dashboard.digitalvalue.es/images/TicketsIcon.png" alt="Cita Previa" class="w-8 h-8 opacity-80" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <i class="fas fa-file-signature hidden text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Cita Prèvia i Gestions</h3>
+                        <p class="text-gray-500 text-sm flex-grow">Atenció Ciutadana (OAC), recollida de voluminosos, infància i joventut.</p>
+                        <div class="mt-4 flex items-center text-brand font-medium text-sm group-hover:underline">
+                            Sol·licitar cita <i class="fas fa-arrow-right ml-2 text-xs transition-transform group-hover:translate-x-1"></i>
+                        </div>
+                    </a>
+
+                    <!-- Card 3 -->
+                    <a href="#" class="card-hover bg-white border border-gray-100 rounded-xl p-6 flex flex-col h-full cursor-pointer relative overflow-hidden group">
+                        <div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                            <i class="fas fa-glass-cheers text-6xl text-brand"></i>
+                        </div>
+                        <div class="w-14 h-14 bg-brand-50 text-brand rounded-lg flex items-center justify-center mb-4 border border-brand/10">
+                            <img src="https://zity-dashboard.digitalvalue.es/images/TicketsIcon.png" alt="Sopar" class="w-8 h-8 opacity-80" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <i class="fas fa-ticket-alt hidden text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">Sopar de les Dones 2026</h3>
+                        <p class="text-gray-500 text-sm flex-grow">Adquireix el teu tiquet per a l'esdeveniment anual.</p>
+                        <div class="mt-4 flex items-center text-brand font-medium text-sm group-hover:underline">
+                            Comprar tiquet <i class="fas fa-arrow-right ml-2 text-xs transition-transform group-hover:translate-x-1"></i>
+                        </div>
+                    </a>
+
+                </div>
+            </div>
+
+            <!-- Right Column: News (Secondary Focus) -->
+            <div class="w-full lg:w-1/3">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="bg-gray-200 p-2.5 rounded-lg text-gray-600">
+                        <i class="far fa-newspaper text-xl"></i>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-800">Últimes notícies</h2>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <!-- Featured News (Large) -->
+                    <a href="#" class="block relative h-48 rounded-xl overflow-hidden group shadow-sm hover:shadow-md transition">
+                        <img src="https://cdn.digitalvalue.es/picassent/assets1/69d8b00a3cb3ae3da4e93e55" alt="Setmana del Llibre" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500" onerror="this.src='https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&q=80&w=400';">
+                        <div class="absolute inset-0 news-gradient flex flex-col justify-end p-4">
+                            <span class="bg-brand text-white text-xs font-bold px-2 py-1 rounded inline-block w-max mb-2">Cultura</span>
+                            <h3 class="text-white font-bold text-lg leading-tight group-hover:text-brand-50 transition">SETMANA DEL LLIBRE</h3>
+                        </div>
+                    </a>
+
+                    <!-- Grid for smaller news -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- Small News 1 -->
+                        <a href="#" class="block relative h-32 rounded-xl overflow-hidden group shadow-sm hover:shadow-md transition">
+                            <img src="https://cdn.digitalvalue.es/picassent/assets1/69d779bc3cb3ae3da4e93dd1" alt="Bous al carrer" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500" onerror="this.src='https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?auto=format&fit=crop&q=80&w=300';">
+                            <div class="absolute inset-0 news-gradient flex flex-col justify-end p-3">
+                                <h3 class="text-white font-semibold text-sm leading-tight line-clamp-2">BOUS AL CARRER</h3>
+                            </div>
+                        </a>
+
+                        <!-- Small News 2 -->
+                        <a href="#" class="block relative h-32 rounded-xl overflow-hidden group shadow-sm hover:shadow-md transition">
+                            <img src="https://cdn.digitalvalue.es/picassent/assets1/69d777de3cb3ae3da4e93dcf" alt="Gran Premi Femeni" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-500" onerror="this.src='https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=300';">
+                            <div class="absolute inset-0 news-gradient flex flex-col justify-end p-3">
+                                <h3 class="text-white font-semibold text-sm leading-tight line-clamp-2">VIII GRAN PREMI FEMENI AJUNTAMENT DE PICASSENT</h3>
+                            </div>
+                        </a>
+                    </div>
+
+                    <!-- Pagination / Navigation (Mockup) -->
+                    <div class="flex items-center justify-center gap-2 mt-2">
+                        <button class="w-8 h-8 flex items-center justify-center rounded-md border border-gray-200 text-gray-400 hover:bg-gray-50 transition"><i class="fas fa-chevron-left text-xs"></i></button>
+                        <button class="w-8 h-8 flex items-center justify-center rounded-md border border-brand bg-brand-50 text-brand font-medium">1</button>
+                        <button class="w-8 h-8 flex items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition">2</button>
+                        <button class="w-8 h-8 flex items-center justify-center rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition"><i class="fas fa-chevron-right text-xs"></i></button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white mt-auto pt-12 pb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                
+                <!-- Brand & Contact -->
+                <div class="col-span-1 md:col-span-2 flex flex-col sm:flex-row gap-6 items-start">
+                    <img src="https://cdn.digitalvalue.es/picassent/assets/69dde99f394c449f6bc36bfe" alt="Ajuntament Logo Blanc" class="h-16 w-auto" onerror="this.src='https://via.placeholder.com/100x100?text=Logo';">
+                    <div>
+                        <h4 class="text-xl font-bold mb-2">Ajuntament de Picassent</h4>
+                        <p class="text-gray-400 text-sm flex items-center gap-2 mb-1">
+                            <i class="fas fa-map-marker-alt w-4"></i> Pl. del Ayuntamiento, 19, 46220
+                        </p>
+                        <p class="text-gray-400 text-sm flex items-center gap-2">
+                            <i class="fas fa-phone w-4"></i> 96 123 01 00
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Links -->
+                <div>
+                    <h4 class="text-lg font-bold mb-4 text-gray-100">Enllaços d'interés</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li><a href="#" class="hover:text-white transition flex items-center gap-2"><i class="fas fa-external-link-alt text-xs"></i> Sèu Electrònica</a></li>
+                        <li><a href="#" class="hover:text-white transition flex items-center gap-2"><i class="fas fa-external-link-alt text-xs"></i> Portal Ajuntament</a></li>
+                        <li><a href="#" class="hover:text-white transition">Avís legal</a></li>
+                        <li><a href="#" class="hover:text-white transition">Política de privacitat</a></li>
+                        <li><a href="#" class="hover:text-white transition">Política de cookies</a></li>
+                    </ul>
+                </div>
+
+                <!-- Social -->
+                <div>
+                    <h4 class="text-lg font-bold mb-4 text-gray-100">Segueix-nos</h4>
+                    <div class="flex gap-4">
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-brand transition text-gray-300 hover:text-white">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-brand transition text-gray-300 hover:text-white">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-brand transition text-gray-300 hover:text-white">
+                            <i class="fas fa-globe"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 pt-8 mt-8 text-center text-sm text-gray-500">
+                <p>&copy; 2026 Ajuntament de Picassent. Tots els drets reservats.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script to set dynamic date (similar to original) -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const dateEl = document.getElementById('current-datetime');
+            if(dateEl) {
+                const now = new Date();
+                const options = { day: 'numeric', month: 'long', year: 'numeric' };
+                const dateStr = now.toLocaleDateString('ca-ES', options);
+                const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                dateEl.innerHTML = `${dateStr} <span class="font-bold text-gray-700 ml-2">${timeStr}</span>`;
+            }
+        });
+    </script>
+</body>
+</html>
