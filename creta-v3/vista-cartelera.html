@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartellera d'Esdeveniments - Ajuntament de Llíria</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            DEFAULT: '#007680', // Asumiendo el color base anterior, ajustable según el de Llíria
+                            light: '#009ba6',
+                            dark: '#00555c',
+                            50: '#f0fbfc',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen text-gray-800 font-sans">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo -->
+                <a href="#" class="flex-shrink-0 flex items-center">
+                    <img class="h-12 w-auto" src="https://cdn.digitalvalue.es/lliria/assets/69ce1ac4394c449f6bc33c3d?w=150" alt="Logo Ajuntament" onerror="this.src='https://via.placeholder.com/150x50?text=Logo+Ajuntament'">
+                </a>
+                
+                <!-- Right Actions -->
+                <div class="flex items-center gap-2 sm:gap-6">
+                    <div class="hidden md:block text-sm text-gray-500 font-medium">
+                        14 Abril 2026 <span class="font-bold text-gray-700 ml-2">11:01</span>
+                    </div>
+                    <div class="relative group cursor-pointer hidden sm:block">
+                        <button class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                            <span class="font-bold text-sm text-gray-700">VA</span>
+                            <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                        </button>
+                    </div>
+                    <a href="#" class="flex items-center gap-2 bg-brand text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-lg font-medium hover:bg-brand-light transition shadow-md shadow-brand/20">
+                        <i class="far fa-user"></i>
+                        <span class="hidden sm:inline">Les meues reserves</span>
+                        <span class="sm:hidden">Reserves</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
+        
+        <!-- Header Section -->
+        <div class="mb-10 text-center sm:text-left">
+            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-50 text-brand text-sm font-semibold mb-4">
+                <i class="fas fa-ticket-alt"></i> Cultura i Oci
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">Cartellera d'Esdeveniments</h1>
+            <p class="text-gray-600 max-w-2xl text-lg">Descobreix totes les obres de teatre, concerts, rutes guiades i tallers que hem preparat per a tu. Selecciona el teu esdeveniment i reserva la teua plaça.</p>
+        </div>
+
+        <!-- Events Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            
+            <!-- Event Card 1: Available (Payment) -->
+            <div class="flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 overflow-hidden group">
+                <!-- Image Header with Date Badge -->
+                <div class="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
+                    <img src="https://cdn.digitalvalue.es/lliria/assets/69ce1ac4394c449f6bc33c3d?w=500" alt="Ballant Ballant" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80"></div>
+                    
+                    <!-- Date Badge (Floating) -->
+                    <div class="absolute top-4 left-4 bg-white rounded-xl shadow-lg overflow-hidden w-16 text-center border border-gray-100 flex flex-col">
+                        <div class="bg-gray-800 text-white text-xs font-bold py-1 uppercase tracking-wider">Abr</div>
+                        <div class="py-1">
+                            <span class="block text-2xl font-black text-gray-900 leading-none">16</span>
+                            <span class="block text-[10px] text-gray-500 font-medium uppercase">Dijous</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Body -->
+                <div class="p-5 flex flex-col flex-grow">
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 leading-tight group-hover:text-brand transition-colors">Ballant Ballant: 30 Anys</h3>
+                    
+                    <!-- Description with fade-out effect -->
+                    <div class="relative mb-4 flex-grow">
+                        <p class="text-sm text-gray-600 line-clamp-3">
+                            <strong class="text-gray-800">La música és la protagonista. Cent anys d'història de València, ballant.</strong> Un espectacle sense paraules on quinze intèrprets revisen fets històrics i personals a través de la música i el ball.
+                        </p>
+                        <!-- Pequeño botón de leer más integrado sutilmente -->
+                        <span class="text-xs font-semibold text-brand cursor-pointer hover:underline mt-1 inline-block">Llegir més...</span>
+                    </div>
+
+                    <!-- Meta Data Grid -->
+                    <div class="grid grid-cols-2 gap-3 mb-5 border-t border-gray-100 pt-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                                <i class="far fa-clock"></i>
+                            </div>
+                            19:00 - 20:59
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center text-brand">
+                                <i class="fas fa-ticket-alt"></i>
+                            </div>
+                            341 / 619 px.
+                        </div>
+                        <div class="col-span-2 flex items-center gap-2 text-sm text-gray-600 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            <span class="truncate" title="Teatre de la Unió Musical">Teatre de la Unió Musical</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Footer -->
+                    <div class="flex items-center justify-between mt-auto">
+                        <div class="font-black text-xl text-gray-900">5 <span class="text-sm text-gray-500 font-medium">€</span></div>
+                        <button class="bg-brand hover:bg-brand-light text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center gap-2">
+                            Reservar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Card 2: Available (Payment) -->
+            <div class="flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 overflow-hidden group">
+                <div class="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
+                    <img src="https://cdn.digitalvalue.es/lliria/assets/69ce6507394c449f6bc33da2?w=500" alt="Ruta Històrica" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80"></div>
+                    
+                    <div class="absolute top-4 left-4 bg-white rounded-xl shadow-lg overflow-hidden w-16 text-center border border-gray-100 flex flex-col">
+                        <div class="bg-gray-800 text-white text-xs font-bold py-1 uppercase tracking-wider">Abr</div>
+                        <div class="py-1">
+                            <span class="block text-2xl font-black text-gray-900 leading-none">18</span>
+                            <span class="block text-[10px] text-gray-500 font-medium uppercase">Dis</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 flex flex-col flex-grow">
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 leading-tight group-hover:text-brand transition-colors">Ruta de la Llíria Històrica</h3>
+                    
+                    <div class="relative mb-4 flex-grow">
+                        <p class="text-sm text-gray-600 line-clamp-3">
+                            🏛 Descobrix la Líria Històrica !! No et perdes la nostra visita temàtica guiada per les nostres edificacions d'època històrica.
+                        </p>
+                        <span class="text-xs font-semibold text-brand cursor-pointer hover:underline mt-1 inline-block">Llegir més...</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-5 border-t border-gray-100 pt-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                                <i class="far fa-clock"></i>
+                            </div>
+                            11:00 - 13:00
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            18 / 30 px.
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-auto">
+                        <div class="font-black text-xl text-gray-900">5 <span class="text-sm text-gray-500 font-medium">€</span></div>
+                        <button class="bg-brand hover:bg-brand-light text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center gap-2">
+                            Reservar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Card 3: Available (Free/Unknown Price shown as empty but reservable) -->
+            <div class="flex flex-col bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 overflow-hidden group">
+                <div class="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
+                    <img src="https://cdn.digitalvalue.es/lliria/assets/69ce6509394c449f6bc33da4?w=500" alt="Ruta Liria Històrica 2" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-80"></div>
+                    
+                    <div class="absolute top-4 left-4 bg-white rounded-xl shadow-lg overflow-hidden w-16 text-center border border-gray-100 flex flex-col">
+                        <div class="bg-gray-800 text-white text-xs font-bold py-1 uppercase tracking-wider">Abr</div>
+                        <div class="py-1">
+                            <span class="block text-2xl font-black text-gray-900 leading-none">19</span>
+                            <span class="block text-[10px] text-gray-500 font-medium uppercase">Diu</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 flex flex-col flex-grow">
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 leading-tight group-hover:text-brand transition-colors">Ruta de la Liria Històrica (Medieval)</h3>
+                    
+                    <div class="relative mb-4 flex-grow">
+                        <p class="text-sm text-gray-600 line-clamp-3">
+                            🏛 Descobrix la Liria Històrica !! No et perdes la visita temàtica guiada per l'arquitectura d'època medieval del nostre municipi.
+                        </p>
+                        <span class="text-xs font-semibold text-brand cursor-pointer hover:underline mt-1 inline-block">Llegir més...</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-5 border-t border-gray-100 pt-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                                <i class="far fa-clock"></i>
+                            </div>
+                            11:00 - 13:00
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            22 / 30 px.
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-auto">
+                        <div class="font-black text-xl text-gray-900">5 <span class="text-sm text-gray-500 font-medium">€</span></div>
+                        <button class="bg-brand hover:bg-brand-light text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-md hover:shadow-lg flex items-center gap-2">
+                            Reservar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Card 4: FULL / RESERVED (Disabled State) -->
+            <div class="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden opacity-70 grayscale-[20%] transition-opacity hover:opacity-100 hover:grayscale-0">
+                <div class="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
+                    <img src="https://cdn.digitalvalue.es/lliria/assets/69d756c6394c449f6bc356fd?w=500" alt="Rates penades" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-black/40"></div>
+                    
+                    <!-- Full/Sold Out Badge Center -->
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span class="bg-red-600 text-white font-black px-4 py-2 rounded-lg transform -rotate-12 border-2 border-white/20 shadow-xl tracking-wider uppercase">Completo</span>
+                    </div>
+
+                    <div class="absolute top-4 left-4 bg-white/80 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden w-16 text-center border border-gray-100 flex flex-col">
+                        <div class="bg-gray-600 text-white text-xs font-bold py-1 uppercase tracking-wider">Abr</div>
+                        <div class="py-1">
+                            <span class="block text-2xl font-black text-gray-700 leading-none">25</span>
+                            <span class="block text-[10px] text-gray-500 font-medium uppercase">Dis</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 flex flex-col flex-grow">
+                    <h3 class="text-xl font-bold text-gray-700 mb-2 leading-tight">🌑 Nit de Rates penades 🦇</h3>
+                    
+                    <div class="relative mb-4 flex-grow">
+                        <p class="text-sm text-gray-500 line-clamp-3">
+                            Benvinguts a esta nova activitat de Visit Llíria per a conscienciar sobre la fauna del parc i en concret els rates penades.
+                        </p>
+                        <span class="text-xs font-semibold text-gray-400 mt-1 inline-block">Llegir més...</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-5 border-t border-gray-100 pt-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-500 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                                <i class="far fa-clock"></i>
+                            </div>
+                            19:30 - 21:30
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-red-600 font-bold">
+                            <div class="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+                                <i class="fas fa-users-slash"></i>
+                            </div>
+                            0 / 30 px.
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-auto">
+                        <div class="font-black text-xl text-gray-400">Gratuït</div>
+                        <button disabled class="bg-gray-200 text-gray-500 font-bold py-2.5 px-6 rounded-xl cursor-not-allowed">
+                            Reservat
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Card 5: FULL / RESERVED (Disabled State) -->
+            <div class="flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden opacity-70 grayscale-[20%] transition-opacity hover:opacity-100 hover:grayscale-0">
+                <div class="relative h-48 sm:h-56 overflow-hidden bg-gray-200">
+                    <img src="https://cdn.digitalvalue.es/lliria/assets/69d756c6394c449f6bc35702?w=500" alt="Rates penades" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-black/40"></div>
+                    
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span class="bg-red-600 text-white font-black px-4 py-2 rounded-lg transform -rotate-12 border-2 border-white/20 shadow-xl tracking-wider uppercase">Completo</span>
+                    </div>
+
+                    <div class="absolute top-4 left-4 bg-white/80 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden w-16 text-center border border-gray-100 flex flex-col">
+                        <div class="bg-gray-600 text-white text-xs font-bold py-1 uppercase tracking-wider">Abr</div>
+                        <div class="py-1">
+                            <span class="block text-2xl font-black text-gray-700 leading-none">26</span>
+                            <span class="block text-[10px] text-gray-500 font-medium uppercase">Diu</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-5 flex flex-col flex-grow">
+                    <h3 class="text-xl font-bold text-gray-700 mb-2 leading-tight">🌑 Rates penades 🦇 (Dia 2)</h3>
+                    
+                    <div class="relative mb-4 flex-grow">
+                        <p class="text-sm text-gray-500 line-clamp-3">
+                            Benvinguts a esta nova activitat de Visit Llíria per a conscienciar sobre la fauna del parc i en concret els rates penades.
+                        </p>
+                        <span class="text-xs font-semibold text-gray-400 mt-1 inline-block">Llegir més...</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-5 border-t border-gray-100 pt-4">
+                        <div class="flex items-center gap-2 text-sm text-gray-500 font-medium">
+                            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
+                                <i class="far fa-clock"></i>
+                            </div>
+                            12:00 - 14:00
+                        </div>
+                        <div class="flex items-center gap-2 text-sm text-red-600 font-bold">
+                            <div class="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+                                <i class="fas fa-users-slash"></i>
+                            </div>
+                            0 / 30 px.
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between mt-auto">
+                        <div class="font-black text-xl text-gray-400">Gratuït</div>
+                        <button disabled class="bg-gray-200 text-gray-500 font-bold py-2.5 px-6 rounded-xl cursor-not-allowed">
+                            Reservat
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white mt-auto pt-12 pb-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                <div class="col-span-1 md:col-span-2 flex flex-col sm:flex-row gap-6 items-start">
+                    <img src="https://cdn.digitalvalue.es/lliria/assets/69ce1ac4394c449f6bc33c3d?w=150" alt="Logo Ajuntament Blanc" class="h-16 w-auto grayscale brightness-200" onerror="this.src='https://via.placeholder.com/100x100?text=Logo';">
+                    <div>
+                        <h4 class="text-xl font-bold mb-2">Ajuntament de Llíria</h4>
+                        <p class="text-gray-400 text-sm flex items-center gap-2 mb-1">
+                            <i class="fas fa-map-marker-alt w-4"></i> Plaça Major, 1, 46160
+                        </p>
+                        <p class="text-gray-400 text-sm flex items-center gap-2">
+                            <i class="fas fa-phone w-4"></i> 96 279 82 82
+                        </p>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-bold mb-4 text-gray-100">Enllaços d'interés</h4>
+                    <ul class="space-y-2 text-sm text-gray-400">
+                        <li><a href="#" class="hover:text-white transition flex items-center gap-2"><i class="fas fa-external-link-alt text-xs"></i> Sèu Electrònica</a></li>
+                        <li><a href="#" class="hover:text-white transition flex items-center gap-2"><i class="fas fa-external-link-alt text-xs"></i> Portal Ajuntament</a></li>
+                        <li><a href="#" class="hover:text-white transition">Avís legal</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 mt-8 text-center text-sm text-gray-500">
+                <p>&copy; 2026 Ajuntament de Llíria. Tots els drets reservats.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selecció de Butaques - Ajuntament de Llíria</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            DEFAULT: '#007680',
+                            light: '#009ba6',
+                            dark: '#00555c',
+                            50: '#f0fbfc',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos específicos para las formas de las butacas */
+        .seat {
+            width: 32px;
+            height: 32px;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        
+        @media (min-width: 640px) {
+            .seat {
+                width: 38px;
+                height: 38px;
+                font-size: 12px;
+            }
+        }
+
+        /* Estados de las butacas */
+        .seat-available {
+            background-color: white;
+            border: 2px solid #e5e7eb; /* gray-200 */
+            color: #9ca3af;
+            cursor: pointer;
+        }
+        .seat-available:hover {
+            border-color: #007680;
+            background-color: #f0fbfc;
+            color: #007680;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 118, 128, 0.1);
+        }
+        
+        .seat-occupied {
+            background-color: #f3f4f6; /* gray-100 */
+            border: 2px solid #f3f4f6;
+            color: #d1d5db; /* gray-400 */
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .seat-selected {
+            background-color: #007680;
+            border: 2px solid #007680;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 118, 128, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .seat-wheelchair {
+            background-color: #f5f3ff; /* purple-50 */
+            border: 2px solid #d8b4fe; /* purple-300 */
+            color: #9333ea; /* purple-600 */
+            cursor: pointer;
+        }
+        .seat-wheelchair:hover {
+            border-color: #7e22ce;
+            background-color: #ede9fe;
+            transform: translateY(-2px);
+        }
+
+        /* Ocultar barra de scroll pero mantener funcionalidad */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 flex flex-col min-h-screen text-gray-800 font-sans">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="#" class="flex-shrink-0 flex items-center">
+                    <img class="h-12 w-auto" src="https://cdn.digitalvalue.es/lliria/assets/69ce1ac4394c449f6bc33c3d?w=150" alt="Logo Ajuntament" onerror="this.src='https://via.placeholder.com/150x50?text=Logo+Ajuntament'">
+                </a>
+                <div class="flex items-center gap-2 sm:gap-6">
+                    <a href="#" class="flex items-center gap-2 bg-brand text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-lg font-medium hover:bg-brand-light transition shadow-md shadow-brand/20">
+                        <i class="far fa-user"></i>
+                        <span class="hidden sm:inline">Les meues reserves</span>
+                        <span class="sm:hidden">Reserves</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Breadcrumb -->
+    <div class="bg-white border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div class="flex items-center text-xs sm:text-sm text-gray-500 gap-1 sm:gap-2 flex-wrap">
+                <a href="#" class="hover:text-brand transition flex items-center gap-1"><i class="fas fa-home"></i> Inici</a>
+                <i class="fas fa-chevron-right text-[10px] text-gray-300 mx-1"></i>
+                <a href="#" class="hover:text-brand transition">Cartellera d'Esdeveniments</a>
+                <i class="fas fa-chevron-right text-[10px] text-gray-300 mx-1"></i>
+                <span class="font-semibold text-gray-800">Ballant Ballant: 30 Anys</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <!-- Context Header -->
+        <div class="bg-slate-800 rounded-2xl shadow-lg p-6 sm:p-8 mb-8 text-white relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+            <!-- Background pattern -->
+            <div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white opacity-5"></div>
+            
+            <div class="relative z-10 flex-grow text-center md:text-left">
+                <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-bold tracking-wider mb-3">Teatre de la Unió Musical</span>
+                <h1 class="text-3xl sm:text-4xl font-black mb-2">Ballant Ballant: 30 Anys</h1>
+                <div class="flex flex-wrap items-center justify-center md:justify-start gap-4 text-slate-300 font-medium">
+                    <span><i class="far fa-calendar-alt mr-2"></i> Dijous, 16 d'Abril 2026</span>
+                    <span class="hidden sm:inline">•</span>
+                    <span><i class="far fa-clock mr-2"></i> 19:00 - 20:59</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-8 items-start">
+            
+            <!-- Left Column: The Seating Map -->
+            <div class="w-full lg:w-2/3 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+                
+                <div class="p-6 border-b border-gray-100">
+                    <h2 class="text-xl font-bold text-gray-800 mb-6">Configura la teua reserva</h2>
+                    
+                    <!-- Selecció de Zona -->
+                    <div class="mb-8">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">1. Tria la zona</h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <!-- Zona Activa -->
+                            <div class="bg-brand border-2 border-brand text-white rounded-xl p-3 cursor-pointer shadow-md transform transition hover:-translate-y-1">
+                                <div class="font-bold leading-tight text-sm mb-2">Platea Esquerra</div>
+                                <div class="text-xs bg-white/20 inline-block px-2 py-1 rounded-md font-medium"><i class="fas fa-chair mr-1"></i> 78 lliures</div>
+                            </div>
+                            <!-- Zones Inactives -->
+                            <div class="bg-white border-2 border-gray-200 text-gray-600 rounded-xl p-3 cursor-pointer hover:border-brand/50 hover:bg-brand-50 transition-all transform hover:-translate-y-1">
+                                <div class="font-bold leading-tight text-sm text-gray-800 mb-2">Platea Dreta</div>
+                                <div class="text-xs bg-gray-100 text-gray-600 inline-block px-2 py-1 rounded-md font-medium"><i class="fas fa-chair mr-1"></i> 66 lliures</div>
+                            </div>
+                            <div class="bg-white border-2 border-gray-200 text-gray-600 rounded-xl p-3 cursor-pointer hover:border-brand/50 hover:bg-brand-50 transition-all transform hover:-translate-y-1">
+                                <div class="font-bold leading-tight text-sm text-gray-800 mb-2">Platea Sup. Esq.</div>
+                                <div class="text-xs bg-gray-100 text-gray-600 inline-block px-2 py-1 rounded-md font-medium"><i class="fas fa-chair mr-1"></i> 118 lliures</div>
+                            </div>
+                            <div class="bg-white border-2 border-gray-200 text-gray-600 rounded-xl p-3 cursor-pointer hover:border-brand/50 hover:bg-brand-50 transition-all transform hover:-translate-y-1">
+                                <div class="font-bold leading-tight text-sm text-gray-800 mb-2">Platea Sup. Dreta</div>
+                                <div class="text-xs bg-gray-100 text-gray-600 inline-block px-2 py-1 rounded-md font-medium"><i class="fas fa-chair mr-1"></i> 96 lliures</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">2. Selecciona els seients</h3>
+                    
+                    <!-- Legend -->
+                    <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm font-medium text-gray-600 bg-gray-50 p-4 rounded-xl">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded border-2 border-gray-300 bg-white"></div> Lliure
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-gray-200 opacity-60"></div> Ocupada
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded border-2 border-brand bg-brand"></div> Seleccionada
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded border-2 border-purple-300 bg-purple-50 text-purple-500 flex items-center justify-center text-[10px]"><i class="fab fa-accessible-icon"></i></div> Mov. reduïda
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Theater Map Container -->
+                <div class="p-4 sm:p-8 flex-grow bg-[#f8fafc] overflow-hidden">
+                    
+                    <!-- Scrollable area for mobile -->
+                    <div class="w-full overflow-x-auto hide-scrollbar pb-8 pt-4">
+                        <div class="min-w-[600px] flex flex-col items-center">
+                            
+                            <!-- The Stage -->
+                            <div class="w-3/4 max-w-[400px] h-16 bg-gradient-to-b from-gray-200 to-gray-300 rounded-b-[100px] mb-12 flex items-center justify-center shadow-inner relative border-t-4 border-slate-400">
+                                <span class="font-bold text-gray-500 tracking-[0.3em] uppercase text-sm">Escenari</span>
+                                <!-- Luces del escenario decorativas -->
+                                <div class="absolute -top-2 left-10 w-3 h-3 bg-yellow-200 rounded-full blur-[2px] opacity-70 shadow-[0_0_15px_rgba(253,224,71,0.8)]"></div>
+                                <div class="absolute -top-2 right-10 w-3 h-3 bg-yellow-200 rounded-full blur-[2px] opacity-70 shadow-[0_0_15px_rgba(253,224,71,0.8)]"></div>
+                            </div>
+
+                            <!-- Seating Grid Mockup -->
+                            <div class="flex flex-col gap-2 sm:gap-3">
+                                
+                                <!-- Fila 1 -->
+                                <div class="flex items-center justify-center gap-1 sm:gap-2">
+                                    <div class="w-6 text-center text-xs font-bold text-gray-400 mr-2">1</div>
+                                    <!-- Block Left -->
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-available">4</div>
+                                    <div class="seat seat-available">5</div>
+                                    <div class="seat seat-available">6</div>
+                                    <!-- Aisle -->
+                                    <div class="w-4 sm:w-8"></div>
+                                    <!-- Block Right -->
+                                    <div class="seat seat-available">7</div>
+                                    <div class="seat seat-available">8</div>
+                                    <div class="seat seat-available">9</div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-wheelchair" title="Butaca Mobilitat Reduïda"><i class="fab fa-accessible-icon"></i></div>
+                                    <div class="seat seat-wheelchair" title="Butaca Mobilitat Reduïda"><i class="fab fa-accessible-icon"></i></div>
+                                </div>
+
+                                <!-- Fila 2 -->
+                                <div class="flex items-center justify-center gap-1 sm:gap-2">
+                                    <div class="w-6 text-center text-xs font-bold text-gray-400 mr-2">2</div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-available">2</div>
+                                    <div class="seat seat-available">3</div>
+                                    <div class="seat seat-available">4</div>
+                                    <div class="seat seat-available">5</div>
+                                    <div class="seat seat-available">6</div>
+                                    <div class="w-4 sm:w-8"></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-available">11</div>
+                                    <div class="seat seat-available">12</div>
+                                </div>
+
+                                <!-- Fila 3 -->
+                                <div class="flex items-center justify-center gap-1 sm:gap-2">
+                                    <div class="w-6 text-center text-xs font-bold text-gray-400 mr-2">3</div>
+                                    <div class="seat seat-available">1</div>
+                                    <div class="seat seat-available">2</div>
+                                    <div class="seat seat-available">3</div>
+                                    <div class="seat seat-available">4</div>
+                                    <div class="seat seat-available">5</div>
+                                    <div class="seat seat-available">6</div>
+                                    <div class="w-4 sm:w-8"></div>
+                                    <div class="seat seat-available">7</div>
+                                    <div class="seat seat-available">8</div>
+                                    <div class="seat seat-available">9</div>
+                                    <div class="seat seat-available">10</div>
+                                    <div class="seat seat-available">11</div>
+                                    <div class="seat seat-available">12</div>
+                                </div>
+
+                                <!-- Separador Horizontal (Pasillo) -->
+                                <div class="h-4 sm:h-8"></div>
+
+                                <!-- Fila 4 -->
+                                <div class="flex items-center justify-center gap-1 sm:gap-2">
+                                    <div class="w-6 text-center text-xs font-bold text-gray-400 mr-2">4</div>
+                                    <div class="seat seat-available">1</div>
+                                    <div class="seat seat-available">2</div>
+                                    <div class="seat seat-available">3</div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-available">6</div>
+                                    <div class="w-4 sm:w-8"></div>
+                                    <div class="seat seat-available">7</div>
+                                    <div class="seat seat-available">8</div>
+                                    <div class="seat seat-available">9</div>
+                                    <div class="seat seat-selected"><i class="fas fa-check"></i></div>
+                                    <div class="seat seat-selected"><i class="fas fa-check"></i></div>
+                                    <div class="seat seat-available">12</div>
+                                </div>
+
+                                <!-- Fila 5 -->
+                                <div class="flex items-center justify-center gap-1 sm:gap-2">
+                                    <div class="w-6 text-center text-xs font-bold text-gray-400 mr-2">5</div>
+                                    <div class="seat seat-available">1</div>
+                                    <div class="seat seat-available">2</div>
+                                    <div class="seat seat-available">3</div>
+                                    <div class="seat seat-available">4</div>
+                                    <div class="seat seat-available">5</div>
+                                    <div class="seat seat-available">6</div>
+                                    <div class="w-4 sm:w-8"></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-available">9</div>
+                                    <div class="seat seat-available">10</div>
+                                    <div class="seat seat-available">11</div>
+                                    <div class="seat seat-available">12</div>
+                                </div>
+
+                                <!-- Fila 6 -->
+                                <div class="flex items-center justify-center gap-1 sm:gap-2">
+                                    <div class="w-6 text-center text-xs font-bold text-gray-400 mr-2">6</div>
+                                    <div class="seat seat-available">1</div>
+                                    <div class="seat seat-available">2</div>
+                                    <div class="seat seat-available">3</div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-occupied"><i class="fas fa-times opacity-30"></i></div>
+                                    <div class="seat seat-available">6</div>
+                                    <div class="w-4 sm:w-8"></div>
+                                    <div class="seat seat-available">7</div>
+                                    <div class="seat seat-available">8</div>
+                                    <div class="seat seat-available">9</div>
+                                    <div class="seat seat-available">10</div>
+                                    <div class="seat seat-available">11</div>
+                                    <div class="seat seat-available">12</div>
+                                </div>
+
+                                <!-- Fila 7 -->
+                                <div class="flex items-center justify-center gap-1 sm:gap-2">
+                                    <div class="w-6 text-center text-xs font-bold text-gray-400 mr-2">7</div>
+                                    <div class="seat seat-available">1</div>
+                                    <div class="seat seat-available">2</div>
+                                    <div class="seat seat-available">3</div>
+                                    <div class="seat seat-available">4</div>
+                                    <div class="seat seat-available">5</div>
+                                    <div class="seat seat-available">6</div>
+                                    <div class="w-4 sm:w-8"></div>
+                                    <div class="seat seat-available">7</div>
+                                    <div class="seat seat-available">8</div>
+                                    <div class="seat seat-available">9</div>
+                                    <div class="seat seat-available">10</div>
+                                    <div class="seat seat-available">11</div>
+                                    <div class="seat seat-available">12</div>
+                                </div>
+                                
+                            </div>
+                            
+                            <p class="text-xs text-gray-400 mt-6"><i class="fas fa-arrows-alt-h mr-1"></i> Llisca per a veure tot el plànol</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Cart / Summary (Sticky) -->
+            <div class="w-full lg:w-1/3 relative">
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden sticky top-28">
+                    
+                    <div class="bg-gray-50 border-b border-gray-100 p-5">
+                        <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            <i class="fas fa-ticket-alt text-brand"></i> La teua selecció
+                        </h3>
+                    </div>
+
+                    <div class="p-5">
+                        <!-- List of selected seats -->
+                        <div class="flex flex-col gap-3 mb-6 min-h-[100px]">
+                            <!-- Item 1 -->
+                            <div class="flex items-center justify-between p-3 bg-brand-50 border border-brand/20 rounded-xl">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-brand font-bold shadow-sm">1</div>
+                                    <div>
+                                        <p class="text-sm font-bold text-gray-800">Fila 4, Seient 10</p>
+                                        <p class="text-xs text-gray-500">Platea Dreta</p>
+                                    </div>
+                                </div>
+                                <div class="text-sm font-bold text-gray-900">5,00 €</div>
+                            </div>
+                            
+                            <!-- Item 2 -->
+                            <div class="flex items-center justify-between p-3 bg-brand-50 border border-brand/20 rounded-xl">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-brand font-bold shadow-sm">2</div>
+                                    <div>
+                                        <p class="text-sm font-bold text-gray-800">Fila 4, Seient 11</p>
+                                        <p class="text-xs text-gray-500">Platea Dreta</p>
+                                    </div>
+                                </div>
+                                <div class="text-sm font-bold text-gray-900">5,00 €</div>
+                            </div>
+                        </div>
+
+                        <hr class="border-gray-100 border-dashed border-t-2 mb-4">
+
+                        <!-- Total -->
+                        <div class="flex items-center justify-between mb-8 px-1">
+                            <span class="text-gray-600 font-medium">Total (2 entrades)</span>
+                            <span class="text-3xl font-black text-gray-900">10,00 €</span>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex flex-col gap-3">
+                            <button class="w-full bg-brand hover:bg-brand-light text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5">
+                                Següent pas <i class="fas fa-arrow-right text-sm"></i>
+                            </button>
+                            <button class="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
+                                <i class="fas fa-times text-sm"></i> Cancel·lar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white mt-auto pt-12 pb-8 border-t-[10px] border-brand">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                <div class="col-span-1 md:col-span-2 flex flex-col sm:flex-row gap-6 items-start">
+                    <img src="https://cdn.digitalvalue.es/lliria/assets/69ce1ac4394c449f6bc33c3d?w=150" alt="Logo Ajuntament Blanc" class="h-16 w-auto grayscale brightness-200" onerror="this.src='https://via.placeholder.com/100x100?text=Logo';">
+                    <div>
+                        <h4 class="text-xl font-bold mb-2">Ajuntament de Llíria</h4>
+                        <p class="text-gray-400 text-sm flex items-center gap-2 mb-1">
+                            <i class="fas fa-map-marker-alt w-4"></i> Plaça Major, 1, 46160
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="border-t border-gray-800 pt-8 text-center text-sm text-gray-500">
+                <p>&copy; 2026 Ajuntament de Llíria. Tots els drets reservats.</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
