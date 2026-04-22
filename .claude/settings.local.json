@@ -52,7 +52,17 @@
       "Bash(ls /home/admin01/Documentos/experimentos/contratacion-publica/*.svg)",
       "Bash(python3 -m http.server 8080)",
       "Bash(python3 -m http.server 8081)",
-      "Bash(python3 -m http.server 8082)"
+      "Bash(python3 -m http.server 8082)",
+      "Read(**)",
+      "Edit(docs/project/**)",
+      "Write(docs/project/**)",
+      "Edit(.claude/alfred-*.json)",
+      "Write(.claude/alfred-*.json)",
+      "Edit(.claude/alfred-*.md)",
+      "Write(.claude/alfred-*.md)",
+      "Bash(python3 *)",
+      "Bash(python3 .claude/alfred-continuity.py *)"
     ]
-  }
+  },
+  "defaultMode": "acceptEdits"
 }
