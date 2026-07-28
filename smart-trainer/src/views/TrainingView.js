@@ -36,6 +36,8 @@ export function TrainingView(state) {
         metricsContainer: null,
         pausarBtn: null,
         pausarBtnIcon: null,
+        resistanceDots: null,
+        zoneDivider: null,
         /** Buffer para media móvil de 3 s (potencia) */
         smoothBuffer: [],
     };
@@ -111,14 +113,24 @@ export function TrainingView(state) {
             const cards = updateRefs.metricsContainer.querySelectorAll(':scope > div');
             cards.forEach(card => { card.style.borderLeft = `4px solid ${zoneColor}`; });
         }
+        // Actualizar color del divider de zona
+        if (updateRefs.zoneDivider) {
+            const zoneColor = getZoneColor(smoothedPower, newSettings.ftp);
+            updateRefs.zoneDivider.style.background = `linear-gradient(90deg, transparent 0%, ${zoneColor}50 50%, transparent 100%)`;
+        }
         // Botón Pausa/Reanudar: actualizar aspecto según isPaused
         if (updateRefs.pausarBtn && updateRefs.pausarBtnIcon && newSession.isPaused !== undefined) {
             updateRefs.pausarBtn.style.backgroundColor = newSession.isPaused ? colors.success : colors.warning;
             updateRefs.pausarBtn.title = newSession.isPaused ? 'Reanudar' : 'Pausar';
-            const newIcon = icon(newSession.isPaused ? 'play' : 'pause', 18, 'currentColor');
-            updateRefs.pausarBtnIcon.innerHTML = newIcon.innerHTML;
-            const labelSpan = updateRefs.pausarBtn.querySelector('span');
-            if (labelSpan) labelSpan.textContent = newSession.isPaused ? 'Reanudar' : 'Pausar';
+            // Reemplazar el SVG dentro del contenedor de icono
+            const iconContainer = updateRefs.pausarBtnIcon;
+            while (iconContainer.firstChild) iconContainer.removeChild(iconContainer.firstChild);
+            iconContainer.appendChild(newSession.isPaused ? createPlaySVG() : createPauseSVG());
+            // Actualizar el texto del botón (último span hijo directo del botón)
+            const allSpans = updateRefs.pausarBtn.querySelectorAll(':scope > span');
+            if (allSpans.length >= 2) {
+                allSpans[1].textContent = newSession.isPaused ? 'Reanudar' : 'Pausar';
+            }
         }
         
         // NO actualizamos el texto de resistencia desde el dispositivo
@@ -155,7 +167,7 @@ export function TrainingView(state) {
         }
     });
     
-    // Estilos alineados con mockup: columna única, gauge centrado, 3 métricas, bottom sheet resistencia
+    // === NUEVO LAYOUT: gauge centrado con métricas a los lados ===
     const containerStyles = {
         display: 'flex',
         flexDirection: 'column',
@@ -170,12 +182,20 @@ export function TrainingView(state) {
         backgroundColor: colors.background,
     };
 
-    const sessionHeaderStyles = {
+    // Timer card -standalone con fondo glass
+    const timerCardStyles = {
+        background: `linear-gradient(135deg, ${colors.surface} 0%, ${colors.background} 100%)`,
+        border: `1px solid ${colors.border}60`,
+        borderRadius: '16px',
+        padding: '14px 24px',
+        margin: '0 16px 0',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '16px 24px 0',
         flexShrink: 0,
+        width: 'calc(100% - 32px)',
+        maxWidth: '500px',
+        boxShadow: `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)`,
     };
 
     const scrollContentStyles = {
@@ -185,6 +205,21 @@ export function TrainingView(state) {
         WebkitOverflowScrolling: 'touch',
         display: 'flex',
         flexDirection: 'column',
+        padding: '0 8px',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+    };
+
+    // Main area: gauge centrado con métricas a los lados
+    const mainAreaStyles = {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '20px',
+        padding: '0 12px 16px',
+        marginTop: '40px',
+        flex: '0 0 auto',
+        width: '100%',
     };
 
     const gaugeContainerStyles = {
@@ -192,25 +227,36 @@ export function TrainingView(state) {
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
-        minHeight: '280px',
-        flexShrink: 0,
+        width: '240px',
+        height: '240px',
+        flex: '0 0 auto',
+    };
+
+    // Columna de métricas laterales (tamaño fijo)
+    const sideMetricsStyles = {
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        gap: '12px',
+        flex: '0 0 auto',
+        minWidth: '100px',
     };
 
     const metricsGridStyles = {
         display: 'grid',
         gridTemplateColumns: '1fr 1fr 1fr',
         gap: '12px',
-        padding: '0 16px',
-        marginBottom: '24px',
+        padding: '0 8px',
+        marginBottom: '8px',
         flexShrink: 0,
     };
 
     const resistancePanelStyles = {
-        background: '#161616',
-        borderTop: '1px solid rgba(255,255,255,0.1)',
+        background: 'linear-gradient(180deg, #1a1a1a 0%, #111 100%)',
+        borderTop: `1px solid ${colors.primary}30`,
         padding: '12px 20px max(40px, env(safe-area-inset-bottom))',
         borderRadius: '24px 24px 0 0',
-        boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
+        boxShadow: `0 -10px 40px rgba(0,0,0,0.6), inset 0 1px 0 ${colors.primary}20`,
         position: 'relative',
         zIndex: 20,
         flexShrink: 0,
@@ -222,105 +268,163 @@ export function TrainingView(state) {
         attrs: { 'data-view': 'training' }
     });
     
-    // Añadir estilos responsive + modo paisaje (móvil en manillar)
+    // Añadir estilos responsive + modo paisaje (móvil en manillar) + animaciones
     const responsiveStyles = createElement('style', {
         text: `
-            [data-view="training"] .secondary-metrics {
-                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+            @keyframes fadeSlideUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
             }
-            [data-view="training"] .training-swiper {
-                -webkit-overflow-scrolling: touch;
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
             }
-            [data-view="training"] .training-swiper-panel {
-                scroll-snap-align: start;
-                scroll-snap-stop: always;
+            @keyframes scaleIn {
+                from { opacity: 0; transform: scale(0.9); }
+                to { opacity: 1; transform: scale(1); }
             }
-            [data-view="training"] .training-metrics-grid > div {
-                background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
-                border: 1px solid rgba(255,255,255,0.08);
-                border-radius: 16px;
-                padding: 16px 12px;
+            [data-view="training"] .timer-card {
+                animation: fadeSlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                opacity: 0;
             }
-            [data-view="training"] .training-metrics-grid > div.fc {
-                border-color: rgba(239, 68, 68, 0.35);
-                background: linear-gradient(180deg, rgba(239,68,68,0.06) 0%, #111 100%);
+            [data-view="training"] .main-area {
+                animation: fadeSlideUp 0.6s 0.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                opacity: 0;
             }
-            @media (max-width: 768px) {
-                [data-view="training"] .secondary-metrics {
-                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+            [data-view="training"] .distance-card {
+                animation: fadeSlideUp 0.6s 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                opacity: 0;
+            }
+            [data-view="training"] .resistance-panel {
+                animation: fadeSlideUp 0.5s 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                opacity: 0;
+            }
+            [data-view="training"] .resistance-handle {
+                animation: fadeIn 0.4s 0.4s forwards;
+                opacity: 0;
+            }
+            /* Métricas laterales */
+            [data-view="training"] .side-metrics {
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 12px;
+                min-width: 100px;
+            }
+            [data-view="training"] .side-metrics > div {
+                width: 100%;
+                min-width: 100px;
+                padding: 14px 12px !important;
+            }
+            /* Gauge container */
+            [data-view="training"] .gauge-container {
+                width: 240px !important;
+                height: 240px !important;
+                flex: 0 0 auto !important;
+            }
+            /* Métrica distancia */
+            [data-view="training"] .distance-metric {
+                margin: 0 16px 20px;
+                animation: fadeSlideUp 0.6s 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+                opacity: 0;
+            }
+            /* Divider con gradiente de zona */
+            [data-view="training"] .zone-divider {
+                height: 2px;
+                margin: 0 16px 16px;
+                background: linear-gradient(90deg, transparent 0%, ${colors.primary}40 50%, transparent 100%);
+                border-radius: 1px;
+            }
+            @media (max-width: 500px) {
+                [data-view="training"] .main-area {
+                    gap: 12px !important;
+                    padding: 0 8px 12px !important;
                 }
-            }
-            @media (max-width: 480px) {
-                [data-view="training"] .secondary-metrics {
-                    grid-template-columns: repeat(2, 1fr) !important;
+                [data-view="training"] .gauge-container {
+                    width: 200px !important;
+                    height: 200px !important;
+                }
+                [data-view="training"] .side-metrics {
+                    min-width: 80px !important;
+                }
+                [data-view="training"] .side-metrics > div {
+                    min-width: 80px !important;
+                    padding: 12px 8px !important;
                 }
             }
             @media (orientation: landscape) and (max-height: 500px) {
-                [data-view="training"] .secondary-metrics {
-                    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important;
+                [data-view="training"] .timer-card {
+                    padding: 8px 16px !important;
+                    margin: 12px 12px 8px !important;
+                }
+                [data-view="training"] .main-area {
+                    gap: 12px !important;
+                    padding: 0 8px 8px !important;
+                }
+                [data-view="training"] .gauge-container {
+                    width: 180px !important;
+                    height: 180px !important;
                 }
             }
         `
     });
     document.head.appendChild(responsiveStyles);
     
-    // === HEADER: tipo de sesión + timer (estilo mockup) ===
+    // === TIMER CARD (standalone con glass effect) ===
     const sessionTypeLabel = session.workoutName || 'Entreno Libre';
-    const sessionHeader = div({
-        styles: sessionHeaderStyles,
+    const timerCard = div({
+        styles: timerCardStyles,
+        attrs: { class: 'timer-card' },
         children: [
             createElement('div', {
                 text: sessionTypeLabel,
                 styles: {
-                    fontSize: '12px',
+                    fontSize: '11px',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px',
+                    letterSpacing: '1.5px',
                     color: colors.textMuted,
-                    background: 'rgba(255,255,255,0.05)',
-                    padding: '4px 10px',
+                    background: `${colors.primary}12`,
+                    border: `1px solid ${colors.primary}25`,
+                    padding: '4px 12px',
                     borderRadius: '20px',
+                    fontWeight: 600,
                 },
             }),
             createElement('div', {
                 text: formatTime(session.elapsedTime || liveData.elapsedTime || 0),
                 styles: {
-                    fontFamily: "'Barlow', sans-serif",
-                    fontSize: '28px',
+                    fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', monospace",
+                    fontSize: '36px',
                     fontWeight: 700,
-                    letterSpacing: '-0.5px',
+                    letterSpacing: '-1px',
                     color: colors.text,
+                    textShadow: `0 0 25px ${colors.primary}35`,
                 },
             }),
         ],
     });
-    const timerEl = sessionHeader.querySelector('div:last-child');
+    const timerEl = timerCard.querySelector('div:last-child');
     if (timerEl) updateRefs.timeValue = timerEl;
 
-    // Área scrollable: header + gauge + métricas (el panel de resistencia queda fijo abajo)
+    // === ÁREA PRINCIPAL: gauge centrado con métricas a los lados ===
     const scrollContent = div({
         styles: scrollContentStyles,
         attrs: { class: 'training-scroll-content' },
         children: [],
     });
-    scrollContent.appendChild(sessionHeader);
-
-    // === GAUGE: circular centrado (variant training, estilo mockup) ===
-    const powerGaugeElement = PowerGauge({
-        power: liveData.power || 0,
-        ftp: settings.ftp,
-        maxPower: settings.ftp * 2,
-        variant: 'training',
+    // Spacer para empujar el contenido hacia abajo
+    const topSpacer = div({
+        styles: {
+            height: '32px',
+            flexShrink: 0,
+            width: '100%',
+        },
     });
-    updateRefs.powerGauge = powerGaugeElement;
-    const gaugeContainer = div({
-        styles: gaugeContainerStyles,
-        children: [powerGaugeElement],
-    });
-    updateRefs.powerGaugeContainer = gaugeContainer;
-    scrollContent.appendChild(gaugeContainer);
+    scrollContent.appendChild(topSpacer);
+    scrollContent.appendChild(timerCard);
 
-    // === MÉTRICAS (3 cards: RPM, KM/H, KM - estilo mockup) ===
-    // zoneColor e isStale/dimmed para coherencia visual tipo Garmin
+    // Card de FC (izquierda del gauge)
     const hasHeartRate = liveData.heartRate != null && liveData.heartRate !== '';
     const heartRateCard = MetricCard({
         label: 'FC',
@@ -341,6 +445,7 @@ export function TrainingView(state) {
         if (valueSpan) updateRefs.heartRateValue = valueSpan;
     }
 
+    // Card de Velocidad (derecha del gauge)
     const speedCard = MetricCard({
         label: 'KM/H',
         value: (liveData.speed || 0).toFixed(1),
@@ -356,10 +461,62 @@ export function TrainingView(state) {
         const valueSpan = valueContainer.querySelector('span:first-child');
         if (valueSpan) updateRefs.speedValue = valueSpan;
     }
-    
+
+    // === GAUGE: circular centrado ===
+    const powerGaugeElement = PowerGauge({
+        power: liveData.power || 0,
+        ftp: settings.ftp,
+        maxPower: settings.ftp * 2,
+        variant: 'training',
+    });
+    updateRefs.powerGauge = powerGaugeElement;
+    const gaugeContainer = div({
+        styles: gaugeContainerStyles,
+        attrs: { class: 'gauge-container' },
+        children: [powerGaugeElement],
+    });
+    updateRefs.powerGaugeContainer = gaugeContainer;
+
+    // Columna izquierda (FC)
+    const leftMetrics = div({
+        styles: { ...sideMetricsStyles },
+        attrs: { class: 'side-metrics' },
+        children: [heartRateCard],
+    });
+
+    // Columna derecha (Velocidad)
+    const rightMetrics = div({
+        styles: { ...sideMetricsStyles },
+        attrs: { class: 'side-metrics' },
+        children: [speedCard],
+    });
+
+    // Main area con gauge centrado
+    const mainArea = div({
+        styles: mainAreaStyles,
+        attrs: { class: 'main-area' },
+        children: [leftMetrics, gaugeContainer, rightMetrics],
+    });
+    scrollContent.appendChild(mainArea);
+
+    // Divider con gradiente de zona
+    const zoneDivider = div({
+        styles: {
+            height: '2px',
+            margin: '4px 16px',
+            background: `linear-gradient(90deg, transparent 0%, ${currentZoneColor}50 50%, transparent 100%)`,
+            borderRadius: '1px',
+            flexShrink: 0,
+        },
+        attrs: { class: 'zone-divider' },
+    });
+    updateRefs.zoneDivider = zoneDivider;
+    scrollContent.appendChild(zoneDivider);
+
+    // Card de Distancia (más abajo, pleine largeur)
     const distanceSupported = state.deviceCapabilities?.totalDistanceSupported !== false;
     let distanceValue = liveData.distance;
-    if ((distanceValue === undefined || distanceValue === null || !distanceSupported) && 
+    if ((distanceValue === undefined || distanceValue === null || !distanceSupported) &&
         session.accumulatedDistance !== undefined) {
         distanceValue = session.accumulatedDistance;
     }
@@ -381,14 +538,22 @@ export function TrainingView(state) {
         const valueSpan = valueContainer.querySelector('span:first-child');
         if (valueSpan) updateRefs.distanceValue = valueSpan;
     }
-    
-    const metricsGrid = div({
-        styles: metricsGridStyles,
-        attrs: { class: 'training-metrics-grid' },
-        children: [heartRateCard, speedCard, distanceCard],
+    distanceCard.classList.add('distance-card', 'distance-metric');
+
+    const distanceWrapper = div({
+        styles: {
+            display: 'flex',
+            justifyContent: 'center',
+            flexShrink: 0,
+            width: '100%',
+            maxWidth: '520px',
+            margin: '0 auto',
+            padding: '0 16px',
+        },
+        children: [distanceCard],
     });
-    updateRefs.metricsContainer = metricsGrid;
-    scrollContent.appendChild(metricsGrid);
+    updateRefs.metricsContainer = distanceWrapper;
+    scrollContent.appendChild(distanceWrapper);
 
     container.appendChild(scrollContent);
 
@@ -398,9 +563,10 @@ export function TrainingView(state) {
         text: `${Math.round(targetResistance)}%`,
         styles: {
             fontFamily: "'Barlow', sans-serif",
-            fontSize: '20px',
+            fontSize: '22px',
             fontWeight: 700,
             color: colors.primary,
+            textShadow: `0 0 15px ${colors.primary}40`,
         },
     });
     updateRefs.resistanceValue = resistanceValueSpan;
@@ -411,17 +577,17 @@ export function TrainingView(state) {
         onChange: async (value) => {
             // Actualizar el valor objetivo local
             targetResistance = value;
-            
+
             // Actualizar el texto mostrado inmediatamente
             if (updateRefs.resistanceValue) {
                 updateRefs.resistanceValue.textContent = `${Math.round(value)}%`;
             }
-            
+
             try {
                 // Intentar múltiples métodos para controlar la resistencia
                 // Método 1: SET_TARGET_RESISTANCE (estándar FTMS)
                 await bluetoothManager.setResistance(value);
-                
+
                 // Método 2: Simulación de pendiente
                 // 0% → -6% (bajada máxima, muy fácil)
                 // 50% → 0% (llano)
@@ -438,14 +604,64 @@ export function TrainingView(state) {
         },
     });
 
-    const pausarBtnIcon = icon(session.isPaused ? 'play' : 'pause', 18, 'currentColor');
+    // Crear SVGs directamente para evitar problemas con innerHTML
+    const createPauseSVG = () => {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '18');
+        svg.setAttribute('height', '18');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.style.fill = 'currentColor';
+        const rect1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect1.setAttribute('x', '6');
+        rect1.setAttribute('y', '4');
+        rect1.setAttribute('width', '4');
+        rect1.setAttribute('height', '16');
+        const rect2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect2.setAttribute('x', '14');
+        rect2.setAttribute('y', '4');
+        rect2.setAttribute('width', '4');
+        rect2.setAttribute('height', '16');
+        svg.appendChild(rect1);
+        svg.appendChild(rect2);
+        return svg;
+    };
+    const createPlaySVG = () => {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '18');
+        svg.setAttribute('height', '18');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.style.fill = 'currentColor';
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        polygon.setAttribute('points', '5 3 19 12 5 21 5 3');
+        svg.appendChild(polygon);
+        return svg;
+    };
+    const createStopSVG = () => {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '18');
+        svg.setAttribute('height', '18');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.style.fill = 'currentColor';
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', '4');
+        rect.setAttribute('y', '4');
+        rect.setAttribute('width', '16');
+        rect.setAttribute('height', '16');
+        rect.setAttribute('rx', '2');
+        svg.appendChild(rect);
+        return svg;
+    };
+    const pausarBtnIconContainer = createElement('span', {
+        styles: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+    });
+    pausarBtnIconContainer.appendChild(session.isPaused ? createPlaySVG() : createPauseSVG());
     const pausarBtn = button({
         styles: {
             height: '48px',
             borderRadius: '12px',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            background: 'rgba(245, 158, 11, 0.15)',
-            color: '#f59e0b',
+            border: `1px solid ${colors.warning}40`,
+            background: `${colors.warning}15`,
+            color: colors.warning,
             fontWeight: 600,
             fontSize: '14px',
             cursor: 'pointer',
@@ -453,8 +669,10 @@ export function TrainingView(state) {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
+            transition: 'all 0.2s ease',
+            boxShadow: `0 0 15px ${colors.warning}20`,
         },
-        children: [pausarBtnIcon, createElement('span', { text: session.isPaused ? 'Reanudar' : 'Pausar' })],
+        children: [pausarBtnIconContainer, createElement('span', { text: session.isPaused ? 'Reanudar' : 'Pausar' })],
         attrs: { title: session.isPaused ? 'Reanudar' : 'Pausar' },
         events: {
             click: async () => {
@@ -474,15 +692,15 @@ export function TrainingView(state) {
         },
     });
     updateRefs.pausarBtn = pausarBtn;
-    updateRefs.pausarBtnIcon = pausarBtnIcon;
+    updateRefs.pausarBtnIcon = pausarBtnIconContainer;
 
     const finalizarBtn = button({
         styles: {
             height: '48px',
             borderRadius: '12px',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            background: 'rgba(239, 68, 68, 0.15)',
-            color: '#ef4444',
+            border: `1px solid ${colors.error}40`,
+            background: `${colors.error}15`,
+            color: colors.error,
             fontWeight: 600,
             fontSize: '14px',
             cursor: 'pointer',
@@ -490,8 +708,16 @@ export function TrainingView(state) {
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
+            transition: 'all 0.2s ease',
+            boxShadow: `0 0 15px ${colors.error}20`,
         },
-        children: [icon('stop', 18, 'currentColor'), createElement('span', { text: 'Fin' })],
+        children: [
+            createElement('span', {
+                styles: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
+                children: [createStopSVG()],
+            }),
+            createElement('span', { text: 'Fin' })
+        ],
         attrs: { title: 'Finalizar entrenamiento' },
         events: {
             click: async () => {
@@ -560,15 +786,15 @@ export function TrainingView(state) {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '16px',
+            marginBottom: '12px',
         },
         children: [
             createElement('span', {
                 text: 'Resistencia',
                 styles: {
-                    fontSize: '13px',
+                    fontSize: '12px',
                     textTransform: 'uppercase',
-                    letterSpacing: '1px',
+                    letterSpacing: '1.5px',
                     color: colors.textMuted,
                     fontWeight: 600,
                 },
@@ -582,14 +808,14 @@ export function TrainingView(state) {
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
             gap: '12px',
-            marginTop: '24px',
+            marginTop: '20px',
         },
         children: [pausarBtn, finalizarBtn],
     });
 
     const resistancePanel = div({
         styles: resistancePanelStyles,
-        attrs: { class: 'resistance-control' },
+        attrs: { class: 'resistance-control resistance-panel' },
         children: [
             div({
                 styles: {
@@ -597,8 +823,9 @@ export function TrainingView(state) {
                     height: '4px',
                     backgroundColor: 'rgba(255,255,255,0.2)',
                     borderRadius: '2px',
-                    margin: '0 auto 20px',
+                    margin: '0 auto 16px',
                 },
+                attrs: { class: 'resistance-handle' },
             }),
             resHeader,
             sliderEl,

@@ -5,8 +5,14 @@
 
 import { colors, spacing, typography, baseStyles, borderRadius, transitions } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
-import { loadSettings, saveSettings, calculatePowerZones } from '../storage/settings.js';
+import { loadSettings, saveSettings, resetSettings, calculatePowerZones } from '../storage/settings.js';
 import { ZWIFT_PLAY_STATE } from '../bluetooth/zwiftPlay.js';
+import {
+    getCloudUser,
+    isCloudConfigured,
+    sendMagicLink,
+    signOut,
+} from '../cloud/supabase.js';
 
 /**
  * Vista de configuración del usuario
@@ -195,6 +201,31 @@ export function SettingsView({ state, onSave }) {
     
     prefsSection.appendChild(prefsFields);
     container.appendChild(prefsSection);
+
+    const cloudSection = div({ styles: sectionStyles });
+    cloudSection.appendChild(div({
+        styles: sectionTitleStyles,
+        children: [
+            createElement('span', { text: '☁️' }),
+            createElement('span', { text: 'Cuenta y copia en la nube' }),
+        ],
+    }));
+    const cloudContent = div({
+        styles: { display: 'flex', flexDirection: 'column', gap: spacing.sm },
+        children: [
+            createElement('p', {
+                text: isCloudConfigured()
+                    ? 'Opcional: entra con un enlace mágico para sincronizar sesiones, progreso y fantasmas.'
+                    : 'La app funciona completamente como invitado. Añade las variables de Supabase para activar la sincronización opcional.',
+                styles: { color: colors.textMuted, margin: 0 },
+            }),
+        ],
+    });
+    cloudSection.appendChild(cloudContent);
+    container.appendChild(cloudSection);
+    if (isCloudConfigured()) {
+        renderCloudAccount(cloudContent);
+    }
     
     // === Sección: Rodillo ===
     const trainerSection = div({ styles: sectionStyles });
@@ -390,7 +421,6 @@ export function SettingsView({ state, onSave }) {
                 events: {
                     click: () => {
                         if (confirm('¿Restablecer toda la configuración a valores por defecto?')) {
-                            const { resetSettings } = require('../storage/settings.js');
                             resetSettings();
                             window.location.reload();
                         }
@@ -418,6 +448,60 @@ export function SettingsView({ state, onSave }) {
     container.appendChild(actions);
     
     return container;
+}
+
+async function renderCloudAccount(container) {
+    const user = await getCloudUser().catch(() => null);
+    if (user) {
+        container.append(
+            createElement('span', {
+                text: `Sincronizando como ${user.email}`,
+                styles: { color: colors.primary, fontWeight: typography.weights.medium },
+            }),
+            button({
+                text: 'Cerrar sesión',
+                styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, alignSelf: 'flex-start' },
+                events: {
+                    click: async () => {
+                        await signOut();
+                        window.location.reload();
+                    },
+                },
+            }),
+        );
+        return;
+    }
+
+    const email = createElement('input', {
+        attrs: {
+            type: 'email',
+            inputmode: 'email',
+            autocomplete: 'email',
+            placeholder: 'tu@email.com',
+            'aria-label': 'Correo para iniciar sesión',
+        },
+        styles: { ...baseStyles.input, maxWidth: '360px' },
+    });
+    const status = createElement('span', { styles: { color: colors.textMuted, fontSize: typography.sizes.sm } });
+    const login = button({
+        text: 'Enviar enlace mágico',
+        styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
+        events: {
+            click: async () => {
+                if (!email.value || !email.checkValidity()) {
+                    status.textContent = 'Introduce un correo válido.';
+                    return;
+                }
+                login.disabled = true;
+                const { error } = await sendMagicLink(email.value.trim());
+                status.textContent = error
+                    ? `No se pudo enviar: ${error.message}`
+                    : 'Revisa tu correo para completar el acceso.';
+                login.disabled = false;
+            },
+        },
+    });
+    container.append(email, login, status);
 }
 
 /**

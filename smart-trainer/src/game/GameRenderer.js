@@ -5,8 +5,8 @@
 
 export const UI_STRIP_HEIGHT = 100; // Necesario para que el Engine calcule el suelo
 
-import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { getCurrentPowerZone, GAME_STATUS, LANE_WIDTH } from './GameState.js';
 
 // =============================================================================

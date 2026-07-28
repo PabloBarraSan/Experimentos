@@ -147,6 +147,21 @@ export function createWorkoutPlayer(options = {}) {
         }
         onBlockChange(getCurrentBlock(), currentBlockIndex, expandedBlocks.length);
     }
+
+    function seekToTime(seconds) {
+        const clamped = Math.max(0, Math.min(Number(seconds) || 0, getTotalDuration()));
+        totalElapsedTime = 0;
+        currentBlockIndex = 0;
+        while (
+            currentBlockIndex < expandedBlocks.length - 1
+            && totalElapsedTime + expandedBlocks[currentBlockIndex].duration <= clamped
+        ) {
+            totalElapsedTime += expandedBlocks[currentBlockIndex].duration;
+            currentBlockIndex++;
+        }
+        blockElapsedTime = clamped - totalElapsedTime;
+        totalElapsedTime = clamped;
+    }
     
     /**
      * Saltar al siguiente bloque
@@ -241,6 +256,7 @@ export function createWorkoutPlayer(options = {}) {
         resume,
         stop,
         skipToBlock,
+        seekToTime,
         nextBlock,
         previousBlock,
         getState,

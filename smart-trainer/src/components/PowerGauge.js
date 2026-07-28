@@ -13,8 +13,8 @@ const ZONE_COLORS = [
     colors.zones.z5, colors.zones.z6, colors.zones.z7,
 ];
 
-const GAUGE_SIZE = 260;
-const GAUGE_R = 120;
+const GAUGE_SIZE = 240;
+const GAUGE_R = 110;
 const CIRCUMFERENCE = 2 * Math.PI * GAUGE_R; // ~754
 
 /**
@@ -27,21 +27,34 @@ function createTrainingGauge({ power, ftp, maxPower, percentage, zoneColor, zone
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            width: '100%',
+            width: `${GAUGE_SIZE}px`,
+            height: `${GAUGE_SIZE}px`,
             maxWidth: `${GAUGE_SIZE}px`,
-            minHeight: '280px',
         },
     });
 
-    // Ring glow (color de zona)
+    // Outer halo glow (segunda capa para efecto dramático)
+    const outerHalo = div({
+        styles: {
+            position: 'absolute',
+            width: `${GAUGE_SIZE + 60}px`,
+            height: `${GAUGE_SIZE + 60}px`,
+            borderRadius: '50%',
+            boxShadow: `0 0 80px ${zoneColor}30, 0 0 120px ${zoneColor}15`,
+            opacity: 0.6,
+        },
+    });
+    outer.appendChild(outerHalo);
+
+    // Inner ring glow (color de zona)
     const glowRing = div({
         styles: {
             position: 'absolute',
             width: `${GAUGE_SIZE}px`,
             height: `${GAUGE_SIZE}px`,
             borderRadius: '50%',
-            boxShadow: `0 0 60px ${zoneColor}`,
-            opacity: 0.2,
+            boxShadow: `0 0 40px ${zoneColor}50, 0 0 70px ${zoneColor}30`,
+            opacity: 0.5,
         },
     });
     outer.appendChild(glowRing);
@@ -85,7 +98,7 @@ function createTrainingGauge({ power, ftp, maxPower, percentage, zoneColor, zone
     fillCircle.setAttribute('stroke-dasharray', String(strokeDashFull));
     fillCircle.setAttribute('stroke-dashoffset', String(strokeDashOffsetFill));
     fillCircle.setAttribute('stroke-linecap', 'round');
-    fillCircle.style.filter = `drop-shadow(0 0 4px ${zoneColor})`;
+    fillCircle.style.filter = `drop-shadow(0 0 8px ${zoneColor}) drop-shadow(0 0 16px ${zoneColor}50)`;
     fillCircle.style.transition = 'stroke-dashoffset 0.35s ease, stroke 0.3s ease';
     svg.appendChild(fillCircle);
 
@@ -105,14 +118,16 @@ function createTrainingGauge({ power, ftp, maxPower, percentage, zoneColor, zone
                 text: String(Math.round(power)),
                 styles: {
                     fontFamily: "'Barlow', sans-serif",
-                    fontSize: '82px',
+                    fontSize: '72px',
                     fontWeight: 800,
                     lineHeight: 1,
                     letterSpacing: '-2px',
-                    background: 'linear-gradient(180deg, #fff 20%, #ccc 100%)',
+                    background: `linear-gradient(180deg, #ffffff 0%, ${zoneColor}80 100%)`,
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
+                    textShadow: 'none',
+                    filter: `drop-shadow(0 0 20px ${zoneColor}40)`,
                 },
             }),
             createElement('div', {
@@ -121,21 +136,24 @@ function createTrainingGauge({ power, ftp, maxPower, percentage, zoneColor, zone
                     fontSize: '14px',
                     textTransform: 'uppercase',
                     color: colors.textMuted,
-                    letterSpacing: '2px',
-                    marginTop: '4px',
+                    letterSpacing: '3px',
+                    marginTop: '2px',
+                    fontWeight: 600,
                 },
             }),
             createElement('div', {
                 text: zoneName,
                 styles: {
-                    marginTop: '8px',
+                    marginTop: '10px',
                     fontSize: '12px',
                     fontWeight: 700,
                     color: zoneColor,
-                    background: `${zoneColor}26`,
-                    padding: '4px 12px',
-                    borderRadius: '12px',
+                    background: `${zoneColor}20`,
+                    border: `1px solid ${zoneColor}40`,
+                    padding: '6px 14px',
+                    borderRadius: '20px',
                     display: 'inline-block',
+                    letterSpacing: '0.5px',
                 },
             }),
         ],

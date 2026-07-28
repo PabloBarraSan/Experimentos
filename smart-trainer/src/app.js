@@ -10,12 +10,15 @@ import { HeartRateManager, HR_CONNECTION_STATE } from './bluetooth/heartRate.js'
 import { ZwiftPlayManager, ZWIFT_PLAY_STATE } from './bluetooth/zwiftPlay.js';
 import { HomeView } from './views/HomeView.js';
 import { TrainingView } from './views/TrainingView.js';
-import { GameView } from './views/GameView.js';
-import { RideView } from './views/RideView.js';
 import { HistoryView } from './views/HistoryView.js';
 import { SettingsView } from './views/SettingsView.js';
+import { WorkoutsView } from './views/WorkoutsView.js';
+import { ExpeditionView } from './views/ExpeditionView.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './router.js';
+import { getActiveSession, getProgress } from './storage/sessions.js';
+import { getAllPresets } from './workouts/presets.js';
+import { startBackgroundSync } from './cloud/CloudSyncService.js';
 
 // Estado global de la aplicación
 const AppState = {
@@ -24,6 +27,9 @@ const AppState = {
     connectionState: CONNECTION_STATE.DISCONNECTED,
     deviceName: null,
     deviceCapabilities: null, // Capacidades del dispositivo
+    selectedWorkout: null,
+    recoveredSession: null,
+    progress: null,
     lastDataUpdateTimestamp: null, // Timestamp de la última actualización de datos
     
     // Heart Rate Monitor (pulsómetro separado)
@@ -245,41 +251,39 @@ function renderCurrentView() {
         case 'game':
             // GameView se renderiza a pantalla completa
             cleanupFullscreenViews();
-            const gameView = GameView({
-                state: AppState,
-                onExit: () => {
-                    navigateTo('home');
-                }
-            });
-            gameView.setAttribute('data-game-view', 'true');
-            document.body.appendChild(gameView);
+            import('./views/GameView.js').then(({ GameView }) => {
+                if (AppState.currentView !== 'game') return;
+                const gameView = GameView({
+                    state: AppState,
+                    onExit: () => navigateTo('home'),
+                });
+                gameView.setAttribute('data-game-view', 'true');
+                document.body.appendChild(gameView);
+            }).catch((error) => console.error('No se pudo cargar el modo juego:', error));
             return container; // Retornar contenedor vacío
             
         case 'ride':
             // RideView se renderiza a pantalla completa
             cleanupFullscreenViews();
-            const rideView = RideView({
-                state: AppState,
-                onExit: () => {
-                    navigateTo('home');
-                },
-                onSimulationUpdate: (params) => {
-                    // Enviar parámetros de simulación al rodillo
-                    if (AppState.bluetoothManager && AppState.bluetoothManager.commandQueue) {
-                        AppState.bluetoothManager.commandQueue.setIndoorBikeSimulation(
-                            params.windSpeed,
-                            params.grade,
-                            params.crr,
-                            params.cw
-                        ).catch(err => {
-                            // Silenciar errores - el rodillo puede no soportar simulación
-                            console.debug('Simulación no soportada:', err.message);
-                        });
-                    }
-                }
-            });
-            rideView.setAttribute('data-ride-view', 'true');
-            document.body.appendChild(rideView);
+            import('./views/RideView.js').then(({ RideView }) => {
+                if (AppState.currentView !== 'ride') return;
+                const rideView = RideView({
+                    state: AppState,
+                    onExit: () => navigateTo('home'),
+                    onSimulationUpdate: (params) => {
+                        if (AppState.bluetoothManager?.commandQueue) {
+                            AppState.bluetoothManager.commandQueue.setIndoorBikeSimulation(
+                                params.windSpeed,
+                                params.grade,
+                                params.crr,
+                                params.cw
+                            ).catch(err => console.debug('Simulación no soportada:', err.message));
+                        }
+                    },
+                });
+                rideView.setAttribute('data-ride-view', 'true');
+                document.body.appendChild(rideView);
+            }).catch((error) => console.error('No se pudo cargar el ciclismo virtual:', error));
             return container; // Retornar contenedor vacío
             
         case 'training': {
@@ -295,6 +299,46 @@ function renderCurrentView() {
             });
             trainingWrapper.appendChild(TrainingView(AppState));
             container.appendChild(trainingWrapper);
+            break;
+        }
+
+        case 'workouts': {
+            cleanupFullscreenViews();
+            const workoutsWrapper = div({
+                styles: { flex: '1', minHeight: 0, overflow: 'auto' },
+                attrs: { 'data-view': 'workouts' },
+            });
+            workoutsWrapper.appendChild(WorkoutsView({
+                state: AppState,
+                onBack: () => navigateTo('home'),
+                onSelectWorkout: (workout) => {
+                    AppState.selectedWorkout = workout;
+                    AppState.recoveredSession = null;
+                    navigateTo('expedition');
+                },
+            }));
+            container.appendChild(workoutsWrapper);
+            break;
+        }
+
+        case 'expedition': {
+            cleanupFullscreenViews();
+            if (!AppState.selectedWorkout) {
+                navigateTo('workouts', { replace: true });
+                break;
+            }
+            container.appendChild(ExpeditionView({
+                state: AppState,
+                workout: AppState.selectedWorkout,
+                recoveredSession: AppState.recoveredSession,
+                subscribeToState: subscribe,
+                onProgress: (progress) => {
+                    AppState.progress = progress;
+                    AppState.recoveredSession = null;
+                },
+                onExit: () => navigateTo('workouts'),
+                onCompleted: () => navigateTo('history'),
+            }));
             break;
         }
 
@@ -415,6 +459,13 @@ function renderApp() {
  * Inicializar aplicación
  */
 async function init() {
+    startBackgroundSync();
+    AppState.progress = await getProgress().catch(() => null);
+    AppState.recoveredSession = await getActiveSession().catch(() => null);
+    if (AppState.recoveredSession) {
+        AppState.selectedWorkout = getAllPresets()
+            .find((workout) => workout.id === AppState.recoveredSession.workoutId) || null;
+    }
     // Inicializar el router y obtener la vista desde la URL
     const initialView = initRouter();
     AppState.currentView = initialView;

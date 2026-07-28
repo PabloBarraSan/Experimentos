@@ -1,0 +1,61 @@
+import { defineConfig } from 'eslint/config';
+
+export default defineConfig([
+  {
+    files: ['src/**/*.js', 'tests/**/*.js', 'vite.config.js'],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: 'module',
+      globals: {
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        localStorage: 'readonly',
+        indexedDB: 'readonly',
+        IDBKeyRange: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        performance: 'readonly',
+        CustomEvent: 'readonly',
+        Event: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        location: 'readonly',
+        atob: 'readonly',
+        fetch: 'readonly',
+        File: 'readonly',
+        FormData: 'readonly',
+        HTMLElement: 'readonly',
+        crypto: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        process: 'readonly',
+      },
+    },
+    rules: {
+      'no-undef': 'error',
+      'no-unreachable': 'error',
+      'no-dupe-keys': 'error',
+      'no-constant-condition': ['error', { checkLoops: false }],
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['src/pwa/sw-template.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        __PRECACHE_MANIFEST__: 'readonly',
+      },
+    },
+  },
+]);

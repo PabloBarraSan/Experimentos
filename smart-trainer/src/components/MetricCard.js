@@ -46,6 +46,10 @@ export function MetricCard({ label, value, unit = '', icon, color = colors.prima
     
     const sizeConfig = sizes[size] || sizes.medium;
     
+    const zoneGradient = zoneColor && !dimmed
+        ? `linear-gradient(135deg, ${zoneColor}12 0%, transparent 60%)`
+        : 'linear-gradient(180deg, #1a1a1a 0%, #111 100%)';
+
     const cardStyles = {
         ...baseStyles.card,
         padding: sizeConfig.padding,
@@ -57,10 +61,14 @@ export function MetricCard({ label, value, unit = '', icon, color = colors.prima
         minWidth: size === 'large' ? '200px' : '120px',
         position: 'relative',
         overflow: 'hidden',
-        transition: 'all 0.2s ease-out',
-        transform: isStale ? 'scale(0.98)' : 'scale(1)',
-        ...(zoneColor ? { borderLeft: `4px solid ${zoneColor}` } : {}),
-        ...(dimmed ? { opacity: 0.5, filter: 'brightness(0.85)' } : {}),
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        transform: isStale ? 'scale(0.97)' : 'scale(1)',
+        background: zoneGradient,
+        ...(zoneColor && !dimmed ? {
+            boxShadow: `inset 0 0 30px ${zoneColor}08, 0 4px 20px rgba(0,0,0,0.4)`,
+            border: `1px solid ${zoneColor}25`,
+        } : {}),
+        ...(dimmed ? { opacity: 0.45, filter: 'brightness(0.8)' } : {}),
     };
     
     const glowStyles = {
@@ -68,9 +76,9 @@ export function MetricCard({ label, value, unit = '', icon, color = colors.prima
         top: '0',
         left: '0',
         right: '0',
-        height: '3px',
-        backgroundColor: color,
-        boxShadow: shadows.glow(color),
+        height: '2px',
+        background: `linear-gradient(90deg, transparent 0%, ${color} 50%, transparent 100%)`,
+        boxShadow: `0 0 15px ${color}60, 0 0 30px ${color}30`,
     };
     
     const labelStyles = {
@@ -96,6 +104,7 @@ export function MetricCard({ label, value, unit = '', icon, color = colors.prima
         color: colors.text,
         fontFamily: typography.fontMono,
         lineHeight: '1',
+        letterSpacing: '-0.5px',
     };
     
     const unitStyles = {

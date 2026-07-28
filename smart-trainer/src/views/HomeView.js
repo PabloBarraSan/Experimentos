@@ -74,6 +74,13 @@ export function HomeView(state) {
         if (installPopupEl) installPopupEl.style.display = 'none';
     };
 
+    const showManualInstallInstructions = () => {
+        if (!installPopupEl) return;
+        installPopupEl.style.display = 'flex';
+        const manual = installPopupEl.querySelector('[data-manual-install]');
+        if (manual) manual.style.display = 'block';
+    };
+
     const openInfoModal = (title, message) => {
         infoModalOpen = true;
         if (infoModalEl) {
@@ -655,7 +662,15 @@ export function HomeView(state) {
     const createActionCard = ({ iconName, iconBg, iconColor, title, description, onClick, locked }) => {
         const padding = '20px';
         const iconSize = 24;
+        const activate = () => {
+            if (locked) {
+                openInfoModal('Conecta el rodillo', 'Conecta tu rodillo primero para usar este modo.');
+                return;
+            }
+            onClick?.();
+        };
         const el = div({
+            attrs: { role: 'button', tabindex: '0', 'aria-label': title },
             styles: {
                 background: cardBg,
                 border: `1px solid ${cardBorder}`,
@@ -669,12 +684,12 @@ export function HomeView(state) {
                 opacity: locked ? 0.75 : 1,
             },
             events: {
-                click: () => {
-                    if (locked) {
-                        openInfoModal('Conecta el rodillo', 'Conecta tu rodillo primero para usar este modo.');
-                        return;
+                click: activate,
+                keydown: (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        activate();
                     }
-                    onClick?.();
                 },
                 mouseenter: (e) => { if (!locked) e.currentTarget.style.transform = 'scale(0.99)'; },
                 mouseleave: (e) => { e.currentTarget.style.transform = 'scale(1)'; },
@@ -723,6 +738,17 @@ export function HomeView(state) {
             div({
                 styles: { display: 'flex', flexDirection: 'column', gap: '12px' },
                 children: [
+                    ...(state.recoveredSession && state.selectedWorkout ? [
+                        createActionCard({
+                            iconName: 'activity',
+                            iconBg: 'rgba(245, 158, 11, 0.2)',
+                            iconColor: '#f59e0b',
+                            title: 'Continuar expedición',
+                            description: `${state.recoveredSession.workoutName} · progreso recuperado`,
+                            onClick: () => navigateTo('expedition'),
+                            locked: false,
+                        }),
+                    ] : []),
                     createActionCard({
                         iconName: 'activity',
                         iconBg: 'rgba(0, 212, 170, 0.15)',
@@ -731,6 +757,17 @@ export function HomeView(state) {
                         description: isConnected ? 'Control manual y zonas de potencia.' : 'Conecta el rodillo para desbloquear.',
                         onClick: () => navigateTo('training'),
                         locked: !isConnected,
+                    }),
+                    createActionCard({
+                        iconName: 'activity',
+                        iconBg: 'rgba(245, 158, 11, 0.15)',
+                        iconColor: '#f59e0b',
+                        title: 'Expediciones',
+                        description: isConnected
+                            ? 'Entrenamientos con misiones, Flow y recompensas.'
+                            : 'Prueba una misión en modo demo.',
+                        onClick: () => navigateTo('workouts'),
+                        locked: false,
                     }),
                     createActionCard({
                         iconName: 'game',
@@ -763,6 +800,17 @@ export function HomeView(state) {
             div({
                 styles: { display: 'flex', flexDirection: 'column', gap: '12px' },
                 children: [
+                    ...(state.progress ? [
+                        createActionCard({
+                            iconName: 'barChart',
+                            iconBg: 'rgba(0, 212, 170, 0.15)',
+                            iconColor: colors.primary,
+                            title: `Nivel ${state.progress.level} · ${state.progress.xp} XP`,
+                            description: `${Math.round(state.progress.weekly?.activeMinutes || 0)}/${state.progress.weekly?.goalMinutes || 90} min del objetivo semanal`,
+                            onClick: () => navigateTo('history'),
+                            locked: false,
+                        }),
+                    ] : []),
                     createActionCard({
                         iconName: 'barChart',
                         iconBg: 'rgba(59, 130, 246, 0.15)',

@@ -10,7 +10,7 @@ import { getAllPresets, getPresetsByCategory, CATEGORIES, DIFFICULTIES } from '.
 /**
  * Vista de biblioteca de entrenamientos
  */
-export function WorkoutsView({ state, onSelectWorkout }) {
+export function WorkoutsView({ state, onBack, onSelectWorkout }) {
     const containerStyles = {
         padding: spacing.lg,
         maxWidth: '1200px',
@@ -36,12 +36,23 @@ export function WorkoutsView({ state, onSelectWorkout }) {
     // Estado local del filtro
     let selectedCategory = 'all';
     
-    const container = div({ styles: containerStyles });
+    const container = div({ styles: containerStyles, attrs: { 'data-view': 'workouts-library' } });
     
     // Header
     const header = div({
         styles: headerStyles,
         children: [
+            button({
+                text: '← Volver',
+                styles: {
+                    ...baseStyles.button,
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    marginBottom: spacing.md,
+                    backgroundColor: colors.surface,
+                    color: colors.text,
+                },
+                events: { click: onBack },
+            }),
             createElement('h1', { text: '📚 Biblioteca de Entrenamientos', styles: titleStyles }),
             createElement('p', { 
                 text: 'Selecciona un entrenamiento o crea uno personalizado', 
@@ -97,7 +108,7 @@ export function WorkoutsView({ state, onSelectWorkout }) {
     // Grid de entrenamientos
     const gridStyles = {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
         gap: spacing.lg,
     };
     
@@ -229,7 +240,14 @@ function createWorkoutCard(workout, onClick) {
         overflow: 'hidden',
     };
     
-    const card = div({ styles: cardStyles });
+    const card = div({
+        styles: cardStyles,
+        attrs: {
+            role: 'button',
+            tabindex: '0',
+            'aria-label': `Iniciar ${workout.name}`,
+        },
+    });
     
     // Header
     const header = div({
@@ -336,6 +354,12 @@ function createWorkoutCard(workout, onClick) {
     
     // Eventos
     card.addEventListener('click', onClick);
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+        }
+    });
     card.addEventListener('mouseenter', () => {
         card.style.transform = 'translateY(-4px)';
         card.style.boxShadow = `0 8px 24px rgba(0, 212, 170, 0.2)`;

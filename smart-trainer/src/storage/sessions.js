@@ -6,8 +6,12 @@
  */
 
 const DB_NAME = 'SmartTrainerDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const SESSIONS_STORE = 'sessions';
+const WORKOUTS_STORE = 'workouts';
+const ACTIVE_SESSION_STORE = 'activeSession';
+const PROGRESS_STORE = 'progress';
+const SYNC_OUTBOX_STORE = 'syncOutbox';
 
 let db = null;
 
@@ -44,6 +48,21 @@ export async function initDB() {
                 store.createIndex('workoutId', 'workoutId', { unique: false });
                 console.log('📦 Store de sesiones creado');
             }
+            if (!database.objectStoreNames.contains(WORKOUTS_STORE)) {
+                const workouts = database.createObjectStore(WORKOUTS_STORE, { keyPath: 'id' });
+                workouts.createIndex('updatedAt', 'updatedAt', { unique: false });
+                workouts.createIndex('category', 'category', { unique: false });
+            }
+            if (!database.objectStoreNames.contains(ACTIVE_SESSION_STORE)) {
+                database.createObjectStore(ACTIVE_SESSION_STORE, { keyPath: 'key' });
+            }
+            if (!database.objectStoreNames.contains(PROGRESS_STORE)) {
+                database.createObjectStore(PROGRESS_STORE, { keyPath: 'key' });
+            }
+            if (!database.objectStoreNames.contains(SYNC_OUTBOX_STORE)) {
+                const outbox = database.createObjectStore(SYNC_OUTBOX_STORE, { keyPath: 'id' });
+                outbox.createIndex('createdAt', 'createdAt', { unique: false });
+            }
         };
     });
 }
@@ -59,7 +78,9 @@ export function createSession(options = {}) {
     } = options;
     
     return {
+        schemaVersion: 2,
         id: generateId(),
+        clientSessionId: createUuid(),
         workoutId,
         workoutName,
         ftp,
@@ -67,9 +88,15 @@ export function createSession(options = {}) {
         startTime: Date.now(),
         endTime: null,
         duration: 0,
+        activeDuration: 0,
+        pausedDuration: 0,
         dataPoints: [],
         status: 'active', // 'active', 'paused', 'completed', 'discarded'
         metrics: null,    // Se calculan al finalizar
+        controlMode: 'manual',
+        experienceMode: 'metrics',
+        adherence: null,
+        gameResult: null,
         // Campos para sincronización con plataformas externas
         syncStatus: {
             strava: {
@@ -122,7 +149,7 @@ export async function getSession(id) {
         const request = store.get(id);
         
         request.onsuccess = () => {
-            resolve(request.result);
+            resolve(request.result ? normalizeSession(request.result) : null);
         };
         
         request.onerror = () => {
@@ -148,7 +175,7 @@ export async function getAllSessions() {
         request.onsuccess = (event) => {
             const cursor = event.target.result;
             if (cursor) {
-                sessions.push(cursor.value);
+                sessions.push(normalizeSession(cursor.value));
                 cursor.continue();
             } else {
                 resolve(sessions);
@@ -214,11 +241,14 @@ export function addDataPoint(session, data) {
  */
 export async function finishSession(session, metrics) {
     session.endTime = Date.now();
-    session.duration = (session.endTime - session.startTime) / 1000;
+    const wallDuration = Math.max(0, (session.endTime - session.startTime) / 1000);
+    session.activeDuration = metrics?.duration ?? session.elapsedTime ?? Math.max(0, wallDuration - (session.pausedDuration || 0));
+    session.duration = session.activeDuration;
     session.status = 'completed';
     session.metrics = metrics;
     
     await saveSession(session);
+    await clearActiveSession();
     return session;
 }
 
@@ -239,11 +269,73 @@ export async function discardSession(session) {
                 // Puede que no exista aún en la BD
             }
         }
+        await clearActiveSession();
         return null;
     }
     
     await saveSession(session);
+    await clearActiveSession();
     return session;
+}
+
+export async function saveActiveSession(session) {
+    await initDB();
+    const draft = {
+        key: 'current',
+        savedAt: Date.now(),
+        session: {
+            ...session,
+            schemaVersion: 2,
+            dataPoints: [...(session.dataPoints || [])],
+        },
+    };
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([ACTIVE_SESSION_STORE], 'readwrite');
+        const request = transaction.objectStore(ACTIVE_SESSION_STORE).put(draft);
+        request.onsuccess = () => resolve(draft.session);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function getActiveSession() {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([ACTIVE_SESSION_STORE], 'readonly');
+        const request = transaction.objectStore(ACTIVE_SESSION_STORE).get('current');
+        request.onsuccess = () => resolve(request.result?.session || null);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function clearActiveSession() {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([ACTIVE_SESSION_STORE], 'readwrite');
+        const request = transaction.objectStore(ACTIVE_SESSION_STORE).delete('current');
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function saveWorkout(workout) {
+    await initDB();
+    const value = { ...workout, updatedAt: workout.updatedAt || new Date().toISOString() };
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([WORKOUTS_STORE], 'readwrite');
+        const request = transaction.objectStore(WORKOUTS_STORE).put(value);
+        request.onsuccess = () => resolve(value);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function getSavedWorkouts() {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction([WORKOUTS_STORE], 'readonly');
+        const request = transaction.objectStore(WORKOUTS_STORE).getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+    });
 }
 
 /**
@@ -348,44 +440,8 @@ export async function getStatsByPeriod(period = 'week') {
  * Nota: El formato FIT real es binario y complejo. Esto es una versión simplificada.
  */
 export function exportToFIT(session) {
-    // TODO: Implementar exportación real a .fit
-    // Por ahora, exportamos a un formato JSON compatible
-    const fit = {
-        fileId: {
-            type: 'activity',
-            manufacturer: 'SmartTrainer',
-            product: 1,
-            serialNumber: 1,
-            timeCreated: session.startTime,
-        },
-        activity: {
-            timestamp: session.startTime,
-            totalTimerTime: session.duration,
-            numSessions: 1,
-        },
-        session: {
-            sport: 'cycling',
-            subSport: 'indoor_cycling',
-            startTime: session.startTime,
-            totalElapsedTime: session.duration,
-            totalTimerTime: session.duration,
-            avgPower: session.metrics?.power?.avg,
-            maxPower: session.metrics?.power?.max,
-            normalizedPower: session.metrics?.power?.normalized,
-            trainingStressScore: session.metrics?.intensity?.tss,
-            intensityFactor: session.metrics?.intensity?.if,
-        },
-        records: session.dataPoints.map((p, i) => ({
-            timestamp: p.timestamp,
-            power: p.power,
-            cadence: p.cadence,
-            speed: p.speed,
-            heartRate: p.heartRate,
-            distance: p.distance,
-        })),
-    };
-    
-    return JSON.stringify(fit, null, 2);
+    void session;
+    throw new Error('La exportación FIT aún no está disponible. Usa TCX o CSV.');
 }
 
 /**
@@ -460,10 +516,100 @@ export function exportToCSV(session) {
     return rows.join('\n');
 }
 
+export async function getProgress() {
+    await initDB();
+    const record = await getStoreValue(PROGRESS_STORE, 'current');
+    return record?.value || null;
+}
+
+export async function saveProgress(progress) {
+    await initDB();
+    await putStoreValue(PROGRESS_STORE, {
+        key: 'current',
+        value: progress,
+        updatedAt: Date.now(),
+    });
+    return progress;
+}
+
+export async function enqueueSyncJob(type, payload) {
+    await initDB();
+    const job = {
+        id: createUuid(),
+        type,
+        payload,
+        attempts: 0,
+        createdAt: Date.now(),
+    };
+    await putStoreValue(SYNC_OUTBOX_STORE, job);
+    return job;
+}
+
+export async function getSyncJobs() {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(SYNC_OUTBOX_STORE, 'readonly')
+            .objectStore(SYNC_OUTBOX_STORE)
+            .index('createdAt')
+            .getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+export async function removeSyncJob(id) {
+    await initDB();
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(SYNC_OUTBOX_STORE, 'readwrite')
+            .objectStore(SYNC_OUTBOX_STORE)
+            .delete(id);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+}
+
 // === Utilidades ===
+
+function getStoreValue(storeName, key) {
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, 'readonly').objectStore(storeName).get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function putStoreValue(storeName, value) {
+    return new Promise((resolve, reject) => {
+        const request = db.transaction(storeName, 'readwrite').objectStore(storeName).put(value);
+        request.onsuccess = () => resolve(value);
+        request.onerror = () => reject(request.error);
+    });
+}
 
 function generateId() {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+function createUuid() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return generateId();
+}
+
+function normalizeSession(session) {
+    if (session.schemaVersion === 2) return session;
+    return {
+        ...session,
+        schemaVersion: 2,
+        clientSessionId: session.clientSessionId || session.id,
+        activeDuration: session.activeDuration ?? session.duration ?? 0,
+        pausedDuration: session.pausedDuration ?? 0,
+        controlMode: session.controlMode || 'manual',
+        experienceMode: session.experienceMode || 'metrics',
+        adherence: session.adherence || null,
+        gameResult: session.gameResult || null,
+    };
 }
 
 function formatDuration(seconds) {

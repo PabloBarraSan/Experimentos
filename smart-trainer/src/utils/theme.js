@@ -5,32 +5,32 @@
 
 export const colors = {
     // Base
-    background: '#0a0a0a',
-    surface: '#1a1a1a',
-    surfaceLight: '#252525',
-    surfaceHover: '#2a2a2a',
-    border: '#333333',
-    
-    // Primarios
-    primary: '#00d4aa',
-    primaryDark: '#00a88a',
-    primaryLight: '#33ddbb',
-    
+    background: '#080808',
+    surface: '#141414',
+    surfaceLight: '#1e1e1e',
+    surfaceHover: '#282828',
+    border: '#2a2a2a',
+
+    // Primarios — coral energético
+    primary: '#ff6b35',
+    primaryDark: '#e55a2b',
+    primaryLight: '#ff8a5c',
+
     // Secundarios
     secondary: '#0066cc',
     secondaryDark: '#0052a3',
-    
+
     // Acentos
-    accent: '#ff6b35',
-    accentDark: '#e55a2b',
+    accent: '#00d4aa',
+    accentDark: '#00a88a',
     warning: '#ffcc00',
     error: '#ff4444',
     success: '#00cc66',
-    
+
     // Texto
     text: '#ffffff',
-    textMuted: '#888888',
-    textDark: '#666666',
+    textMuted: '#777777',
+    textDark: '#555555',
     
     // Zonas de potencia
     zones: {
@@ -79,11 +79,12 @@ export const typography = {
 };
 
 export const shadows = {
-    sm: '0 1px 2px rgba(0, 0, 0, 0.3)',
-    md: '0 4px 6px rgba(0, 0, 0, 0.4)',
-    lg: '0 10px 15px rgba(0, 0, 0, 0.5)',
-    glow: (color) => `0 0 20px ${color}40`,
-    glass: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
+    sm: '0 1px 2px rgba(0, 0, 0, 0.4)',
+    md: '0 4px 6px rgba(0, 0, 0, 0.5)',
+    lg: '0 10px 15px rgba(0, 0, 0, 0.6)',
+    glow: (color) => `0 0 25px ${color}60, 0 0 50px ${color}30`,
+    glowIntense: (color) => `0 0 30px ${color}70, 0 0 60px ${color}40, 0 0 90px ${color}20`,
+    glass: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
 };
 
 export const transitions = {

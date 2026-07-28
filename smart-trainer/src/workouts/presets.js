@@ -408,6 +408,12 @@ export const WORKOUT_PRESETS = {
     }),
 };
 
+// Los presets necesitan IDs deterministas para poder recuperar una misión tras
+// recargar la PWA y para que la sincronización sea idempotente.
+Object.entries(WORKOUT_PRESETS).forEach(([key, workout]) => {
+    workout.id = key.toLowerCase();
+});
+
 /**
  * Obtener todos los presets como array
  */

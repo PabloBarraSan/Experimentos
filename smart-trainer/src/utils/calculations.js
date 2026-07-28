@@ -133,7 +133,9 @@ export function calculateAvgPower(powerData) {
         return 0;
     }
     
-    const validData = powerData.filter(p => p !== null && p !== undefined && p > 0);
+    // Cero vatios es una muestra válida (parada o pedaleo sin carga).
+    // Excluirlo infla de forma importante la potencia media.
+    const validData = powerData.filter(p => Number.isFinite(p) && p >= 0);
     if (validData.length === 0) {
         return 0;
     }
@@ -262,8 +264,10 @@ export function calculateTimeInZones(powerData, ftp) {
         z7: 0, // > 150%
     };
     
+    if (!ftp || ftp <= 0) return zones;
+
     powerData.forEach(power => {
-        if (!power || power <= 0) return;
+        if (!Number.isFinite(power) || power < 0) return;
         
         const percent = (power / ftp) * 100;
         
@@ -280,6 +284,56 @@ export function calculateTimeInZones(powerData, ftp) {
 }
 
 /**
+ * Integrar potencia usando timestamps reales.
+ * El último punto usa el delta mediano de la sesión, limitado a 5 segundos.
+ */
+export function calculateKilojoulesFromDataPoints(dataPoints) {
+    if (!Array.isArray(dataPoints) || dataPoints.length === 0) return 0;
+    if (dataPoints.length === 1) return Math.round(Math.max(0, dataPoints[0].power || 0) / 1000);
+
+    const deltas = [];
+    for (let i = 1; i < dataPoints.length; i++) {
+        const delta = (dataPoints[i].timestamp - dataPoints[i - 1].timestamp) / 1000;
+        if (Number.isFinite(delta) && delta > 0 && delta <= 5) deltas.push(delta);
+    }
+    const sorted = [...deltas].sort((a, b) => a - b);
+    const fallbackDelta = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 1;
+
+    let joules = 0;
+    for (let i = 0; i < dataPoints.length; i++) {
+        const next = dataPoints[i + 1];
+        const rawDelta = next ? (next.timestamp - dataPoints[i].timestamp) / 1000 : fallbackDelta;
+        const delta = Number.isFinite(rawDelta) && rawDelta > 0 ? Math.min(rawDelta, 5) : fallbackDelta;
+        joules += Math.max(0, Number(dataPoints[i].power) || 0) * delta;
+    }
+    return Math.round(joules / 1000);
+}
+
+/**
+ * Normalizar muestras irregulares a una muestra por segundo.
+ */
+export function resamplePowerAtOneHertz(dataPoints) {
+    if (!Array.isArray(dataPoints) || dataPoints.length === 0) return [];
+    const sorted = dataPoints
+        .filter((point) => Number.isFinite(point?.timestamp))
+        .slice()
+        .sort((a, b) => a.timestamp - b.timestamp);
+    if (sorted.length === 0) return [];
+
+    const start = sorted[0].timestamp;
+    const end = sorted[sorted.length - 1].timestamp;
+    const values = [];
+    let cursor = 0;
+    for (let timestamp = start; timestamp <= end; timestamp += 1000) {
+        while (cursor + 1 < sorted.length && sorted[cursor + 1].timestamp <= timestamp) cursor++;
+        const point = sorted[cursor];
+        const stale = timestamp - point.timestamp > 5000;
+        values.push(stale ? 0 : Math.max(0, Number(point.power) || 0));
+    }
+    return values;
+}
+
+/**
  * Calcular todas las métricas de una sesión
  * 
  * @param {Object} sessionData - Datos de la sesión
@@ -289,7 +343,7 @@ export function calculateTimeInZones(powerData, ftp) {
 export function calculateSessionMetrics(sessionData, ftp) {
     const { dataPoints = [], duration } = sessionData;
     
-    const powerData = dataPoints.map(p => p.power || 0);
+    const powerData = resamplePowerAtOneHertz(dataPoints);
     const cadenceData = dataPoints.map(p => p.cadence || 0);
     const hrData = dataPoints.map(p => p.heartRate || 0);
     
@@ -299,7 +353,7 @@ export function calculateSessionMetrics(sessionData, ftp) {
     const intensityFactor = calculateIF(np, ftp);
     const vi = calculateVI(np, avgPower);
     const tss = calculateTSS(np, duration || powerData.length, ftp);
-    const kj = calculateKilojoules(powerData);
+    const kj = calculateKilojoulesFromDataPoints(dataPoints);
     const calories = calculateCalories(kj);
     const timeInZones = calculateTimeInZones(powerData, ftp);
     const cadenceStats = calculateCadenceStats(cadenceData);
@@ -307,7 +361,7 @@ export function calculateSessionMetrics(sessionData, ftp) {
     const powerCurve = calculatePowerCurve(powerData);
     
     return {
-        duration: duration || powerData.length,
+        duration: duration ?? powerData.length,
         power: {
             avg: avgPower,
             max: maxPower,
@@ -323,7 +377,13 @@ export function calculateSessionMetrics(sessionData, ftp) {
             calories,
         },
         zones: timeInZones,
-        cadence: cadenceStats,
+        cadence: {
+            ...cadenceStats,
+            avgOverall: cadenceData.length
+                ? Math.round(cadenceData.reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0) / cadenceData.length)
+                : 0,
+            avgPedaling: cadenceStats.avg,
+        },
         heartRate: hrStats,
         powerCurve,
     };
