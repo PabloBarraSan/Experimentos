@@ -1,15 +1,30 @@
 let clientPromise = null;
 
+const PROJECT_DEFAULTS = {
+    url: 'https://quovbcgoiirfxtpjxapy.supabase.co',
+    publishableKey: 'sb_publishable_Nmjod5Mgrx_hUmseBYt17A_dRhsTKsf',
+};
+
+function getPublicKey() {
+    return import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+        || import.meta.env.VITE_SUPABASE_ANON_KEY
+        || PROJECT_DEFAULTS.publishableKey;
+}
+
+function getProjectUrl() {
+    return import.meta.env.VITE_SUPABASE_URL || PROJECT_DEFAULTS.url;
+}
+
 export function isCloudConfigured() {
-    return Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY);
+    return Boolean(getProjectUrl() && getPublicKey());
 }
 
 export async function getSupabaseClient() {
     if (!isCloudConfigured()) return null;
     if (!clientPromise) {
         clientPromise = import('@supabase/supabase-js').then(({ createClient }) => createClient(
-            import.meta.env.VITE_SUPABASE_URL,
-            import.meta.env.VITE_SUPABASE_ANON_KEY,
+            getProjectUrl(),
+            getPublicKey(),
             {
                 auth: {
                     persistSession: true,
