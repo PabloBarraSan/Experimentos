@@ -14,6 +14,7 @@ import { HistoryView } from './views/HistoryView.js';
 import { SettingsView } from './views/SettingsView.js';
 import { WorkoutsView } from './views/WorkoutsView.js';
 import { ExpeditionView } from './views/ExpeditionView.js';
+import { TrainerDiagnosticsView } from './views/TrainerDiagnosticsView.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './router.js';
 import { getActiveSession, getProgress } from './storage/sessions.js';
@@ -338,6 +339,16 @@ function renderCurrentView() {
                 },
                 onExit: () => navigateTo('workouts'),
                 onCompleted: () => navigateTo('history'),
+            }));
+            break;
+        }
+
+        case 'diagnostics': {
+            cleanupFullscreenViews();
+            container.appendChild(TrainerDiagnosticsView({
+                state: AppState,
+                subscribeToState: subscribe,
+                onBack: () => navigateTo('home'),
             }));
             break;
         }

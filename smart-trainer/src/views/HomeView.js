@@ -821,6 +821,17 @@ export function HomeView(state) {
                         locked: false,
                     }),
                     createActionCard({
+                        iconName: 'gauge',
+                        iconBg: 'rgba(245, 158, 11, 0.15)',
+                        iconColor: '#f59e0b',
+                        title: 'Diagnóstico del rodillo',
+                        description: isConnected
+                            ? 'Comprueba telemetría, ERG, resistencia y pausa.'
+                            : 'Recorre el protocolo ahora con el simulador D100.',
+                        onClick: () => navigateTo('diagnostics'),
+                        locked: false,
+                    }),
+                    createActionCard({
                         iconName: 'settings',
                         iconBg: 'rgba(107, 114, 128, 0.15)',
                         iconColor: colors.textMuted,
