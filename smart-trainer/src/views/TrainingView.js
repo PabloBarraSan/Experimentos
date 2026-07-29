@@ -1,744 +1,460 @@
 /**
- * TrainingView - Vista de entrenamiento activo
+ * TrainingView - cockpit de entrenamiento libre
  * Smart Trainer Controller
  */
 
-import { colors, spacing, typography, baseStyles, borderRadius, transitions, shadows, getZoneColor, getZoneName } from '../utils/theme.js';
-import { createElement, div, button, icon, formatTime, formatDistance } from '../utils/dom.js';
-import { MetricCard } from '../components/MetricCard.js';
-import { PowerGauge } from '../components/PowerGauge.js';
+import './training.css';
+import { getZoneColor, getZoneName } from '../utils/theme.js';
+import { createElement, div, button, formatTime, formatDistance } from '../utils/dom.js';
 import { ResistanceSlider } from '../components/ResistanceSlider.js';
 import { showSaveSessionDialog } from '../components/SaveSessionDialog.js';
 import { navigateTo, subscribe, updateState, AppState } from '../app.js';
 import { createSession, finishSession } from '../storage/sessions.js';
 import { calculateSessionMetrics } from '../utils/calculations.js';
 
-/**
- * Vista de entrenamiento con métricas y controles
- */
-export function TrainingView(state) {
-    const { liveData, session, settings, bluetoothManager } = state;
-    
-    // Valor objetivo de resistencia controlado por el usuario
-    // Este es el valor que el usuario QUIERE, no el que reporta el dispositivo
-    let targetResistance = liveData.resistance || 50;
-    
-    // Referencias a elementos del DOM para actualización en tiempo real
-    let updateRefs = {
-        speedValue: null,
-        timeValue: null,
-        distanceValue: null,
-        heartRateValue: null,
-        heartRateCard: null,
-        resistanceValue: null,
-        powerGauge: null,
-        powerGaugeContainer: null,
-        metricsContainer: null,
-        pausarBtn: null,
-        pausarBtnIcon: null,
-        resistanceDots: null,
-        zoneDivider: null,
-        /** Buffer para media móvil de 3 s (potencia) */
-        smoothBuffer: [],
-    };
-    
-    const currentZoneColor = getZoneColor(liveData.power || 0, settings.ftp);
-    
-    // Función para actualizar los valores en el DOM
-    const updateMetrics = (newState) => {
-        const { liveData: newLiveData, session: newSession, settings: newSettings } = newState;
-        const now = Date.now();
-        const WINDOW_MS = 3000;
+const STALE_AFTER_MS = 3000;
+const POWER_SMOOTHING_MS = 3000;
 
-        // Media móvil 3 s para Potencia (evitar que los números bailen)
-        const buf = updateRefs.smoothBuffer;
-        buf.push({ t: now, power: newLiveData.power ?? 0 });
-        while (buf.length && buf[0].t < now - WINDOW_MS) buf.shift();
-        const powerEntries = buf.filter((e) => typeof e.power === 'number');
-        const smoothedPower = powerEntries.length
-            ? Math.round(powerEntries.reduce((a, e) => a + e.power, 0) / powerEntries.length)
-            : (newLiveData.power ?? 0);
-
-        // Calcular tiempo transcurrido (descontando tiempo en pausa)
-        let elapsedTime = 0;
-        if (newSession.isActive && newSession.startTime) {
-            const pauseDuration = newSession.pauseDuration || 0;
-            const currentPauseMs = newSession.pausedAt ? (now - newSession.pausedAt) : 0;
-            elapsedTime = Math.floor((now - newSession.startTime - pauseDuration - currentPauseMs) / 1000);
-        } else if (newSession.elapsedTime != null) {
-            elapsedTime = newSession.elapsedTime;
-        }
-
-        if (updateRefs.speedValue) {
-            updateRefs.speedValue.textContent = (newLiveData.speed || 0).toFixed(1);
-        }
-        
-        // Actualizar métricas secundarias
-        if (updateRefs.timeValue) {
-            updateRefs.timeValue.textContent = formatTime(elapsedTime);
-        }
-        
-        if (updateRefs.distanceValue) {
-            // Mostrar distancia calculada o del dispositivo
-            // Si el dispositivo no la soporta, usamos la calculada desde velocidad
-            const distanceSupported = newState.deviceCapabilities?.totalDistanceSupported !== false;
-            let distanceToShow = newLiveData.distance;
-            
-            // Si no hay distancia del dispositivo pero tenemos distancia acumulada, usarla
-            if ((distanceToShow === undefined || distanceToShow === null || !distanceSupported) && 
-                newSession.accumulatedDistance !== undefined) {
-                distanceToShow = newSession.accumulatedDistance;
-            }
-            
-            if (distanceToShow !== undefined && distanceToShow !== null) {
-                updateRefs.distanceValue.textContent = formatDistance(distanceToShow);
-            } else {
-                updateRefs.distanceValue.textContent = '--';
-            }
-        }
-        
-        // Frecuencia cardiaca: mostrar valor o -- si no hay sensor; atenuar tarjeta si no hay FC
-        if (updateRefs.heartRateValue) {
-            updateRefs.heartRateValue.textContent = newLiveData.heartRate != null && newLiveData.heartRate !== '' ? String(newLiveData.heartRate) : '--';
-        }
-        if (updateRefs.heartRateCard) {
-            const hasHR = newLiveData.heartRate != null && newLiveData.heartRate !== '';
-            updateRefs.heartRateCard.style.opacity = hasHR ? '1' : '0.6';
-            updateRefs.heartRateCard.style.filter = hasHR ? 'none' : 'brightness(0.9)';
-        }
-
-        // Actualizar borde de zona en tarjetas de métricas (usar potencia suavizada)
-        if (updateRefs.metricsContainer) {
-            const zoneColor = getZoneColor(smoothedPower, newSettings.ftp);
-            const cards = updateRefs.metricsContainer.querySelectorAll(':scope > div');
-            cards.forEach(card => { card.style.borderLeft = `4px solid ${zoneColor}`; });
-        }
-        // Actualizar color del divider de zona
-        if (updateRefs.zoneDivider) {
-            const zoneColor = getZoneColor(smoothedPower, newSettings.ftp);
-            updateRefs.zoneDivider.style.background = `linear-gradient(90deg, transparent 0%, ${zoneColor}50 50%, transparent 100%)`;
-        }
-        // Botón Pausa/Reanudar: actualizar aspecto según isPaused
-        if (updateRefs.pausarBtn && updateRefs.pausarBtnIcon && newSession.isPaused !== undefined) {
-            updateRefs.pausarBtn.style.backgroundColor = newSession.isPaused ? colors.success : colors.warning;
-            updateRefs.pausarBtn.title = newSession.isPaused ? 'Reanudar' : 'Pausar';
-            // Reemplazar el SVG dentro del contenedor de icono
-            const iconContainer = updateRefs.pausarBtnIcon;
-            while (iconContainer.firstChild) iconContainer.removeChild(iconContainer.firstChild);
-            iconContainer.appendChild(newSession.isPaused ? createPlaySVG() : createPauseSVG());
-            // Actualizar el texto del botón (último span hijo directo del botón)
-            const allSpans = updateRefs.pausarBtn.querySelectorAll(':scope > span');
-            if (allSpans.length >= 2) {
-                allSpans[1].textContent = newSession.isPaused ? 'Reanudar' : 'Pausar';
-            }
-        }
-        
-        // NO actualizamos el texto de resistencia desde el dispositivo
-        // El usuario tiene control manual total - mostramos el valor OBJETIVO seleccionado por el usuario
-        // (el valor se actualiza solo cuando el usuario mueve el slider)
-        // UI Feedback: esfuerzo máximo si potencia > 400 W (glow rojo en contenedor del PowerGauge)
-        if (updateRefs.powerGaugeContainer) {
-            updateRefs.powerGaugeContainer.style.boxShadow = smoothedPower > 400
-                ? shadows.glow(colors.error)
-                : '';
-        }
-
-        // Actualizar gauge de potencia con valor suavizado (re-renderizar cada segundo)
-        if (!updateRefs.lastGaugeUpdate || now - updateRefs.lastGaugeUpdate > 1000) {
-            if (updateRefs.powerGauge && updateRefs.powerGauge.parentElement) {
-                const newGauge = PowerGauge({
-                    power: smoothedPower,
-                    ftp: newSettings.ftp,
-                    maxPower: newSettings.ftp * 2,
-                    variant: 'training',
-                });
-                updateRefs.powerGauge.parentElement.replaceChild(newGauge, updateRefs.powerGauge);
-                updateRefs.powerGauge = newGauge;
-                updateRefs.lastGaugeUpdate = now;
-            }
-        }
-        
-    };
-    
-    // Suscribirse a cambios de estado
-    const unsubscribe = subscribe((newState) => {
-        if (newState.currentView === 'training') {
-            updateMetrics(newState);
-        }
-    });
-    
-    // === NUEVO LAYOUT: gauge centrado con métricas a los lados ===
-    const containerStyles = {
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        minHeight: 0,
-        overflow: 'hidden',
-        padding: 0,
-        gap: 0,
-        maxWidth: '1200px',
-        margin: '0 auto',
-        width: '100%',
-        backgroundColor: colors.background,
-    };
-
-    // Timer card -standalone con fondo glass
-    const timerCardStyles = {
-        background: `linear-gradient(135deg, ${colors.surface} 0%, ${colors.background} 100%)`,
-        border: `1px solid ${colors.border}60`,
-        borderRadius: '16px',
-        padding: '14px 24px',
-        margin: '0 16px 0',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexShrink: 0,
-        width: 'calc(100% - 32px)',
-        maxWidth: '500px',
-        boxShadow: `0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)`,
-    };
-
-    const scrollContentStyles = {
-        flex: 1,
-        minHeight: 0,
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '0 8px',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-    };
-
-    // Main area: gauge centrado con métricas a los lados
-    const mainAreaStyles = {
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: '20px',
-        padding: '0 12px 16px',
-        marginTop: '40px',
-        flex: '0 0 auto',
-        width: '100%',
-    };
-
-    const gaugeContainerStyles = {
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'relative',
-        width: '240px',
-        height: '240px',
-        flex: '0 0 auto',
-    };
-
-    // Columna de métricas laterales (tamaño fijo)
-    const sideMetricsStyles = {
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        gap: '12px',
-        flex: '0 0 auto',
-        minWidth: '100px',
-    };
-
-    const metricsGridStyles = {
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr',
-        gap: '12px',
-        padding: '0 8px',
-        marginBottom: '8px',
-        flexShrink: 0,
-    };
-
-    const resistancePanelStyles = {
-        background: 'linear-gradient(180deg, #1a1a1a 0%, #111 100%)',
-        borderTop: `1px solid ${colors.primary}30`,
-        padding: '12px 20px max(40px, env(safe-area-inset-bottom))',
-        borderRadius: '24px 24px 0 0',
-        boxShadow: `0 -10px 40px rgba(0,0,0,0.6), inset 0 1px 0 ${colors.primary}20`,
-        position: 'relative',
-        zIndex: 20,
-        flexShrink: 0,
-    };
-    
-    // === Construir vista ===
-    const container = div({ 
-        styles: containerStyles,
-        attrs: { 'data-view': 'training' }
-    });
-    
-    // Añadir estilos responsive + modo paisaje (móvil en manillar) + animaciones
-    const responsiveStyles = createElement('style', {
-        text: `
-            @keyframes fadeSlideUp {
-                from { opacity: 0; transform: translateY(20px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            @keyframes scaleIn {
-                from { opacity: 0; transform: scale(0.9); }
-                to { opacity: 1; transform: scale(1); }
-            }
-            [data-view="training"] .timer-card {
-                animation: fadeSlideUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-                opacity: 0;
-            }
-            [data-view="training"] .main-area {
-                animation: fadeSlideUp 0.6s 0.1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-                opacity: 0;
-            }
-            [data-view="training"] .distance-card {
-                animation: fadeSlideUp 0.6s 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-                opacity: 0;
-            }
-            [data-view="training"] .resistance-panel {
-                animation: fadeSlideUp 0.5s 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-                opacity: 0;
-            }
-            [data-view="training"] .resistance-handle {
-                animation: fadeIn 0.4s 0.4s forwards;
-                opacity: 0;
-            }
-            /* Métricas laterales */
-            [data-view="training"] .side-metrics {
-                display: flex !important;
-                flex-direction: column !important;
-                justify-content: center !important;
-                align-items: center !important;
-                gap: 12px;
-                min-width: 100px;
-            }
-            [data-view="training"] .side-metrics > div {
-                width: 100%;
-                min-width: 100px;
-                padding: 14px 12px !important;
-            }
-            /* Gauge container */
-            [data-view="training"] .gauge-container {
-                width: 240px !important;
-                height: 240px !important;
-                flex: 0 0 auto !important;
-            }
-            /* Métrica distancia */
-            [data-view="training"] .distance-metric {
-                margin: 0 16px 20px;
-                animation: fadeSlideUp 0.6s 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-                opacity: 0;
-            }
-            /* Divider con gradiente de zona */
-            [data-view="training"] .zone-divider {
-                height: 2px;
-                margin: 0 16px 16px;
-                background: linear-gradient(90deg, transparent 0%, ${colors.primary}40 50%, transparent 100%);
-                border-radius: 1px;
-            }
-            @media (max-width: 500px) {
-                [data-view="training"] .main-area {
-                    gap: 12px !important;
-                    padding: 0 8px 12px !important;
-                }
-                [data-view="training"] .gauge-container {
-                    width: 200px !important;
-                    height: 200px !important;
-                }
-                [data-view="training"] .side-metrics {
-                    min-width: 80px !important;
-                }
-                [data-view="training"] .side-metrics > div {
-                    min-width: 80px !important;
-                    padding: 12px 8px !important;
-                }
-            }
-            @media (orientation: landscape) and (max-height: 500px) {
-                [data-view="training"] .timer-card {
-                    padding: 8px 16px !important;
-                    margin: 12px 12px 8px !important;
-                }
-                [data-view="training"] .main-area {
-                    gap: 12px !important;
-                    padding: 0 8px 8px !important;
-                }
-                [data-view="training"] .gauge-container {
-                    width: 180px !important;
-                    height: 180px !important;
-                }
-            }
-        `
-    });
-    document.head.appendChild(responsiveStyles);
-    
-    // === TIMER CARD (standalone con glass effect) ===
-    const sessionTypeLabel = session.workoutName || 'Entreno Libre';
-    const timerCard = div({
-        styles: timerCardStyles,
-        attrs: { class: 'timer-card' },
+function createMetricTile({ key, label, value, unit, unavailable = false }) {
+    return div({
+        attrs: {
+            class: `cockpit-metric cockpit-metric--${key}${unavailable ? ' is-unavailable' : ''}`,
+            'data-metric': key,
+        },
         children: [
-            createElement('div', {
-                text: sessionTypeLabel,
-                styles: {
-                    fontSize: '11px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1.5px',
-                    color: colors.textMuted,
-                    background: `${colors.primary}12`,
-                    border: `1px solid ${colors.primary}25`,
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontWeight: 600,
-                },
+            createElement('span', {
+                attrs: { class: 'cockpit-metric__label' },
+                text: label,
             }),
-            createElement('div', {
-                text: formatTime(session.elapsedTime || liveData.elapsedTime || 0),
-                styles: {
-                    fontFamily: "'SF Mono', 'Monaco', 'Inconsolata', monospace",
-                    fontSize: '36px',
-                    fontWeight: 700,
-                    letterSpacing: '-1px',
-                    color: colors.text,
-                    textShadow: `0 0 25px ${colors.primary}35`,
-                },
+            div({
+                attrs: { class: 'cockpit-metric__reading' },
+                children: [
+                    createElement('span', {
+                        attrs: { class: 'cockpit-metric__value' },
+                        text: String(value),
+                    }),
+                    createElement('span', {
+                        attrs: { class: 'cockpit-metric__unit' },
+                        text: unit,
+                    }),
+                ],
             }),
         ],
     });
-    const timerEl = timerCard.querySelector('div:last-child');
-    if (timerEl) updateRefs.timeValue = timerEl;
+}
 
-    // === ÁREA PRINCIPAL: gauge centrado con métricas a los lados ===
-    const scrollContent = div({
-        styles: scrollContentStyles,
-        attrs: { class: 'training-scroll-content' },
-        children: [],
-    });
-    // Spacer para empujar el contenido hacia abajo
-    const topSpacer = div({
-        styles: {
-            height: '32px',
-            flexShrink: 0,
-            width: '100%',
-        },
-    });
-    scrollContent.appendChild(topSpacer);
-    scrollContent.appendChild(timerCard);
+function createControlIcon(type) {
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', '18');
+    svg.setAttribute('height', '18');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.style.fill = 'currentColor';
 
-    // Card de FC (izquierda del gauge)
-    const hasHeartRate = liveData.heartRate != null && liveData.heartRate !== '';
-    const heartRateCard = MetricCard({
-        label: 'FC',
-        value: liveData.heartRate || '--',
-        unit: hasHeartRate ? 'bpm' : '',
-        icon: 'activity',
-        color: colors.error,
-        size: 'small',
-        zoneColor: currentZoneColor,
-        dimmed: !hasHeartRate,
-    });
-    updateRefs.heartRateCard = heartRateCard;
-    heartRateCard.classList.add('fc');
-    const heartRateDivs = heartRateCard.querySelectorAll('div');
-    if (heartRateDivs.length >= 3) {
-        const valueContainer = heartRateDivs[heartRateDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) updateRefs.heartRateValue = valueSpan;
+    if (type === 'play') {
+        const polygon = document.createElementNS(svgNS, 'polygon');
+        polygon.setAttribute('points', '5 3 19 12 5 21');
+        svg.appendChild(polygon);
+        return svg;
     }
 
-    // Card de Velocidad (derecha del gauge)
-    const speedCard = MetricCard({
-        label: 'KM/H',
-        value: (liveData.speed || 0).toFixed(1),
+    if (type === 'stop') {
+        const rect = document.createElementNS(svgNS, 'rect');
+        rect.setAttribute('x', '5');
+        rect.setAttribute('y', '5');
+        rect.setAttribute('width', '14');
+        rect.setAttribute('height', '14');
+        rect.setAttribute('rx', '2');
+        svg.appendChild(rect);
+        return svg;
+    }
+
+    [6, 14].forEach((x) => {
+        const rect = document.createElementNS(svgNS, 'rect');
+        rect.setAttribute('x', String(x));
+        rect.setAttribute('y', '4');
+        rect.setAttribute('width', '4');
+        rect.setAttribute('height', '16');
+        svg.appendChild(rect);
+    });
+    return svg;
+}
+
+function resetSessionState() {
+    return {
+        isActive: false,
+        isPaused: false,
+        startTime: null,
+        elapsedTime: 0,
+        dataPoints: [],
+        accumulatedDistance: 0,
+        pauseDuration: 0,
+        pausedAt: null,
+    };
+}
+
+export function TrainingView(state) {
+    const { liveData, session, settings, bluetoothManager } = state;
+    let targetResistance = liveData.resistance || 50;
+    let resistanceFeedbackTimer = null;
+
+    const refs = {
+        timeValue: null,
+        connectionStatus: null,
+        powerValue: null,
+        ftpValue: null,
+        zoneName: null,
+        powerPanel: null,
+        powerProgress: null,
+        cadenceValue: null,
+        cadenceTile: null,
+        heartRateValue: null,
+        heartRateTile: null,
+        speedValue: null,
+        distanceValue: null,
+        resistanceValue: null,
+        resistanceFeedback: null,
+        pauseButton: null,
+        pauseIcon: null,
+        pauseLabel: null,
+        smoothBuffer: [],
+    };
+
+    const setResistanceFeedback = (message, tone = 'neutral') => {
+        if (!refs.resistanceFeedback) return;
+        refs.resistanceFeedback.textContent = message;
+        refs.resistanceFeedback.dataset.tone = tone;
+        if (resistanceFeedbackTimer) clearTimeout(resistanceFeedbackTimer);
+        if (tone === 'success') {
+            resistanceFeedbackTimer = setTimeout(() => {
+                if (refs.resistanceFeedback) {
+                    refs.resistanceFeedback.textContent = 'Objetivo';
+                    refs.resistanceFeedback.dataset.tone = 'neutral';
+                }
+            }, 1800);
+        }
+    };
+
+    const resolveDistance = (nextState) => {
+        const distanceSupported = nextState.deviceCapabilities?.totalDistanceSupported !== false;
+        const reportedDistance = nextState.liveData.distance;
+        if (
+            (reportedDistance === undefined || reportedDistance === null || !distanceSupported)
+            && nextState.session.accumulatedDistance !== undefined
+        ) {
+            return nextState.session.accumulatedDistance;
+        }
+        return reportedDistance;
+    };
+
+    const updateMetrics = (nextState) => {
+        const now = Date.now();
+        const nextLiveData = nextState.liveData;
+        const nextSession = nextState.session;
+        const nextSettings = nextState.settings;
+
+        refs.smoothBuffer.push({ timestamp: now, power: Number(nextLiveData.power) || 0 });
+        while (refs.smoothBuffer.length && refs.smoothBuffer[0].timestamp < now - POWER_SMOOTHING_MS) {
+            refs.smoothBuffer.shift();
+        }
+        const smoothedPower = refs.smoothBuffer.length
+            ? Math.round(refs.smoothBuffer.reduce((sum, entry) => sum + entry.power, 0) / refs.smoothBuffer.length)
+            : 0;
+
+        let elapsedTime = nextSession.elapsedTime || 0;
+        if (nextSession.isActive && nextSession.startTime) {
+            const currentPauseMs = nextSession.pausedAt ? now - nextSession.pausedAt : 0;
+            elapsedTime = Math.max(0, Math.floor(
+                (now - nextSession.startTime - (nextSession.pauseDuration || 0) - currentPauseMs) / 1000
+            ));
+        }
+
+        const zoneColor = getZoneColor(smoothedPower, nextSettings.ftp);
+        const zoneName = getZoneName(smoothedPower, nextSettings.ftp);
+        const ftpPercentage = nextSettings.ftp > 0 ? Math.round((smoothedPower / nextSettings.ftp) * 100) : 0;
+        const powerProgress = Math.min(100, nextSettings.ftp > 0
+            ? (smoothedPower / (nextSettings.ftp * 2)) * 100
+            : 0);
+
+        refs.timeValue.textContent = formatTime(elapsedTime);
+        refs.powerValue.textContent = String(smoothedPower);
+        refs.ftpValue.textContent = `${ftpPercentage}% FTP`;
+        refs.zoneName.textContent = zoneName;
+        refs.powerPanel.style.setProperty('--zone-color', zoneColor);
+        refs.powerProgress.style.width = `${powerProgress}%`;
+
+        const cadenceAvailable = Number(nextLiveData.cadence) > 0;
+        refs.cadenceValue.textContent = cadenceAvailable ? String(Math.round(nextLiveData.cadence)) : '—';
+        refs.cadenceTile.classList.toggle('is-unavailable', !cadenceAvailable);
+
+        const heartRateAvailable = Number(nextLiveData.heartRate) > 0;
+        refs.heartRateValue.textContent = heartRateAvailable ? String(Math.round(nextLiveData.heartRate)) : '—';
+        refs.heartRateTile.classList.toggle('is-unavailable', !heartRateAvailable);
+
+        refs.speedValue.textContent = Number(nextLiveData.speed || 0).toFixed(1);
+        const distance = resolveDistance(nextState);
+        refs.distanceValue.textContent = distance === undefined || distance === null
+            ? '—'
+            : formatDistance(distance);
+
+        const isStale = Boolean(
+            nextState.lastDataUpdateTimestamp
+            && now - nextState.lastDataUpdateTimestamp > STALE_AFTER_MS
+        );
+        const statusText = nextSession.isPaused
+            ? 'En pausa'
+            : isStale
+                ? 'Sin datos'
+                : 'Conectado';
+        refs.connectionStatus.textContent = statusText;
+        refs.connectionStatus.dataset.status = nextSession.isPaused ? 'paused' : isStale ? 'stale' : 'live';
+
+        refs.pauseButton.classList.toggle('is-resume', Boolean(nextSession.isPaused));
+        refs.pauseButton.setAttribute('aria-label', nextSession.isPaused ? 'Reanudar entrenamiento' : 'Pausar entrenamiento');
+        refs.pauseLabel.textContent = nextSession.isPaused ? 'Reanudar' : 'Pausar';
+        refs.pauseIcon.replaceChildren(createControlIcon(nextSession.isPaused ? 'play' : 'pause'));
+    };
+
+    const container = div({
+        attrs: {
+            class: 'training-cockpit',
+            'data-view': 'training',
+        },
+    });
+
+    const sessionLabel = session.workoutName || 'Entrenamiento libre';
+    refs.connectionStatus = createElement('span', {
+        attrs: {
+            class: 'cockpit-status',
+            'data-status': session.isPaused ? 'paused' : 'live',
+        },
+        text: session.isPaused ? 'En pausa' : 'Conectado',
+    });
+    refs.timeValue = createElement('time', {
+        attrs: {
+            class: 'cockpit-time',
+            'aria-label': 'Tiempo transcurrido',
+        },
+        text: formatTime(session.elapsedTime || 0),
+    });
+
+    const header = createElement('header', {
+        attrs: { class: 'cockpit-header' },
+        children: [
+            div({
+                attrs: { class: 'cockpit-heading' },
+                children: [
+                    createElement('p', { attrs: { class: 'cockpit-eyebrow' }, text: 'Sesión' }),
+                    createElement('h1', { attrs: { class: 'cockpit-title' }, text: sessionLabel }),
+                ],
+            }),
+            div({
+                attrs: { class: 'cockpit-header__status' },
+                children: [refs.connectionStatus, refs.timeValue],
+            }),
+        ],
+    });
+
+    refs.powerValue = createElement('span', {
+        attrs: { class: 'power-reading__value', 'aria-label': 'Potencia a tres segundos' },
+        text: String(Math.round(liveData.power || 0)),
+    });
+    refs.ftpValue = createElement('span', {
+        attrs: { class: 'power-reading__ftp' },
+        text: `${settings.ftp ? Math.round(((liveData.power || 0) / settings.ftp) * 100) : 0}% FTP`,
+    });
+    refs.zoneName = createElement('span', {
+        attrs: { class: 'power-reading__zone' },
+        text: getZoneName(liveData.power || 0, settings.ftp),
+    });
+    refs.powerProgress = div({ attrs: { class: 'power-progress__fill' } });
+
+    refs.powerPanel = createElement('section', {
+        attrs: {
+            class: 'power-panel',
+            'aria-label': 'Potencia actual',
+        },
+        children: [
+            div({
+                attrs: { class: 'power-panel__topline' },
+                children: [
+                    createElement('span', { text: 'Potencia 3 s' }),
+                    refs.ftpValue,
+                ],
+            }),
+            div({
+                attrs: { class: 'power-reading' },
+                children: [
+                    refs.powerValue,
+                    createElement('span', { attrs: { class: 'power-reading__unit' }, text: 'W' }),
+                ],
+            }),
+            refs.zoneName,
+            div({
+                attrs: { class: 'power-progress', 'aria-hidden': 'true' },
+                children: [refs.powerProgress],
+            }),
+        ],
+    });
+    refs.powerPanel.style.setProperty('--zone-color', getZoneColor(liveData.power || 0, settings.ftp));
+
+    const cadenceTile = createMetricTile({
+        key: 'cadence',
+        label: 'Cadencia',
+        value: Number(liveData.cadence) > 0 ? Math.round(liveData.cadence) : '—',
+        unit: 'rpm',
+        unavailable: !(Number(liveData.cadence) > 0),
+    });
+    refs.cadenceTile = cadenceTile;
+    refs.cadenceValue = cadenceTile.querySelector('.cockpit-metric__value');
+
+    const heartRateTile = createMetricTile({
+        key: 'heart-rate',
+        label: 'Pulso',
+        value: Number(liveData.heartRate) > 0 ? Math.round(liveData.heartRate) : '—',
+        unit: 'bpm',
+        unavailable: !(Number(liveData.heartRate) > 0),
+    });
+    refs.heartRateTile = heartRateTile;
+    refs.heartRateValue = heartRateTile.querySelector('.cockpit-metric__value');
+
+    const speedTile = createMetricTile({
+        key: 'speed',
+        label: 'Velocidad',
+        value: Number(liveData.speed || 0).toFixed(1),
+        unit: 'km/h',
+    });
+    refs.speedValue = speedTile.querySelector('.cockpit-metric__value');
+
+    const initialDistance = resolveDistance(state);
+    const distanceTile = createMetricTile({
+        key: 'distance',
+        label: 'Distancia',
+        value: initialDistance === undefined || initialDistance === null ? '—' : formatDistance(initialDistance),
         unit: '',
-        icon: 'speedometer',
-        color: colors.primary,
-        size: 'small',
-        zoneColor: currentZoneColor,
     });
-    const speedDivs = speedCard.querySelectorAll('div');
-    if (speedDivs.length >= 3) {
-        const valueContainer = speedDivs[speedDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) updateRefs.speedValue = valueSpan;
-    }
+    refs.distanceValue = distanceTile.querySelector('.cockpit-metric__value');
 
-    // === GAUGE: circular centrado ===
-    const powerGaugeElement = PowerGauge({
-        power: liveData.power || 0,
-        ftp: settings.ftp,
-        maxPower: settings.ftp * 2,
-        variant: 'training',
-    });
-    updateRefs.powerGauge = powerGaugeElement;
-    const gaugeContainer = div({
-        styles: gaugeContainerStyles,
-        attrs: { class: 'gauge-container' },
-        children: [powerGaugeElement],
-    });
-    updateRefs.powerGaugeContainer = gaugeContainer;
-
-    // Columna izquierda (FC)
-    const leftMetrics = div({
-        styles: { ...sideMetricsStyles },
-        attrs: { class: 'side-metrics' },
-        children: [heartRateCard],
+    const main = createElement('main', {
+        attrs: { class: 'cockpit-main' },
+        children: [
+            refs.powerPanel,
+            createElement('section', {
+                attrs: {
+                    class: 'cockpit-metrics',
+                    'aria-label': 'Métricas de entrenamiento',
+                },
+                children: [cadenceTile, heartRateTile, speedTile, distanceTile],
+            }),
+        ],
     });
 
-    // Columna derecha (Velocidad)
-    const rightMetrics = div({
-        styles: { ...sideMetricsStyles },
-        attrs: { class: 'side-metrics' },
-        children: [speedCard],
-    });
-
-    // Main area con gauge centrado
-    const mainArea = div({
-        styles: mainAreaStyles,
-        attrs: { class: 'main-area' },
-        children: [leftMetrics, gaugeContainer, rightMetrics],
-    });
-    scrollContent.appendChild(mainArea);
-
-    // Divider con gradiente de zona
-    const zoneDivider = div({
-        styles: {
-            height: '2px',
-            margin: '4px 16px',
-            background: `linear-gradient(90deg, transparent 0%, ${currentZoneColor}50 50%, transparent 100%)`,
-            borderRadius: '1px',
-            flexShrink: 0,
-        },
-        attrs: { class: 'zone-divider' },
-    });
-    updateRefs.zoneDivider = zoneDivider;
-    scrollContent.appendChild(zoneDivider);
-
-    // Card de Distancia (más abajo, pleine largeur)
-    const distanceSupported = state.deviceCapabilities?.totalDistanceSupported !== false;
-    let distanceValue = liveData.distance;
-    if ((distanceValue === undefined || distanceValue === null || !distanceSupported) &&
-        session.accumulatedDistance !== undefined) {
-        distanceValue = session.accumulatedDistance;
-    }
-    const distanceDisplay = (distanceValue !== undefined && distanceValue !== null)
-        ? formatDistance(distanceValue)
-        : '--';
-    const distanceCard = MetricCard({
-        label: 'KM',
-        value: distanceDisplay,
-        unit: '',
-        icon: 'route',
-        color: colors.textMuted,
-        size: 'small',
-        zoneColor: currentZoneColor,
-    });
-    const distanceDivs = distanceCard.querySelectorAll('div');
-    if (distanceDivs.length >= 3) {
-        const valueContainer = distanceDivs[distanceDivs.length - 1];
-        const valueSpan = valueContainer.querySelector('span:first-child');
-        if (valueSpan) updateRefs.distanceValue = valueSpan;
-    }
-    distanceCard.classList.add('distance-card', 'distance-metric');
-
-    const distanceWrapper = div({
-        styles: {
-            display: 'flex',
-            justifyContent: 'center',
-            flexShrink: 0,
-            width: '100%',
-            maxWidth: '520px',
-            margin: '0 auto',
-            padding: '0 16px',
-        },
-        children: [distanceCard],
-    });
-    updateRefs.metricsContainer = distanceWrapper;
-    scrollContent.appendChild(distanceWrapper);
-
-    container.appendChild(scrollContent);
-
-    // === PANEL RESISTENCIA (bottom sheet, siempre visible abajo) ===
-    // Mostramos el valor OBJETIVO seleccionado por el usuario, no el del dispositivo
-    const resistanceValueSpan = createElement('span', {
+    refs.resistanceValue = createElement('span', {
+        attrs: { class: 'resistance-value' },
         text: `${Math.round(targetResistance)}%`,
-        styles: {
-            fontFamily: "'Barlow', sans-serif",
-            fontSize: '22px',
-            fontWeight: 700,
-            color: colors.primary,
-            textShadow: `0 0 15px ${colors.primary}40`,
-        },
     });
-    updateRefs.resistanceValue = resistanceValueSpan;
+    refs.resistanceFeedback = createElement('span', {
+        attrs: {
+            class: 'resistance-feedback',
+            'data-tone': 'neutral',
+            'aria-live': 'polite',
+        },
+        text: 'Objetivo',
+    });
 
     const sliderEl = ResistanceSlider({
         value: targetResistance,
         minimal: true,
+        variant: 'cockpit',
+        ariaLabel: 'Resistencia objetivo',
         onChange: async (value) => {
-            // Actualizar el valor objetivo local
             targetResistance = value;
-
-            // Actualizar el texto mostrado inmediatamente
-            if (updateRefs.resistanceValue) {
-                updateRefs.resistanceValue.textContent = `${Math.round(value)}%`;
-            }
-
+            refs.resistanceValue.textContent = `${Math.round(value)}%`;
+            setResistanceFeedback('Aplicando…', 'pending');
             try {
-                // Intentar múltiples métodos para controlar la resistencia
-                // Método 1: SET_TARGET_RESISTANCE (estándar FTMS)
                 await bluetoothManager.setResistance(value);
-
-                // Método 2: Simulación de pendiente
-                // 0% → -6% (bajada máxima, muy fácil)
-                // 50% → 0% (llano)
-                // 100% → +6% (subida máxima, muy duro)
-                const grade = -6 + (value / 100) * 12; // 0-100% → -6% a +6%
+                const grade = -6 + (value / 100) * 12;
                 if (bluetoothManager.commandQueue) {
-                    console.log(`🚴 Enviando simulación de pendiente: ${grade.toFixed(1)}%`);
                     bluetoothManager.commandQueue.setIndoorBikeSimulation(0, grade, 0.004, 0.51)
-                        .catch((e) => console.warn('Simulación no soportada:', e.message));
+                        .catch(() => {});
                 }
+                setResistanceFeedback('Aplicada', 'success');
             } catch (error) {
                 console.error('Error al cambiar resistencia:', error);
+                setResistanceFeedback('No aplicada', 'error');
             }
         },
     });
 
-    // Crear SVGs directamente para evitar problemas con innerHTML
-    const createPauseSVG = () => {
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', '18');
-        svg.setAttribute('height', '18');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.style.fill = 'currentColor';
-        const rect1 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect1.setAttribute('x', '6');
-        rect1.setAttribute('y', '4');
-        rect1.setAttribute('width', '4');
-        rect1.setAttribute('height', '16');
-        const rect2 = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect2.setAttribute('x', '14');
-        rect2.setAttribute('y', '4');
-        rect2.setAttribute('width', '4');
-        rect2.setAttribute('height', '16');
-        svg.appendChild(rect1);
-        svg.appendChild(rect2);
-        return svg;
-    };
-    const createPlaySVG = () => {
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', '18');
-        svg.setAttribute('height', '18');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.style.fill = 'currentColor';
-        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        polygon.setAttribute('points', '5 3 19 12 5 21 5 3');
-        svg.appendChild(polygon);
-        return svg;
-    };
-    const createStopSVG = () => {
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', '18');
-        svg.setAttribute('height', '18');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.style.fill = 'currentColor';
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', '4');
-        rect.setAttribute('y', '4');
-        rect.setAttribute('width', '16');
-        rect.setAttribute('height', '16');
-        rect.setAttribute('rx', '2');
-        svg.appendChild(rect);
-        return svg;
-    };
-    const pausarBtnIconContainer = createElement('span', {
-        styles: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-    });
-    pausarBtnIconContainer.appendChild(session.isPaused ? createPlaySVG() : createPauseSVG());
-    const pausarBtn = button({
-        styles: {
-            height: '48px',
-            borderRadius: '12px',
-            border: `1px solid ${colors.warning}40`,
-            background: `${colors.warning}15`,
-            color: colors.warning,
-            fontWeight: 600,
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease',
-            boxShadow: `0 0 15px ${colors.warning}20`,
+    refs.pauseIcon = createElement('span', { attrs: { class: 'cockpit-action__icon' } });
+    refs.pauseIcon.appendChild(createControlIcon(session.isPaused ? 'play' : 'pause'));
+    refs.pauseLabel = createElement('span', { text: session.isPaused ? 'Reanudar' : 'Pausar' });
+    refs.pauseButton = button({
+        attrs: {
+            class: `cockpit-action cockpit-action--pause${session.isPaused ? ' is-resume' : ''}`,
+            type: 'button',
+            'aria-label': session.isPaused ? 'Reanudar entrenamiento' : 'Pausar entrenamiento',
         },
-        children: [pausarBtnIconContainer, createElement('span', { text: session.isPaused ? 'Reanudar' : 'Pausar' })],
-        attrs: { title: session.isPaused ? 'Reanudar' : 'Pausar' },
+        children: [refs.pauseIcon, refs.pauseLabel],
         events: {
             click: async () => {
+                refs.pauseButton.disabled = true;
                 try {
-                    if (session.isPaused) {
+                    if (AppState.session.isPaused) {
                         await bluetoothManager.startTraining();
-                        const pauseDuration = (AppState.session.pauseDuration || 0) + (Date.now() - (AppState.session.pausedAt || Date.now()));
-                        updateState({ session: { ...AppState.session, isPaused: false, pauseDuration, pausedAt: null } });
+                        const pauseDuration = (AppState.session.pauseDuration || 0)
+                            + (Date.now() - (AppState.session.pausedAt || Date.now()));
+                        updateState({
+                            session: {
+                                ...AppState.session,
+                                isPaused: false,
+                                pauseDuration,
+                                pausedAt: null,
+                            },
+                        });
                     } else {
                         await bluetoothManager.stopTraining();
-                        updateState({ session: { ...AppState.session, isPaused: true, pausedAt: Date.now() } });
+                        updateState({
+                            session: {
+                                ...AppState.session,
+                                isPaused: true,
+                                pausedAt: Date.now(),
+                            },
+                        });
                     }
                 } catch (error) {
-                    console.error('Error:', error);
+                    console.error('Error al cambiar el estado del entrenamiento:', error);
+                    setResistanceFeedback('Error de control', 'error');
+                } finally {
+                    refs.pauseButton.disabled = false;
                 }
             },
         },
     });
-    updateRefs.pausarBtn = pausarBtn;
-    updateRefs.pausarBtnIcon = pausarBtnIconContainer;
 
-    const finalizarBtn = button({
-        styles: {
-            height: '48px',
-            borderRadius: '12px',
-            border: `1px solid ${colors.error}40`,
-            background: `${colors.error}15`,
-            color: colors.error,
-            fontWeight: 600,
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease',
-            boxShadow: `0 0 15px ${colors.error}20`,
+    const finishButton = button({
+        attrs: {
+            class: 'cockpit-action cockpit-action--finish',
+            type: 'button',
+            'aria-label': 'Finalizar entrenamiento',
         },
         children: [
             createElement('span', {
-                styles: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center' },
-                children: [createStopSVG()],
+                attrs: { class: 'cockpit-action__icon' },
+                children: [createControlIcon('stop')],
             }),
-            createElement('span', { text: 'Fin' })
+            createElement('span', { text: 'Finalizar' }),
         ],
-        attrs: { title: 'Finalizar entrenamiento' },
         events: {
             click: async () => {
                 const duration = AppState.session.elapsedTime ?? 0;
-                const MIN_DURATION_SECONDS = 60;
-                if (duration < MIN_DURATION_SECONDS) {
-                    updateState({
-                        session: {
-                            isActive: false,
-                            isPaused: false,
-                            startTime: null,
-                            elapsedTime: 0,
-                            dataPoints: [],
-                            accumulatedDistance: 0,
-                            pauseDuration: 0,
-                            pausedAt: null,
-                        },
-                    });
+                if (duration < 60) {
+                    updateState({ session: resetSessionState() });
                     navigateTo('home');
                     return;
                 }
+
                 const metrics = calculateSessionMetrics({
                     dataPoints: AppState.session.dataPoints,
                     duration,
@@ -750,6 +466,7 @@ export function TrainingView(state) {
                     onCancel: () => {},
                 });
                 if (result.cancelled) return;
+
                 if (result.saved) {
                     try {
                         const sessionToSave = createSession({
@@ -764,92 +481,59 @@ export function TrainingView(state) {
                         alert('Error al guardar la sesión. Los datos no se han perdido.');
                     }
                 }
-                updateState({
-                    session: {
-                        isActive: false,
-                        isPaused: false,
-                        startTime: null,
-                        elapsedTime: 0,
-                        dataPoints: [],
-                        accumulatedDistance: 0,
-                        pauseDuration: 0,
-                        pausedAt: null,
-                    },
-                });
+
+                updateState({ session: resetSessionState() });
                 navigateTo('home');
             },
         },
     });
 
-    const resHeader = div({
-        styles: {
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '12px',
-        },
-        children: [
-            createElement('span', {
-                text: 'Resistencia',
-                styles: {
-                    fontSize: '12px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1.5px',
-                    color: colors.textMuted,
-                    fontWeight: 600,
-                },
-            }),
-            resistanceValueSpan,
-        ],
-    });
-
-    const bottomActions = div({
-        styles: {
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '12px',
-            marginTop: '20px',
-        },
-        children: [pausarBtn, finalizarBtn],
-    });
-
-    const resistancePanel = div({
-        styles: resistancePanelStyles,
-        attrs: { class: 'resistance-control resistance-panel' },
+    const controls = createElement('footer', {
+        attrs: { class: 'control-dock' },
         children: [
             div({
-                styles: {
-                    width: '40px',
-                    height: '4px',
-                    backgroundColor: 'rgba(255,255,255,0.2)',
-                    borderRadius: '2px',
-                    margin: '0 auto 16px',
-                },
-                attrs: { class: 'resistance-handle' },
+                attrs: { class: 'resistance-control' },
+                children: [
+                    div({
+                        attrs: { class: 'resistance-heading' },
+                        children: [
+                            div({
+                                children: [
+                                    createElement('span', {
+                                        attrs: { class: 'resistance-label' },
+                                        text: 'Resistencia',
+                                    }),
+                                    refs.resistanceFeedback,
+                                ],
+                            }),
+                            refs.resistanceValue,
+                        ],
+                    }),
+                    sliderEl,
+                ],
             }),
-            resHeader,
-            sliderEl,
-            bottomActions,
+            div({
+                attrs: { class: 'cockpit-actions' },
+                children: [refs.pauseButton, finishButton],
+            }),
         ],
     });
-    container.appendChild(resistancePanel);
-    
-    // Marcar el estilo para poder limpiarlo después
-    if (responsiveStyles) {
-        responsiveStyles.setAttribute('data-training-responsive', 'true');
-    }
-    
-    // Guardar función de limpieza para cuando se desmonte la vista
+
+    container.append(header, main, controls);
+
+    const unsubscribe = subscribe((nextState) => {
+        if (nextState.currentView === 'training') updateMetrics(nextState);
+    });
+    const statusInterval = setInterval(() => {
+        if (AppState.currentView === 'training') updateMetrics(AppState);
+    }, 1000);
+    updateMetrics(state);
+
     container.cleanup = () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
-        // Limpiar estilos responsive si existen
-        const existingStyle = document.querySelector('style[data-training-responsive]');
-        if (existingStyle) {
-            existingStyle.remove();
-        }
+        unsubscribe?.();
+        clearInterval(statusInterval);
+        if (resistanceFeedbackTimer) clearTimeout(resistanceFeedbackTimer);
     };
-    
+
     return container;
 }

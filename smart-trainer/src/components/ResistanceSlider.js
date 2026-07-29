@@ -16,24 +16,36 @@ import { createElement, div, debounce } from '../utils/dom.js';
  * @param {number} props.max - Valor máximo
  * @param {number} props.step - Incremento
  * @param {boolean} props.minimal - Sin labels (Fácil/Medio/Difícil) ni quick buttons (25/50/75/100)
+ * @param {string} props.variant - 'default' | 'cockpit'
+ * @param {string} props.ariaLabel - Etiqueta accesible del control
  */
-export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, step = 1, minimal = false }) {
+export function ResistanceSlider({
+    value = 50,
+    onChange,
+    min = 0,
+    max = 100,
+    step = 1,
+    minimal = false,
+    variant = 'default',
+    ariaLabel = 'Resistencia',
+}) {
+    const isCockpit = variant === 'cockpit';
     const containerStyles = {
         width: '100%',
-        padding: `${spacing.md} 0`,
+        padding: isCockpit ? '0' : `${spacing.md} 0`,
     };
     
     const sliderRowStyles = {
         display: 'flex',
         alignItems: 'center',
-        gap: spacing.md,
+        gap: isCockpit ? '12px' : spacing.md,
         width: '100%',
     };
     
     const sliderContainerStyles = {
         position: 'relative',
         flex: '1',
-        height: '40px',
+        height: isCockpit ? '48px' : '40px',
         display: 'flex',
         alignItems: 'center',
     };
@@ -41,7 +53,7 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     const trackStyles = {
         position: 'absolute',
         width: '100%',
-        height: '8px',
+        height: isCockpit ? '6px' : '8px',
         backgroundColor: colors.surfaceLight,
         borderRadius: borderRadius.full,
         overflow: 'hidden',
@@ -67,9 +79,9 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     
     const thumbStyles = {
         position: 'absolute',
-        left: `calc(${value}% - 16px)`,
-        width: '32px',
-        height: '32px',
+        left: `calc(${value}% - ${isCockpit ? 14 : 16}px)`,
+        width: isCockpit ? '28px' : '32px',
+        height: isCockpit ? '28px' : '32px',
         backgroundColor: colors.primary,
         borderRadius: borderRadius.full,
         boxShadow: `0 2px 8px rgba(0, 212, 170, 0.4)`,
@@ -81,7 +93,7 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     };
     
     const thumbValueStyles = {
-        fontSize: typography.sizes.sm,
+        fontSize: isCockpit ? typography.sizes.xs : typography.sizes.sm,
         fontWeight: typography.weights.bold,
         color: colors.background,
         transition: 'transform 0.2s ease',
@@ -89,13 +101,17 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     
     // Botones +/- grandes para uso táctil (redondos en minimal)
     const stepButtonStyles = {
-        width: '56px',
-        height: '56px',
-        minWidth: '56px',
-        minHeight: '56px',
-        borderRadius: minimal ? '50%' : '16px',
+        width: isCockpit ? '48px' : '56px',
+        height: isCockpit ? '48px' : '56px',
+        minWidth: isCockpit ? '48px' : '56px',
+        minHeight: isCockpit ? '48px' : '56px',
+        borderRadius: isCockpit ? '12px' : minimal ? '50%' : '16px',
         border: minimal ? `1px solid ${colors.border}` : 'none',
-        background: minimal ? 'linear-gradient(145deg, #2a2a2a, #1a1a1a)' : colors.surfaceLight,
+        background: isCockpit
+            ? '#1b1b1b'
+            : minimal
+                ? 'linear-gradient(145deg, #2a2a2a, #1a1a1a)'
+                : colors.surfaceLight,
         color: colors.text,
         fontSize: '24px',
         fontWeight: typography.weights.bold,
@@ -104,7 +120,7 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
         alignItems: 'center',
         justifyContent: 'center',
         transition: transitions.normal,
-        boxShadow: shadows.md,
+        boxShadow: isCockpit ? 'none' : shadows.md,
     };
     
     const labelsStyles = {
@@ -119,7 +135,10 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     };
     
     // Crear elementos
-    const container = div({ styles: containerStyles });
+    const container = div({
+        styles: containerStyles,
+        attrs: { class: `resistance-slider resistance-slider--${variant}` },
+    });
     
     const sliderRow = div({ styles: sliderRowStyles });
     const sliderContainer = div({ styles: sliderContainerStyles });
@@ -154,6 +173,7 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
             max: String(max),
             step: String(step),
             value: String(value),
+            'aria-label': ariaLabel,
         },
         styles: inputStyles,
     });
@@ -166,19 +186,28 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     }, 200);
     
     // Actualizar solo la UI (sin enviar comando al rodillo). Para sincronización programática.
+    let minusBtn = null;
+    let plusBtn = null;
+
+    function updateButtonStates(newValue) {
+        if (minusBtn) minusBtn.disabled = Number(newValue) <= min;
+        if (plusBtn) plusBtn.disabled = Number(newValue) >= max;
+    }
+
     function updateUIOnly(newValue) {
         const v = Math.max(min, Math.min(max, Number(newValue)));
         if (fillEl) fillEl.style.width = `${v}%`;
-        if (thumbEl) thumbEl.style.left = `calc(${v}% - 16px)`;
+        if (thumbEl) thumbEl.style.left = `calc(${v}% - ${isCockpit ? 14 : 16}px)`;
         if (thumbValueEl) thumbValueEl.textContent = String(Math.round(v));
         input.value = String(v);
+        updateButtonStates(v);
     }
 
     // Actualizar UI y feedback visual (brillo/pulse en thumb) y enviar comando
     function updateUIAndPulse(newValue) {
         if (fillEl) fillEl.style.width = `${newValue}%`;
         if (thumbEl) {
-            thumbEl.style.left = `calc(${newValue}% - 16px)`;
+            thumbEl.style.left = `calc(${newValue}% - ${isCockpit ? 14 : 16}px)`;
             thumbEl.style.transform = 'scale(1.25)';
             thumbEl.style.boxShadow = `0 0 20px ${colors.primary}80`;
             setTimeout(() => {
@@ -191,6 +220,7 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
             thumbValueEl.style.transform = 'scale(1.2)';
             setTimeout(() => { thumbValueEl.style.transform = 'scale(1)'; }, 200);
         }
+        updateButtonStates(newValue);
         debouncedOnChange(newValue);
     }
     
@@ -204,10 +234,15 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     input.addEventListener('mouseleave', () => { thumb.style.transform = 'scale(1)'; });
     
     // Botón menos
-    const minusBtn = createElement('button', {
+    minusBtn = createElement('button', {
         text: '−',
         styles: stepButtonStyles,
-        attrs: { type: 'button', title: 'Bajar resistencia 1%' },
+        attrs: {
+            type: 'button',
+            title: `Bajar resistencia ${step}%`,
+            'aria-label': `Bajar resistencia ${step}%`,
+            disabled: value <= min,
+        },
         events: {
             click: () => {
                 const newValue = Math.max(min, parseInt(input.value, 10) - step);
@@ -220,10 +255,15 @@ export function ResistanceSlider({ value = 50, onChange, min = 0, max = 100, ste
     minusBtn.addEventListener('mouseleave', () => { minusBtn.style.backgroundColor = colors.surfaceLight; minusBtn.style.transform = 'scale(1)'; });
     
     // Botón más
-    const plusBtn = createElement('button', {
+    plusBtn = createElement('button', {
         text: '+',
         styles: stepButtonStyles,
-        attrs: { type: 'button', title: 'Subir resistencia 1%' },
+        attrs: {
+            type: 'button',
+            title: `Subir resistencia ${step}%`,
+            'aria-label': `Subir resistencia ${step}%`,
+            disabled: value >= max,
+        },
         events: {
             click: () => {
                 const newValue = Math.min(max, parseInt(input.value, 10) + step);
