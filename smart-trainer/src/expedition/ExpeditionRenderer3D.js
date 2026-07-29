@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 const CAMERA_PRESETS = {
-    close: { distance: 5.2, height: 3.25, lookHeight: 1.35, lateral: 8.5 },
-    standard: { distance: 9.4, height: 4.65, lookHeight: 1.2, lateral: 6.5 },
-    wide: { distance: 15.2, height: 7.2, lookHeight: 1.05, lateral: 8.5 },
+    close: { distance: 6.1, height: 3.45, lookHeight: 1.35, lateral: 7.2 },
+    standard: { distance: 8.8, height: 4.35, lookHeight: 1.2, lateral: 5.8 },
+    wide: { distance: 12.8, height: 6.1, lookHeight: 1.08, lateral: 7.2 },
 };
 
 const QUALITY_PRESETS = {
@@ -100,7 +100,7 @@ class ExpeditionRenderer3D {
         this.scene.background = new THREE.Color(0x70a8c7);
         this.scene.fog = new THREE.FogExp2(0x86b5ad, 0.0048);
 
-        this.camera = new THREE.PerspectiveCamera(52, 1, 0.1, 900);
+        this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, 900);
         this.camera.position.set(0, 5, -10);
 
         this.hemiLight = new THREE.HemisphereLight(0xcdeaff, 0x294332, 1.15);
@@ -174,6 +174,7 @@ class ExpeditionRenderer3D {
         this.buildRoadMarkings();
         this.buildMountains();
         this.buildTrees();
+        this.buildSceneryDetails();
         this.buildLandmarks();
     }
 
@@ -225,6 +226,25 @@ class ExpeditionRenderer3D {
             mountain.rotation.y = seeded(index + 300) * Math.PI;
             mountain.receiveShadow = true;
             this.mountains.add(mountain);
+
+            if (index % 2 === 0) {
+                const capHeight = height * 0.22;
+                const snowCap = new THREE.Mesh(
+                    new THREE.ConeGeometry(radius * 0.24, capHeight, 10, 2),
+                    new THREE.MeshStandardMaterial({
+                        color: 0xdce8df,
+                        roughness: 1,
+                        flatShading: true,
+                    }),
+                );
+                snowCap.position.set(
+                    mountain.position.x,
+                    mountain.position.y + height * 0.5 - capHeight * 0.48,
+                    mountain.position.z,
+                );
+                snowCap.rotation.y = mountain.rotation.y;
+                this.mountains.add(snowCap);
+            }
         }
         this.scene.add(this.mountains);
     }
@@ -233,15 +253,23 @@ class ExpeditionRenderer3D {
         const treeCount = QUALITY_PRESETS[this.quality].trees;
         const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.23, 2.3, 6);
         const canopyGeometry = new THREE.ConeGeometry(1.25, 3.9, 7);
+        const upperCanopyGeometry = new THREE.ConeGeometry(0.92, 3.2, 7);
         const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4d33, roughness: 1 });
         const canopyMaterial = new THREE.MeshStandardMaterial({
             color: 0x27583f,
             roughness: 0.95,
             flatShading: true,
         });
+        const upperCanopyMaterial = canopyMaterial.clone();
         const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, treeCount);
         const canopies = new THREE.InstancedMesh(canopyGeometry, canopyMaterial, treeCount);
+        const upperCanopies = new THREE.InstancedMesh(
+            upperCanopyGeometry,
+            upperCanopyMaterial,
+            treeCount,
+        );
         const dummy = new THREE.Object3D();
+        const treePalette = [0x285844, 0x326e4d, 0x3f7d58, 0x2c6048];
 
         for (let index = 0; index < treeCount; index += 1) {
             const t = seeded(index + 450);
@@ -262,15 +290,112 @@ class ExpeditionRenderer3D {
             dummy.position.y = position.y + 3.1 * scale;
             dummy.updateMatrix();
             canopies.setMatrixAt(index, dummy.matrix);
+
+            dummy.position.y = position.y + 5.05 * scale;
+            dummy.scale.setScalar(scale * 0.76);
+            dummy.updateMatrix();
+            upperCanopies.setMatrixAt(index, dummy.matrix);
+            dummy.scale.setScalar(scale);
+
+            const treeColor = new THREE.Color(treePalette[index % treePalette.length]);
+            canopies.setColorAt(index, treeColor);
+            upperCanopies.setColorAt(index, treeColor.clone().offsetHSL(0.01, 0, 0.035));
         }
         trunks.instanceMatrix.needsUpdate = true;
         canopies.instanceMatrix.needsUpdate = true;
+        upperCanopies.instanceMatrix.needsUpdate = true;
+        canopies.instanceColor.needsUpdate = true;
+        upperCanopies.instanceColor.needsUpdate = true;
         trunks.castShadow = QUALITY_PRESETS[this.quality].shadows;
         canopies.castShadow = QUALITY_PRESETS[this.quality].shadows;
+        upperCanopies.castShadow = QUALITY_PRESETS[this.quality].shadows;
         trunks.receiveShadow = true;
         canopies.receiveShadow = true;
-        this.scene.add(trunks, canopies);
-        this.treeMeshes = [trunks, canopies];
+        upperCanopies.receiveShadow = true;
+        this.scene.add(trunks, canopies, upperCanopies);
+        this.treeMeshes = [trunks, canopies, upperCanopies];
+    }
+
+    buildSceneryDetails() {
+        const water = new THREE.Mesh(
+            new THREE.CircleGeometry(72, 48),
+            new THREE.MeshStandardMaterial({
+                color: 0x4d8c91,
+                emissive: 0x193b45,
+                emissiveIntensity: 0.22,
+                roughness: 0.28,
+                metalness: 0.12,
+                transparent: true,
+                opacity: 0.86,
+            }),
+        );
+        water.rotation.x = -Math.PI / 2;
+        water.position.set(-118, -2.28, 18);
+        this.scene.add(water);
+
+        const postCount = 72;
+        const postGeometry = new THREE.BoxGeometry(0.16, 1.05, 0.16);
+        const postMaterial = new THREE.MeshStandardMaterial({
+            color: 0xe6e1cf,
+            emissive: 0x324b49,
+            emissiveIntensity: 0.25,
+            roughness: 0.65,
+        });
+        const posts = new THREE.InstancedMesh(postGeometry, postMaterial, postCount);
+        const dummy = new THREE.Object3D();
+        for (let index = 0; index < postCount; index += 1) {
+            const t = index / postCount;
+            const position = this.routeCurve.getPointAt(t);
+            const tangent = flattenTangent(this.routeCurve.getTangentAt(t));
+            const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
+            const direction = index % 2 === 0 ? 1 : -1;
+            dummy.position.copy(position)
+                .add(side.multiplyScalar(direction * 4.15))
+                .add(new THREE.Vector3(0, 0.5, 0));
+            dummy.rotation.set(0, Math.atan2(tangent.x, tangent.z), 0);
+            dummy.updateMatrix();
+            posts.setMatrixAt(index, dummy.matrix);
+        }
+        posts.instanceMatrix.needsUpdate = true;
+        posts.castShadow = QUALITY_PRESETS[this.quality].shadows;
+        this.scene.add(posts);
+
+        const clouds = new THREE.Group();
+        const cloudMaterial = new THREE.MeshBasicMaterial({
+            color: 0xeaf4ef,
+            transparent: true,
+            opacity: 0.34,
+            depthWrite: false,
+            fog: true,
+        });
+        for (let index = 0; index < 11; index += 1) {
+            const cloud = new THREE.Group();
+            const scale = 2.5 + seeded(index + 1200) * 3.5;
+            for (let puffIndex = 0; puffIndex < 4; puffIndex += 1) {
+                const puff = new THREE.Mesh(
+                    new THREE.SphereGeometry(1, 10, 7),
+                    cloudMaterial,
+                );
+                puff.position.set(
+                    (puffIndex - 1.5) * 1.15,
+                    Math.sin(puffIndex * 1.7) * 0.32,
+                    seeded(index * 9 + puffIndex + 1300) * 0.7,
+                );
+                puff.scale.set(1.55, 0.72, 0.95);
+                cloud.add(puff);
+            }
+            const angle = seeded(index + 1400) * Math.PI * 2;
+            const distance = 135 + seeded(index + 1500) * 115;
+            cloud.position.set(
+                Math.sin(angle) * distance,
+                44 + seeded(index + 1600) * 24,
+                Math.cos(angle) * distance,
+            );
+            cloud.scale.setScalar(scale);
+            clouds.add(cloud);
+        }
+        this.clouds = clouds;
+        this.scene.add(clouds);
     }
 
     buildLandmarks() {
@@ -286,6 +411,24 @@ class ExpeditionRenderer3D {
         const top = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.8, 0.8), stoneMaterial);
         top.position.set(0, 5.1, 0);
         arch.add(left, right, top);
+        const checkpointMaterial = new THREE.MeshBasicMaterial({
+            color: 0x71f1c5,
+            transparent: true,
+            opacity: 0.82,
+        });
+        const leftGlow = new THREE.Mesh(
+            new THREE.BoxGeometry(0.08, 4.35, 0.86),
+            checkpointMaterial,
+        );
+        leftGlow.position.set(-3.55, 2.72, 0);
+        const rightGlow = leftGlow.clone();
+        rightGlow.position.x = 3.55;
+        const topGlow = new THREE.Mesh(
+            new THREE.BoxGeometry(7.15, 0.08, 0.86),
+            checkpointMaterial,
+        );
+        topGlow.position.set(0, 4.66, 0);
+        arch.add(leftGlow, rightGlow, topGlow);
         positionOnCurve(arch, this.routeCurve, 0.025, 0);
         arch.traverse((child) => {
             if (child.isMesh) child.castShadow = true;

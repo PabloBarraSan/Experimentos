@@ -99,15 +99,16 @@ export function ExpeditionView({
         },
     });
     const blockLabel = createElement('div', {
-        text: 'VALLE DE AURORA · PREPARANDO',
+        text: 'PREPARANDO RUTA',
         styles: {
             justifySelf: 'start',
-            padding: '9px 13px',
+            padding: '8px 12px',
             borderRadius: '999px',
             background: 'linear-gradient(135deg, rgba(7,14,18,.76), rgba(19,53,49,.62))',
             border: '1px solid rgba(255,255,255,.12)',
-            fontSize: typography.sizes.sm,
-            letterSpacing: '.6px',
+            fontSize: typography.sizes.xs,
+            fontWeight: 800,
+            letterSpacing: '1px',
             backdropFilter: 'blur(12px)',
         },
     });
@@ -124,6 +125,16 @@ export function ExpeditionView({
             fontWeight: 700,
         },
     });
+    const clockStack = div({
+        styles: {
+            justifySelf: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '7px',
+        },
+        children: [timer],
+    });
     const modeLabel = createElement('div', {
         text: isDemo ? 'MODO DEMO' : 'D100 · ERG',
         styles: {
@@ -136,7 +147,7 @@ export function ExpeditionView({
             fontWeight: 700,
         },
     });
-    top.append(blockLabel, timer, modeLabel);
+    top.append(blockLabel, clockStack, modeLabel);
     hud.appendChild(top);
 
     const stagePrompt = createElement('div', {
@@ -156,18 +167,16 @@ export function ExpeditionView({
             letterSpacing: '.3px',
             maxWidth: 'min(540px, 72vw)',
             textAlign: 'center',
+            opacity: '0',
+            transition: 'opacity .28s ease, transform .28s ease',
         },
     });
     hud.appendChild(stagePrompt);
 
     const routeProgress = div({
         styles: {
-            position: 'absolute',
-            top: '76px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: 'min(420px, 52vw)',
-            height: '4px',
+            width: 'min(320px, 42vw)',
+            height: '3px',
             borderRadius: '999px',
             overflow: 'hidden',
             background: 'rgba(5,12,16,.4)',
@@ -184,19 +193,18 @@ export function ExpeditionView({
         },
     });
     routeProgress.appendChild(routeProgressFill);
-    hud.appendChild(routeProgress);
+    clockStack.appendChild(routeProgress);
 
     const bottom = div({
         styles: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: spacing.md },
     });
     const flowBar = div({
         styles: {
-            width: 'min(560px, 88vw)',
-            height: '14px',
+            width: '100%',
+            height: '8px',
             borderRadius: '999px',
-            padding: '3px',
-            background: 'rgba(7,9,14,.75)',
-            border: '1px solid rgba(255,255,255,.14)',
+            overflow: 'hidden',
+            background: 'rgba(255,255,255,.1)',
         },
     });
     const flowFill = div({
@@ -212,10 +220,11 @@ export function ExpeditionView({
     const metrics = div({
         attrs: { 'data-hud-mode': visualSettings.hud },
         styles: {
+            width: 'min(440px, 84vw)',
             display: 'flex',
-            gap: '26px',
-            alignItems: 'baseline',
-            padding: '12px 20px',
+            flexDirection: 'column',
+            gap: '10px',
+            padding: '11px 17px 12px',
             borderRadius: '18px',
             background: 'linear-gradient(145deg, rgba(6,13,17,.88), rgba(11,25,28,.78))',
             border: '1px solid rgba(255,255,255,.14)',
@@ -227,8 +236,17 @@ export function ExpeditionView({
     const targetPower = createElement('span', { text: 'Objetivo -- W', styles: { color: colors.textMuted } });
     const actualCadence = createElement('span', { text: '0 rpm', styles: { color: 'rgba(255,255,255,.78)' } });
     const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontWeight: 800 } });
-    metrics.append(actualPower, targetPower, actualCadence, combo);
-    bottom.append(flowBar, metrics);
+    const metricValues = div({
+        styles: {
+            display: 'grid',
+            gridTemplateColumns: 'auto 1fr auto auto',
+            gap: '18px',
+            alignItems: 'baseline',
+        },
+        children: [actualPower, targetPower, actualCadence, combo],
+    });
+    metrics.append(flowBar, metricValues);
+    bottom.append(metrics);
     hud.appendChild(bottom);
 
     const controls = div({
@@ -255,14 +273,14 @@ export function ExpeditionView({
         styles: { ...compactButtonStyles(), color: colors.error },
     });
     const cameraButton = button({
-        text: `Cámara · ${cameraLabel(visualSettings.camera)}`,
+        text: `CAM · ${cameraLabel(visualSettings.camera)}`,
         attrs: { 'aria-label': 'Cambiar cámara' },
-        styles: compactButtonStyles(),
+        styles: toolbarButtonStyles(),
     });
     const hudButton = button({
         text: `HUD · ${hudLabel(visualSettings.hud)}`,
         attrs: { 'aria-label': 'Cambiar información visible' },
-        styles: compactButtonStyles(),
+        styles: toolbarButtonStyles(),
     });
     const visualControls = div({
         styles: {
@@ -270,10 +288,15 @@ export function ExpeditionView({
             top: '72px',
             right: '18px',
             display: 'flex',
-            gap: spacing.sm,
+            gap: '3px',
             flexWrap: 'wrap',
             justifyContent: 'flex-end',
             pointerEvents: 'auto',
+            padding: '4px',
+            borderRadius: '14px',
+            background: 'rgba(5,12,16,.58)',
+            border: '1px solid rgba(255,255,255,.1)',
+            backdropFilter: 'blur(12px)',
         },
         children: [cameraButton, hudButton],
     });
@@ -396,27 +419,30 @@ export function ExpeditionView({
     let currentTarget = null;
     let lastFlow = 0;
     let hiddenAt = null;
+    let promptTimeout = null;
     const wakeLock = new WakeLockManager();
 
     const rendererReady = initializeRenderer();
     const applyResponsiveLayout = () => {
         const compact = window.innerWidth < 600;
         blockLabel.style.maxWidth = compact ? '126px' : '';
-        blockLabel.style.fontSize = compact ? '11px' : typography.sizes.sm;
+        blockLabel.style.fontSize = compact ? '10px' : typography.sizes.xs;
         timer.style.fontSize = compact ? '20px' : '24px';
         timer.style.padding = compact ? '9px 13px' : '10px 18px';
         modeLabel.style.maxWidth = compact ? '76px' : '';
         modeLabel.style.textAlign = compact ? 'center' : '';
-        routeProgress.style.top = compact ? '126px' : '76px';
-        routeProgress.style.width = compact ? '72vw' : 'min(420px, 52vw)';
-        visualControls.style.top = compact ? '142px' : '72px';
+        routeProgress.style.width = compact ? '42vw' : 'min(320px, 42vw)';
+        visualControls.style.top = compact ? '112px' : '72px';
         visualControls.style.left = compact ? '12px' : '';
         visualControls.style.right = compact ? '12px' : '18px';
         visualControls.style.justifyContent = compact ? 'center' : 'flex-end';
-        stagePrompt.style.top = compact ? '196px' : '102px';
+        stagePrompt.style.top = compact ? '164px' : '102px';
         stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
         controls.style.right = compact ? '12px' : '18px';
-        controls.style.bottom = compact ? '190px' : '18px';
+        controls.style.bottom = compact ? '148px' : '18px';
+        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(440px, 84vw)';
+        metricValues.style.gridTemplateColumns = compact ? 'auto 1fr auto' : 'auto 1fr auto auto';
+        metricValues.style.gap = compact ? '11px' : '18px';
     };
     applyResponsiveLayout();
     window.addEventListener('resize', applyResponsiveLayout);
@@ -479,8 +505,8 @@ export function ExpeditionView({
                 modeLabel.textContent = isDemo ? 'MODO DEMO' : result.mode.toUpperCase();
             },
             onBlockChange: (block) => {
-                blockLabel.textContent = `VALLE DE AURORA · ${String(block.name || 'TRAMO').toUpperCase()}`;
-                stagePrompt.textContent = getStagePrompt(block.type);
+                blockLabel.textContent = String(block.name || 'TRAMO').toUpperCase();
+                showStagePrompt(getStagePrompt(block.type));
                 renderer?.update({ blockType: block.type });
             },
             onTick: (tick) => {
@@ -524,6 +550,19 @@ export function ExpeditionView({
         });
     }
 
+    function showStagePrompt(message) {
+        if (promptTimeout) clearTimeout(promptTimeout);
+        stagePrompt.textContent = message;
+        if (visualSettings.hud !== 'hidden') {
+            stagePrompt.style.opacity = '1';
+            stagePrompt.style.transform = 'translateX(-50%) translateY(0)';
+        }
+        promptTimeout = setTimeout(() => {
+            stagePrompt.style.opacity = '0';
+            stagePrompt.style.transform = 'translateX(-50%) translateY(-6px)';
+        }, 5200);
+    }
+
     async function showResult(session) {
         cleanupRuntime();
         await wakeLock.release();
@@ -561,7 +600,7 @@ export function ExpeditionView({
             visualSettings.camera,
             ['close', 'standard', 'wide'],
         );
-        cameraButton.textContent = `Cámara · ${cameraLabel(visualSettings.camera)}`;
+        cameraButton.textContent = `CAM · ${cameraLabel(visualSettings.camera)}`;
         cameraSelect.select.value = visualSettings.camera;
         renderer?.setCameraMode?.(visualSettings.camera);
         saveVisualSettings(visualSettings);
@@ -618,8 +657,10 @@ export function ExpeditionView({
 
     function cleanupRuntime() {
         if (demoInterval) clearInterval(demoInterval);
+        if (promptTimeout) clearTimeout(promptTimeout);
         if (unsubscribe) unsubscribe();
         demoInterval = null;
+        promptTimeout = null;
         unsubscribe = null;
     }
 
@@ -645,6 +686,21 @@ function compactButtonStyles() {
         cursor: 'pointer',
         fontWeight: 700,
         backdropFilter: 'blur(12px)',
+    };
+}
+
+function toolbarButtonStyles() {
+    return {
+        minHeight: '36px',
+        padding: '7px 10px',
+        borderRadius: '10px',
+        border: 0,
+        background: 'transparent',
+        color: 'rgba(255,255,255,.82)',
+        cursor: 'pointer',
+        fontSize: '11px',
+        fontWeight: 800,
+        letterSpacing: '.35px',
     };
 }
 
@@ -734,7 +790,7 @@ function applyHudMode(mode, elements) {
     const hidden = mode === 'hidden';
     const full = mode === 'full';
     elements.top.style.opacity = hidden ? '0' : '1';
-    elements.stagePrompt.style.opacity = hidden ? '0' : '1';
+    if (hidden) elements.stagePrompt.style.opacity = '0';
     elements.routeProgress.style.opacity = hidden ? '0' : '1';
     elements.flowBar.style.display = hidden ? 'none' : 'block';
     elements.metrics.style.opacity = hidden ? '0' : '1';
