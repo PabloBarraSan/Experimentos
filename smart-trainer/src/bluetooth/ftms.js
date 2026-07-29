@@ -64,7 +64,11 @@ export function parseIndoorBikeData(dataView) {
     const flags = dataView.getUint16(0, true);
     let offset = 2;
     
-    // Van Rysel D100: flag 0x40. Byte 0-1 flags, 2-3 velocidad (Uint16/100), 4-5 potencia (Uint16), 6 cadencia (raw[6]/2).
+    // Van Rysel D100: flag 0x40. Byte 0-1 flags, 2-3 velocidad (Uint16/100),
+    // 4-5 potencia (Uint16) y 6-7 periodo de pedalada en ticks de 1/1024 s.
+    // Algunos paquetes antiguos/cortos observados solo incluyen el byte 6; mantenemos
+    // ese formato como compatibilidad, pero los paquetes reales de 16 bytes necesitan
+    // leer el Uint16 completo para evitar saltos cada vez que cambia el byte alto.
     // NOTA: El byte 10 parece ser un valor interno del servo, NO la resistencia configurada por el usuario.
     // El D100 no reporta de forma fiable la resistencia establecida, así que ignoramos este valor
     // y dejamos que la UI muestre el valor objetivo que el usuario ha seleccionado.
@@ -80,11 +84,19 @@ export function parseIndoorBikeData(dataView) {
         };
         result.speed = dataView.getUint16(2, true) / 100;
         result.power = dataView.getUint16(4, true); // Byte 4-5: Potencia (Uint16)
-        // Byte 6: Cadencia (raw[6]/2). Si potencia es 0, forzar cadencia 0 para evitar valores fantasma al parar.
+        // Si potencia es 0, forzar cadencia 0 para evitar valores fantasma al parar.
         if (result.power === 0) {
             result.cadence = 0;
+        } else if (dataView.byteLength >= 8) {
+            const cadencePeriodTicks = dataView.getUint16(6, true);
+            if (cadencePeriodTicks > 0) {
+                result.cadence = Math.round((60 * 1024) / cadencePeriodTicks);
+                result.cadencePeriodTicks = cadencePeriodTicks;
+                result.cadenceEncoding = 'd100-period-1024';
+            }
         } else if (raw[6] > 0) {
             result.cadence = Math.round(raw[6] / 2);
+            result.cadenceEncoding = 'd100-legacy-byte';
         }
         // NO interpretamos byte 10 como resistencia ya que no es fiable
         // El usuario controla la resistencia con el slider y ese valor se muestra directamente

@@ -80,6 +80,7 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
     const liveCadence = metric('Cadencia', '0 rpm');
     const sampleCount = metric('Muestras', '0');
     const commandStatus = metric('Último comando', 'Sin ejecutar');
+    const liveFlags = metric('Flags FTMS', '—');
     container.appendChild(div({
         styles: {
             display: 'grid',
@@ -87,8 +88,25 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
             gap: spacing.sm,
             marginBottom: spacing.lg,
         },
-        children: [livePower.element, liveCadence.element, sampleCount.element, commandStatus.element],
+        children: [livePower.element, liveCadence.element, sampleCount.element, liveFlags.element, commandStatus.element],
     }));
+
+    const rawPacket = createElement('code', {
+        attrs: { 'data-testid': 'ftms-raw-packet' },
+        text: 'Esperando paquete FTMS…',
+        styles: {
+            display: 'block',
+            overflowWrap: 'anywhere',
+            color: colors.textMuted,
+            fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+            fontSize: typography.sizes.sm,
+        },
+    });
+    const telemetryWarning = createElement('strong', {
+        attrs: { 'data-testid': 'telemetry-warning' },
+        text: 'Telemetría pendiente',
+        styles: { display: 'block', marginTop: spacing.sm, color: colors.textMuted },
+    });
 
     const commandLog = div({
         attrs: { role: 'status', 'aria-live': 'polite' },
@@ -111,23 +129,38 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
         `${percent}%`,
         () => execute(`Resistencia ${percent}%`, () => session.setResistance(percent)),
     ));
+    let autoTestCancelled = false;
+    let autoTestRunning = false;
+    const autoTestButton = commandButton(
+        'Ejecutar prueba automática de 80 W',
+        runAutomaticErgTest,
+    );
 
     container.append(
         diagnosticSection(
             '1. Telemetría',
             'Comprueba que potencia y cadencia cambian de forma continua y vuelven a cero al dejar de pedalear.',
-            [createElement('span', {
-                text: simulated ? 'El simulador genera datos cada segundo.' : 'La captura se inicia automáticamente al conectar.',
-                styles: { color: colors.textMuted },
-            })],
+            [
+                createElement('span', {
+                    text: simulated ? 'El simulador genera datos cada segundo.' : 'La captura se inicia automáticamente al conectar.',
+                    styles: { color: colors.textMuted },
+                }),
+                rawPacket,
+                telemetryWarning,
+            ],
         ),
         diagnosticSection(
-            '2. Control ERG',
+            '2. Prueba automática segura',
+            'Reanuda, aplica 80 W durante ocho segundos, analiza la respuesta y libera la resistencia al terminar.',
+            [autoTestButton],
+        ),
+        diagnosticSection(
+            '3. Control ERG manual',
             'Cada botón envía un único objetivo permitido y mide cuánto tarda el rodillo en aceptarlo.',
             ergButtons,
         ),
         diagnosticSection(
-            '3. Resistencia manual',
+            '4. Resistencia manual',
             'Prueba niveles moderados. No se utilizarán valores altos en este diagnóstico.',
             resistanceButtons,
         ),
@@ -145,7 +178,10 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
             marginTop: spacing.lg,
         },
         events: {
-            click: () => execute('Pausa de seguridad', () => session.pauseAndRelease()),
+            click: () => {
+                autoTestCancelled = true;
+                execute('Pausa de seguridad', () => session.pauseAndRelease());
+            },
         },
     });
     const resumeButton = button({
@@ -169,6 +205,16 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
         livePower.set(`${Math.round(sample.power)} W`);
         liveCadence.set(`${Math.round(sample.cadence)} rpm`);
         sampleCount.set(String(session.samples.length));
+        if (sample.rawFtms) {
+            liveFlags.set(sample.rawFtms.flagsHex || `0x${Number(sample.rawFtms.flags || 0).toString(16)}`);
+            rawPacket.textContent = `${sample.rawFtms.byteLength} bytes · ${sample.rawFtms.hex}`;
+        }
+        telemetryWarning.textContent = sample.cadenceEncoding === 'd100-period-1024'
+            ? `Cadencia D100 estabilizada · periodo ${sample.cadencePeriodTicks} ticks`
+            : sample.power > 0 || sample.cadence > 0
+                ? 'Telemetría activa'
+                : 'Esperando pedaleo';
+        telemetryWarning.style.color = colors.textMuted;
     };
     if (simulated) {
         ingest(manager.sample());
@@ -185,9 +231,43 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
             const result = await action();
             commandStatus.set('Correcto');
             commandLog.textContent = `${label}: aceptado en ${result.latencyMs} ms${simulated ? ' · resultado simulado' : ''}.`;
+            return result;
         } catch (error) {
             commandStatus.set('Error');
             commandLog.textContent = `${label}: ${error.message}`;
+            return null;
+        }
+    }
+
+    async function runAutomaticErgTest() {
+        if (autoTestRunning) return;
+        autoTestRunning = true;
+        autoTestCancelled = false;
+        autoTestButton.disabled = true;
+        autoTestButton.textContent = 'Preparando prueba…';
+        session.addEvent('automatic_erg_test_started', { targetPower: 80, durationSeconds: 8 });
+        try {
+            const resumed = await execute('Reanudación automática', () => session.resume());
+            if (!resumed || autoTestCancelled) return;
+            await wait(750);
+
+            const ergResult = await execute('ERG automático 80 W', () => session.setErg(80));
+            if (!ergResult || autoTestCancelled) return;
+
+            for (let remaining = 8; remaining > 0 && !autoTestCancelled; remaining -= 1) {
+                autoTestButton.textContent = `ERG 80 W · ${remaining} s`;
+                await wait(1000);
+            }
+        } finally {
+            await execute('Liberación automática', () => session.pauseAndRelease());
+            const ergWindow = session.getErgWindows().at(-1);
+            session.addEvent('automatic_erg_test_finished', ergWindow || {});
+            commandLog.textContent = ergWindow?.averagePower === null || !ergWindow
+                ? 'Prueba terminada sin suficientes muestras. El informe conserva los paquetes crudos.'
+                : `Prueba terminada: media ${ergWindow.averagePower} W, cadencia ${ergWindow.averageCadence ?? '—'} rpm, error medio ${ergWindow.averageAbsoluteError} W.`;
+            autoTestRunning = false;
+            autoTestButton.disabled = false;
+            autoTestButton.textContent = 'Repetir prueba automática de 80 W';
         }
     }
 
@@ -209,6 +289,10 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
         if (!simulated) session.pauseAndRelease().catch(() => {});
     };
     return container;
+}
+
+function wait(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function metric(label, initialValue) {

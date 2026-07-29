@@ -26,6 +26,7 @@ export class TrainerDiagnosticSession {
         this.samples = [];
         this.events = [];
         this.commandResults = [];
+        this.activeTargetPower = null;
     }
 
     recordTelemetry(data, timestamp = this.now()) {
@@ -37,6 +38,12 @@ export class TrainerDiagnosticSession {
             speed: finiteOrZero(data.speed),
             heartRate: finiteOrZero(data.heartRate),
             resistance: finiteOrZero(data.resistance),
+            targetPower: this.activeTargetPower,
+            cadencePeriodTicks: Number.isFinite(Number(data.cadencePeriodTicks))
+                ? Number(data.cadencePeriodTicks)
+                : null,
+            cadenceEncoding: data.cadenceEncoding || null,
+            rawFtms: data.rawFtms ? sanitizeDetails(data.rawFtms) : null,
         };
         this.samples.push(sample);
         if (this.samples.length > MAX_SAMPLES) this.samples.shift();
@@ -56,7 +63,9 @@ export class TrainerDiagnosticSession {
         if (this.capabilities.powerTargetSupported === false) {
             throw new DiagnosticSafetyError('El rodillo declara que no soporta potencia objetivo');
         }
-        return this.runCommand('set_erg', { watts }, () => this.manager.setTargetPower(watts));
+        const result = await this.runCommand('set_erg', { watts }, () => this.manager.setTargetPower(watts));
+        this.activeTargetPower = watts;
+        return result;
     }
 
     async setResistance(percent) {
@@ -66,13 +75,17 @@ export class TrainerDiagnosticSession {
         if (this.capabilities.resistanceTargetSupported === false) {
             throw new DiagnosticSafetyError('El rodillo declara que no soporta resistencia objetivo');
         }
-        return this.runCommand('set_resistance', { percent }, () => this.manager.setResistance(percent));
+        const result = await this.runCommand('set_resistance', { percent }, () => this.manager.setResistance(percent));
+        this.activeTargetPower = null;
+        return result;
     }
 
     async pauseAndRelease() {
-        return this.runCommand('pause_and_release', {}, async () => {
+        const result = await this.runCommand('pause_and_release', {}, async () => {
             await this.manager.stopTraining(true);
         });
+        this.activeTargetPower = null;
+        return result;
     }
 
     async resume() {
@@ -112,10 +125,25 @@ export class TrainerDiagnosticSession {
         const powers = this.samples.map((sample) => sample.power);
         const cadences = this.samples.map((sample) => sample.cadence);
         const successfulCommands = this.commandResults.filter((result) => result.success);
+        const rawSamples = this.samples.filter((sample) => sample.rawFtms);
+        const flags = rawSamples.reduce((counts, sample) => {
+            const key = sample.rawFtms.flagsHex || String(sample.rawFtms.flags);
+            counts[key] = (counts[key] || 0) + 1;
+            return counts;
+        }, {});
+        const suspiciousSamples = this.samples.filter(
+            (sample) => sample.targetPower >= 80 && sample.cadence >= 100 && sample.power <= 10
+        );
         return {
             sampleCount: this.samples.length,
             power: summarizeValues(powers),
             cadence: summarizeValues(cadences),
+            telemetry: {
+                rawSampleCount: rawSamples.length,
+                flags,
+                suspiciousSampleCount: suspiciousSamples.length,
+                ergWindows: this.getErgWindows(),
+            },
             commands: {
                 total: this.commandResults.length,
                 successful: successfulCommands.length,
@@ -129,7 +157,7 @@ export class TrainerDiagnosticSession {
 
     getReport() {
         return {
-            schemaVersion: 1,
+            schemaVersion: 2,
             generatedAt: new Date(this.now()).toISOString(),
             startedAt: this.startedAt,
             simulated: this.simulated,
@@ -139,6 +167,7 @@ export class TrainerDiagnosticSession {
                 resistanceRange: this.manager?.resistanceRange || null,
                 powerRange: this.manager?.powerRange || null,
                 commandQueueMetrics: this.manager?.commandQueue?.getMetrics?.() || null,
+                bluetoothLog: this.manager?.getDiagnosticLog?.() || null,
             },
             environment: {
                 userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'test',
@@ -150,6 +179,47 @@ export class TrainerDiagnosticSession {
             events: [...this.events],
             samples: [...this.samples],
         };
+    }
+
+    getErgWindows() {
+        const ergCommands = this.commandResults.filter(
+            (command) => command.success && command.type === 'set_erg'
+        );
+        return ergCommands.map((command, index) => {
+            const nextCommand = this.commandResults.find(
+                (candidate) => candidate.timestamp > command.timestamp
+                    && ['set_erg', 'set_resistance', 'pause_and_release'].includes(candidate.type)
+            );
+            const windowEnd = Math.min(
+                command.timestamp + 10000,
+                nextCommand?.timestamp ?? Number.POSITIVE_INFINITY
+            );
+            const samples = this.samples.filter(
+                (sample) => sample.timestamp >= command.timestamp && sample.timestamp <= windowEnd
+            );
+            const settledSamples = samples.filter(
+                (sample) => sample.timestamp >= command.timestamp + 3000
+            );
+            const measured = settledSamples.length ? settledSamples : samples;
+            const powers = measured.map((sample) => sample.power);
+            const cadences = measured.map((sample) => sample.cadence);
+            const averagePower = powers.length
+                ? Math.round(powers.reduce((sum, value) => sum + value, 0) / powers.length)
+                : null;
+            return {
+                sequence: index + 1,
+                targetPower: command.input.watts,
+                sampleCount: samples.length,
+                settledSampleCount: settledSamples.length,
+                averagePower,
+                averageCadence: cadences.length
+                    ? Math.round(cadences.reduce((sum, value) => sum + value, 0) / cadences.length)
+                    : null,
+                averageAbsoluteError: averagePower === null
+                    ? null
+                    : Math.abs(command.input.watts - averagePower),
+            };
+        });
     }
 }
 

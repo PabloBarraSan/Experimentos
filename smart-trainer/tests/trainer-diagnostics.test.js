@@ -65,4 +65,38 @@ describe('trainer diagnostics', () => {
     expect(diagnostic.samples[0].power).toBe(20);
     expect(diagnostic.samples.at(-1).power).toBe(619);
   });
+
+  it('keeps raw FTMS frames and summarizes an ERG response window', async () => {
+    let now = 1000;
+    const simulator = createTrainerSimulator({ latencyMs: 0 });
+    const diagnostic = new TrainerDiagnosticSession({
+      manager: simulator,
+      capabilities: simulator.capabilities,
+      now: () => now,
+    });
+
+    await diagnostic.setErg(80);
+    now = 5000;
+    diagnostic.recordTelemetry({
+      power: 76,
+      cadence: 84,
+      rawFtms: {
+        flags: 0x0044,
+        flagsHex: '0x0044',
+        byteLength: 8,
+        hex: '44 00 c4 09 a8 00 4c 00',
+        bytes: [0x44, 0x00, 0xc4, 0x09, 0xa8, 0x00, 0x4c, 0x00],
+      },
+    });
+
+    const report = diagnostic.getReport();
+    expect(report.schemaVersion).toBe(2);
+    expect(report.samples[0].rawFtms.flagsHex).toBe('0x0044');
+    expect(report.summary.telemetry.flags).toEqual({ '0x0044': 1 });
+    expect(report.summary.telemetry.ergWindows[0]).toMatchObject({
+      targetPower: 80,
+      averagePower: 76,
+      averageAbsoluteError: 4,
+    });
+  });
 });

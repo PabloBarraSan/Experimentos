@@ -5,6 +5,25 @@
 
 import { FTMS_UUIDS, parseIndoorBikeData, parseFitnessMachineFeature, parseSupportedResistanceRange } from './ftms.js';
 
+const MAX_DIAGNOSTIC_FRAMES = 600;
+
+function dataViewToDiagnosticFrame(dataView, timestamp = Date.now()) {
+    const bytes = Array.from(
+        new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength)
+    );
+    return {
+        timestamp,
+        byteLength: dataView.byteLength,
+        bytes,
+        hex: bytes.map((byte) => byte.toString(16).padStart(2, '0')).join(' '),
+    };
+}
+
+function appendBounded(collection, item, limit = MAX_DIAGNOSTIC_FRAMES) {
+    collection.push(item);
+    if (collection.length > limit) collection.shift();
+}
+
 /**
  * Analizador de correlación para encontrar cadencia oculta (Van Rysel D100).
  * Imprime los 16 bytes y resalta los que podrían ser cadencia (30–120 rpm).
@@ -175,6 +194,11 @@ export class BluetoothManager {
         this.dataDebounceMs = 50; // Debounce de 50ms para datos
         this.lastIndoorBikeFlags = null; // Para detectar cambios de flags FTMS (p. ej. D100 0x40 -> 0x42)
         this.capabilities = null; // Capacidades del dispositivo
+        this.diagnosticFrames = {
+            indoorBikeData: [],
+            status: [],
+            controlPoint: [],
+        };
         
         // Logger
         this.logger = new Logger('BluetoothManager');
@@ -592,17 +616,8 @@ export class BluetoothManager {
      * Manejar datos del Indoor Bike Data con debounce
      */
     handleIndoorBikeData(event) {
-        const now = Date.now();
-        
-        // Debounce: ignorar datos si llegaron muy rápido
-        if (now - this.lastDataTimestamp < this.dataDebounceMs) {
-            return;
-        }
-        this.lastDataTimestamp = now;
-        
-        const dataView = event.target.value;
-        
         // Validar que el evento y los datos sean válidos
+        const dataView = event?.target?.value;
         if (!event || !event.target || !dataView) {
             this.logger.warn('Evento de datos inválido recibido');
             return;
@@ -614,7 +629,21 @@ export class BluetoothManager {
             return;
         }
         
+        const now = Date.now();
         const flags = dataView.getUint16(0, true);
+        const rawFrame = {
+            ...dataViewToDiagnosticFrame(dataView, now),
+            flags,
+            flagsHex: `0x${flags.toString(16).padStart(4, '0')}`,
+        };
+        appendBounded(this.diagnosticFrames.indoorBikeData, rawFrame);
+
+        // Debounce de la UI, sin perder paquetes en el registro de diagnóstico.
+        if (now - this.lastDataTimestamp < this.dataDebounceMs) {
+            return;
+        }
+        this.lastDataTimestamp = now;
+
         // Logger de cambios de flags (D100: 0x40 solo potencia, 0x42 potencia+cadencia al pedalear fuerte)
         if (this.lastIndoorBikeFlags !== null && this.lastIndoorBikeFlags !== flags) {
             this.logger.info(
@@ -637,6 +666,7 @@ export class BluetoothManager {
         
         try {
             const data = parseIndoorBikeData(dataView);
+            data.rawFtms = rawFrame;
             
             // Validar datos parseados
             if (typeof data.power !== 'number' || isNaN(data.power)) {
@@ -675,6 +705,10 @@ export class BluetoothManager {
         }
         
         const opCode = dataView.getUint8(0);
+        appendBounded(this.diagnosticFrames.status, {
+            ...dataViewToDiagnosticFrame(dataView),
+            opCode,
+        });
         this.logger.debug('Status change:', opCode);
     }
     
@@ -687,9 +721,25 @@ export class BluetoothManager {
             return;
         }
         
+        const dataView = event.target.value;
+        appendBounded(this.diagnosticFrames.controlPoint, {
+            ...dataViewToDiagnosticFrame(dataView),
+            responseCode: dataView.byteLength > 0 ? dataView.getUint8(0) : null,
+            requestOpCode: dataView.byteLength > 1 ? dataView.getUint8(1) : null,
+            resultCode: dataView.byteLength > 2 ? dataView.getUint8(2) : null,
+        });
+
         if (this.commandQueue) {
-            this.commandQueue.handleResponse(event.target.value);
+            this.commandQueue.handleResponse(dataView);
         }
+    }
+
+    getDiagnosticLog() {
+        return {
+            indoorBikeData: this.diagnosticFrames.indoorBikeData.map((frame) => ({ ...frame })),
+            status: this.diagnosticFrames.status.map((frame) => ({ ...frame })),
+            controlPoint: this.diagnosticFrames.controlPoint.map((frame) => ({ ...frame })),
+        };
     }
     
     /**
