@@ -9,6 +9,60 @@ import { createWorkout, createBlock, BLOCK_TYPES, TARGET_TYPES } from './model.j
  * Biblioteca de entrenamientos predefinidos
  */
 export const WORKOUT_PRESETS = {
+    AURORA_EXPEDITION: createWorkout({
+        name: 'Valle de Aurora · 10 min',
+        description: 'Una expedición corta para descubrir el valle: sigue al guía, cruza el puerto y termina en la baliza de la cima.',
+        author: 'Smart Trainer',
+        category: 'endurance',
+        difficulty: 'medium',
+        tags: ['expedición', '10min', 'aventura', 'flow'],
+        blocks: [
+            createBlock({
+                type: BLOCK_TYPES.WARMUP,
+                duration: 2 * 60,
+                name: 'Salida del campamento',
+                targetValue: 50,
+                cadenceTarget: 80,
+                instructions: 'Encuentra un pedaleo suave y alcanza al guía.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.STEADY,
+                duration: 2 * 60,
+                name: 'Sendero del bosque',
+                targetValue: 65,
+                cadenceMin: 82,
+                cadenceMax: 92,
+                instructions: 'Mantén el Flow mientras cruzas el bosque.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.INTERVAL,
+                duration: 60,
+                name: 'Ataque al puerto',
+                targetValue: 92,
+                repeat: 2,
+                restBetween: 60,
+                restTargetValue: 52,
+                cadenceMin: 85,
+                cadenceMax: 98,
+                instructions: 'Dos impulsos para no perder la rueda del guía.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.STEADY,
+                duration: 2 * 60,
+                name: 'Camino de la baliza',
+                targetValue: 72,
+                cadenceTarget: 88,
+                instructions: 'Sostén el ritmo hasta ver la baliza.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.COOLDOWN,
+                duration: 60,
+                name: 'Mirador de Aurora',
+                targetValue: 45,
+                instructions: 'Misión cumplida. Suelta las piernas.',
+            }),
+        ],
+    }),
     
     // === TESTS ===
     

@@ -764,8 +764,8 @@ export function HomeView(state) {
                         iconColor: '#f59e0b',
                         title: 'Expediciones',
                         description: isConnected
-                            ? 'Entrenamientos con misiones, Flow y recompensas.'
-                            : 'Prueba una misión en modo demo.',
+                            ? 'Valle 3D, misiones, Flow y recompensas.'
+                            : 'Explora Valle de Aurora 3D en modo demo.',
                         onClick: () => navigateTo('workouts'),
                         locked: false,
                     }),
