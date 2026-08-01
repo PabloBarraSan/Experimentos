@@ -7,7 +7,7 @@ import { colors, typography } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { checkBluetoothSupport, CONNECTION_STATE } from '../bluetooth/scanner.js';
 import { HR_CONNECTION_STATE } from '../bluetooth/heartRate.js';
-import { navigateToGame, navigateTo, navigateToRide } from '../app.js';
+import { navigateToGame, navigateTo, navigateToRide, subscribe } from '../app.js';
 import { WORKOUT_PRESETS } from '../workouts/presets.js';
 
 const glassBorder = 'rgba(255,255,255,.1)';
@@ -52,7 +52,7 @@ function hrConnectionMessage(connectionState) {
     }
 }
 
-function compactSensor({ iconName, label, value, accent, connected, busy, onClick }) {
+function compactSensor({ iconName, label, value, accent, connected, busy, onClick, sensorKey }) {
     return button({
         attrs: {
             type: 'button',
@@ -90,11 +90,13 @@ function compactSensor({ iconName, label, value, accent, connected, busy, onClic
                     }),
                     createElement('span', {
                         text: value,
+                        attrs: { 'data-sensor-value': sensorKey },
                         styles: { display: 'block', marginTop: '2px', fontSize: '12px', color: connected ? accent : 'rgba(255,255,255,.72)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
                     }),
                 ],
             }),
             div({
+                attrs: { 'data-sensor-dot': sensorKey },
                 styles: { width: '7px', height: '7px', borderRadius: '50%', background: connected ? accent : 'rgba(255,255,255,.18)', boxShadow: connected ? `0 0 10px ${accent}` : 'none', flexShrink: 0 },
             }),
         ],
@@ -177,9 +179,15 @@ export function HomeView(state) {
     window.addEventListener('pwa-installable', handleInstallable);
     window.addEventListener('pwa-installed', handleInstalled);
 
-    const connectTrainer = async () => {
-        if (!bluetoothSupport.supported || trainerBusy || isConnected) return;
+    const connectTrainer = async (forceNew = false) => {
+        if (!bluetoothSupport.supported || trainerBusy) return;
         try {
+            if (forceNew && state.bluetoothManager) {
+                state.bluetoothManager.disconnect();
+                await state.bluetoothManager.scan();
+                return;
+            }
+            if (isConnected) return;
             const cached = state.bluetoothManager?.cachedDevice;
             if (cached) {
                 const connected = await state.bluetoothManager.reconnectSilently();
@@ -215,6 +223,16 @@ export function HomeView(state) {
     const wrapper = div({ attrs: { 'data-view': 'home', class: 'home-view-bg' } });
     const shell = div({ attrs: { class: 'home-shell' } });
     wrapper.appendChild(shell);
+
+    let deviceOverlay = null;
+    const openDevicePanel = () => {
+        state.homeDevicePanelOpen = true;
+        if (deviceOverlay) deviceOverlay.style.display = 'flex';
+    };
+    const closeDevicePanel = () => {
+        state.homeDevicePanelOpen = false;
+        if (deviceOverlay) deviceOverlay.style.display = 'none';
+    };
 
     const moreMenu = createElement('details', {
         attrs: { class: 'home-more' },
@@ -269,6 +287,14 @@ export function HomeView(state) {
 
     const missionMeta = recovered ? 'SESIÓN RECUPERADA' : '10 MIN · INICIACIÓN · 1 BIFURCACIÓN';
     const startFeatured = () => {
+        const dataFresh = isConnected && state.lastDataUpdateTimestamp && Date.now() - state.lastDataUpdateTimestamp <= 5000;
+        if (isConnected && !dataFresh) {
+            state.homePreflightRequested = true;
+            openDevicePanel();
+            return;
+        }
+        state.homeDevicePanelOpen = false;
+        state.homePreflightRequested = false;
         state.selectedWorkout = featuredWorkout;
         if (!recovered) state.recoveredSession = null;
         navigateTo('expedition');
@@ -292,7 +318,15 @@ export function HomeView(state) {
                             events: { click: startFeatured },
                             children: [icon(recovered ? 'activity' : 'play', 16, '#07100e'), createElement('span', { text: recovered ? 'Continuar' : (isConnected ? 'Empezar' : 'Probar en demo') })],
                         }),
-                        textButton('Ver expediciones', () => navigateTo('workouts')),
+                        textButton('Entrenamiento libre', () => {
+                            if (!isConnected) {
+                                state.homePreflightRequested = true;
+                                openDevicePanel();
+                                return;
+                            }
+                            state.homeDevicePanelOpen = false;
+                            navigateTo('training');
+                        }),
                     ] }),
                 ],
             }),
@@ -302,8 +336,8 @@ export function HomeView(state) {
 
     const trainerValue = !bluetoothSupport.supported
         ? 'Bluetooth no disponible'
-        : (isConnected ? (state.deviceName || 'Rodillo conectado') : connectionMessage(connectionState));
-    const hrValue = isHRConnected ? (state.hrDeviceName || 'Pulso conectado') : hrConnectionMessage(hrState);
+        : (isConnected ? `${state.deviceName || 'Rodillo'} · comprobando` : connectionMessage(connectionState));
+    const hrValue = isHRConnected ? `${state.hrDeviceName || 'Pulso'} · comprobando` : hrConnectionMessage(hrState);
 
     shell.appendChild(div({
         attrs: { class: 'home-status-row' },
@@ -311,8 +345,8 @@ export function HomeView(state) {
             div({
                 attrs: { class: 'home-sensors' },
                 children: [
-                    compactSensor({ iconName: 'bike', label: 'Rodillo', value: trainerValue, accent: colors.accent, connected: isConnected, busy: trainerBusy, onClick: connectTrainer }),
-                    compactSensor({ iconName: 'heart', label: 'Pulso', value: hrValue, accent: '#ff607b', connected: isHRConnected, busy: hrBusy, onClick: toggleHeartRate }),
+                    compactSensor({ iconName: 'bike', label: 'Rodillo', value: trainerValue, accent: colors.accent, connected: isConnected, busy: trainerBusy, onClick: openDevicePanel, sensorKey: 'trainer' }),
+                    compactSensor({ iconName: 'heart', label: 'Pulso', value: hrValue, accent: '#ff607b', connected: isHRConnected, busy: hrBusy, onClick: openDevicePanel, sensorKey: 'heart' }),
                 ],
             }),
             div({
@@ -339,9 +373,134 @@ export function HomeView(state) {
         ],
     }));
 
+    const capabilities = state.deviceCapabilities || state.bluetoothManager?.capabilities || {};
+    const capabilityPill = (label, supported) => createElement('span', {
+        text: `${supported ? '✓' : '—'} ${label}`,
+        styles: {
+            color: supported ? '#75e5c5' : 'rgba(255,255,255,.34)',
+            background: supported ? 'rgba(0,212,170,.09)' : 'rgba(255,255,255,.035)',
+            border: `1px solid ${supported ? 'rgba(0,212,170,.22)' : 'rgba(255,255,255,.07)'}`,
+        },
+    });
+    const detailValue = (key, initial = '—') => createElement('strong', { text: initial, attrs: { 'data-device-detail': key } });
+    const detailRow = (label, valueEl) => div({
+        attrs: { class: 'home-device-detail-row' },
+        children: [createElement('span', { text: label }), valueEl],
+    });
+
+    const trainerDataValue = detailValue('trainer-data');
+    const powerValue = detailValue('power');
+    const cadenceValue = detailValue('cadence');
+    const heartDataValue = detailValue('heart-data');
+    const preflightValue = detailValue('preflight');
+    const primaryTrainerAction = button({
+        attrs: { type: 'button', class: 'home-device-primary' },
+        text: isConnected ? 'Cambiar rodillo' : 'Conectar rodillo',
+        events: { click: () => connectTrainer(isConnected) },
+    });
+    const disconnectTrainerAction = isConnected ? button({
+        attrs: { type: 'button', class: 'home-device-secondary' },
+        text: 'Desconectar',
+        events: { click: () => state.bluetoothManager?.disconnect() },
+    }) : null;
+    const heartAction = button({
+        attrs: { type: 'button', class: 'home-device-secondary' },
+        text: isHRConnected ? 'Desconectar pulso' : 'Conectar pulso',
+        events: { click: toggleHeartRate },
+    });
+
+    deviceOverlay = div({
+        attrs: { class: 'home-device-overlay', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Dispositivos y preparación' },
+        styles: { display: state.homeDevicePanelOpen ? 'flex' : 'none' },
+        events: { click: (event) => { if (event.target === deviceOverlay) closeDevicePanel(); } },
+        children: [
+            div({
+                attrs: { class: 'home-device-panel' },
+                children: [
+                    div({ attrs: { class: 'home-device-header' }, children: [
+                        div({ children: [
+                            createElement('span', { text: 'PREPARACIÓN', attrs: { class: 'home-eyebrow' } }),
+                            createElement('h2', { text: 'Dispositivos' }),
+                        ] }),
+                        button({ attrs: { type: 'button', class: 'home-device-close', 'aria-label': 'Cerrar dispositivos' }, children: [icon('close', 18, 'rgba(255,255,255,.7)')], events: { click: closeDevicePanel } }),
+                    ] }),
+                    div({ attrs: { class: 'home-preflight-banner' }, children: [
+                        div({ attrs: { class: 'home-preflight-dot', 'data-preflight-dot': 'true' } }),
+                        div({ children: [createElement('span', { text: 'ESTADO PARA ENTRENAR' }), preflightValue] }),
+                    ] }),
+                    div({ attrs: { class: 'home-device-section' }, children: [
+                        div({ attrs: { class: 'home-device-title' }, children: [
+                            icon('bike', 18, colors.accent),
+                            div({ children: [createElement('strong', { text: state.deviceName || 'Rodillo inteligente' }), createElement('span', { text: isConnected ? 'FTMS conectado' : connectionMessage(connectionState) })] }),
+                        ] }),
+                        detailRow('Telemetría', trainerDataValue),
+                        detailRow('Potencia', powerValue),
+                        detailRow('Cadencia', cadenceValue),
+                        div({ attrs: { class: 'home-capabilities' }, children: [
+                            capabilityPill('ERG', capabilities.powerTargetSupported === true),
+                            capabilityPill('Resistencia', capabilities.resistanceTargetSupported === true),
+                            capabilityPill('Simulación', capabilities.indoorBikeSimulationSupported === true),
+                            capabilityPill('Cadencia', capabilities.cadenceSupported === true),
+                        ] }),
+                        div({ attrs: { class: 'home-device-actions' }, children: [primaryTrainerAction, disconnectTrainerAction] }),
+                    ] }),
+                    div({ attrs: { class: 'home-device-section home-device-section-small' }, children: [
+                        div({ attrs: { class: 'home-device-title' }, children: [
+                            icon('heart', 18, '#ff607b'),
+                            div({ children: [createElement('strong', { text: state.hrDeviceName || 'Pulsómetro' }), createElement('span', { text: isHRConnected ? 'Bluetooth conectado' : 'Sensor opcional' })] }),
+                        ] }),
+                        detailRow('Lectura', heartDataValue),
+                        div({ attrs: { class: 'home-device-actions' }, children: [heartAction] }),
+                    ] }),
+                    button({
+                        attrs: { type: 'button', class: 'home-diagnostics-link' },
+                        events: { click: () => { state.homeDevicePanelOpen = false; navigateTo('diagnostics'); } },
+                        children: [icon('gauge', 15, 'rgba(255,255,255,.5)'), createElement('span', { text: 'Abrir diagnóstico avanzado' }), icon('chevronRight', 14, 'rgba(255,255,255,.3)')],
+                    }),
+                ],
+            }),
+        ],
+    });
+    wrapper.appendChild(deviceOverlay);
+
+    const updateLiveIndicators = () => {
+        const now = Date.now();
+        const trainerAge = state.lastDataUpdateTimestamp ? now - state.lastDataUpdateTimestamp : Infinity;
+        const hrAge = state.lastHeartRateUpdateTimestamp ? now - state.lastHeartRateUpdateTimestamp : Infinity;
+        const trainerQuality = !isConnected ? 'missing' : (trainerAge <= 3000 ? 'fresh' : (trainerAge <= 10000 ? 'stale' : 'missing'));
+        const hrQuality = !isHRConnected ? 'missing' : (hrAge <= 5000 ? 'fresh' : (hrAge <= 12000 ? 'stale' : 'missing'));
+        const trainerLabel = trainerQuality === 'fresh' ? 'datos listos' : (trainerQuality === 'stale' ? 'datos lentos' : 'sin datos');
+        const heartLabel = hrQuality === 'fresh' ? `${Math.round(state.liveData.heartRate || 0)} ppm` : (hrQuality === 'stale' ? 'señal débil' : (isHRConnected ? 'sin lectura' : 'opcional'));
+        const trainerSensorValue = wrapper.querySelector('[data-sensor-value="trainer"]');
+        const heartSensorValue = wrapper.querySelector('[data-sensor-value="heart"]');
+        const trainerDot = wrapper.querySelector('[data-sensor-dot="trainer"]');
+        const heartDot = wrapper.querySelector('[data-sensor-dot="heart"]');
+        if (trainerSensorValue && isConnected) trainerSensorValue.textContent = `${state.deviceName || 'Rodillo'} · ${trainerLabel}`;
+        if (heartSensorValue && isHRConnected) heartSensorValue.textContent = `${state.hrDeviceName || 'Pulso'} · ${heartLabel}`;
+        if (trainerDot) trainerDot.style.background = trainerQuality === 'fresh' ? colors.accent : (trainerQuality === 'stale' ? '#f6b94b' : 'rgba(255,255,255,.18)');
+        if (heartDot) heartDot.style.background = hrQuality === 'fresh' ? '#ff607b' : (hrQuality === 'stale' ? '#f6b94b' : 'rgba(255,255,255,.18)');
+        trainerDataValue.textContent = !isConnected ? 'Desconectado' : (trainerQuality === 'fresh' ? 'Recibiendo ahora' : (trainerQuality === 'stale' ? 'Lectura retrasada' : 'Bluetooth sin datos'));
+        trainerDataValue.dataset.quality = trainerQuality;
+        powerValue.textContent = trainerQuality === 'fresh' ? `${Math.round(state.liveData.power || 0)} W` : '—';
+        cadenceValue.textContent = trainerQuality === 'fresh' ? `${Math.round(state.liveData.cadence || 0)} rpm` : '—';
+        heartDataValue.textContent = heartLabel;
+        heartDataValue.dataset.quality = hrQuality;
+        const ready = isConnected && trainerQuality === 'fresh';
+        preflightValue.textContent = ready ? 'Rodillo y datos listos' : (!isConnected ? 'Conecta el rodillo o utiliza el modo demo' : 'Bluetooth conectado, esperando telemetría');
+        preflightValue.dataset.quality = ready ? 'fresh' : 'stale';
+        const preflightDot = wrapper.querySelector('[data-preflight-dot]');
+        if (preflightDot) preflightDot.style.background = ready ? colors.accent : '#f6b94b';
+        if (state.homePreflightRequested && ready) state.homePreflightRequested = false;
+    };
+    updateLiveIndicators();
+    const unsubscribe = subscribe(updateLiveIndicators);
+    const freshnessTimer = window.setInterval(updateLiveIndicators, 1000);
+
     wrapper.cleanup = () => {
         window.removeEventListener('pwa-installable', handleInstallable);
         window.removeEventListener('pwa-installed', handleInstalled);
+        unsubscribe();
+        window.clearInterval(freshnessTimer);
     };
     return wrapper;
 }

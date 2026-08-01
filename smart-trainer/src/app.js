@@ -40,6 +40,7 @@ const AppState = {
     hrConnectionState: HR_CONNECTION_STATE.DISCONNECTED,
     hrDeviceName: null,
     hrSensorLocation: null,
+    lastHeartRateUpdateTimestamp: null,
 
     // Zwift Play (mandos BLE)
     zwiftPlayManager: null,
@@ -561,6 +562,7 @@ async function init() {
             // Actualizar HR en liveData
             if (data.heartRate !== undefined) {
                 AppState.liveData.heartRate = data.heartRate;
+                AppState.lastHeartRateUpdateTimestamp = Date.now();
                 notify();
             }
         },
