@@ -38,6 +38,7 @@ export function starsForAdherence(adherence) {
 
 export function createFlowTracker({ graceSeconds = 3 } = {}) {
     const state = {
+        schemaVersion: 2,
         totalFlow: 0,
         samples: 0,
         combo: 0,
@@ -46,6 +47,11 @@ export function createFlowTracker({ graceSeconds = 3 } = {}) {
         blocks: new Map(),
         ghostTrace: [],
         lastGhostSecond: -5,
+        energy: 0,
+        checkpoints: [],
+        decisions: [],
+        status: 'active',
+        comboThreshold: 0.75,
     };
 
     function update(sample) {
@@ -53,7 +59,7 @@ export function createFlowTracker({ graceSeconds = 3 } = {}) {
         state.totalFlow += result.flow;
         state.samples++;
 
-        if (result.flow >= 0.75) {
+        if (result.flow >= state.comboThreshold) {
             state.secondsOutside = 0;
             state.combo++;
             state.maxCombo = Math.max(state.maxCombo, state.combo);
@@ -69,16 +75,27 @@ export function createFlowTracker({ graceSeconds = 3 } = {}) {
             name: sample.blockName || 'Bloque',
             totalFlow: 0,
             samples: 0,
+            powerFlow: 0,
+            cadenceFlow: 0,
+            cadenceSamples: 0,
         };
         block.totalFlow += result.flow;
         block.samples++;
+        block.powerFlow += result.powerScore;
+        if (result.cadenceScore !== null) {
+            block.cadenceFlow += result.cadenceScore;
+            block.cadenceSamples++;
+        }
         state.blocks.set(blockKey, block);
+        state.energy = Math.min(100, state.energy + result.flow * 1.25);
 
         const elapsed = Math.max(0, Math.floor(sample.elapsedSeconds || 0));
         if (elapsed - state.lastGhostSecond >= 5) {
             state.ghostTrace.push({
                 elapsed,
-                progress: state.samples ? state.totalFlow / state.samples : 0,
+                progress: Number.isFinite(sample.totalDuration) && sample.totalDuration > 0
+                    ? Math.min(1, elapsed / sample.totalDuration)
+                    : (state.samples ? state.totalFlow / state.samples : 0),
                 flow: result.flow,
             });
             state.lastGhostSecond = elapsed;
@@ -89,7 +106,41 @@ export function createFlowTracker({ graceSeconds = 3 } = {}) {
             smoothedFlow: result.flow,
             combo: state.combo,
             maxCombo: state.maxCombo,
+            energy: state.energy,
         };
+    }
+
+    function addCheckpoint({ id, elapsedSeconds = 0 } = {}) {
+        if (!id || state.checkpoints.some((checkpoint) => checkpoint.id === id)) return null;
+        const boost = state.energy >= 35;
+        const checkpoint = {
+            id,
+            elapsedSeconds,
+            energy: Math.round(state.energy),
+            boost,
+            multiplier: boost ? 1.1 : 1,
+        };
+        if (boost) state.energy = Math.max(0, state.energy - 35);
+        state.checkpoints.push(checkpoint);
+        return checkpoint;
+    }
+
+    function chooseRoute({ id, choice = 'safe', automatic = false, elapsedSeconds = 0 } = {}) {
+        if (!id || state.decisions.some((decision) => decision.id === id)) return null;
+        const allowed = ['safe', 'technical', 'scenic'];
+        const decision = {
+            id,
+            choice: allowed.includes(choice) ? choice : 'safe',
+            automatic,
+            elapsedSeconds,
+        };
+        state.decisions.push(decision);
+        state.comboThreshold = decision.choice === 'technical' ? 0.82 : decision.choice === 'safe' ? 0.70 : 0.75;
+        return decision;
+    }
+
+    function setStatus(status) {
+        state.status = ['completed', 'abandoned', 'recovered'].includes(status) ? status : 'active';
     }
 
     function getResult() {
@@ -104,20 +155,33 @@ export function createFlowTracker({ graceSeconds = 3 } = {}) {
                     name: block.name,
                     adherence: blockAdherence,
                     stars: starsForAdherence(blockAdherence),
+                    powerAdherence: block.samples ? block.powerFlow / block.samples : 0,
+                    cadenceAdherence: block.cadenceSamples ? block.cadenceFlow / block.cadenceSamples : null,
+                    samples: block.samples,
                 };
             });
         const totalStars = blocks.reduce((sum, block) => sum + block.stars, 0);
+        const prestigeBonus = state.decisions.reduce((sum, decision) => (
+            sum + (decision.choice === 'technical' ? 150 : decision.choice === 'scenic' ? 75 : 0)
+        ), 0);
         return {
+            schemaVersion: 2,
+            scoreAlgorithmVersion: 2,
             adherence,
             score: Math.round(adherence * 10000),
             maxCombo: state.maxCombo,
             blocks,
             totalStars,
             ghostTrace: [...state.ghostTrace],
+            energy: Math.round(state.energy),
+            checkpoints: [...state.checkpoints],
+            decisions: [...state.decisions],
+            status: state.status,
+            prestigeBonus,
         };
     }
 
-    return { update, getResult };
+    return { update, addCheckpoint, chooseRoute, setStatus, getResult };
 }
 
 export function calculateMissionXp({ completed, activeMinutes = 0, totalStars = 0 }) {

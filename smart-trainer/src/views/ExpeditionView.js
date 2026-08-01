@@ -4,12 +4,16 @@ import { SessionController, SESSION_STATE } from '../session/SessionController.j
 import { recordMissionProgress } from '../game/ProgressionService.js';
 import { WakeLockManager } from '../session/WakeLockManager.js';
 import { clearActiveSession } from '../storage/sessions.js';
+import { getCoachingState, getHeartRateZone } from '../game/CoachingEngine.js';
+import { AudioCueService } from '../game/AudioCueService.js';
+import { getPersonalGhost, interpolateGhost } from '../game/GhostService.js';
+import { trackProductEvent } from '../cloud/ProductAnalytics.js';
 
 const EXPEDITION_VISUAL_SETTINGS_KEY = 'smartTrainer_expedition_visuals_v1';
 const DEFAULT_VISUAL_SETTINGS = {
     camera: 'standard',
     hud: 'essential',
-    quality: 'medium',
+    quality: 'auto',
     reducedMotion: false,
 };
 
@@ -23,6 +27,12 @@ export function ExpeditionView({
     onCompleted,
 }) {
     const isDemo = state.connectionState !== 'connected';
+    const mission = workout?.mission || {
+        id: workout?.missionId || workout?.id,
+        version: workout?.missionVersion || 1,
+        title: 'Valle de Aurora', world: 'aurora', terrain: 'Valle · Puerto',
+        objective: 'Completa el entrenamiento', checkpoints: [], decisions: [],
+    };
     const visualSettings = loadVisualSettings();
     const totalDuration = Math.max(1, workout?.stats?.totalDuration || 1);
     const recoveredElapsed = Number(recoveredSession?.elapsedTime || recoveredSession?.duration) || 0;
@@ -70,7 +80,7 @@ export function ExpeditionView({
                 styles: { textAlign: 'center' },
                 children: [
                     createElement('strong', {
-                        text: 'CREANDO VALLE DE AURORA',
+                        text: `CREANDO ${String(mission.title).toUpperCase()}`,
                         styles: { display: 'block', color: '#75ebc1', letterSpacing: '2px' },
                     }),
                     createElement('span', {
@@ -202,6 +212,12 @@ export function ExpeditionView({
     routeProgress.appendChild(routeProgressFill);
     clockStack.appendChild(routeProgress);
 
+    const blockTimer = createElement('span', {
+        text: 'BLOQUE --:--',
+        styles: { color: 'rgba(255,255,255,.66)', fontFamily: typography.fontMono, fontSize: '11px', fontWeight: 800 },
+    });
+    clockStack.appendChild(blockTimer);
+
     const bottom = div({
         styles: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: spacing.md },
     });
@@ -269,6 +285,14 @@ export function ExpeditionView({
     });
     const actualCadence = createElement('span', { text: '0 rpm', styles: { color: 'rgba(255,255,255,.78)' } });
     const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontWeight: 800 } });
+    const energy = createElement('span', { text: 'ENERGÍA 0%', styles: { color: '#ffd166', fontWeight: 800 } });
+    const coach = createElement('strong', {
+        text: 'Adapta el ritmo',
+        attrs: { role: 'status', 'aria-live': 'polite' },
+        styles: { fontSize: '18px', color: '#8ed9ff', letterSpacing: '.2px' },
+    });
+    const heartZone = createElement('span', { text: 'ZONA FC --', styles: { color: 'rgba(255,255,255,.58)', fontSize: '12px' } });
+    const ghostDelta = createElement('span', { text: '', styles: { color: '#8ed9ff', fontSize: '12px', fontWeight: 800 } });
     const metricValues = div({
         styles: {
             display: 'flex',
@@ -276,9 +300,13 @@ export function ExpeditionView({
             gap: '18px',
             alignItems: 'baseline',
         },
-        children: [actualPower, targetPower, actualHeartRate, actualCadence, combo],
+        children: [actualPower, targetPower, actualHeartRate, actualCadence, combo, energy],
     });
-    metrics.append(flowBar, metricValues);
+    const contextValues = div({
+        styles: { display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' },
+        children: [heartZone, ghostDelta],
+    });
+    metrics.append(coach, flowBar, metricValues, contextValues);
     bottom.append(metrics);
     hud.appendChild(bottom);
 
@@ -337,6 +365,22 @@ export function ExpeditionView({
     container.appendChild(visualControls);
     container.appendChild(controls);
 
+    const decisionOverlay = div({
+        attrs: { role: 'dialog', 'aria-label': 'Elige una ruta' },
+        styles: {
+            position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+            width: 'min(760px, calc(100vw - 28px))', display: 'none', zIndex: 5,
+            padding: '20px', borderRadius: '24px', background: 'rgba(5,12,16,.94)',
+            border: '1px solid rgba(255,255,255,.18)', boxShadow: '0 28px 90px rgba(0,0,0,.55)',
+            pointerEvents: 'auto', backdropFilter: 'blur(16px)', textAlign: 'center',
+        },
+    });
+    const decisionTitle = createElement('h2', { text: 'Elige tu ruta', styles: { margin: '0 0 6px' } });
+    const decisionCountdown = createElement('p', { text: 'Ruta segura en 8 s', styles: { color: colors.textMuted, margin: '0 0 16px' } });
+    const decisionButtons = div({ styles: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' } });
+    decisionOverlay.append(decisionTitle, decisionCountdown, decisionButtons);
+    container.appendChild(decisionOverlay);
+
     const briefing = div({
         styles: {
             position: 'absolute',
@@ -363,7 +407,7 @@ export function ExpeditionView({
     });
     card.append(
         createElement('div', {
-            text: 'EXPEDICIÓN 01 · VALLE DE AURORA',
+            text: `${mission.title.toUpperCase()} · V${mission.version}`,
             styles: { color: '#75ebc1', fontSize: typography.sizes.xs, fontWeight: 800, letterSpacing: '1.8px' },
         }),
         createElement('h1', {
@@ -392,8 +436,8 @@ export function ExpeditionView({
         },
         children: [
             briefingStat('DURACIÓN', formatTime(workout?.stats?.totalDuration || 0)),
-            briefingStat('TERRENO', 'Valle · Puerto'),
-            briefingStat('MISIÓN', 'Alcanza la cima'),
+            briefingStat('TERRENO', mission.terrain || 'Ruta mixta'),
+            briefingStat('MISIÓN', mission.objective || 'Completar'),
         ],
     });
     card.appendChild(missionStats);
@@ -417,6 +461,7 @@ export function ExpeditionView({
         ['hidden', 'Inmersivo'],
     ], visualSettings.hud);
     const qualitySelect = configSelect('Calidad', [
+        ['auto', 'Automática'],
         ['low', 'Baja'],
         ['medium', 'Equilibrada'],
         ['high', 'Alta'],
@@ -468,6 +513,21 @@ export function ExpeditionView({
     let hiddenAt = null;
     let promptTimeout = null;
     let finishConfirmTimeout = null;
+    let decisionTimeout = null;
+    let decisionInterval = null;
+    let activeDecision = null;
+    let ghostSession = null;
+    let latestTick = null;
+    let lastCountdownSecond = null;
+    let previousCoachStatus = 'adapting';
+    const reachedCheckpoints = new Set();
+    const shownDecisions = new Set();
+    const blockTypeCounts = new Map();
+    const audio = new AudioCueService({
+        enabled: state.settings.soundEnabled,
+        vibrationEnabled: state.settings.vibrationEnabled,
+        volume: state.settings.soundVolume ?? 0.55,
+    });
     const wakeLock = new WakeLockManager();
 
     const rendererReady = initializeRenderer();
@@ -490,6 +550,7 @@ export function ExpeditionView({
         controls.style.bottom = compact ? '148px' : '18px';
         metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(440px, 84vw)';
         metricValues.style.gap = compact ? '11px' : '18px';
+        decisionButtons.style.gridTemplateColumns = compact ? '1fr' : 'repeat(3, 1fr)';
     };
     applyResponsiveLayout();
     window.addEventListener('resize', applyResponsiveLayout);
@@ -501,6 +562,7 @@ export function ExpeditionView({
                 cameraMode: visualSettings.camera,
                 quality: visualSettings.quality,
                 reducedMotion: visualSettings.reducedMotion,
+                mission,
             });
         } catch (error) {
             console.error('No se pudo iniciar Valle de Aurora en 3D:', error);
@@ -534,6 +596,13 @@ export function ExpeditionView({
         renderer?.setCameraMode?.(visualSettings.camera);
         renderer?.setQuality?.(visualSettings.quality);
         briefing.style.display = 'none';
+        audio.unlock();
+        ghostSession = await getPersonalGhost(mission).catch(() => null);
+        ghostDelta.textContent = ghostSession ? 'GHOST · MEJOR MARCA' : 'SIN GHOST COMPATIBLE';
+        renderer?.update({ ghostVisible: Boolean(ghostSession) });
+        trackProductEvent('mission_started', { missionId: mission.id, missionVersion: mission.version, demo: isDemo });
+        trackProductEvent('render_preset', { missionId: mission.id, quality: visualSettings.quality });
+        if (ghostSession) trackProductEvent('ghost_selected', { missionId: mission.id, source: 'personal_best' });
         pauseButton.disabled = false;
         finishButton.disabled = false;
         if (!resume) {
@@ -554,21 +623,60 @@ export function ExpeditionView({
                 currentTarget = target;
                 targetPower.textContent = target.power ? `Objetivo ${target.power} W` : 'Objetivo libre';
                 modeLabel.textContent = isDemo ? 'MODO DEMO' : result.mode.toUpperCase();
+                if (result.error) showStagePrompt(result.error);
+                if (result.error) trackProductEvent('trainer_control_error', { missionId: mission.id, mode: result.mode });
             },
             onBlockChange: (block) => {
                 blockLabel.textContent = String(block.name || 'TRAMO').toUpperCase();
                 showStagePrompt(getStagePrompt(block.type));
                 renderer?.update({ blockType: block.type });
+                lastCountdownSecond = null;
+                audio.cue('block');
+                const count = (blockTypeCounts.get(block.type) || 0) + 1;
+                blockTypeCounts.set(block.type, count);
+                const decision = (mission.decisions || []).find((candidate) => (
+                    candidate.blockType === block.type
+                    && (candidate.occurrence || 1) === count
+                    && !shownDecisions.has(candidate.id)
+                ));
+                if (decision) showRouteDecision(decision);
             },
             onTick: (tick) => {
+                latestTick = tick;
                 timer.textContent = formatTime(Math.max(0, totalDuration - tick.totalElapsedTime));
+                blockTimer.textContent = `BLOQUE ${formatTime(tick.blockRemainingTime)}`;
                 const progress = Math.max(0, Math.min(1, tick.totalElapsedTime / totalDuration));
                 routeProgressFill.style.width = `${Math.round(progress * 100)}%`;
                 renderer?.update({ progress });
+                const countdown = Math.ceil(tick.blockRemainingTime);
+                if (countdown >= 1 && countdown <= 3 && countdown !== lastCountdownSecond) {
+                    lastCountdownSecond = countdown;
+                    showStagePrompt(String(countdown));
+                    audio.cue('countdown');
+                }
+                for (const checkpoint of mission.checkpoints || []) {
+                    if (progress < checkpoint.progress || reachedCheckpoints.has(checkpoint.id)) continue;
+                    reachedCheckpoints.add(checkpoint.id);
+                    const reached = controller?.addCheckpoint({ id: checkpoint.id, elapsedSeconds: tick.totalElapsedTime });
+                    showStagePrompt(reached?.boost ? 'CHECKPOINT · IMPULSO FLOW' : 'CHECKPOINT ALCANZADO');
+                    audio.cue('checkpoint');
+                }
+                if (ghostSession) {
+                    const ghostPoint = interpolateGhost(ghostSession.gameResult.ghostTrace, tick.totalElapsedTime);
+                    const ownFlow = lastFlow;
+                    const difference = ownFlow - (ghostPoint?.flow || 0);
+                    ghostDelta.textContent = `GHOST ${difference >= 0 ? '+' : ''}${Math.round(difference * 100)} FLOW`;
+                    renderer?.update({
+                        ghostVisible: true,
+                        ghostRouteProgress: ghostPoint?.progress ?? progress,
+                        ghostProgress: Math.max(0, Math.min(1, ghostPoint?.flow ?? 0.5)),
+                    });
+                }
             },
         });
         await controller.start({
             workout,
+            mission,
             experienceMode: 'expedition',
             recoveredSession: resume ? recoveredSession : null,
         });
@@ -586,29 +694,95 @@ export function ExpeditionView({
     }
 
     function ingest(data) {
-        const power = Math.max(0, Number(data.power) || 0);
         const target = Math.max(0, Number(currentTarget?.power) || 0);
-        actualPower.textContent = `${Math.round(power)} W`;
-        actualCadence.textContent = `${Math.round(data.cadence || 0)} rpm`;
-        actualHeartRate.textContent = data.heartRate > 0
-            ? `♥ ${Math.round(data.heartRate)} lpm`
-            : '♥ -- lpm';
-        const gaugeMaximum = target > 0 ? target * 2 : Math.max(400, state.settings.ftp * 2);
-        flowFill.style.width = `${Math.min(100, (power / gaugeMaximum) * 100)}%`;
-        targetMarker.style.display = target > 0 ? 'block' : 'none';
         const flow = controller?.ingestBikeData(data);
         if (!flow) return;
+        const frame = flow.telemetry;
+        const power = Math.max(0, frame.display.power || 0);
+        const cadence = Math.max(0, frame.display.cadence || 0);
+        const hr = frame.display.heartRate;
+        actualPower.textContent = `${Math.round(power)} W`;
+        actualCadence.textContent = `${Math.round(cadence)} rpm`;
+        actualHeartRate.textContent = hr ? `♥ ${Math.round(hr)} lpm` : '♥ -- lpm';
+        const hrZone = getHeartRateZone(hr, state.settings.maxHR, state.settings.restingHR);
+        heartZone.textContent = hrZone ? `Z${hrZone.zone} · ${hrZone.name}` : (frame.quality.heartRate === 'stale' ? 'FC RECONECTANDO' : 'ZONA FC --');
+        heartZone.style.color = hrZone?.color || 'rgba(255,255,255,.58)';
+        const gaugeMaximum = Math.max(400, state.settings.ftp * 1.5, target * 1.5, power * 1.12);
+        flowFill.style.width = `${Math.min(100, (power / gaugeMaximum) * 100)}%`;
+        targetMarker.style.display = target > 0 ? 'block' : 'none';
+        targetMarker.style.left = `${Math.min(100, (target / gaugeMaximum) * 100)}%`;
+        flowBar.setAttribute('aria-label', `Potencia ${Math.round(power)} vatios; objetivo ${target || 'libre'}; escala ${Math.round(gaugeMaximum)}`);
         lastFlow = lastFlow * 0.66 + flow.flow * 0.34;
         combo.textContent = `FLOW ${Math.round(lastFlow * 100)}% · x${flow.combo}`;
+        energy.textContent = `ENERGÍA ${Math.round(flow.energy || 0)}%`;
+        const coaching = getCoachingState({
+            power: frame.control.power,
+            targetPower: currentTarget?.power,
+            cadence: frame.control.cadence,
+            targetCadence: currentTarget?.cadence,
+            secondsInBlock: latestTick?.blockElapsedTime || 0,
+        });
+        coach.textContent = coaching.message;
+        coach.style.color = coaching.color;
+        if (previousCoachStatus !== 'good' && coaching.status === 'good') audio.cue('good');
+        if (previousCoachStatus !== 'off' && coaching.status === 'off' && flow.combo === 0) audio.cue('lost');
+        previousCoachStatus = coaching.status;
         renderer?.update({
             flow: lastFlow,
             power,
-            cadence: data.cadence || 0,
-            speed: data.speed || 0,
+            cadence,
+            speed: frame.display.speed || 0,
             targetPower: currentTarget?.power || 0,
             ghostProgress: Math.max(0.1, Math.min(0.95, 0.62 + (lastFlow - 0.75) * 0.5)),
             paused: false,
         });
+    }
+
+    function showRouteDecision(decision) {
+        if (activeDecision || shownDecisions.has(decision.id)) return;
+        activeDecision = decision;
+        shownDecisions.add(decision.id);
+        let remaining = 8;
+        decisionTitle.textContent = 'Elige tu ruta · el entrenamiento no cambia';
+        decisionCountdown.textContent = `Ruta segura en ${remaining} s`;
+        decisionButtons.replaceChildren();
+        const routes = [
+            ['safe', 'Ruta segura', 'Protege el combo'],
+            ['technical', 'Atajo técnico', 'Más precisión · más prestigio'],
+            ['scenic', 'Ruta panorámica', 'Exploración y coleccionables'],
+        ];
+        for (const [choice, label, description] of routes) {
+            decisionButtons.appendChild(button({
+                text: `${label}\n${description}`,
+                styles: { ...compactButtonStyles(), minHeight: '76px', whiteSpace: 'pre-line', color: choice === 'safe' ? colors.success : colors.text },
+                events: { click: () => resolveRouteDecision(choice, false) },
+            }));
+        }
+        decisionOverlay.style.display = 'block';
+        decisionInterval = setInterval(() => {
+            remaining--;
+            decisionCountdown.textContent = `Ruta segura en ${Math.max(0, remaining)} s`;
+        }, 1000);
+        decisionTimeout = setTimeout(() => resolveRouteDecision('safe', true), 8000);
+    }
+
+    function resolveRouteDecision(choice, automatic) {
+        if (!activeDecision) return;
+        const decision = controller?.chooseRoute({
+            id: activeDecision.id,
+            choice,
+            automatic,
+            elapsedSeconds: latestTick?.totalElapsedTime || 0,
+        });
+        clearInterval(decisionInterval);
+        clearTimeout(decisionTimeout);
+        decisionInterval = null;
+        decisionTimeout = null;
+        decisionOverlay.style.display = 'none';
+        activeDecision = null;
+        showStagePrompt(`${routeChoiceLabel(decision?.choice || choice)} seleccionada`);
+        renderer?.update({ routeChoice: decision?.choice || choice });
+        trackProductEvent('route_decision', { missionId: mission.id, choice: decision?.choice || choice, automatic });
     }
 
     function showStagePrompt(message) {
@@ -629,11 +803,30 @@ export function ExpeditionView({
         await wakeLock.release();
         const result = session.gameResult || {};
         const { gainedXp, progress } = await recordMissionProgress(session);
+        audio.cue(session.status === 'completed' ? 'finish' : 'lost');
+        trackProductEvent(session.status === 'completed' ? 'mission_completed' : 'mission_abandoned', {
+            missionId: mission.id, missionVersion: mission.version, score: result.score || 0,
+        });
         onProgress?.(progress);
+        const completed = session.status === 'completed';
+        const blockResults = div({
+            styles: { display: 'grid', gap: '8px', width: '100%', marginBottom: spacing.lg },
+            children: (result.blocks || []).map((block) => div({
+                styles: {
+                    display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '12px', alignItems: 'center',
+                    padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,.05)',
+                },
+                children: [
+                    createElement('strong', { text: block.name }),
+                    createElement('span', { text: `${Math.round((block.powerAdherence ?? block.adherence) * 100)}% potencia`, styles: { color: colors.textMuted, fontSize: '12px' } }),
+                    createElement('span', { text: `${block.stars} ★`, styles: { color: colors.warning, fontWeight: 800 } }),
+                ],
+            })),
+        });
         card.replaceChildren(
             createElement('div', {
-                text: 'MISIÓN COMPLETADA',
-                styles: { color: colors.success, fontWeight: 800, letterSpacing: '1.5px' },
+                text: completed ? 'MISIÓN COMPLETADA' : 'EXPEDICIÓN FINALIZADA ANTES DE TIEMPO',
+                styles: { color: completed ? colors.success : colors.warning, fontWeight: 800, letterSpacing: '1.5px' },
             }),
             createElement('h1', {
                 text: `${result.totalStars || 0} ★`,
@@ -644,8 +837,15 @@ export function ExpeditionView({
                 styles: { color: colors.textMuted, marginBottom: spacing.lg },
             }),
             createElement('p', {
-                text: `+${gainedXp} XP · Nivel ${progress.level} · ${Math.round(progress.weekly.activeMinutes)}/${progress.weekly.goalMinutes} min esta semana`,
+                text: `${gainedXp > 0 ? `+${gainedXp} XP · ` : ''}Nivel ${progress.level} · ${Math.round(progress.weekly.activeMinutes)}/${progress.weekly.goalMinutes} min esta semana`,
                 styles: { color: colors.primary, marginBottom: spacing.lg, fontWeight: 700 },
+            }),
+            blockResults,
+            createElement('p', {
+                text: result.adherence >= 0.9 ? 'Excelente precisión. Prueba una ruta técnica en la próxima expedición.'
+                    : result.adherence >= 0.75 ? 'Buen ritmo. Tu siguiente mejora está en mantener la potencia durante los cambios.'
+                        : 'Busca primero estabilidad: suaviza las transiciones y deja que el ERG se adapte.',
+                styles: { color: colors.textMuted, lineHeight: 1.5, margin: `0 0 ${spacing.md}` },
             }),
             button({
                 text: 'Ver historial',
@@ -701,7 +901,7 @@ export function ExpeditionView({
     finishButton.addEventListener('click', () => {
         if (finishButton.dataset.confirmFinish === 'true') {
             if (finishConfirmTimeout) clearTimeout(finishConfirmTimeout);
-            controller?.finish();
+            controller?.finish({ status: 'abandoned' });
             return;
         }
         finishButton.dataset.confirmFinish = 'true';
@@ -733,10 +933,14 @@ export function ExpeditionView({
         if (demoInterval) clearInterval(demoInterval);
         if (promptTimeout) clearTimeout(promptTimeout);
         if (finishConfirmTimeout) clearTimeout(finishConfirmTimeout);
+        if (decisionTimeout) clearTimeout(decisionTimeout);
+        if (decisionInterval) clearInterval(decisionInterval);
         if (unsubscribe) unsubscribe();
         demoInterval = null;
         promptTimeout = null;
         finishConfirmTimeout = null;
+        decisionTimeout = null;
+        decisionInterval = null;
         unsubscribe = null;
     }
 
@@ -747,6 +951,7 @@ export function ExpeditionView({
         document.removeEventListener('visibilitychange', handleVisibility);
         window.removeEventListener('resize', applyResponsiveLayout);
         wakeLock.release();
+        audio.destroy();
     };
     return container;
 }
@@ -871,7 +1076,7 @@ function applyHudMode(mode, elements) {
     elements.flowBar.style.display = hidden ? 'none' : 'block';
     elements.metrics.style.opacity = hidden ? '0' : '1';
     elements.metrics.style.pointerEvents = 'none';
-    elements.actualCadence.style.display = full ? 'inline' : 'none';
+    elements.actualCadence.style.display = hidden ? 'none' : 'inline';
     elements.combo.style.display = hidden ? 'none' : 'inline';
 }
 
@@ -906,4 +1111,8 @@ function hudLabel(hud) {
 function cycleValue(current, values) {
     const index = values.indexOf(current);
     return values[(index + 1) % values.length];
+}
+
+function routeChoiceLabel(choice) {
+    return { safe: 'Ruta segura', technical: 'Atajo técnico', scenic: 'Ruta panorámica' }[choice] || 'Ruta segura';
 }

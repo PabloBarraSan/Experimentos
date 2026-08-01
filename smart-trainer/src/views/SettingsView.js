@@ -9,8 +9,10 @@ import { loadSettings, saveSettings, resetSettings, calculatePowerZones } from '
 import { ZWIFT_PLAY_STATE } from '../bluetooth/zwiftPlay.js';
 import {
     getCloudUser,
+    getAuthProviders,
     isCloudConfigured,
     sendMagicLink,
+    signInWithGoogle,
     signOut,
 } from '../cloud/supabase.js';
 
@@ -190,6 +192,9 @@ export function SettingsView({ state, onSave }) {
         checked: settings.soundEnabled,
     });
     prefsFields.appendChild(soundField);
+    prefsFields.appendChild(createNumberField({
+        id: 'soundVolume', label: 'Volumen de avisos', value: Math.round((settings.soundVolume ?? 0.55) * 100), unit: '%', min: 0, max: 100, step: 5,
+    }));
     
     // Vibración
     const vibrationField = createCheckboxField({
@@ -215,7 +220,7 @@ export function SettingsView({ state, onSave }) {
         children: [
             createElement('p', {
                 text: isCloudConfigured()
-                    ? 'Opcional: entra con un enlace mágico para sincronizar sesiones, progreso y fantasmas.'
+                    ? 'Opcional: entra con Google para sincronizar sesiones, progreso, ghosts y retos. El modo invitado siempre sigue disponible.'
                     : 'La app funciona completamente como invitado. Añade las variables de Supabase para activar la sincronización opcional.',
                 styles: { color: colors.textMuted, margin: 0 },
             }),
@@ -472,6 +477,8 @@ async function renderCloudAccount(container) {
         return;
     }
 
+    const providers = await getAuthProviders();
+
     const email = createElement('input', {
         attrs: {
             type: 'email',
@@ -483,6 +490,20 @@ async function renderCloudAccount(container) {
         styles: { ...baseStyles.input, maxWidth: '360px' },
     });
     const status = createElement('span', { styles: { color: colors.textMuted, fontSize: typography.sizes.sm } });
+    const googleLogin = button({
+        text: 'Continuar con Google',
+        styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
+        events: {
+            click: async () => {
+                googleLogin.disabled = true;
+                const { error } = await signInWithGoogle();
+                if (error) {
+                    status.textContent = `No se pudo abrir Google: ${error.message}`;
+                    googleLogin.disabled = false;
+                }
+            },
+        },
+    });
     const login = button({
         text: 'Enviar enlace mágico',
         styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
@@ -501,6 +522,14 @@ async function renderCloudAccount(container) {
             },
         },
     });
+    if (providers.google) {
+        container.append(googleLogin, createElement('span', { text: 'o usa un enlace por correo', styles: { color: colors.textMuted, fontSize: typography.sizes.xs } }));
+    } else {
+        container.appendChild(createElement('span', {
+            text: 'Google está preparado en la app y pendiente de activar en Supabase. Mientras tanto puedes usar el enlace por correo.',
+            styles: { color: colors.warning, fontSize: typography.sizes.sm },
+        }));
+    }
     container.append(email, login, status);
 }
 
@@ -747,6 +776,7 @@ function collectFormData(container) {
     const units = container.querySelector('#units')?.value;
     const soundEnabled = container.querySelector('#soundEnabled')?.checked;
     const vibrationEnabled = container.querySelector('#vibrationEnabled')?.checked;
+    const soundVolume = Math.max(0, Math.min(1, (parseFloat(container.querySelector('#soundVolume')?.value) || 0) / 100));
     const wheelCircumference = container.querySelector('#wheelCircumference')?.value;
     
     return {
@@ -757,6 +787,7 @@ function collectFormData(container) {
         restingHR: restingHR ? parseInt(restingHR, 10) : settings.restingHR,
         units: units || settings.units,
         soundEnabled: soundEnabled ?? settings.soundEnabled,
+        soundVolume,
         vibrationEnabled: vibrationEnabled ?? settings.vibrationEnabled,
         trainer: {
             ...settings.trainer,

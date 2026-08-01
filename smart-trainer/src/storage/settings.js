@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
     units: 'metric',    // 'metric' o 'imperial'
     theme: 'dark',      // 'dark' o 'light'
     soundEnabled: true,
+    soundVolume: 0.55,
     vibrationEnabled: true,
     
     // Zonas personalizadas (% de FTP)

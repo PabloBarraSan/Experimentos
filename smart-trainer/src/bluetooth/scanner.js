@@ -3,7 +3,7 @@
  * Smart Trainer Controller
  */
 
-import { FTMS_UUIDS, parseIndoorBikeData, parseFitnessMachineFeature, parseSupportedResistanceRange } from './ftms.js';
+import { FTMS_UUIDS, parseIndoorBikeData, parseFitnessMachineFeature, parseSupportedPowerRange, parseSupportedResistanceRange } from './ftms.js';
 
 const MAX_DIAGNOSTIC_FRAMES = 600;
 
@@ -560,6 +560,16 @@ export class BluetoothManager {
                 this.logger.info(`   Mínimo: ${this.resistanceRange.minimum}, Máximo: ${this.resistanceRange.maximum}, Incremento: ${this.resistanceRange.increment}`);
             } catch (e) {
                 this.logger.warn('No se pudo leer el rango de resistencia:', e);
+            }
+        }
+
+        if (this.characteristics.supportedPower) {
+            try {
+                const powerRangeValue = await this.characteristics.supportedPower.readValue();
+                this.powerRange = parseSupportedPowerRange(powerRangeValue);
+                this.logger.info('Rango de potencia soportado:', this.powerRange);
+            } catch (error) {
+                this.logger.warn('No se pudo leer el rango de potencia:', error);
             }
         }
     }

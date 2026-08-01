@@ -239,12 +239,12 @@ export function addDataPoint(session, data) {
 /**
  * Finalizar sesión y calcular métricas
  */
-export async function finishSession(session, metrics) {
+export async function finishSession(session, metrics, status = session.status === 'abandoned' ? 'abandoned' : 'completed') {
     session.endTime = Date.now();
     const wallDuration = Math.max(0, (session.endTime - session.startTime) / 1000);
     session.activeDuration = metrics?.duration ?? session.elapsedTime ?? Math.max(0, wallDuration - (session.pausedDuration || 0));
     session.duration = session.activeDuration;
-    session.status = 'completed';
+    session.status = status;
     session.metrics = metrics;
     
     await saveSession(session);

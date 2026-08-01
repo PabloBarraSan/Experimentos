@@ -1,5 +1,6 @@
 import { getSyncJobs, removeSyncJob } from '../storage/sessions.js';
 import { getCloudUser, getSupabaseClient, isCloudConfigured } from './supabase.js';
+import { trackProductEvent } from './ProductAnalytics.js';
 
 let flushPromise = null;
 
@@ -26,7 +27,10 @@ async function runFlush() {
         const { error } = await client.functions.invoke('complete-session', {
             body: job.payload,
         });
-        if (error) continue;
+        if (error) {
+            trackProductEvent('sync_error', { jobType: job.type, message: error.message?.slice(0, 120) || 'unknown' });
+            continue;
+        }
         await removeSyncJob(job.id);
         synced++;
     }

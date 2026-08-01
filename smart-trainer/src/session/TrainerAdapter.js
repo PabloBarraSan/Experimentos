@@ -3,32 +3,57 @@ export class TrainerAdapter {
         this.manager = bluetoothManager;
         this.capabilities = capabilities || {};
         this.controlMode = 'manual';
+        this.lastTargetKey = null;
+        this.commandLog = [];
     }
 
-    async applyTarget(target) {
+    async applyTarget(target, { force = false } = {}) {
         if (!this.manager || !target) return { mode: 'manual', applied: false };
 
+        const targetKey = `${target.power ?? ''}:${target.resistance ?? ''}`;
+        if (!force && targetKey === this.lastTargetKey) {
+            return { mode: this.controlMode, applied: true, deduplicated: true };
+        }
+
         if (Number.isFinite(target.power) && this.capabilities.powerTargetSupported !== false) {
-            try {
-                await this.manager.setTargetPower(target.power);
-                this.controlMode = 'erg';
-                return { mode: 'erg', applied: true, value: target.power };
-            } catch {
-                this.controlMode = 'manual';
+            const result = await this.runCommand('erg', target.power, () => this.manager.setTargetPower(target.power));
+            if (result.applied) {
+                this.lastTargetKey = targetKey;
+                return result;
             }
         }
 
         if (Number.isFinite(target.resistance)) {
-            try {
-                await this.manager.setResistance(target.resistance);
-                this.controlMode = 'resistance';
-                return { mode: 'resistance', applied: true, value: target.resistance };
-            } catch {
-                this.controlMode = 'manual';
+            const result = await this.runCommand('resistance', target.resistance, () => this.manager.setResistance(target.resistance));
+            if (result.applied) {
+                this.lastTargetKey = targetKey;
+                return result;
             }
         }
 
         return { mode: 'manual', applied: false };
+    }
+
+    async runCommand(mode, value, command) {
+        let lastError = null;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                await command();
+                this.controlMode = mode;
+                const entry = { timestamp: Date.now(), mode, value, attempt, success: true };
+                this.commandLog.push(entry);
+                return { mode, value, applied: true, attempt };
+            } catch (error) {
+                lastError = error;
+                this.commandLog.push({ timestamp: Date.now(), mode, value, attempt, success: false, error: error?.message || String(error) });
+            }
+        }
+        this.controlMode = 'manual';
+        return { mode: 'manual', value, applied: false, error: lastError?.message || 'El rodillo no confirmó el objetivo' };
+    }
+
+    getDiagnosticLog() {
+        return this.commandLog.map((entry) => ({ ...entry }));
     }
 
     async pause() {

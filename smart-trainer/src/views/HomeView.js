@@ -8,6 +8,7 @@ import { createElement, div, button, icon } from '../utils/dom.js';
 import { checkBluetoothSupport, CONNECTION_STATE } from '../bluetooth/scanner.js';
 import { HR_CONNECTION_STATE } from '../bluetooth/heartRate.js';
 import { navigateToGame, navigateTo, navigateToRide } from '../app.js';
+import { WORKOUT_PRESETS } from '../workouts/presets.js';
 
 /**
  * Vista de inicio con botón de conexión
@@ -129,7 +130,7 @@ export function HomeView(state) {
         flexDirection: 'column',
         alignItems: 'stretch',
         width: '100%',
-        maxWidth: '400px',
+        maxWidth: '980px',
         margin: '0 auto',
         padding: '24px',
         paddingTop: '40px',
@@ -382,62 +383,47 @@ export function HomeView(state) {
     });
     document.body.appendChild(infoModalEl);
     
-    // Hero: logo animado + título
-    const logoInner = div({
-        styles: {
-            background: 'linear-gradient(145deg, #222, #111)',
-            borderRadius: '50%',
-            width: '70px',
-            height: '70px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-            zIndex: 2,
-            border: '1px solid rgba(255,255,255,0.1)',
-        },
-        children: [
-            createElement('span', {
-                html: '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
-            }),
-        ],
-    });
-    const logoRing = div({
-        className: 'logo-ring',
-        styles: { position: 'absolute', width: '100%', height: '100%', borderRadius: '50%', top: 0, left: 0 },
-    });
-    const logoContainer = div({
-        styles: {
-            width: '84px',
-            height: '84px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: spacing.md,
-            position: 'relative',
-        },
-        children: [logoRing, logoInner],
-    });
+    // La acción principal ocupa el primer viewport; el resto del hub queda debajo.
     const hero = div({
         styles: {
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
+            textAlign: 'left',
             marginBottom: '32px',
+            alignItems: 'stretch',
+            padding: 'clamp(24px, 5vw, 54px)',
+            borderRadius: '32px',
+            background: 'radial-gradient(circle at 85% 10%, rgba(99,224,181,.18), transparent 38%), linear-gradient(135deg, rgba(24,43,45,.96), rgba(10,15,20,.98))',
+            border: '1px solid rgba(255,255,255,.11)',
+            boxShadow: '0 24px 80px rgba(0,0,0,.32)',
         },
         children: [
-            logoContainer,
+            createElement('span', { text: 'TU PRÓXIMA EXPEDICIÓN', styles: { color: colors.primary, fontSize: '11px', fontWeight: 800, letterSpacing: '1.8px' } }),
             createElement('h1', {
-                text: 'Smart Trainer',
+                text: 'Valle de Aurora',
                 attrs: { class: 'hero-title-gradient' },
                 styles: {
                     fontFamily: typography.fontDisplay,
                     fontWeight: 800,
-                    fontSize: '32px',
-                    margin: 0,
+                    fontSize: 'clamp(38px, 7vw, 72px)',
+                    margin: '10px 0 12px',
                     letterSpacing: '-1px',
                 },
+            }),
+            createElement('p', {
+                text: '10 minutos para encontrar tu Flow. Potencia precisa, decisiones seguras y un valle que responde a tu pedaleo.',
+                styles: { margin: '0 0 22px', color: colors.textMuted, maxWidth: '600px', fontSize: '16px', lineHeight: 1.55 },
+            }),
+            div({
+                styles: { display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' },
+                children: [
+                    button({
+                        text: isConnected ? 'Comenzar expedición' : 'Probar en modo demo',
+                        styles: { ...premiumConnectButtonStyles, minHeight: '50px', padding: '0 24px', border: 0, borderRadius: '14px', fontWeight: 800, cursor: 'pointer' },
+                        events: { click: () => { state.selectedWorkout = WORKOUT_PRESETS.AURORA_EXPEDITION; state.recoveredSession = null; navigateTo('expedition'); } },
+                    }),
+                    createElement('span', { text: '10 MIN · INTERVALOS · RECOMPENSA AURORA', styles: { color: 'rgba(255,255,255,.46)', fontSize: '11px', fontWeight: 800 } }),
+                ],
             }),
         ],
     });
@@ -612,7 +598,7 @@ export function HomeView(state) {
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
                 gap: '12px',
-                width: '100%',
+                width: 'min(440px, 100%)',
                 marginBottom: '32px',
             },
             children: [makeDeviceTile('rodillo'), makeDeviceTile('pulso')],
@@ -736,7 +722,7 @@ export function HomeView(state) {
         children: [
             sectionTitle('Modos de Entrenamiento'),
             div({
-                styles: { display: 'flex', flexDirection: 'column', gap: '12px' },
+                styles: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' },
                 children: [
                     ...(state.recoveredSession && state.selectedWorkout ? [
                         createActionCard({
@@ -798,7 +784,7 @@ export function HomeView(state) {
         children: [
             sectionTitle('Datos'),
             div({
-                styles: { display: 'flex', flexDirection: 'column', gap: '12px' },
+                styles: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' },
                 children: [
                     ...(state.progress ? [
                         createActionCard({
@@ -818,6 +804,15 @@ export function HomeView(state) {
                         title: 'Mis Entrenamientos',
                         description: 'Historial, estadísticas y progreso.',
                         onClick: () => navigateTo('history'),
+                        locked: false,
+                    }),
+                    createActionCard({
+                        iconName: 'game',
+                        iconBg: 'rgba(142, 217, 255, 0.15)',
+                        iconColor: '#8ed9ff',
+                        title: 'Retos y ghosts',
+                        description: 'Compara precisión y marcas con tus amigos.',
+                        onClick: () => navigateTo('challenges'),
                         locked: false,
                     }),
                     createActionCard({

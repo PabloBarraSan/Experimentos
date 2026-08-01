@@ -46,6 +46,15 @@ export async function sendMagicLink(email) {
     });
 }
 
+export async function signInWithGoogle() {
+    const client = await getSupabaseClient();
+    if (!client) throw new Error('La nube no está configurada');
+    return client.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname },
+    });
+}
+
 export async function signOut() {
     const client = await getSupabaseClient();
     return client?.auth.signOut();
@@ -56,4 +65,17 @@ export async function getCloudUser() {
     if (!client) return null;
     const { data } = await client.auth.getUser();
     return data.user || null;
+}
+
+export async function getAuthProviders() {
+    if (!isCloudConfigured()) return { google: false, email: false };
+    try {
+        const response = await fetch(`${getProjectUrl()}/auth/v1/settings`, {
+            headers: { apikey: getPublicKey() },
+        });
+        const settings = await response.json();
+        return { google: Boolean(settings.external?.google), email: Boolean(settings.external?.email) };
+    } catch {
+        return { google: false, email: true };
+    }
 }

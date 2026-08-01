@@ -12,6 +12,12 @@ const QUALITY_PRESETS = {
     high: { pixelRatio: 2, shadows: true, trees: 190, particles: 140 },
 };
 
+const WORLD_STYLES = {
+    aurora: { ground: 0x345b43, shoulder: 0xb79b72, roadEdge: 0xd7c69e, sky: 0x70a8c7, fog: 0x86b5ad, tree: 0x285d43 },
+    mist: { ground: 0x203f35, shoulder: 0x6d7662, roadEdge: 0xaeb7a1, sky: 0x607d80, fog: 0x80958d, tree: 0x173e34 },
+    north: { ground: 0x35454a, shoulder: 0x8d8d82, roadEdge: 0xd0d2c8, sky: 0x627892, fog: 0x8d9ba4, tree: 0x294449 },
+};
+
 const BLOCK_PALETTES = {
     warmup: { accent: 0xffbf69, fog: 0xc7a47f, sky: 0x809fc0 },
     cooldown: { accent: 0x89d8ff, fog: 0x7894b4, sky: 0x536f9a },
@@ -33,11 +39,14 @@ class ExpeditionRenderer3D {
         cameraMode = 'standard',
         quality = 'medium',
         reducedMotion = false,
+        mission = null,
     } = {}) {
         this.canvas = canvas;
         this.cameraMode = CAMERA_PRESETS[cameraMode] ? cameraMode : 'standard';
-        this.quality = QUALITY_PRESETS[quality] ? quality : 'medium';
+        this.quality = resolveQuality(quality);
         this.reducedMotion = reducedMotion;
+        this.mission = mission || { world: 'aurora' };
+        this.worldStyle = WORLD_STYLES[this.mission.world] || WORLD_STYLES.aurora;
         this.state = {
             flow: 0,
             power: 0,
@@ -46,6 +55,8 @@ class ExpeditionRenderer3D {
             targetPower: 0,
             blockType: 'steady',
             ghostProgress: 0.72,
+            ghostRouteProgress: null,
+            ghostVisible: false,
             progress: 0,
             paused: true,
         };
@@ -70,6 +81,7 @@ class ExpeditionRenderer3D {
         this.player = createCyclist({ accent: 0x63e0b5, ghost: false });
         this.ghost = createCyclist({ accent: 0x8ed9ff, ghost: true });
         this.player.group.scale.setScalar(1.5);
+        this.ghost.group.visible = false;
         this.scene.add(this.player.group, this.ghost.group);
         this.buildFlowParticles();
         this.resize();
@@ -97,8 +109,8 @@ class ExpeditionRenderer3D {
 
     setupScene() {
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x70a8c7);
-        this.scene.fog = new THREE.FogExp2(0x86b5ad, 0.0048);
+        this.scene.background = new THREE.Color(this.worldStyle.sky);
+        this.scene.fog = new THREE.FogExp2(this.worldStyle.fog, this.mission.world === 'mist' ? 0.007 : 0.0048);
 
         this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, 900);
         this.camera.position.set(0, 5, -10);
@@ -143,7 +155,7 @@ class ExpeditionRenderer3D {
         this.routeLength = this.routeCurve.getLength();
 
         this.groundMaterial = new THREE.MeshStandardMaterial({
-            color: 0x345b43,
+            color: this.worldStyle.ground,
             roughness: 1,
             metalness: 0,
         });
@@ -157,7 +169,7 @@ class ExpeditionRenderer3D {
         this.scene.add(ground);
 
         this.shoulderMaterial = new THREE.MeshStandardMaterial({
-            color: 0xb79b72,
+            color: this.worldStyle.shoulder,
             roughness: 1,
         });
         this.roadMaterial = new THREE.MeshStandardMaterial({
@@ -166,7 +178,7 @@ class ExpeditionRenderer3D {
             metalness: 0.02,
         });
         this.roadEdgeMaterial = new THREE.MeshStandardMaterial({
-            color: 0xd7c69e,
+            color: this.worldStyle.roadEdge,
             roughness: 0.8,
         });
         this.scene.add(
@@ -179,6 +191,7 @@ class ExpeditionRenderer3D {
         this.buildTrees();
         this.buildSceneryDetails();
         this.buildLandmarks();
+        this.buildBridge();
     }
 
     buildRoadMarkings() {
@@ -231,9 +244,9 @@ class ExpeditionRenderer3D {
             this.mountains.add(mountain);
 
             if (index % 2 === 0) {
-                const capHeight = height * 0.22;
+                const capHeight = height * 0.24;
                 const snowCap = new THREE.Mesh(
-                    new THREE.ConeGeometry(radius * 0.24, capHeight, 10, 2),
+                    createMountainGeometry(radius * 0.34, capHeight, index + 700),
                     new THREE.MeshStandardMaterial({
                         color: 0xdce8df,
                         roughness: 1,
@@ -259,7 +272,7 @@ class ExpeditionRenderer3D {
         const upperCanopyGeometry = new THREE.ConeGeometry(0.92, 3.2, 7);
         const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x6e4d33, roughness: 1 });
         const canopyMaterial = new THREE.MeshStandardMaterial({
-            color: 0x27583f,
+            color: this.worldStyle.tree,
             roughness: 0.95,
             flatShading: true,
         });
@@ -449,6 +462,33 @@ class ExpeditionRenderer3D {
         this.beacon = beacon;
     }
 
+    buildBridge() {
+        const bridge = new THREE.Group();
+        const stone = new THREE.MeshStandardMaterial({ color: 0x555d5d, roughness: 0.92 });
+        const rail = new THREE.MeshStandardMaterial({ color: 0xd9c99e, roughness: 0.7 });
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.42, 16), stone);
+        deck.position.y = -0.32;
+        bridge.add(deck);
+        for (const side of [-3.8, 3.8]) {
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.1, 16), rail);
+            beam.position.set(side, 0.48, 0);
+            bridge.add(beam);
+            for (let z = -7; z <= 7; z += 2) {
+                const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 0.2), rail);
+                post.position.set(side, 0.12, z);
+                bridge.add(post);
+            }
+        }
+        positionOnCurve(bridge, this.routeCurve, 0.34, -0.02);
+        bridge.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        this.scene.add(bridge);
+    }
+
     buildFlowParticles() {
         const count = QUALITY_PRESETS[this.quality].particles;
         const positions = new Float32Array(count * 3);
@@ -480,9 +520,10 @@ class ExpeditionRenderer3D {
     }
 
     setQuality(quality) {
-        if (!QUALITY_PRESETS[quality] || this.quality === quality) return;
-        this.quality = quality;
-        const preset = QUALITY_PRESETS[quality];
+        const resolved = resolveQuality(quality);
+        if (this.quality === resolved) return;
+        this.quality = resolved;
+        const preset = QUALITY_PRESETS[resolved];
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, preset.pixelRatio));
         this.renderer.shadowMap.enabled = preset.shadows;
         this.sunLight.castShadow = preset.shadows;
@@ -501,20 +542,24 @@ class ExpeditionRenderer3D {
 
         const t = (this.visualDistance % this.routeLength) / this.routeLength;
         const position = this.routeCurve.getPointAt(t);
-        const tangent = flattenTangent(this.routeCurve.getTangentAt(t));
+        const routeTangent = this.routeCurve.getTangentAt(t).normalize();
+        const tangent = flattenTangent(routeTangent);
         const side = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
         const playerPosition = position.clone().add(new THREE.Vector3(0, 0.58, 0));
-        orientAlongCurve(this.player.group, playerPosition, tangent);
+        orientAlongCurve(this.player.group, playerPosition, routeTangent);
 
         const cadence = active ? Math.max(0, Number(this.state.cadence) || 0) : 0;
         const crankSpeed = cadence > 0 ? cadence * Math.PI * 2 / 60 : visualSpeed * 0.9;
         this.player.crankAngle += delta * crankSpeed;
         animateCyclist(this.player, this.player.crankAngle, visualSpeed, this.state.flow, active);
 
+        this.ghost.group.visible = Boolean(this.state.ghostVisible);
         const ghostLead = 12 + (1 - this.state.ghostProgress) * 26;
-        const ghostT = ((this.visualDistance + ghostLead) % this.routeLength) / this.routeLength;
+        const ghostT = Number.isFinite(this.state.ghostRouteProgress)
+            ? ((this.state.ghostRouteProgress % 1) + 1) % 1
+            : ((this.visualDistance + ghostLead) % this.routeLength) / this.routeLength;
         const ghostPosition = this.routeCurve.getPointAt(ghostT).add(new THREE.Vector3(0, 0.58, 0));
-        const ghostTangent = flattenTangent(this.routeCurve.getTangentAt(ghostT));
+        const ghostTangent = this.routeCurve.getTangentAt(ghostT).normalize();
         orientAlongCurve(this.ghost.group, ghostPosition, ghostTangent);
         this.ghost.crankAngle += delta * Math.max(4.8, crankSpeed * 0.96);
         animateCyclist(this.ghost, this.ghost.crankAngle, visualSpeed, 0.5, active);
@@ -812,7 +857,8 @@ function alignTube(mesh, start, end) {
 
 function orientAlongCurve(object, position, tangent) {
     object.position.copy(position);
-    object.rotation.set(0, Math.atan2(tangent.x, tangent.z), 0);
+    const horizontal = Math.max(0.0001, Math.hypot(tangent.x, tangent.z));
+    object.rotation.set(-Math.atan2(tangent.y, horizontal), Math.atan2(tangent.x, tangent.z), 0);
 }
 
 function positionOnCurve(object, curve, t, height) {
@@ -829,18 +875,19 @@ function flattenTangent(tangent) {
 }
 
 function createMountainGeometry(radius, height, seed) {
-    const geometry = new THREE.ConeGeometry(radius, height, 12, 5, false);
+    const geometry = new THREE.IcosahedronGeometry(1, 2);
     const positions = geometry.getAttribute('position');
     for (let index = 0; index < positions.count; index += 1) {
         const x = positions.getX(index);
         const y = positions.getY(index);
         const z = positions.getZ(index);
         const angle = Math.atan2(z, x);
-        const normalizedHeight = Math.max(0, Math.min(1, (y + height / 2) / height));
+        const normalizedHeight = Math.max(0, Math.min(1, (y + 1) / 2));
         const ridge = Math.sin(angle * 3 + seed * 0.73) * 0.14
             + Math.sin(angle * 5 - seed * 0.41) * 0.07;
-        const irregularity = 1 + ridge * (1 - normalizedHeight * 0.72);
-        positions.setXYZ(index, x * irregularity, y, z * irregularity);
+        const taper = 0.34 + (1 - normalizedHeight) * 0.9;
+        const irregularity = radius * taper * (1 + ridge * (1 - normalizedHeight * 0.55));
+        positions.setXYZ(index, x * irregularity, (normalizedHeight - 0.5) * height, z * irregularity);
     }
     positions.needsUpdate = true;
     geometry.computeVertexNormals();
@@ -850,4 +897,13 @@ function createMountainGeometry(radius, height, seed) {
 function seeded(value) {
     const x = Math.sin(value * 12.9898 + 78.233) * 43758.5453;
     return x - Math.floor(x);
+}
+
+function resolveQuality(quality) {
+    if (QUALITY_PRESETS[quality]) return quality;
+    const memory = Number(navigator.deviceMemory) || 4;
+    const cores = Number(navigator.hardwareConcurrency) || 4;
+    if (memory <= 2 || cores <= 2) return 'low';
+    if (memory >= 8 && cores >= 8) return 'high';
+    return 'medium';
 }

@@ -58,4 +58,18 @@ describe('expedition flow scoring', () => {
     expect([0.49, 0.50, 0.75, 0.90].map(starsForAdherence)).toEqual([0, 1, 2, 3]);
     expect(calculateMissionXp({ completed: true, activeMinutes: 200, totalStars: 6 })).toBe(320);
   });
+
+  it('stores safe route decisions and consumes energy at checkpoints', () => {
+    const tracker = createFlowTracker();
+    for (let second = 0; second < 40; second++) {
+      tracker.update({ power: 200, targetPower: 200, elapsedSeconds: second, totalDuration: 100 });
+    }
+    const checkpoint = tracker.addCheckpoint({ id: 'gate', elapsedSeconds: 40 });
+    expect(checkpoint.boost).toBe(true);
+    expect(tracker.chooseRoute({ id: 'fork', choice: 'technical', automatic: false }).choice).toBe('technical');
+    const result = tracker.getResult();
+    expect(result.checkpoints).toHaveLength(1);
+    expect(result.decisions).toHaveLength(1);
+    expect(result.prestigeBonus).toBe(150);
+  });
 });

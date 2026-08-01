@@ -53,9 +53,9 @@ export function WorkoutsView({ state, onBack, onSelectWorkout }) {
                 },
                 events: { click: onBack },
             }),
-            createElement('h1', { text: '📚 Biblioteca de Entrenamientos', styles: titleStyles }),
+            createElement('h1', { text: 'Mapa de expediciones', styles: titleStyles }),
             createElement('p', { 
-                text: 'Selecciona un entrenamiento o crea uno personalizado', 
+                text: 'Elige una ruta de 10, 20 o 30 minutos. Todas premian precisión, no vatios extra.',
                 styles: subtitleStyles 
             }),
         ],
@@ -118,9 +118,10 @@ export function WorkoutsView({ state, onBack, onSelectWorkout }) {
         selectedCategory = category;
         workoutsGrid.innerHTML = '';
         
-        const workouts = category === 'all' 
+        const workouts = (category === 'all'
             ? getAllPresets()
-            : getPresetsByCategory(category);
+            : getPresetsByCategory(category))
+            .sort((a, b) => Number(Boolean(b.mission)) - Number(Boolean(a.mission)));
         
         workouts.forEach(workout => {
             const card = createWorkoutCard(workout, () => {
@@ -157,17 +158,22 @@ export function WorkoutsView({ state, onBack, onSelectWorkout }) {
  * Tarjeta de entrenamiento
  */
 function createWorkoutCard(workout, onClick) {
+    const isMission = Boolean(workout.mission);
     const cardStyles = {
         ...baseStyles.card,
         padding: '0',
         overflow: 'hidden',
         cursor: 'pointer',
         transition: transitions.normal,
+        border: isMission ? '1px solid rgba(99,224,181,.32)' : baseStyles.card.border,
+        background: isMission
+            ? 'radial-gradient(circle at 90% 0%, rgba(99,224,181,.13), transparent 42%), linear-gradient(145deg, rgba(22,39,41,.98), rgba(12,18,22,.98))'
+            : baseStyles.card.background,
     };
     
     const headerStyles = {
         padding: spacing.md,
-        backgroundColor: colors.surfaceLight,
+        backgroundColor: isMission ? 'rgba(99,224,181,.045)' : colors.surfaceLight,
         borderBottom: `1px solid ${colors.border}`,
     };
     
@@ -263,6 +269,7 @@ function createWorkoutCard(workout, onClick) {
                     }),
                 ],
             }),
+            ...(isMission ? [createElement('span', { text: `${workout.mission.title.toUpperCase()} · V${workout.mission.version}`, styles: { color: colors.primary, fontSize: '10px', fontWeight: 800, letterSpacing: '1.3px' } })] : []),
             createElement('p', { text: workout.description, styles: descStyles }),
         ],
     });

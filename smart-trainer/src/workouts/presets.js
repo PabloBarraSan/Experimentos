@@ -5,11 +5,18 @@
 
 import { createWorkout, createBlock, BLOCK_TYPES, TARGET_TYPES } from './model.js';
 
+function withMission(workout, mission) {
+    workout.missionId = mission.id;
+    workout.missionVersion = mission.version;
+    workout.mission = mission;
+    return workout;
+}
+
 /**
  * Biblioteca de entrenamientos predefinidos
  */
 export const WORKOUT_PRESETS = {
-    AURORA_EXPEDITION: createWorkout({
+    AURORA_EXPEDITION: withMission(createWorkout({
         name: 'Valle de Aurora · 10 min',
         description: 'Una expedición corta para descubrir el valle: sigue al guía, cruza el puerto y termina en la baliza de la cima.',
         author: 'Smart Trainer',
@@ -62,6 +69,56 @@ export const WORKOUT_PRESETS = {
                 instructions: 'Misión cumplida. Suelta las piernas.',
             }),
         ],
+    }), {
+        id: 'aurora-10', version: 2, world: 'aurora', title: 'Valle de Aurora',
+        terrain: 'Valle · Puerto', objective: 'Alcanza la baliza', quality: 'medium',
+        checkpoints: [{ id: 'aurora-gate', progress: 0.48 }, { id: 'aurora-summit', progress: 0.86 }],
+        decisions: [{ id: 'aurora-fork', blockType: 'rest', choices: ['safe', 'technical', 'scenic'] }],
+        rewards: ['jersey-aurora'], ghostVersion: 2,
+    }),
+
+    MIST_FOREST_EXPEDITION: withMission(createWorkout({
+        name: 'Bosque de Bruma · 20 min',
+        description: 'Tempo, control de cadencia y dos bifurcaciones en un bosque que despierta con tu Flow.',
+        author: 'Smart Trainer', category: 'endurance', difficulty: 'medium',
+        tags: ['expedición', '20min', 'tempo', 'ghost'],
+        blocks: [
+            createBlock({ type: BLOCK_TYPES.WARMUP, duration: 240, name: 'Sendero húmedo', targetValue: 48, cadenceTarget: 82 }),
+            createBlock({ type: BLOCK_TYPES.STEADY, duration: 240, name: 'Pinos de cristal', targetValue: 72, cadenceTarget: 88 }),
+            createBlock({ type: BLOCK_TYPES.REST, duration: 90, name: 'Claro de la niebla', targetValue: 52, cadenceTarget: 82 }),
+            createBlock({ type: BLOCK_TYPES.INTERVAL, duration: 120, name: 'Lomas gemelas', targetValue: 88, repeat: 2, restBetween: 60, restTargetValue: 50, cadenceTarget: 90 }),
+            createBlock({ type: BLOCK_TYPES.STEADY, duration: 210, name: 'Corazón del bosque', targetValue: 76, cadenceTarget: 88 }),
+            createBlock({ type: BLOCK_TYPES.COOLDOWN, duration: 120, name: 'Refugio de Bruma', targetValue: 44, cadenceTarget: 78 }),
+        ],
+    }), {
+        id: 'mist-forest-20', version: 1, world: 'mist', title: 'Bosque de Bruma',
+        terrain: 'Bosque · Colinas', objective: 'Cruza la niebla', quality: 'medium',
+        checkpoints: [{ id: 'mist-arch', progress: 0.28 }, { id: 'mist-heart', progress: 0.62 }, { id: 'mist-refuge', progress: 0.9 }],
+        decisions: [{ id: 'mist-fork-1', blockType: 'rest', occurrence: 1 }, { id: 'mist-fork-2', blockType: 'cooldown', occurrence: 1 }],
+        rewards: ['trail-mist'], ghostVersion: 1,
+    }),
+
+    NORTHERN_PEAKS_EXPEDITION: withMission(createWorkout({
+        name: 'Cumbres del Norte · 30 min',
+        description: 'Una ascensión progresiva con checkpoints de precisión y una elección final de riesgo y recompensa.',
+        author: 'Smart Trainer', category: 'intervals', difficulty: 'hard',
+        tags: ['expedición', '30min', 'climber', 'progresivo'],
+        blocks: [
+            createBlock({ type: BLOCK_TYPES.WARMUP, duration: 300, name: 'Valle del Norte', targetValue: 45, targetValueEnd: 60, cadenceTarget: 82 }),
+            createBlock({ type: BLOCK_TYPES.STEADY, duration: 300, name: 'Ladera abierta', targetValue: 72, cadenceTarget: 86 }),
+            createBlock({ type: BLOCK_TYPES.REST, duration: 90, name: 'Fuente de piedra', targetValue: 48, cadenceTarget: 78 }),
+            createBlock({ type: BLOCK_TYPES.RAMP, duration: 300, name: 'Paso del viento', targetValue: 70, targetValueEnd: 90, cadenceTarget: 88 }),
+            createBlock({ type: BLOCK_TYPES.REST, duration: 90, name: 'Collado seguro', targetValue: 50, cadenceTarget: 80 }),
+            createBlock({ type: BLOCK_TYPES.INTERVAL, duration: 150, name: 'Ataques de cumbre', targetValue: 96, repeat: 2, restBetween: 60, restTargetValue: 50, cadenceTarget: 90 }),
+            createBlock({ type: BLOCK_TYPES.STEADY, duration: 210, name: 'Arista final', targetValue: 82, cadenceTarget: 88 }),
+            createBlock({ type: BLOCK_TYPES.COOLDOWN, duration: 150, name: 'Mirador del Norte', targetValue: 42, cadenceTarget: 76 }),
+        ],
+    }), {
+        id: 'northern-peaks-30', version: 1, world: 'north', title: 'Cumbres del Norte',
+        terrain: 'Puerto · Cumbre', objective: 'Conquista la arista', quality: 'high',
+        checkpoints: [{ id: 'north-pass', progress: 0.25 }, { id: 'north-wind', progress: 0.52 }, { id: 'north-ridge', progress: 0.76 }, { id: 'north-summit', progress: 0.94 }],
+        decisions: [{ id: 'north-fork-1', blockType: 'rest', occurrence: 1 }, { id: 'north-fork-2', blockType: 'rest', occurrence: 2 }],
+        rewards: ['bike-north'], ghostVersion: 1,
     }),
     
     // === TESTS ===

@@ -1,3 +1,5 @@
+import { createTelemetryPipeline } from '../telemetry/TelemetryPipeline.js';
+
 const SAFE_ERG_TARGETS = new Set([80, 120, 160]);
 const SAFE_RESISTANCE_TARGETS = new Set([0, 20, 35]);
 const MAX_SAMPLES = 600;
@@ -27,6 +29,7 @@ export class TrainerDiagnosticSession {
         this.events = [];
         this.commandResults = [];
         this.activeTargetPower = null;
+        this.telemetryPipeline = createTelemetryPipeline();
     }
 
     recordTelemetry(data, timestamp = this.now()) {
@@ -45,6 +48,7 @@ export class TrainerDiagnosticSession {
             cadenceEncoding: data.cadenceEncoding || null,
             rawFtms: data.rawFtms ? sanitizeDetails(data.rawFtms) : null,
         };
+        sample.processed = this.telemetryPipeline.ingest(data, timestamp);
         this.samples.push(sample);
         if (this.samples.length > MAX_SAMPLES) this.samples.shift();
         return sample;
@@ -282,6 +286,24 @@ export function createTrainerSimulator({ latencyMs = 35 } = {}) {
             };
         },
         getState: () => ({ ...state, commandLog: [...state.commandLog] }),
+    };
+}
+
+export function createTelemetryReplay(trace, { loop = false } = {}) {
+    const samples = typeof trace === 'string' ? JSON.parse(trace) : trace;
+    if (!Array.isArray(samples) || !samples.length) throw new Error('La traza no contiene muestras');
+    let index = 0;
+    return {
+        next() {
+            if (index >= samples.length) {
+                if (!loop) return { done: true, value: null };
+                index = 0;
+            }
+            const value = samples[index++];
+            return { done: false, value: sanitizeDetails(value.processed?.raw || value) };
+        },
+        reset() { index = 0; },
+        get length() { return samples.length; },
     };
 }
 

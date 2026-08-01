@@ -17,9 +17,11 @@ import { ExpeditionView } from './views/ExpeditionView.js';
 import { TrainerDiagnosticsView } from './views/TrainerDiagnosticsView.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './router.js';
-import { getActiveSession, getProgress } from './storage/sessions.js';
+import { getActiveSession, getProgress, saveProgress } from './storage/sessions.js';
 import { getAllPresets } from './workouts/presets.js';
 import { startBackgroundSync } from './cloud/CloudSyncService.js';
+import { ChallengesView } from './views/ChallengesView.js';
+import { migrateProgress } from './game/ProgressionService.js';
 
 // Estado global de la aplicación
 const AppState = {
@@ -70,7 +72,12 @@ const AppState = {
     settings: {
         ftp: 200,
         weight: 70,
+        maxHR: 190,
+        restingHR: 60,
         units: 'metric',
+        soundEnabled: true,
+        soundVolume: 0.55,
+        vibrationEnabled: true,
     },
     
     // Listeners para cambios de estado
@@ -353,6 +360,12 @@ function renderCurrentView() {
             break;
         }
 
+        case 'challenges': {
+            cleanupFullscreenViews();
+            container.appendChild(ChallengesView({ onBack: () => navigateTo('home') }));
+            break;
+        }
+
         case 'history': {
             cleanupFullscreenViews();
             const historyWrapper = div({
@@ -471,11 +484,13 @@ function renderApp() {
  */
 async function init() {
     startBackgroundSync();
-    AppState.progress = await getProgress().catch(() => null);
+    AppState.progress = migrateProgress(await getProgress().catch(() => null) || {});
+    await saveProgress(AppState.progress).catch(() => null);
     AppState.recoveredSession = await getActiveSession().catch(() => null);
     if (AppState.recoveredSession) {
         AppState.selectedWorkout = getAllPresets()
-            .find((workout) => workout.id === AppState.recoveredSession.workoutId) || null;
+            .find((workout) => workout.id === AppState.recoveredSession.workoutId
+                || (AppState.recoveredSession.missionId && workout.missionId === AppState.recoveredSession.missionId)) || null;
     }
     // Inicializar el router y obtener la vista desde la URL
     const initialView = initRouter();

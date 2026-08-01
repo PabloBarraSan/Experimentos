@@ -8,6 +8,7 @@ import {
 import { calculateSessionMetrics } from '../utils/calculations.js';
 import { createFlowTracker } from '../game/FlowEngine.js';
 import { TrainerAdapter } from './TrainerAdapter.js';
+import { createTelemetryPipeline } from '../telemetry/TelemetryPipeline.js';
 
 export const SESSION_STATE = {
     IDLE: 'idle',
@@ -41,11 +42,12 @@ export class SessionController {
         this.pausedAt = null;
         this.autosaveId = null;
         this.flowTracker = createFlowTracker();
+        this.telemetry = createTelemetryPipeline();
         this.trainer = new TrainerAdapter(bluetoothManager, capabilities);
         this.callbacks = { onStateChange, onTick, onTargetChange, onBlockChange };
     }
 
-    async start({ workout, experienceMode = 'expedition', recoveredSession = null }) {
+    async start({ workout, mission = null, experienceMode = 'expedition', recoveredSession = null }) {
         if (!workout?.blocks?.length) throw new Error('El workout no contiene bloques');
         this.workout = workout;
         this.session = recoveredSession || createSession({
@@ -54,6 +56,9 @@ export class SessionController {
             ftp: this.ftp,
         });
         this.session.experienceMode = experienceMode;
+        this.session.missionId = mission?.id || workout.missionId || workout.id;
+        this.session.missionVersion = mission?.version || workout.missionVersion || 1;
+        this.session.scoreAlgorithmVersion = 2;
         this.state = SESSION_STATE.READY;
 
         this.player = createWorkoutPlayer({
@@ -74,7 +79,7 @@ export class SessionController {
                 this.callbacks.onTick(tick);
             },
             onComplete: () => {
-                this.finish().catch(() => {
+                this.finish({ status: 'completed' }).catch(() => {
                     this.state = SESSION_STATE.ERROR;
                     this.emitState();
                 });
@@ -85,9 +90,9 @@ export class SessionController {
             for (const point of recoveredSession.dataPoints || []) {
                 if (!Number.isFinite(point.targetPower) || point.targetPower <= 0) continue;
                 this.flowTracker.update({
-                    power: point.power,
+                    power: point.control?.power ?? point.power,
                     targetPower: point.targetPower,
-                    cadence: point.cadence,
+                    cadence: point.control?.cadence ?? point.cadence,
                     targetCadence: point.targetCadence,
                     blockId: point.blockId,
                     blockIndex: point.blockIndex,
@@ -96,6 +101,7 @@ export class SessionController {
             }
             this.player.seekToTime(recoveredSession.elapsedTime || recoveredSession.duration || 0);
             this.session.status = 'active';
+            this.flowTracker.setStatus('recovered');
         }
         this.state = SESSION_STATE.RUNNING;
         this.autosaveId = setInterval(() => this.saveDraft(), 10000);
@@ -109,27 +115,29 @@ export class SessionController {
         if (timestamp - this.lastSampleTimestamp < 1000) return null;
         this.lastSampleTimestamp = timestamp;
 
+        const frame = this.telemetry.ingest(data, timestamp);
         const block = this.currentBlock || this.currentTick?.currentBlock || {};
         const target = this.currentTarget || this.currentTick?.currentTarget || {};
         const elapsedSeconds = this.currentTick?.totalElapsedTime || 0;
         const flow = this.flowTracker.update({
-            power: Number(data.power) || 0,
+            power: frame.control.power,
             targetPower: target.power,
-            cadence: Number(data.cadence) || 0,
+            cadence: frame.control.cadence,
             targetCadence: target.cadence,
             blockId: block.id,
             blockIndex: block.index,
             blockName: block.name,
             elapsedSeconds,
+            totalDuration: this.player?.getTotalDuration?.() || 0,
         });
 
         this.session.dataPoints.push({
             timestamp,
             elapsedSeconds,
-            power: Number(data.power) || 0,
-            cadence: Number(data.cadence) || 0,
-            speed: Number(data.speed) || 0,
-            heartRate: Number(data.heartRate) || 0,
+            power: frame.raw.power ?? 0,
+            cadence: frame.raw.cadence ?? 0,
+            speed: frame.raw.speed ?? 0,
+            heartRate: frame.raw.heartRate ?? 0,
             resistance: Number(data.resistance) || 0,
             distance: Number(data.distance) || 0,
             targetPower: target.power ?? null,
@@ -137,9 +145,12 @@ export class SessionController {
             blockId: block.id || null,
             blockIndex: block.index ?? null,
             flow: flow.flow,
+            display: frame.display,
+            control: frame.control,
+            quality: frame.quality,
         });
         this.session.elapsedTime = elapsedSeconds;
-        return flow;
+        return { ...flow, telemetry: frame };
     }
 
     async pause() {
@@ -171,7 +182,15 @@ export class SessionController {
         return saveActiveSession(this.session);
     }
 
-    async finish() {
+    addCheckpoint(checkpoint) {
+        return this.flowTracker.addCheckpoint(checkpoint);
+    }
+
+    chooseRoute(decision) {
+        return this.flowTracker.chooseRoute(decision);
+    }
+
+    async finish({ status = 'abandoned' } = {}) {
         if (!this.session || this.state === SESSION_STATE.COMPLETED || this.state === SESSION_STATE.FINISHING) {
             return this.session;
         }
@@ -181,6 +200,7 @@ export class SessionController {
         if (this.autosaveId) clearInterval(this.autosaveId);
         this.autosaveId = null;
 
+        this.flowTracker.setStatus(status);
         const gameResult = this.flowTracker.getResult();
         const metrics = calculateSessionMetrics({
             dataPoints: this.session.dataPoints,
@@ -191,7 +211,9 @@ export class SessionController {
             blocks: gameResult.blocks,
         };
         this.session.gameResult = gameResult;
-        await finishSession(this.session, metrics);
+        this.session.status = status;
+        this.session.trainerCommands = this.trainer.getDiagnosticLog();
+        await finishSession(this.session, metrics, status);
         await clearActiveSession();
         this.state = SESSION_STATE.COMPLETED;
         this.emitState();
