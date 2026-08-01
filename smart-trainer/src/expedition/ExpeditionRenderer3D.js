@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
 const CAMERA_PRESETS = {
-    close: { distance: 6.1, height: 3.45, lookHeight: 1.35, lateral: 7.2 },
-    standard: { distance: 8.8, height: 4.35, lookHeight: 1.2, lateral: 5.8 },
-    wide: { distance: 12.8, height: 6.1, lookHeight: 1.08, lateral: 7.2 },
+    close: { distance: 6.8, height: 2.7, lookHeight: 1.15, lookAhead: 5.5, fov: 46 },
+    standard: { distance: 9.2, height: 3.45, lookHeight: 1.05, lookAhead: 8.5, fov: 48 },
+    wide: { distance: 13.2, height: 5.1, lookHeight: 0.9, lookAhead: 12, fov: 51 },
 };
 
 const QUALITY_PRESETS = {
@@ -13,7 +13,7 @@ const QUALITY_PRESETS = {
 };
 
 const WORLD_STYLES = {
-    aurora: { ground: 0x345b43, shoulder: 0xb79b72, roadEdge: 0xd7c69e, sky: 0x70a8c7, fog: 0x86b5ad, tree: 0x285d43 },
+    aurora: { ground: 0x294d3c, shoulder: 0x9a815f, roadEdge: 0xe1d5b7, sky: 0x638da7, fog: 0x8dafaa, tree: 0x234f3b },
     mist: { ground: 0x203f35, shoulder: 0x6d7662, roadEdge: 0xaeb7a1, sky: 0x607d80, fog: 0x80958d, tree: 0x173e34 },
     north: { ground: 0x35454a, shoulder: 0x8d8d82, roadEdge: 0xd0d2c8, sky: 0x627892, fog: 0x8d9ba4, tree: 0x294449 },
 };
@@ -61,6 +61,7 @@ class ExpeditionRenderer3D {
             paused: true,
         };
         this.visualDistance = 0;
+        this.cameraLookTarget = new THREE.Vector3(0, 1, 0);
         this.lastTimestamp = performance.now();
         this.frameId = null;
         this.elapsed = 0;
@@ -80,7 +81,7 @@ class ExpeditionRenderer3D {
         this.buildValley();
         this.player = createCyclist({ accent: 0x63e0b5, ghost: false });
         this.ghost = createCyclist({ accent: 0x8ed9ff, ghost: true });
-        this.player.group.scale.setScalar(1.5);
+        this.player.group.scale.setScalar(1.06);
         this.ghost.group.visible = false;
         this.scene.add(this.player.group, this.ghost.group);
         this.buildFlowParticles();
@@ -110,16 +111,16 @@ class ExpeditionRenderer3D {
     setupScene() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(this.worldStyle.sky);
-        this.scene.fog = new THREE.FogExp2(this.worldStyle.fog, this.mission.world === 'mist' ? 0.007 : 0.0048);
+        this.scene.fog = new THREE.FogExp2(this.worldStyle.fog, this.mission.world === 'mist' ? 0.007 : 0.0039);
 
         this.camera = new THREE.PerspectiveCamera(48, 1, 0.1, 900);
         this.camera.position.set(0, 5, -10);
 
-        this.hemiLight = new THREE.HemisphereLight(0xcdeaff, 0x294332, 1.15);
+        this.hemiLight = new THREE.HemisphereLight(0xd9eeef, 0x203c31, 1.32);
         this.scene.add(this.hemiLight);
 
-        this.sunLight = new THREE.DirectionalLight(0xfff0cf, 2.15);
-        this.sunLight.position.set(-65, 95, -35);
+        this.sunLight = new THREE.DirectionalLight(0xffddb4, 2.35);
+        this.sunLight.position.set(-75, 82, -48);
         this.sunLight.castShadow = QUALITY_PRESETS[this.quality].shadows;
         this.sunLight.shadow.mapSize.set(1024, 1024);
         this.sunLight.shadow.camera.near = 1;
@@ -134,7 +135,7 @@ class ExpeditionRenderer3D {
             new THREE.SphereGeometry(7, 24, 16),
             new THREE.MeshBasicMaterial({ color: 0xffd18a, fog: false }),
         );
-        sun.position.set(-145, 105, 210);
+        sun.position.set(-165, 72, 235);
         this.scene.add(sun);
     }
 
@@ -173,8 +174,8 @@ class ExpeditionRenderer3D {
             roughness: 1,
         });
         this.roadMaterial = new THREE.MeshStandardMaterial({
-            color: 0x242a2d,
-            roughness: 0.92,
+            color: 0x20272a,
+            roughness: 0.96,
             metalness: 0.02,
         });
         this.roadEdgeMaterial = new THREE.MeshStandardMaterial({
@@ -182,9 +183,9 @@ class ExpeditionRenderer3D {
             roughness: 0.8,
         });
         this.scene.add(
-            createRibbon(this.routeCurve, 9.8, this.shoulderMaterial, 520, -0.1),
-            createRibbon(this.routeCurve, 7.2, this.roadEdgeMaterial, 520, -0.03),
-            createRibbon(this.routeCurve, 6.65, this.roadMaterial, 520, 0),
+            createRibbon(this.routeCurve, 8.4, this.shoulderMaterial, 520, -0.1),
+            createRibbon(this.routeCurve, 6.25, this.roadEdgeMaterial, 520, -0.03),
+            createRibbon(this.routeCurve, 5.72, this.roadMaterial, 520, 0),
         );
         this.buildRoadMarkings();
         this.buildMountains();
@@ -195,8 +196,8 @@ class ExpeditionRenderer3D {
     }
 
     buildRoadMarkings() {
-        const count = 104;
-        const geometry = new THREE.BoxGeometry(0.13, 0.035, 2.5);
+        const count = 92;
+        const geometry = new THREE.BoxGeometry(0.1, 0.026, 1.85);
         const material = new THREE.MeshStandardMaterial({
             color: 0xf4df9b,
             emissive: 0x604d24,
@@ -220,12 +221,13 @@ class ExpeditionRenderer3D {
 
     buildMountains() {
         this.mountains = new THREE.Group();
-        const palette = [0x46635d, 0x557269, 0x668078, 0x3b5551, 0x738982];
-        for (let index = 0; index < 22; index += 1) {
-            const angle = (index / 22) * Math.PI * 2 + seeded(index) * 0.16;
-            const distance = 300 + seeded(index + 50) * 105;
-            const radius = 30 + seeded(index + 100) * 40;
-            const height = 58 + seeded(index + 200) * 78;
+        const palette = [0x35534f, 0x45635d, 0x536f68, 0x2d4846, 0x657a73];
+        for (let index = 0; index < 28; index += 1) {
+            const angle = (index / 28) * Math.PI * 2 + seeded(index) * 0.13;
+            const isNearRidge = index % 3 === 0;
+            const distance = isNearRidge ? 205 + seeded(index + 50) * 55 : 310 + seeded(index + 50) * 115;
+            const radius = isNearRidge ? 38 + seeded(index + 100) * 32 : 30 + seeded(index + 100) * 44;
+            const height = isNearRidge ? 34 + seeded(index + 200) * 38 : 68 + seeded(index + 200) * 82;
             const mountain = new THREE.Mesh(
                 createMountainGeometry(radius, height, index + 1),
                 new THREE.MeshStandardMaterial({
@@ -243,7 +245,7 @@ class ExpeditionRenderer3D {
             mountain.receiveShadow = true;
             this.mountains.add(mountain);
 
-            if (index % 2 === 0) {
+            if (!isNearRidge && index % 2 === 0) {
                 const capHeight = height * 0.24;
                 const snowCap = new THREE.Mesh(
                     createMountainGeometry(radius * 0.34, capHeight, index + 700),
@@ -293,7 +295,7 @@ class ExpeditionRenderer3D {
             const tangent = this.routeCurve.getTangentAt(t).normalize();
             const side = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
             const direction = index % 2 === 0 ? 1 : -1;
-            const offset = direction * (16 + seeded(index + 500) * 40);
+            const offset = direction * (11 + seeded(index + 500) * 34);
             const scale = 0.7 + seeded(index + 550) * 1.4;
             const position = route.clone().add(side.multiplyScalar(offset));
 
@@ -366,7 +368,7 @@ class ExpeditionRenderer3D {
             const side = new THREE.Vector3(-tangent.z, 0, tangent.x);
             const direction = index % 2 === 0 ? 1 : -1;
             dummy.position.copy(position)
-                .add(side.multiplyScalar(direction * 4.15))
+                .add(side.multiplyScalar(direction * 3.45))
                 .add(new THREE.Vector3(0, 0.5, 0));
             dummy.rotation.set(0, Math.atan2(tangent.x, tangent.z), 0);
             dummy.updateMatrix();
@@ -466,10 +468,10 @@ class ExpeditionRenderer3D {
         const bridge = new THREE.Group();
         const stone = new THREE.MeshStandardMaterial({ color: 0x555d5d, roughness: 0.92 });
         const rail = new THREE.MeshStandardMaterial({ color: 0xd9c99e, roughness: 0.7 });
-        const deck = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.42, 16), stone);
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(6.7, 0.42, 16), stone);
         deck.position.y = -0.32;
         bridge.add(deck);
-        for (const side of [-3.8, 3.8]) {
+        for (const side of [-3.05, 3.05]) {
             const beam = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.1, 16), rail);
             beam.position.set(side, 0.48, 0);
             bridge.add(beam);
@@ -516,7 +518,10 @@ class ExpeditionRenderer3D {
     }
 
     setCameraMode(mode) {
-        if (CAMERA_PRESETS[mode]) this.cameraMode = mode;
+        if (!CAMERA_PRESETS[mode]) return;
+        this.cameraMode = mode;
+        this.camera.fov = CAMERA_PRESETS[mode].fov;
+        this.camera.updateProjectionMatrix();
     }
 
     setQuality(quality) {
@@ -544,8 +549,7 @@ class ExpeditionRenderer3D {
         const position = this.routeCurve.getPointAt(t);
         const routeTangent = this.routeCurve.getTangentAt(t).normalize();
         const tangent = flattenTangent(routeTangent);
-        const side = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
-        const playerPosition = position.clone().add(new THREE.Vector3(0, 0.58, 0));
+        const playerPosition = position.clone().add(new THREE.Vector3(0, 0.025, 0));
         orientAlongCurve(this.player.group, playerPosition, routeTangent);
 
         const cadence = active ? Math.max(0, Number(this.state.cadence) || 0) : 0;
@@ -558,7 +562,7 @@ class ExpeditionRenderer3D {
         const ghostT = Number.isFinite(this.state.ghostRouteProgress)
             ? ((this.state.ghostRouteProgress % 1) + 1) % 1
             : ((this.visualDistance + ghostLead) % this.routeLength) / this.routeLength;
-        const ghostPosition = this.routeCurve.getPointAt(ghostT).add(new THREE.Vector3(0, 0.58, 0));
+        const ghostPosition = this.routeCurve.getPointAt(ghostT).add(new THREE.Vector3(0, 0.025, 0));
         const ghostTangent = this.routeCurve.getTangentAt(ghostT).normalize();
         orientAlongCurve(this.ghost.group, ghostPosition, ghostTangent);
         this.ghost.crankAngle += delta * Math.max(4.8, crankSpeed * 0.96);
@@ -566,17 +570,17 @@ class ExpeditionRenderer3D {
 
         const preset = CAMERA_PRESETS[this.cameraMode];
         const motionScale = this.reducedMotion ? 0 : 1;
-        const breathing = Math.sin(this.elapsed * 2.2) * 0.06 * motionScale * (0.2 + this.state.flow);
-        const lateral = side.clone().multiplyScalar(preset.lateral);
+        const breathing = Math.sin(this.elapsed * 1.8) * 0.025 * motionScale * (0.2 + this.state.flow);
         const cameraTarget = playerPosition.clone()
             .add(tangent.clone().multiplyScalar(-preset.distance))
-            .add(new THREE.Vector3(0, preset.height + breathing, 0))
-            .add(lateral);
-        this.camera.position.lerp(cameraTarget, this.reducedMotion ? 0.18 : 0.075);
-        const lookAt = playerPosition.clone()
-            .add(tangent.clone().multiplyScalar(this.cameraMode === 'close' ? 0.15 : 0.7))
+            .add(new THREE.Vector3(0, preset.height + breathing, 0));
+        const cameraDamping = 1 - Math.exp(-delta * (this.reducedMotion ? 10 : 6.8));
+        this.camera.position.lerp(cameraTarget, cameraDamping);
+        const aheadT = ((this.visualDistance + preset.lookAhead) % this.routeLength) / this.routeLength;
+        const lookAt = this.routeCurve.getPointAt(aheadT)
             .add(new THREE.Vector3(0, preset.lookHeight, 0));
-        this.camera.lookAt(lookAt);
+        this.cameraLookTarget.lerp(lookAt, 1 - Math.exp(-delta * 8.5));
+        this.camera.lookAt(this.cameraLookTarget);
 
         this.flowParticles.position.copy(playerPosition);
         this.flowParticles.position.y += 0.8;
@@ -701,22 +705,44 @@ function createCyclist({ accent, ghost }) {
         depthWrite: !ghost,
     });
 
-    const rearHub = new THREE.Vector3(0, 0.72, -0.9);
-    const frontHub = new THREE.Vector3(0, 0.72, 0.9);
-    const crank = new THREE.Vector3(0, 0.82, -0.05);
-    const seat = new THREE.Vector3(0, 1.55, -0.36);
-    const handle = new THREE.Vector3(0, 1.42, 0.67);
-    const wheelGeometry = new THREE.TorusGeometry(0.69, 0.045, 10, 30);
+    // Proporciones de una bici de carretera realista: rueda de 700c, batalla
+    // compacta y ciclista apoyado sobre el manillar, no erguido sobre la bici.
+    const rearHub = new THREE.Vector3(0, 0.57, -0.86);
+    const frontHub = new THREE.Vector3(0, 0.57, 0.9);
+    const crank = new THREE.Vector3(0, 0.67, -0.04);
+    const seat = new THREE.Vector3(0, 1.25, -0.32);
+    const handle = new THREE.Vector3(0, 1.15, 0.64);
+    const wheelRadius = 0.55;
+    const wheelGeometry = new THREE.TorusGeometry(wheelRadius, 0.032, 9, 36);
 
     const rearWheel = new THREE.Group();
     const rearTire = new THREE.Mesh(wheelGeometry, rubberMaterial);
     rearTire.rotation.y = Math.PI / 2;
     const rearRim = new THREE.Mesh(
-        new THREE.TorusGeometry(0.63, 0.018, 8, 28),
+        new THREE.TorusGeometry(wheelRadius - 0.055, 0.012, 7, 32),
         unlitAccentMaterial,
     );
     rearRim.rotation.y = Math.PI / 2;
-    rearWheel.add(rearTire, rearRim);
+    const hubMaterial = new THREE.MeshStandardMaterial({
+        color: ghost ? 0x8ed9ff : 0xc5d0d0,
+        roughness: 0.35,
+        metalness: 0.72,
+        transparent: ghost,
+        opacity: ghost ? 0.34 : 1,
+    });
+    const rearAxle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.18, 10), hubMaterial);
+    rearAxle.rotation.z = Math.PI / 2;
+    const spokeMaterial = new THREE.MeshBasicMaterial({ color: ghost ? 0x8ed9ff : 0x849092, transparent: true, opacity: ghost ? 0.22 : 0.5 });
+    rearWheel.add(rearTire, rearRim, rearAxle);
+    for (let index = 0; index < 10; index += 1) {
+        const angle = index / 10 * Math.PI * 2;
+        rearWheel.add(createTube(
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, Math.cos(angle) * (wheelRadius - 0.06), Math.sin(angle) * (wheelRadius - 0.06)),
+            0.006,
+            spokeMaterial,
+        ));
+    }
     rearWheel.position.copy(rearHub);
     const frontWheel = rearWheel.clone();
     frontWheel.position.copy(frontHub);
@@ -734,61 +760,69 @@ function createCyclist({ accent, ghost }) {
         group.add(createTube(
             start,
             end,
-            index === 6 ? 0.035 : 0.052,
+            index === 6 ? 0.026 : 0.042,
             index === 6 ? frameMaterial : accentMaterial,
         ));
     });
     const handlebar = createTube(
-        new THREE.Vector3(-0.28, 1.42, 0.67),
-        new THREE.Vector3(0.28, 1.42, 0.67),
-        0.035,
+        new THREE.Vector3(-0.31, 1.15, 0.64),
+        new THREE.Vector3(0.31, 1.15, 0.64),
+        0.028,
         frameMaterial,
     );
     group.add(handlebar);
 
-    const torso = createTube(
-        new THREE.Vector3(0, 1.62, -0.32),
-        new THREE.Vector3(0, 2.28, 0.12),
-        0.18,
+    const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.055, 0.4), frameMaterial);
+    saddle.position.set(0, 1.29, -0.39);
+    saddle.rotation.x = -0.06;
+    const crankRing = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.018, 7, 22), hubMaterial);
+    crankRing.rotation.y = Math.PI / 2;
+    crankRing.position.copy(crank);
+    group.add(saddle, crankRing);
+
+    const torso = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.18, 0.235, 0.72, 8),
         accentMaterial,
     );
+    alignTube(torso, new THREE.Vector3(0, 1.37, -0.28), new THREE.Vector3(0, 1.96, 0.12));
+    torso.scale.x = 1.12;
     group.add(torso);
     const jerseyBack = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.2, 0.27, 1, 7),
+        new THREE.CylinderGeometry(0.185, 0.235, 0.7, 8),
         unlitAccentMaterial,
     );
     alignTube(
         jerseyBack,
-        new THREE.Vector3(0, 1.66, -0.28),
-        new THREE.Vector3(0, 2.27, 0.12),
+        new THREE.Vector3(0, 1.37, -0.28),
+        new THREE.Vector3(0, 1.96, 0.12),
     );
     const shorts = new THREE.Mesh(
         new THREE.SphereGeometry(0.25, 10, 7),
         frameMaterial,
     );
-    shorts.scale.set(1.05, 0.72, 1.18);
-    shorts.position.set(0, 1.62, -0.3);
+    shorts.scale.set(1.05, 0.7, 1.12);
+    shorts.position.set(0, 1.36, -0.3);
     group.add(jerseyBack, shorts);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 14, 10), skinMaterial);
-    head.position.set(0, 2.46, 0.22);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.175, 14, 10), skinMaterial);
+    head.position.set(0, 2.13, 0.27);
     group.add(head);
     const helmet = new THREE.Mesh(
-        new THREE.SphereGeometry(0.205, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.58),
+        new THREE.SphereGeometry(0.19, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.58),
         frameMaterial,
     );
-    helmet.position.set(0, 2.5, 0.2);
+    helmet.position.set(0, 2.17, 0.25);
     group.add(helmet);
 
     const leftArm = createAnimatedLimb(accentMaterial, skinMaterial);
     const rightArm = createAnimatedLimb(accentMaterial, skinMaterial);
     group.add(leftArm.upper, leftArm.lower, rightArm.upper, rightArm.lower);
-    alignTube(leftArm.upper, new THREE.Vector3(-0.13, 2.2, 0.06), new THREE.Vector3(-0.24, 1.78, 0.42));
-    alignTube(leftArm.lower, new THREE.Vector3(-0.24, 1.78, 0.42), new THREE.Vector3(-0.2, 1.44, 0.67));
-    alignTube(rightArm.upper, new THREE.Vector3(0.13, 2.2, 0.06), new THREE.Vector3(0.24, 1.78, 0.42));
-    alignTube(rightArm.lower, new THREE.Vector3(0.24, 1.78, 0.42), new THREE.Vector3(0.2, 1.44, 0.67));
+    alignTube(leftArm.upper, new THREE.Vector3(-0.16, 1.91, 0.1), new THREE.Vector3(-0.25, 1.57, 0.38));
+    alignTube(leftArm.lower, new THREE.Vector3(-0.25, 1.57, 0.38), new THREE.Vector3(-0.24, 1.16, 0.64));
+    alignTube(rightArm.upper, new THREE.Vector3(0.16, 1.91, 0.1), new THREE.Vector3(0.25, 1.57, 0.38));
+    alignTube(rightArm.lower, new THREE.Vector3(0.25, 1.57, 0.38), new THREE.Vector3(0.24, 1.16, 0.64));
 
-    const leftLeg = createAnimatedLimb(accentMaterial, skinMaterial, 0.085);
-    const rightLeg = createAnimatedLimb(accentMaterial, skinMaterial, 0.085);
+    const leftLeg = createAnimatedLimb(frameMaterial, skinMaterial, 0.078);
+    const rightLeg = createAnimatedLimb(frameMaterial, skinMaterial, 0.078);
     group.add(leftLeg.upper, leftLeg.lower, rightLeg.upper, rightLeg.lower);
 
     group.traverse((child) => {
@@ -821,11 +855,11 @@ function animateCyclist(cyclist, angle, speed, flow, active) {
     const wheelRotation = active ? angle * 1.85 : angle;
     cyclist.rearWheel.rotation.x = wheelRotation;
     cyclist.frontWheel.rotation.x = wheelRotation;
-    const radius = 0.19;
-    const hipLeft = new THREE.Vector3(-0.11, 1.68, -0.31);
-    const hipRight = new THREE.Vector3(0.11, 1.68, -0.31);
-    const leftFoot = new THREE.Vector3(-0.16, 0.83 + Math.sin(angle) * radius, -0.05 + Math.cos(angle) * radius);
-    const rightFoot = new THREE.Vector3(0.16, 0.83 + Math.sin(angle + Math.PI) * radius, -0.05 + Math.cos(angle + Math.PI) * radius);
+    const radius = 0.16;
+    const hipLeft = new THREE.Vector3(-0.105, 1.4, -0.3);
+    const hipRight = new THREE.Vector3(0.105, 1.4, -0.3);
+    const leftFoot = new THREE.Vector3(-0.15, 0.68 + Math.sin(angle) * radius, -0.04 + Math.cos(angle) * radius);
+    const rightFoot = new THREE.Vector3(0.15, 0.68 + Math.sin(angle + Math.PI) * radius, -0.04 + Math.cos(angle + Math.PI) * radius);
     const leftKnee = hipLeft.clone().lerp(leftFoot, 0.53);
     leftKnee.z += 0.17;
     leftKnee.y -= 0.05;

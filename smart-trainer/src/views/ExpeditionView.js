@@ -219,7 +219,7 @@ export function ExpeditionView({
     clockStack.appendChild(blockTimer);
 
     const bottom = div({
-        styles: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: spacing.md },
+        styles: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' },
     });
     const flowBar = div({
         attrs: {
@@ -229,7 +229,7 @@ export function ExpeditionView({
         styles: {
             position: 'relative',
             width: '100%',
-            height: '8px',
+            height: '5px',
             borderRadius: '999px',
             overflow: 'hidden',
             background: 'rgba(255,255,255,.1)',
@@ -262,49 +262,47 @@ export function ExpeditionView({
     const metrics = div({
         attrs: { 'data-hud-mode': visualSettings.hud },
         styles: {
-            width: 'min(440px, 84vw)',
+            width: 'min(520px, 90vw)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px',
-            padding: '11px 17px 12px',
-            borderRadius: '18px',
-            background: 'linear-gradient(145deg, rgba(6,13,17,.88), rgba(11,25,28,.78))',
-            border: '1px solid rgba(255,255,255,.14)',
-            boxShadow: '0 12px 38px rgba(0,0,0,.35)',
+            gap: '8px',
+            padding: '10px 14px 11px',
+            borderRadius: '16px',
+            background: 'linear-gradient(145deg, rgba(6,13,17,.84), rgba(11,25,28,.7))',
+            border: '1px solid rgba(255,255,255,.11)',
+            boxShadow: '0 10px 30px rgba(0,0,0,.28)',
             backdropFilter: 'blur(14px)',
         },
     });
-    const actualPower = createElement('strong', { text: '0 W', styles: { fontSize: '30px' } });
+    const actualPower = createElement('strong', { text: '0 W', styles: { fontSize: '28px', lineHeight: 1 } });
     const targetPower = createElement('span', {
         text: 'Objetivo -- W',
-        styles: { color: colors.textMuted, flex: '1 1 92px' },
+        styles: { color: 'rgba(255,255,255,.52)', flex: '1 1 92px', fontSize: '13px', fontWeight: 750 },
     });
     const actualHeartRate = createElement('span', {
         text: '♥ -- lpm',
         styles: { color: '#ff7893', fontWeight: 800, whiteSpace: 'nowrap' },
     });
-    const actualCadence = createElement('span', { text: '0 rpm', styles: { color: 'rgba(255,255,255,.78)' } });
-    const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontWeight: 800 } });
-    const energy = createElement('span', { text: 'ENERGÍA 0%', styles: { color: '#ffd166', fontWeight: 800 } });
+    const actualCadence = createElement('span', { text: '0 rpm', styles: { color: 'rgba(255,255,255,.78)', fontSize: '13px', fontWeight: 750 } });
+    const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontSize: '11px', fontWeight: 800 } });
     const coach = createElement('strong', {
         text: 'Adapta el ritmo',
         attrs: { role: 'status', 'aria-live': 'polite' },
-        styles: { fontSize: '18px', color: '#8ed9ff', letterSpacing: '.2px' },
+        styles: { fontSize: '16px', color: '#8ed9ff', letterSpacing: '.2px', textAlign: 'center' },
     });
     const heartZone = createElement('span', { text: 'ZONA FC --', styles: { color: 'rgba(255,255,255,.58)', fontSize: '12px' } });
     const ghostDelta = createElement('span', { text: '', styles: { color: '#8ed9ff', fontSize: '12px', fontWeight: 800 } });
     const metricValues = div({
         styles: {
             display: 'flex',
-            flexWrap: 'wrap',
-            gap: '18px',
+            gap: '14px',
             alignItems: 'baseline',
         },
-        children: [actualPower, targetPower, actualHeartRate, actualCadence, combo, energy],
+        children: [actualPower, targetPower, actualCadence],
     });
     const contextValues = div({
-        styles: { display: 'flex', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' },
-        children: [heartZone, ghostDelta],
+        styles: { display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', color: 'rgba(255,255,255,.5)' },
+        children: [actualHeartRate, heartZone, combo, ghostDelta],
     });
     metrics.append(coach, flowBar, metricValues, contextValues);
     bottom.append(metrics);
@@ -547,8 +545,8 @@ export function ExpeditionView({
         stagePrompt.style.top = compact ? '164px' : '102px';
         stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
         controls.style.right = compact ? '12px' : '18px';
-        controls.style.bottom = compact ? '148px' : '18px';
-        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(440px, 84vw)';
+        controls.style.bottom = compact ? '136px' : '18px';
+        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(520px, 90vw)';
         metricValues.style.gap = compact ? '11px' : '18px';
         decisionButtons.style.gridTemplateColumns = compact ? '1fr' : 'repeat(3, 1fr)';
     };
@@ -591,6 +589,7 @@ export function ExpeditionView({
             metrics,
             actualCadence,
             combo,
+            contextValues,
         });
         await rendererReady;
         renderer?.setCameraMode?.(visualSettings.camera);
@@ -713,8 +712,7 @@ export function ExpeditionView({
         targetMarker.style.left = `${Math.min(100, (target / gaugeMaximum) * 100)}%`;
         flowBar.setAttribute('aria-label', `Potencia ${Math.round(power)} vatios; objetivo ${target || 'libre'}; escala ${Math.round(gaugeMaximum)}`);
         lastFlow = lastFlow * 0.66 + flow.flow * 0.34;
-        combo.textContent = `FLOW ${Math.round(lastFlow * 100)}% · x${flow.combo}`;
-        energy.textContent = `ENERGÍA ${Math.round(flow.energy || 0)}%`;
+        combo.textContent = `FLOW ${Math.round(lastFlow * 100)}%`;
         const coaching = getCoachingState({
             power: frame.control.power,
             targetPower: currentTarget?.power,
@@ -882,6 +880,7 @@ export function ExpeditionView({
             metrics,
             actualCadence,
             combo,
+            contextValues,
         });
         saveVisualSettings(visualSettings);
     });
@@ -1077,7 +1076,8 @@ function applyHudMode(mode, elements) {
     elements.metrics.style.opacity = hidden ? '0' : '1';
     elements.metrics.style.pointerEvents = 'none';
     elements.actualCadence.style.display = hidden ? 'none' : 'inline';
-    elements.combo.style.display = hidden ? 'none' : 'inline';
+    elements.contextValues.style.display = full && !hidden ? 'flex' : 'none';
+    elements.combo.style.display = full && !hidden ? 'inline' : 'none';
 }
 
 function getStagePrompt(blockType) {
