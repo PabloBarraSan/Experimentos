@@ -149,7 +149,10 @@ class ExpeditionRenderer3D {
         });
         const ground = new THREE.Mesh(new THREE.CircleGeometry(440, 96), this.groundMaterial);
         ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -2.6;
+        // La ruta baja hasta aproximadamente -3 m en algunos valles. El terreno
+        // debe quedar claramente por debajo para no atravesar el asfalto y crear
+        // falsos tramos verdes.
+        ground.position.y = -4.5;
         ground.receiveShadow = true;
         this.scene.add(ground);
 
@@ -330,7 +333,7 @@ class ExpeditionRenderer3D {
             }),
         );
         water.rotation.x = -Math.PI / 2;
-        water.position.set(-118, -2.28, 18);
+        water.position.set(-118, -4.32, 18);
         this.scene.add(water);
 
         const postCount = 72;

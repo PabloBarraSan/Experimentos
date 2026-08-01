@@ -3,6 +3,7 @@ import { button, createElement, div, formatTime } from '../utils/dom.js';
 import { SessionController, SESSION_STATE } from '../session/SessionController.js';
 import { recordMissionProgress } from '../game/ProgressionService.js';
 import { WakeLockManager } from '../session/WakeLockManager.js';
+import { clearActiveSession } from '../storage/sessions.js';
 
 const EXPEDITION_VISUAL_SETTINGS_KEY = 'smartTrainer_expedition_visuals_v1';
 const DEFAULT_VISUAL_SETTINGS = {
@@ -23,6 +24,11 @@ export function ExpeditionView({
 }) {
     const isDemo = state.connectionState !== 'connected';
     const visualSettings = loadVisualSettings();
+    const totalDuration = Math.max(1, workout?.stats?.totalDuration || 1);
+    const recoveredElapsed = Number(recoveredSession?.elapsedTime || recoveredSession?.duration) || 0;
+    const canResume = recoveredSession?.workoutId === workout?.id
+        && recoveredElapsed > 1
+        && recoveredElapsed < totalDuration - 2;
     const container = div({
         attrs: { 'data-view': 'expedition' },
         styles: {
@@ -113,7 +119,8 @@ export function ExpeditionView({
         },
     });
     const timer = createElement('div', {
-        text: '00:00',
+        text: formatTime(totalDuration),
+        attrs: { 'aria-label': 'Tiempo restante' },
         styles: {
             padding: '10px 18px',
             borderRadius: '16px',
@@ -199,7 +206,12 @@ export function ExpeditionView({
         styles: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: spacing.md },
     });
     const flowBar = div({
+        attrs: {
+            'aria-label': 'Potencia actual, escala hasta el doble del objetivo',
+            title: 'Potencia · la marca indica el objetivo',
+        },
         styles: {
+            position: 'relative',
             width: '100%',
             height: '8px',
             borderRadius: '999px',
@@ -212,11 +224,25 @@ export function ExpeditionView({
             width: '0%',
             height: '100%',
             borderRadius: '999px',
-            background: `linear-gradient(90deg, ${colors.error}, ${colors.warning}, ${colors.success})`,
+            background: `linear-gradient(90deg, ${colors.error}, ${colors.warning} 35%, ${colors.success} 50%, #5cc8ff 100%)`,
             transition: 'width .3s ease',
         },
     });
-    flowBar.appendChild(flowFill);
+    const targetMarker = div({
+        attrs: { title: 'Potencia objetivo' },
+        styles: {
+            position: 'absolute',
+            zIndex: 1,
+            left: '50%',
+            top: '-3px',
+            width: '2px',
+            height: '14px',
+            borderRadius: '2px',
+            background: '#fff',
+            boxShadow: '0 0 8px rgba(255,255,255,.85)',
+        },
+    });
+    flowBar.append(flowFill, targetMarker);
     const metrics = div({
         attrs: { 'data-hud-mode': visualSettings.hud },
         styles: {
@@ -233,17 +259,24 @@ export function ExpeditionView({
         },
     });
     const actualPower = createElement('strong', { text: '0 W', styles: { fontSize: '30px' } });
-    const targetPower = createElement('span', { text: 'Objetivo -- W', styles: { color: colors.textMuted } });
+    const targetPower = createElement('span', {
+        text: 'Objetivo -- W',
+        styles: { color: colors.textMuted, flex: '1 1 92px' },
+    });
+    const actualHeartRate = createElement('span', {
+        text: '♥ -- lpm',
+        styles: { color: '#ff7893', fontWeight: 800, whiteSpace: 'nowrap' },
+    });
     const actualCadence = createElement('span', { text: '0 rpm', styles: { color: 'rgba(255,255,255,.78)' } });
     const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontWeight: 800 } });
     const metricValues = div({
         styles: {
-            display: 'grid',
-            gridTemplateColumns: 'auto 1fr auto auto',
+            display: 'flex',
+            flexWrap: 'wrap',
             gap: '18px',
             alignItems: 'baseline',
         },
-        children: [actualPower, targetPower, actualCadence, combo],
+        children: [actualPower, targetPower, actualHeartRate, actualCadence, combo],
     });
     metrics.append(flowBar, metricValues);
     bottom.append(metrics);
@@ -391,7 +424,9 @@ export function ExpeditionView({
     visualConfig.append(cameraSelect.wrapper, hudSelect.wrapper, qualitySelect.wrapper);
     card.appendChild(visualConfig);
     const startButton = button({
-        text: isDemo ? 'Probar expedición' : 'Comenzar expedición',
+        text: canResume
+            ? 'Empezar desde cero'
+            : (isDemo ? 'Probar expedición' : 'Comenzar expedición'),
         styles: {
             width: '100%',
             minHeight: '52px',
@@ -403,11 +438,23 @@ export function ExpeditionView({
             cursor: 'pointer',
         },
     });
+    const resumeButton = canResume ? button({
+        text: `Continuar · quedan ${formatTime(totalDuration - recoveredElapsed)}`,
+        styles: {
+            ...compactButtonStyles(),
+            width: '100%',
+            minHeight: '52px',
+            marginBottom: spacing.sm,
+            color: colors.success,
+            borderColor: 'rgba(99,224,181,.38)',
+        },
+    }) : null;
     const backButton = button({
         text: 'Volver a entrenamientos',
         styles: { ...compactButtonStyles(), width: '100%', marginTop: spacing.sm },
         events: { click: onExit },
     });
+    if (resumeButton) card.appendChild(resumeButton);
     card.append(startButton, backButton);
     briefing.appendChild(card);
     container.appendChild(briefing);
@@ -420,6 +467,7 @@ export function ExpeditionView({
     let lastFlow = 0;
     let hiddenAt = null;
     let promptTimeout = null;
+    let finishConfirmTimeout = null;
     const wakeLock = new WakeLockManager();
 
     const rendererReady = initializeRenderer();
@@ -441,7 +489,6 @@ export function ExpeditionView({
         controls.style.right = compact ? '12px' : '18px';
         controls.style.bottom = compact ? '148px' : '18px';
         metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(440px, 84vw)';
-        metricValues.style.gridTemplateColumns = compact ? 'auto 1fr auto' : 'auto 1fr auto auto';
         metricValues.style.gap = compact ? '11px' : '18px';
     };
     applyResponsiveLayout();
@@ -469,7 +516,7 @@ export function ExpeditionView({
         return renderer;
     }
 
-    async function startMission() {
+    async function startMission({ resume = false } = {}) {
         visualSettings.camera = cameraSelect.select.value;
         visualSettings.hud = hudSelect.select.value;
         visualSettings.quality = qualitySelect.select.value;
@@ -489,6 +536,10 @@ export function ExpeditionView({
         briefing.style.display = 'none';
         pauseButton.disabled = false;
         finishButton.disabled = false;
+        if (!resume) {
+            await clearActiveSession().catch(() => null);
+            state.recoveredSession = null;
+        }
         controller = new SessionController({
             bluetoothManager: isDemo ? null : state.bluetoothManager,
             capabilities: state.deviceCapabilities,
@@ -510,14 +561,17 @@ export function ExpeditionView({
                 renderer?.update({ blockType: block.type });
             },
             onTick: (tick) => {
-                timer.textContent = formatTime(tick.totalElapsedTime);
-                const totalDuration = Math.max(1, workout?.stats?.totalDuration || 1);
+                timer.textContent = formatTime(Math.max(0, totalDuration - tick.totalElapsedTime));
                 const progress = Math.max(0, Math.min(1, tick.totalElapsedTime / totalDuration));
                 routeProgressFill.style.width = `${Math.round(progress * 100)}%`;
                 renderer?.update({ progress });
             },
         });
-        await controller.start({ workout, experienceMode: 'expedition', recoveredSession });
+        await controller.start({
+            workout,
+            experienceMode: 'expedition',
+            recoveredSession: resume ? recoveredSession : null,
+        });
         await wakeLock.acquire();
 
         if (isDemo) {
@@ -532,16 +586,23 @@ export function ExpeditionView({
     }
 
     function ingest(data) {
-        actualPower.textContent = `${Math.round(data.power || 0)} W`;
+        const power = Math.max(0, Number(data.power) || 0);
+        const target = Math.max(0, Number(currentTarget?.power) || 0);
+        actualPower.textContent = `${Math.round(power)} W`;
         actualCadence.textContent = `${Math.round(data.cadence || 0)} rpm`;
+        actualHeartRate.textContent = data.heartRate > 0
+            ? `♥ ${Math.round(data.heartRate)} lpm`
+            : '♥ -- lpm';
+        const gaugeMaximum = target > 0 ? target * 2 : Math.max(400, state.settings.ftp * 2);
+        flowFill.style.width = `${Math.min(100, (power / gaugeMaximum) * 100)}%`;
+        targetMarker.style.display = target > 0 ? 'block' : 'none';
         const flow = controller?.ingestBikeData(data);
         if (!flow) return;
         lastFlow = lastFlow * 0.66 + flow.flow * 0.34;
-        flowFill.style.width = `${Math.round(lastFlow * 100)}%`;
         combo.textContent = `FLOW ${Math.round(lastFlow * 100)}% · x${flow.combo}`;
         renderer?.update({
             flow: lastFlow,
-            power: data.power || 0,
+            power,
             cadence: data.cadence || 0,
             speed: data.speed || 0,
             targetPower: currentTarget?.power || 0,
@@ -637,8 +698,21 @@ export function ExpeditionView({
             pauseButton.textContent = 'Pausar';
         }
     });
-    finishButton.addEventListener('click', () => controller?.finish());
-    startButton.addEventListener('click', startMission);
+    finishButton.addEventListener('click', () => {
+        if (finishButton.dataset.confirmFinish === 'true') {
+            if (finishConfirmTimeout) clearTimeout(finishConfirmTimeout);
+            controller?.finish();
+            return;
+        }
+        finishButton.dataset.confirmFinish = 'true';
+        finishButton.textContent = 'Confirmar fin';
+        finishConfirmTimeout = setTimeout(() => {
+            finishButton.dataset.confirmFinish = 'false';
+            finishButton.textContent = 'Finalizar';
+        }, 4000);
+    });
+    startButton.addEventListener('click', () => startMission({ resume: false }));
+    resumeButton?.addEventListener('click', () => startMission({ resume: true }));
 
     const handleVisibility = async () => {
         if (document.visibilityState === 'hidden') {
@@ -658,9 +732,11 @@ export function ExpeditionView({
     function cleanupRuntime() {
         if (demoInterval) clearInterval(demoInterval);
         if (promptTimeout) clearTimeout(promptTimeout);
+        if (finishConfirmTimeout) clearTimeout(finishConfirmTimeout);
         if (unsubscribe) unsubscribe();
         demoInterval = null;
         promptTimeout = null;
+        finishConfirmTimeout = null;
         unsubscribe = null;
     }
 

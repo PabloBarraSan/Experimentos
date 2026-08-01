@@ -187,21 +187,23 @@ export function createWorkoutPlayer(options = {}) {
         const deltaMs = now - lastTimestamp;
         lastTimestamp = now;
         
-        // Convertir a segundos
-        const deltaSec = deltaMs / 1000;
+        // Un frame puede llegar con varios segundos de retraso al recuperar el
+        // foco o tras un bloqueo del navegador. Nunca debemos descontar todo ese
+        // salto de golpe y terminar una misión antes de tiempo.
+        const deltaSec = Math.min(0.5, Math.max(0, deltaMs / 1000));
         
         blockElapsedTime += deltaSec;
-        totalElapsedTime += deltaSec;
-        
-        const currentBlock = getCurrentBlock();
+        totalElapsedTime = Math.min(getTotalDuration(), totalElapsedTime + deltaSec);
         
         // Verificar si el bloque ha terminado
+        let currentBlock = getCurrentBlock();
         if (currentBlock && blockElapsedTime >= currentBlock.duration) {
+            blockElapsedTime -= currentBlock.duration;
             currentBlockIndex++;
-            blockElapsedTime = 0;
             
             if (currentBlockIndex >= expandedBlocks.length) {
                 // Entrenamiento completado
+                totalElapsedTime = getTotalDuration();
                 state = PLAYER_STATE.FINISHED;
                 onComplete();
                 return;
@@ -213,6 +215,7 @@ export function createWorkoutPlayer(options = {}) {
                 onTargetChange(target);
             }
             onBlockChange(getCurrentBlock(), currentBlockIndex, expandedBlocks.length);
+            currentBlock = getCurrentBlock();
         }
         
         // Notificar tick con datos actuales
