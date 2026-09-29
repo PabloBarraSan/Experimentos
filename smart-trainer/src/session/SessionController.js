@@ -9,6 +9,7 @@ import { calculateSessionMetrics } from '../utils/calculations.js';
 import { createFlowTracker } from '../game/FlowEngine.js';
 import { TrainerAdapter } from './TrainerAdapter.js';
 import { createTelemetryPipeline } from '../telemetry/TelemetryPipeline.js';
+import { createSessionDebugLogger, logActiveSessionError, releaseSessionDebugLogger } from '../diagnostics/SessionDebugLogger.js';
 
 export const SESSION_STATE = {
     IDLE: 'idle',
@@ -39,6 +40,8 @@ export class SessionController {
         this.currentBlock = null;
         this.currentTick = null;
         this.lastSampleTimestamp = 0;
+        this.lastDebugTickSecond = -1;
+        this.sampleCount = 0;
         this.pausedAt = null;
         this.autosaveId = null;
         this.flowTracker = createFlowTracker();
@@ -49,6 +52,14 @@ export class SessionController {
 
     async start({ workout, mission = null, experienceMode = 'expedition', recoveredSession = null }) {
         if (!workout?.blocks?.length) throw new Error('El workout no contiene bloques');
+        this.debug = createSessionDebugLogger({ sessionId: `session-${Date.now()}` });
+        this.debug.log('controller.start', {
+            workoutId: workout.id,
+            workoutName: workout.name,
+            totalDuration: workout.stats?.totalDuration,
+            blockCount: workout.blocks.length,
+            recovered: Boolean(recoveredSession),
+        });
         this.workout = workout;
         this.session = recoveredSession || createSession({
             workoutId: workout.id,
@@ -66,20 +77,63 @@ export class SessionController {
             ftp: this.ftp,
             onTargetChange: async (target) => {
                 this.currentTarget = target;
-                const result = await this.trainer.applyTarget(target);
-                this.session.controlMode = result.mode;
-                this.callbacks.onTargetChange(target, result);
+                this.debug.log('target.change.request', {
+                    target,
+                    blockIndex: this.currentBlock?.index,
+                    elapsedSeconds: this.currentTick?.totalElapsedTime || 0,
+                });
+                try {
+                    const result = await this.trainer.applyTarget(target);
+                    this.session.controlMode = result.mode;
+                    this.debug.log('target.change.result', {
+                        target,
+                        mode: result.mode,
+                        applied: result.applied,
+                        error: result.error,
+                    });
+                    this.callbacks.onTargetChange(target, result);
+                } catch (error) {
+                    this.debug.log('target.change.error', { target, error });
+                    logActiveSessionError('target.change.unhandled', error, { target });
+                    throw error;
+                }
             },
             onBlockChange: (block, index, total) => {
                 this.currentBlock = { ...block, index, total };
+                this.debug.log('block.change', {
+                    blockIndex: index,
+                    totalBlocks: total,
+                    blockId: block.id,
+                    blockName: block.name,
+                    blockType: block.type,
+                    duration: block.duration,
+                    elapsedSeconds: this.currentTick?.totalElapsedTime || 0,
+                });
                 this.callbacks.onBlockChange(this.currentBlock);
             },
             onTick: (tick) => {
                 this.currentTick = tick;
+                const tickSecond = Math.floor(tick.totalElapsedTime);
+                if (tickSecond >= this.lastDebugTickSecond + 5) {
+                    this.lastDebugTickSecond = tickSecond;
+                    this.debug.log('player.tick', {
+                        state: tick.state,
+                        elapsedSeconds: tick.totalElapsedTime,
+                        remainingSeconds: tick.totalRemainingTime,
+                        blockIndex: tick.currentBlockIndex,
+                        blockRemainingSeconds: tick.blockRemainingTime,
+                        samples: this.sampleCount,
+                    });
+                }
                 this.callbacks.onTick(tick);
             },
             onComplete: () => {
-                this.finish({ status: 'completed' }).catch(() => {
+                this.debug.log('player.complete', {
+                    elapsedSeconds: this.currentTick?.totalElapsedTime || 0,
+                    totalDuration: this.player?.getTotalDuration?.(),
+                });
+                this.finish({ status: 'completed' }).catch((error) => {
+                    this.debug.log('finish.error', { error });
                     this.state = SESSION_STATE.ERROR;
                     this.emitState();
                 });
@@ -104,16 +158,26 @@ export class SessionController {
             this.flowTracker.setStatus('recovered');
         }
         this.state = SESSION_STATE.RUNNING;
-        this.autosaveId = setInterval(() => this.saveDraft(), 10000);
+        this.autosaveId = setInterval(() => {
+            this.saveDraft().catch((error) => this.debug?.log('autosave.error', { error }));
+        }, 10000);
         this.player.play();
+        this.debug.log('controller.running', { player: this.player.getState() });
         this.emitState();
         return this.session;
     }
 
     ingestBikeData(data, timestamp = Date.now()) {
-        if (this.state !== SESSION_STATE.RUNNING || !this.session) return null;
+        if (this.state !== SESSION_STATE.RUNNING || !this.session) {
+            this.debug?.log('bike_data.ignored', { state: this.state, hasSession: Boolean(this.session) });
+            return null;
+        }
         if (timestamp - this.lastSampleTimestamp < 1000) return null;
+        if (this.lastSampleTimestamp && timestamp - this.lastSampleTimestamp > 3000) {
+            this.debug.log('bike_data.gap', { gapMs: timestamp - this.lastSampleTimestamp });
+        }
         this.lastSampleTimestamp = timestamp;
+        this.sampleCount++;
 
         const frame = this.telemetry.ingest(data, timestamp);
         const block = this.currentBlock || this.currentTick?.currentBlock || {};
@@ -155,26 +219,42 @@ export class SessionController {
 
     async pause() {
         if (this.state !== SESSION_STATE.RUNNING) return;
+        this.debug?.log('controller.pause.request', { player: this.player?.getState() });
         this.player?.pause();
-        await this.trainer.pause();
+        try {
+            await this.trainer.pause();
+        } catch (error) {
+            this.debug?.log('trainer.pause.error', { error });
+        }
         this.pausedAt = Date.now();
         this.session.status = 'paused';
         this.state = SESSION_STATE.PAUSED;
-        await this.saveDraft();
+        try {
+            await this.saveDraft();
+        } catch (error) {
+            this.debug?.log('pause.autosave.error', { error });
+        }
         this.emitState();
+        this.debug?.log('controller.paused', { player: this.player?.getState() });
     }
 
     async resume() {
         if (this.state !== SESSION_STATE.PAUSED) return;
+        this.debug?.log('controller.resume.request', { player: this.player?.getState() });
         if (this.pausedAt) {
             this.session.pausedDuration += (Date.now() - this.pausedAt) / 1000;
             this.pausedAt = null;
         }
-        await this.trainer.resume();
+        try {
+            await this.trainer.resume();
+        } catch (error) {
+            this.debug?.log('trainer.resume.error', { error });
+        }
         this.session.status = 'active';
         this.state = SESSION_STATE.RUNNING;
         this.player?.resume();
         this.emitState();
+        this.debug?.log('controller.running', { reason: 'resume', player: this.player?.getState() });
     }
 
     async saveDraft() {
@@ -195,6 +275,11 @@ export class SessionController {
             return this.session;
         }
         this.state = SESSION_STATE.FINISHING;
+        this.debug?.log('controller.finish', {
+            status,
+            elapsedSeconds: this.session.elapsedTime || this.currentTick?.totalElapsedTime || 0,
+            player: this.player?.getState(),
+        });
         this.emitState();
         this.player?.stop();
         if (this.autosaveId) clearInterval(this.autosaveId);
@@ -217,13 +302,16 @@ export class SessionController {
         await clearActiveSession();
         this.state = SESSION_STATE.COMPLETED;
         this.emitState();
+        this.debug?.log('controller.completed', { status, metrics });
         return this.session;
     }
 
     destroy() {
+        this.debug?.log('controller.destroy', { state: this.state, player: this.player?.getState() });
         this.player?.stop();
         if (this.autosaveId) clearInterval(this.autosaveId);
         this.autosaveId = null;
+        releaseSessionDebugLogger(this.debug);
     }
 
     emitState() {

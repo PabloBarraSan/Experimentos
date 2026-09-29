@@ -3,6 +3,7 @@ import { button, createElement, div, formatTime } from '../utils/dom.js';
 import { SessionController, SESSION_STATE } from '../session/SessionController.js';
 import { recordMissionProgress } from '../game/ProgressionService.js';
 import { WakeLockManager } from '../session/WakeLockManager.js';
+import { installSessionDebugHooks, logActiveSessionError } from '../diagnostics/SessionDebugLogger.js';
 import { clearActiveSession } from '../storage/sessions.js';
 import { getCoachingState, getHeartRateZone } from '../game/CoachingEngine.js';
 import { AudioCueService } from '../game/AudioCueService.js';
@@ -21,9 +22,11 @@ export function ExpeditionView({
     state,
     workout,
     recoveredSession = null,
+    availableWorkouts = [],
     subscribeToState,
     onProgress,
     onExit,
+    onSelectWorkout,
     onCompleted,
 }) {
     const isDemo = state.connectionState !== 'connected';
@@ -448,6 +451,25 @@ export function ExpeditionView({
             marginBottom: spacing.lg,
         },
     });
+    const expeditionWorkouts = availableWorkouts.filter((candidate) => candidate?.mission && candidate.id);
+    if (workout?.id && !expeditionWorkouts.some((candidate) => candidate.id === workout.id)) {
+        expeditionWorkouts.unshift(workout);
+    }
+    if (expeditionWorkouts.length > 1) {
+        const workoutSelect = configSelect(
+            'Entrenamiento · duración',
+            expeditionWorkouts.map((candidate) => [
+                candidate.id,
+                `${candidate.name} · ${formatTime(candidate.stats?.totalDuration || 0)}`,
+            ]),
+            workout.id,
+        );
+        workoutSelect.select.addEventListener('change', () => {
+            const nextWorkout = expeditionWorkouts.find((candidate) => candidate.id === workoutSelect.select.value);
+            if (nextWorkout && nextWorkout.id !== workout.id) onSelectWorkout?.(nextWorkout);
+        });
+        visualConfig.appendChild(workoutSelect.wrapper);
+    }
     const cameraSelect = configSelect('Cámara', [
         ['close', 'Cercana'],
         ['standard', 'Dinámica'],
@@ -504,7 +526,10 @@ export function ExpeditionView({
 
     let renderer;
     let controller;
+    const removeSessionDebugHooks = installSessionDebugHooks();
     let unsubscribe;
+    let connectionLost = false;
+    let connectionPausePromise = null;
     let demoInterval;
     let currentTarget = null;
     let lastFlow = 0;
@@ -613,9 +638,18 @@ export function ExpeditionView({
             capabilities: state.deviceCapabilities,
             ftp: state.settings.ftp,
             onStateChange: (sessionState, session) => {
+                controller?.debug?.log('view.state.change', {
+                    state: sessionState,
+                    elapsedSeconds: session?.elapsedTime,
+                    connectionState: state.connectionState,
+                    documentVisibility: document.visibilityState,
+                });
                 renderer?.update({ paused: sessionState !== SESSION_STATE.RUNNING });
                 if (sessionState === SESSION_STATE.COMPLETED) {
-                    showResult(session).catch((error) => console.error('No se pudo guardar el progreso:', error));
+                    showResult(session).catch((error) => {
+                        logActiveSessionError('view.show_result.error', error);
+                        console.error('No se pudo guardar el progreso:', error);
+                    });
                 }
             },
             onTargetChange: (target, result) => {
@@ -626,6 +660,7 @@ export function ExpeditionView({
                 if (result.error) trackProductEvent('trainer_control_error', { missionId: mission.id, mode: result.mode });
             },
             onBlockChange: (block) => {
+                controller?.debug?.log('view.block.change', { block });
                 blockLabel.textContent = String(block.name || 'TRAMO').toUpperCase();
                 showStagePrompt(getStagePrompt(block.type));
                 renderer?.update({ blockType: block.type });
@@ -688,7 +723,33 @@ export function ExpeditionView({
                 ingest({ power: Math.round(target + wave), cadence: 88, speed: 28, heartRate: 135 });
             }, 250);
         } else {
-            unsubscribe = subscribeToState?.((nextState) => ingest(nextState.liveData));
+            unsubscribe = subscribeToState?.((nextState) => {
+                if (nextState.connectionState !== 'connected') {
+                    if (!connectionLost) {
+                        connectionLost = true;
+                        controller?.debug?.log('connection.lost', {
+                            connectionState: nextState.connectionState,
+                            elapsedSeconds: latestTick?.totalElapsedTime || 0,
+                        });
+                        showStagePrompt('Rodillo desconectado · sesión pausada');
+                    }
+                    if (controller?.state === SESSION_STATE.RUNNING && !connectionPausePromise) {
+                        connectionPausePromise = controller.pause()
+                            .catch((error) => logActiveSessionError('connection.pause.error', error))
+                            .finally(() => { connectionPausePromise = null; });
+                    }
+                    return;
+                }
+
+                if (connectionLost) {
+                    connectionLost = false;
+                    controller?.debug?.log('connection.restored', {
+                        elapsedSeconds: latestTick?.totalElapsedTime || 0,
+                    });
+                    showStagePrompt('Rodillo reconectado · pulsa Reanudar');
+                }
+                ingest(nextState.liveData);
+            });
         }
     }
 
@@ -916,11 +977,18 @@ export function ExpeditionView({
     const handleVisibility = async () => {
         if (document.visibilityState === 'hidden') {
             hiddenAt = Date.now();
+            controller?.debug?.log('document.hidden', { at: hiddenAt });
             return;
         }
         const wasAway = hiddenAt && Date.now() - hiddenAt > 3000;
+        controller?.debug?.log('document.visible', {
+            awayMs: hiddenAt ? Date.now() - hiddenAt : 0,
+            wasAway,
+            controllerState: controller?.state,
+        });
         hiddenAt = null;
         if (wasAway && controller?.state === SESSION_STATE.RUNNING) {
+            controller.debug?.log('visibility.auto_pause', { reason: 'hidden_more_than_3s' });
             await controller.pause();
             await wakeLock.release();
             pauseButton.textContent = 'Reanudar';
@@ -929,6 +997,7 @@ export function ExpeditionView({
     document.addEventListener('visibilitychange', handleVisibility);
 
     function cleanupRuntime() {
+        controller?.debug?.log('view.cleanup_runtime', { controllerState: controller?.state });
         if (demoInterval) clearInterval(demoInterval);
         if (promptTimeout) clearTimeout(promptTimeout);
         if (finishConfirmTimeout) clearTimeout(finishConfirmTimeout);
@@ -948,6 +1017,7 @@ export function ExpeditionView({
         controller?.destroy();
         renderer?.destroy();
         document.removeEventListener('visibilitychange', handleVisibility);
+        removeSessionDebugHooks();
         window.removeEventListener('resize', applyResponsiveLayout);
         wakeLock.release();
         audio.destroy();

@@ -43,6 +43,7 @@ function debugRawBytes(dataView) {
     }
 }
 import { CommandQueue } from './commands.js';
+import { logActiveSessionEvent } from '../diagnostics/SessionDebugLogger.js';
 
 // Estados de conexión
 export const CONNECTION_STATE = {
@@ -207,6 +208,7 @@ export class BluetoothManager {
         this.handleIndoorBikeDataBound = (event) => this.handleIndoorBikeData(event);
         this.handleStatusChangeBound = (event) => this.handleStatusChange(event);
         this.handleControlPointResponseBound = (event) => this.handleControlPointResponse(event);
+        this.handleDeviceDisconnectedBound = () => this.handleDisconnection();
         
         // Callbacks
         this.onStateChange = callbacks.onStateChange || (() => {});
@@ -292,10 +294,7 @@ export class BluetoothManager {
                 this.device = cachedDevice;
                 this.isManualDisconnect = false;
                 
-                // Configurar listener de desconexión
-                this.device.addEventListener('gattserverdisconnected', () => {
-                    this.handleDisconnection();
-                });
+                this.attachDeviceDisconnectListener();
                 
                 // Intentar conectar
                 await this.connect();
@@ -354,6 +353,14 @@ export class BluetoothManager {
     setState(newState) {
         const oldState = this.state;
         this.state = newState;
+        if (oldState !== newState) {
+            logActiveSessionEvent('bluetooth.state.change', {
+                from: oldState,
+                to: newState,
+                deviceName: this.device?.name || null,
+                gattConnected: Boolean(this.device?.gatt?.connected),
+            });
+        }
         this.logger.debug(`Cambio de estado: ${oldState} → ${newState}`);
         this.onStateChange(newState);
     }
@@ -389,10 +396,7 @@ export class BluetoothManager {
             // Guardar en cache
             this.saveCachedDevice(this.device);
             
-            // Configurar listener de desconexión
-            this.device.addEventListener('gattserverdisconnected', () => {
-                this.handleDisconnection();
-            });
+            this.attachDeviceDisconnectListener();
             
             // Conectar al dispositivo
             await this.connect();
@@ -421,6 +425,11 @@ export class BluetoothManager {
         if (!this.device) {
             throw new BluetoothError('No hay dispositivo seleccionado', 'NO_DEVICE');
         }
+
+        // La reconexión limpia los listeners de características; el listener del
+        // dispositivo se vuelve a registrar aquí para que siga activo después
+        // de una primera desconexión.
+        this.attachDeviceDisconnectListener();
         
         this.setState(CONNECTION_STATE.CONNECTING);
         
@@ -756,6 +765,11 @@ export class BluetoothManager {
      * Manejar desconexión con backoff exponencial
      */
     async handleDisconnection() {
+        logActiveSessionEvent('bluetooth.disconnected', {
+            deviceName: this.device?.name || null,
+            manual: this.isManualDisconnect,
+            reconnectAttempts: this.reconnectAttempts,
+        });
         this.logger.warn('Dispositivo desconectado');
         
         // No reconectar si fue desconexión manual
@@ -806,6 +820,16 @@ export class BluetoothManager {
             this.onError('No se pudo reconectar al dispositivo después de varios intentos.');
         }
     }
+
+    attachDeviceDisconnectListener() {
+        if (!this.device?.addEventListener) return;
+        this.device.removeEventListener?.('gattserverdisconnected', this.handleDeviceDisconnectedBound);
+        this.device.addEventListener('gattserverdisconnected', this.handleDeviceDisconnectedBound);
+    }
+
+    removeDeviceDisconnectListener() {
+        this.device?.removeEventListener?.('gattserverdisconnected', this.handleDeviceDisconnectedBound);
+    }
     
     /**
      * Desconectar manualmente
@@ -835,6 +859,7 @@ export class BluetoothManager {
      * Remover event listeners
      */
     removeEventListeners() {
+        this.removeDeviceDisconnectListener();
         if (this.characteristics.indoorBikeData) {
             try {
                 this.characteristics.indoorBikeData.removeEventListener('characteristicvaluechanged', this.handleIndoorBikeDataBound);

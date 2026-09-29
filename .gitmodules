@@ -2,3 +2,6 @@
 	path = DView
 	update = none
 	url = https://github.com/DigitalValue/DView.git
+[submodule "escocia-viaje"]
+	path = escocia-viaje
+	url = https://github.com/PabloBarraSan/escocia-viaje.git

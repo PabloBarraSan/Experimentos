@@ -22,6 +22,7 @@ import { getAllPresets } from './workouts/presets.js';
 import { startBackgroundSync } from './cloud/CloudSyncService.js';
 import { ChallengesView } from './views/ChallengesView.js';
 import { migrateProgress } from './game/ProgressionService.js';
+import { logActiveSessionEvent } from './diagnostics/SessionDebugLogger.js';
 
 // Estado global de la aplicación
 const AppState = {
@@ -339,6 +340,7 @@ function renderCurrentView() {
             container.appendChild(ExpeditionView({
                 state: AppState,
                 workout: AppState.selectedWorkout,
+                availableWorkouts: getAllPresets(),
                 recoveredSession: AppState.recoveredSession,
                 subscribeToState: subscribe,
                 onProgress: (progress) => {
@@ -346,6 +348,11 @@ function renderCurrentView() {
                     AppState.recoveredSession = null;
                 },
                 onExit: () => navigateTo('workouts'),
+                onSelectWorkout: (workout) => {
+                    AppState.selectedWorkout = workout;
+                    AppState.recoveredSession = null;
+                    navigateTo('expedition', { replace: true });
+                },
                 onCompleted: () => navigateTo('history'),
             }));
             break;
@@ -507,10 +514,15 @@ async function init() {
     AppState.bluetoothManager = new BluetoothManager({
         onStateChange: (state) => {
             AppState.connectionState = state;
+            logActiveSessionEvent('app.bluetooth.state', { state, view: AppState.currentView });
             notify();
-            renderApp();
+            // Re-renderizar aquí destruye el SessionController de la expedición
+            // justo cuando BLE entra en RECONNECTING. La vista de expedición
+            // recibe el cambio mediante subscribe() y conserva el borrador.
+            if (AppState.currentView !== 'expedition') renderApp();
         },
         onDeviceConnected: (deviceName) => {
+            logActiveSessionEvent('app.bluetooth.connected', { deviceName });
             AppState.deviceName = deviceName;
             AppState.connectionState = CONNECTION_STATE.CONNECTED;
             // Guardar capacidades del dispositivo
@@ -523,6 +535,13 @@ async function init() {
             notify();
         },
         onDeviceDisconnected: () => {
+            const keepExpeditionOpen = AppState.currentView === 'expedition';
+            logActiveSessionEvent('app.bluetooth.disconnected', {
+                view: AppState.currentView,
+                sessionActive: AppState.session.isActive,
+                keepExpeditionOpen,
+                elapsedSeconds: AppState.session.elapsedTime,
+            });
             AppState.deviceName = null;
             AppState.connectionState = CONNECTION_STATE.DISCONNECTED;
             // Finalizar sesión
@@ -530,8 +549,9 @@ async function init() {
             AppState.session.isPaused = false;
             AppState.session.startTime = null;
             notify();
-            // Usar replace para no poder volver con el botón atrás a una vista sin conexión
-            navigateTo('home', { replace: true });
+            // Una expedición debe poder pausarse y recuperarse tras una pérdida BLE.
+            // Las vistas de entrenamiento libre mantienen el comportamiento anterior.
+            if (!keepExpeditionOpen) navigateTo('home', { replace: true });
         },
         onDataReceived: (data) => {
             updateLiveData(data);
@@ -543,7 +563,7 @@ async function init() {
         onStateChange: (state) => {
             AppState.hrConnectionState = state;
             notify();
-            renderApp();
+            if (AppState.currentView !== 'expedition') renderApp();
         },
         onDeviceConnected: (deviceName, sensorLocation) => {
             AppState.hrDeviceName = deviceName;
@@ -573,7 +593,7 @@ async function init() {
     AppState.zwiftPlayManager.onStateChange = (state) => {
         AppState.zwiftPlayState = state;
         notify();
-        renderApp();
+        if (AppState.currentView !== 'expedition') renderApp();
     };
 
     // Cargar configuración guardada

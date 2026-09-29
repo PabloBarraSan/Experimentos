@@ -24,7 +24,9 @@ function formatDuration(seconds) {
  * @param {{ state: object, onBack: () => void }} opts
  */
 export async function HistoryView({ state, onBack }) {
-    let sessions = (await getAllSessions()).filter((s) => s.status === 'completed' && s.metrics);
+    let sessions = (await getAllSessions()).filter((s) => (
+        ['completed', 'abandoned'].includes(s.status) && s.metrics
+    ));
     let totalStats = await getTotalStats();
 
     const containerStyles = {
@@ -156,11 +158,13 @@ export async function HistoryView({ state, onBack }) {
             styles: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: spacing.xs },
             children: [
                 createElement('div', {
-                    text: session.workoutName || 'Entrenamiento Libre',
+                    text: session.status === 'abandoned'
+                        ? `${session.workoutName || 'Entrenamiento Libre'} · Interrumpida`
+                        : (session.workoutName || 'Entrenamiento Libre'),
                     styles: {
                         fontSize: typography.sizes.md,
                         fontWeight: typography.weights.semibold,
-                        color: colors.text,
+                        color: session.status === 'abandoned' ? colors.warning : colors.text,
                     },
                 }),
                 createElement('div', {
@@ -251,7 +255,9 @@ export async function HistoryView({ state, onBack }) {
     }
 
     async function refresh() {
-        sessions = (await getAllSessions()).filter((s) => s.status === 'completed' && s.metrics);
+        sessions = (await getAllSessions()).filter((s) => (
+            ['completed', 'abandoned'].includes(s.status) && s.metrics
+        ));
         totalStats = await getTotalStats();
         const frag = buildContent();
         contentWrapper.replaceChildren();

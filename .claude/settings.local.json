@@ -3,6 +3,7 @@
     "allow": [
       "Bash(git pull)",
       "WebFetch(domain:api.digitalvalue.es)",
+      "WebSearch",
       "Bash(git submodule:*)",
       "Bash(git config:*)",
       "Bash(gh api:*)",
