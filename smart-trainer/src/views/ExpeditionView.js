@@ -8,6 +8,7 @@ import { clearActiveSession } from '../storage/sessions.js';
 import { getCoachingState, getHeartRateZone } from '../game/CoachingEngine.js';
 import { AudioCueService } from '../game/AudioCueService.js';
 import { getPersonalGhost, interpolateGhost } from '../game/GhostService.js';
+import { LapTracker, createLapTable, createLapToast, createRacePanel, createWorkoutStrip } from './expeditionHud.js';
 import { trackProductEvent } from '../cloud/ProductAnalytics.js';
 
 const EXPEDITION_VISUAL_SETTINGS_KEY = 'smartTrainer_expedition_visuals_v1';
@@ -16,6 +17,7 @@ const DEFAULT_VISUAL_SETTINGS = {
     hud: 'essential',
     quality: 'auto',
     reducedMotion: false,
+    rivals: true,
 };
 
 export function ExpeditionView({
@@ -311,6 +313,21 @@ export function ExpeditionView({
     bottom.append(metrics);
     hud.appendChild(bottom);
 
+    // Perfil del entrenamiento, vueltas/series y clasificación del pelotón.
+    const workoutStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration });
+    const lapTracker = new LapTracker();
+    const lapToast = createLapToast();
+    const racePanel = createRacePanel();
+    racePanel.setEnabled(visualSettings.rivals !== false);
+    bottom.prepend(workoutStrip.element);
+    hud.append(lapToast.element, racePanel.element);
+    routeProgress.style.display = 'none'; // el perfil del entrenamiento ya muestra el avance
+    const applyHudExtras = () => {
+        racePanel.setMode(visualSettings.hud);
+        workoutStrip.element.style.opacity = visualSettings.hud === 'hidden' ? '0' : '1';
+    };
+    applyHudExtras();
+
     const controls = div({
         styles: {
             position: 'absolute',
@@ -486,7 +503,11 @@ export function ExpeditionView({
         ['medium', 'Equilibrada'],
         ['high', 'Alta'],
     ], visualSettings.quality);
-    visualConfig.append(cameraSelect.wrapper, hudSelect.wrapper, qualitySelect.wrapper);
+    const rivalsSelect = configSelect('Pelotón', [
+        ['on', 'Con rivales'],
+        ['off', 'En solitario'],
+    ], visualSettings.rivals === false ? 'off' : 'on', 'Ciclistas que rueden contigo y clasificación en vivo.');
+    visualConfig.append(cameraSelect.wrapper, hudSelect.wrapper, qualitySelect.wrapper, rivalsSelect.wrapper);
     card.appendChild(visualConfig);
     const startButton = button({
         text: canResume
@@ -568,6 +589,8 @@ export function ExpeditionView({
         visualControls.style.right = compact ? '12px' : '18px';
         visualControls.style.justifyContent = compact ? 'center' : 'flex-end';
         stagePrompt.style.top = compact ? '164px' : '102px';
+        racePanel.setCompact(compact);
+        lapToast.setCompact(compact);
         stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
         controls.style.right = compact ? '12px' : '18px';
         controls.style.bottom = compact ? '136px' : '18px';
@@ -605,6 +628,7 @@ export function ExpeditionView({
         visualSettings.camera = cameraSelect.select.value;
         visualSettings.hud = hudSelect.select.value;
         visualSettings.quality = qualitySelect.select.value;
+        visualSettings.rivals = rivalsSelect.select.value !== 'off';
         saveVisualSettings(visualSettings);
         applyHudMode(visualSettings.hud, {
             top,
@@ -616,6 +640,7 @@ export function ExpeditionView({
             combo,
             contextValues,
         });
+        applyHudExtras();
         await rendererReady;
         renderer?.setCameraMode?.(visualSettings.camera);
         renderer?.setQuality?.(visualSettings.quality);
@@ -623,7 +648,8 @@ export function ExpeditionView({
         audio.unlock();
         ghostSession = await getPersonalGhost(mission).catch(() => null);
         ghostDelta.textContent = ghostSession ? 'GHOST · MEJOR MARCA' : 'SIN GHOST COMPATIBLE';
-        renderer?.update({ ghostVisible: Boolean(ghostSession) });
+        renderer?.update({ ghostVisible: Boolean(ghostSession), raceEnabled: visualSettings.rivals !== false });
+        racePanel.setEnabled(visualSettings.rivals !== false);
         trackProductEvent('mission_started', { missionId: mission.id, missionVersion: mission.version, demo: isDemo });
         trackProductEvent('render_preset', { missionId: mission.id, quality: visualSettings.quality });
         if (ghostSession) trackProductEvent('ghost_selected', { missionId: mission.id, source: 'personal_best' });
@@ -664,6 +690,9 @@ export function ExpeditionView({
                 blockLabel.textContent = String(block.name || 'TRAMO').toUpperCase();
                 showStagePrompt(getStagePrompt(block.type));
                 renderer?.update({ blockType: block.type });
+                const finishedLap = lapTracker.start(block, block.index ?? 0);
+                if (finishedLap?.work) lapToast.show(finishedLap);
+                workoutStrip.setBlock(block, block.index ?? 0);
                 lastCountdownSecond = null;
                 audio.cue('block');
                 const count = (blockTypeCounts.get(block.type) || 0) + 1;
@@ -682,6 +711,8 @@ export function ExpeditionView({
                 const progress = Math.max(0, Math.min(1, tick.totalElapsedTime / totalDuration));
                 routeProgressFill.style.width = `${Math.round(progress * 100)}%`;
                 renderer?.update({ progress });
+                workoutStrip.setProgress(tick.totalElapsedTime);
+                racePanel.update(renderer?.getRaceStatus?.());
                 const countdown = Math.ceil(tick.blockRemainingTime);
                 if (countdown >= 1 && countdown <= 3 && countdown !== lastCountdownSecond) {
                     lastCountdownSecond = countdown;
@@ -772,6 +803,8 @@ export function ExpeditionView({
         targetMarker.style.display = target > 0 ? 'block' : 'none';
         targetMarker.style.left = `${Math.min(100, (target / gaugeMaximum) * 100)}%`;
         flowBar.setAttribute('aria-label', `Potencia ${Math.round(power)} vatios; objetivo ${target || 'libre'}; escala ${Math.round(gaugeMaximum)}`);
+        lapTracker.sample(power, target, latestTick?.blockElapsedTime || 0);
+        workoutStrip.setAverage(lapTracker.average());
         lastFlow = lastFlow * 0.66 + flow.flow * 0.34;
         combo.textContent = `FLOW ${Math.round(lastFlow * 100)}%`;
         const coaching = getCoachingState({
@@ -896,9 +929,10 @@ export function ExpeditionView({
                 styles: { color: colors.textMuted, marginBottom: spacing.lg },
             }),
             createElement('p', {
-                text: `${gainedXp > 0 ? `+${gainedXp} XP · ` : ''}Nivel ${progress.level} · ${Math.round(progress.weekly.activeMinutes)}/${progress.weekly.goalMinutes} min esta semana`,
+                text: `${visualSettings.rivals !== false && renderer?.getRaceStatus ? `Pelotón: ${renderer.getRaceStatus().rank}º de ${renderer.getRaceStatus().total} · ` : ''}${gainedXp > 0 ? `+${gainedXp} XP · ` : ''}Nivel ${progress.level} · ${Math.round(progress.weekly.activeMinutes)}/${progress.weekly.goalMinutes} min esta semana`,
                 styles: { color: colors.primary, marginBottom: spacing.lg, fontWeight: 700 },
             }),
+            createLapTable(lapTracker.laps) || div(),
             blockResults,
             createElement('p', {
                 text: result.adherence >= 0.9 ? 'Excelente precisión. Prueba una ruta técnica en la próxima expedición.'
@@ -943,6 +977,7 @@ export function ExpeditionView({
             combo,
             contextValues,
         });
+        applyHudExtras();
         saveVisualSettings(visualSettings);
     });
 
@@ -1004,6 +1039,7 @@ export function ExpeditionView({
         if (decisionTimeout) clearTimeout(decisionTimeout);
         if (decisionInterval) clearInterval(decisionInterval);
         if (unsubscribe) unsubscribe();
+        lapToast.destroy();
         demoInterval = null;
         promptTimeout = null;
         finishConfirmTimeout = null;
