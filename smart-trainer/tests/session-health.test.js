@@ -49,6 +49,16 @@ describe('summarizeSessionHealth', () => {
         expect(health.targetTracking.meanErrorPct).toBe(0);
     });
 
+    it('no penaliza el ritmo real del rodillo (~0,9 muestras/s)', () => {
+        const dataPoints = [];
+        for (let t = 0; t < 600; t += 1.11) {
+            dataPoints.push({ timestamp: 1_000_000 + t * 1000, elapsedSeconds: t, power: 180, targetPower: 180, heartRate: 130, blockIndex: 0 });
+        }
+        const health = summarizeSessionHealth({ status: 'completed', elapsedTime: 600, dataPoints });
+        expect(health.coverage).toBe(1);
+        expect(health.warnings.some((warning) => /cobertura/.test(warning))).toBe(false);
+    });
+
     it('no falla con una sesión vacía', () => {
         expect(summarizeSessionHealth({}).samples).toBe(0);
         expect(summarizeSessionHealth(null).ok).toBe(true);

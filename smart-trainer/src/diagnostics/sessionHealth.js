@@ -5,6 +5,8 @@
 
 // Tras un cambio de bloque el rodillo y el ciclista tardan en llegar al objetivo; no cuenta como error.
 const BLOCK_SETTLE_SECONDS = 15;
+// El rodillo manda ~0,9 muestras/s; la cobertura se mide en ventanas de 5 s con al menos un dato.
+const COVERAGE_WINDOW_SECONDS = 5;
 const MIN_COVERAGE = 0.9;
 const MAX_GAP_SECONDS = 5;
 const MAX_TARGET_ERROR = 0.15;
@@ -49,7 +51,9 @@ export function summarizeSessionHealth(session) {
     }
 
     const share = (predicate) => (points.length ? round(points.filter(predicate).length / points.length) : 0);
-    const coverage = elapsed ? round(Math.min(1, points.length / elapsed)) : 0;
+    const windows = Math.ceil(elapsed / COVERAGE_WINDOW_SECONDS);
+    const covered = new Set(points.map((point) => Math.floor((point.elapsedSeconds ?? 0) / COVERAGE_WINDOW_SECONDS)));
+    const coverage = windows ? round(Math.min(1, covered.size / windows)) : 0;
     const tracking = targetTracking(points);
     const summary = {
         status: session?.status ?? null,

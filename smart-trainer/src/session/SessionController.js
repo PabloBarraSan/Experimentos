@@ -44,6 +44,8 @@ export class SessionController {
         this.currentBlock = null;
         this.currentTick = null;
         this.lastSampleTimestamp = 0;
+        // El rodillo mini no envía distancia por FTMS: se integra la velocidad (m).
+        this.distanceMeters = 0;
         this.lastFlow = null;
         this.lastDebugTickSecond = -1;
         this.sampleCount = 0;
@@ -154,6 +156,7 @@ export class SessionController {
         });
 
         if (recoveredSession) {
+            this.distanceMeters = recoveredSession.dataPoints?.at(-1)?.distance || 0;
             for (const point of recoveredSession.dataPoints || []) {
                 if (!Number.isFinite(point.targetPower) || point.targetPower <= 0) continue;
                 this.flowTracker.update({
@@ -207,6 +210,11 @@ export class SessionController {
         if (this.lastSampleTimestamp && timestamp - this.lastSampleTimestamp > 3000) {
             this.debug.log('bike_data.gap', { gapMs: timestamp - this.lastSampleTimestamp });
         }
+        // Un corte largo (o una pausa) no suma distancia: se limita a 3 s entre muestras.
+        const elapsedSinceSample = this.lastSampleTimestamp ? Math.min((timestamp - this.lastSampleTimestamp) / 1000, 3) : 0;
+        const reportedDistance = Number(data.distance);
+        if (reportedDistance > 0) this.distanceMeters = reportedDistance;
+        else this.distanceMeters += ((frame.raw.speed || 0) / 3.6) * elapsedSinceSample;
         this.lastSampleTimestamp = timestamp;
         this.sampleCount++;
 
@@ -233,7 +241,7 @@ export class SessionController {
             speed: frame.raw.speed ?? 0,
             heartRate: frame.raw.heartRate ?? 0,
             resistance: Number(data.resistance) || 0,
-            distance: Number(data.distance) || 0,
+            distance: Math.round(this.distanceMeters),
             targetPower: target.power ?? null,
             targetCadence: target.cadence ?? null,
             blockId: block.id || null,
@@ -322,6 +330,7 @@ export class SessionController {
             dataPoints: this.session.dataPoints,
             duration: this.session.elapsedTime || this.currentTick?.totalElapsedTime || 0,
         }, this.ftp);
+        if (!metrics.distance) metrics.distance = Math.round(this.distanceMeters);
         this.session.adherence = {
             overall: gameResult.adherence,
             blocks: gameResult.blocks,

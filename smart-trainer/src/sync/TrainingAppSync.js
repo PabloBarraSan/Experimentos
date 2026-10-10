@@ -6,7 +6,7 @@
  * (el servidor hace upsert por clientSessionId, así que reenviar no duplica).
  */
 
-import { getAllSessions, getSyncJobs, removeSyncJob } from '../storage/sessions.js';
+import { getAllSessions, getSyncJobs, removeSyncJob, withIntegratedDistance } from '../storage/sessions.js';
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
 
 const STORAGE_KEY = 'smartTrainer_trainingApp';
@@ -68,7 +68,7 @@ async function postSession(config, session) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${config.token}`,
         },
-        body: JSON.stringify({ clientSessionId: session.clientSessionId, session }),
+        body: JSON.stringify({ clientSessionId: session.clientSessionId, session: withIntegratedDistance(session) }),
     });
     logAppEvent('sync.post', {
         clientSessionId: session.clientSessionId,

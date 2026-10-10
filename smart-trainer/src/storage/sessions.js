@@ -458,7 +458,27 @@ export function exportToFIT(session) {
 /**
  * Exportar sesión a formato .tcx (Training Center XML)
  */
-export function exportToTCX(session) {
+/**
+ * Sesiones anteriores al cálculo en vivo guardaron distancia 0 (el rodillo mini no la envía por FTMS).
+ * Devuelve una copia con la distancia integrada desde la velocidad; no toca la sesión original.
+ */
+export function withIntegratedDistance(session) {
+    const points = session?.dataPoints || [];
+    if (!points.length || points.some((point) => point.distance > 0)) return session;
+    let meters = 0;
+    const dataPoints = points.map((point, index) => {
+        if (index > 0) {
+            const seconds = Math.min((point.timestamp - points[index - 1].timestamp) / 1000, 3);
+            meters += ((point.speed || 0) / 3.6) * seconds;
+        }
+        return { ...point, distance: Math.round(meters) };
+    });
+    const metrics = session.metrics ? { ...session.metrics, distance: session.metrics.distance || Math.round(meters) } : session.metrics;
+    return { ...session, dataPoints, metrics };
+}
+
+export function exportToTCX(rawSession) {
+    const session = withIntegratedDistance(rawSession);
     const startTime = new Date(session.startTime).toISOString();
     
     const trackpoints = session.dataPoints.map(p => `
@@ -508,14 +528,16 @@ ${trackpoints}
 /**
  * Exportar sesión a CSV
  */
-export function exportToCSV(session) {
+export function exportToCSV(rawSession) {
+    const session = withIntegratedDistance(rawSession);
     const headers = ['timestamp', 'seconds', 'power', 'cadence', 'speed', 'heartRate', 'distance'];
     const rows = [headers.join(',')];
     
     session.dataPoints.forEach((p, i) => {
         rows.push([
             p.timestamp,
-            i,
+            // Segundos reales desde el inicio (el rodillo da ~0,9 muestras/s, así que el índice no sirve).
+            Number.isFinite(p.elapsedSeconds) ? p.elapsedSeconds.toFixed(1) : i,
             p.power || 0,
             p.cadence || 0,
             (p.speed || 0).toFixed(1),
