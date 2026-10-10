@@ -11,6 +11,7 @@ import { createFlowTracker } from '../game/FlowEngine.js';
 import { TrainerAdapter } from './TrainerAdapter.js';
 import { createTelemetryPipeline } from '../telemetry/TelemetryPipeline.js';
 import { createSessionDebugLogger, logActiveSessionError, releaseSessionDebugLogger } from '../diagnostics/SessionDebugLogger.js';
+import { summarizeSessionHealth } from '../diagnostics/sessionHealth.js';
 
 const MIN_SAVED_SECONDS = 60;
 
@@ -59,9 +60,11 @@ export class SessionController {
         this.debug = createSessionDebugLogger({ sessionId: `session-${Date.now()}` });
         this.debug.log('controller.start', {
             workoutId: workout.id,
+            plannedWorkoutId: workout.plannedWorkoutId || null,
             workoutName: workout.name,
             totalDuration: workout.stats?.totalDuration,
             blockCount: workout.blocks.length,
+            ftp: this.ftp,
             recovered: Boolean(recoveredSession),
         });
         this.workout = workout;
@@ -121,6 +124,7 @@ export class SessionController {
                 const tickSecond = Math.floor(tick.totalElapsedTime);
                 if (tickSecond >= this.lastDebugTickSecond + 5) {
                     this.lastDebugTickSecond = tickSecond;
+                    const last = this.session.dataPoints[this.session.dataPoints.length - 1];
                     this.debug.log('player.tick', {
                         state: tick.state,
                         elapsedSeconds: tick.totalElapsedTime,
@@ -128,6 +132,10 @@ export class SessionController {
                         blockIndex: tick.currentBlockIndex,
                         blockRemainingSeconds: tick.blockRemainingTime,
                         samples: this.sampleCount,
+                        power: last?.power ?? null,
+                        targetPower: last?.targetPower ?? null,
+                        cadence: last?.cadence ?? null,
+                        heartRate: last?.heartRate || null,
                     });
                 }
                 this.callbacks.onTick(tick);
@@ -334,6 +342,8 @@ export class SessionController {
         this.state = SESSION_STATE.COMPLETED;
         this.emitState();
         this.debug?.log('controller.completed', { status, metrics });
+        // Veredicto de la sesión: una sola entrada que dice si datos y control fueron correctos.
+        this.debug?.log('session.health', summarizeSessionHealth(this.session));
         return this.session;
     }
 

@@ -1,3 +1,5 @@
+import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
+
 /**
  * Sessions Storage - Gestión de sesiones de entrenamiento
  * Smart Trainer Controller
@@ -128,6 +130,13 @@ export async function saveSession(session) {
         
         request.onsuccess = () => {
             console.log('💾 Sesión guardada:', session.id);
+            logAppEvent('session.saved', {
+                id: session.id,
+                clientSessionId: session.clientSessionId,
+                status: session.status,
+                plannedWorkoutId: session.plannedWorkoutId ?? null,
+                samples: session.dataPoints?.length ?? 0,
+            });
             resolve(session);
         };
         

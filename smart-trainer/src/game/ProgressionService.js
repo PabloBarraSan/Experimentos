@@ -1,6 +1,7 @@
 import { calculateMissionXp } from './FlowEngine.js';
 import { enqueueSyncJob, getProgress, saveProgress } from '../storage/sessions.js';
 import { flushSyncOutbox } from '../sync/TrainingAppSync.js';
+import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
 
 const MIN_SCORED_MINUTES = 3;
 
@@ -104,6 +105,7 @@ export async function recordMissionProgress(session) {
         session,
         progress: next,
     });
+    logAppEvent('sync.enqueued', { clientSessionId: session.clientSessionId, gainedXp });
     flushSyncOutbox().catch(() => {});
     return { progress: next, gainedXp };
 }

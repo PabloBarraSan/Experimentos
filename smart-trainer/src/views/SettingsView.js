@@ -8,6 +8,7 @@ import { createElement, div, button, icon } from '../utils/dom.js';
 import { loadSettings, saveSettings, resetSettings, calculatePowerZones } from '../storage/settings.js';
 import { ZWIFT_PLAY_STATE } from '../bluetooth/zwiftPlay.js';
 import { downloadBackup, restoreBackupFromFile } from '../storage/backup.js';
+import { downloadDebugLog } from '../diagnostics/SessionDebugLogger.js';
 import {
     connectTrainingApp,
     disconnectTrainingApp,
@@ -221,6 +222,31 @@ export function SettingsView({ state, onSave }) {
     syncSection.appendChild(syncContent);
     container.appendChild(syncSection);
     renderTrainingAppSync(syncContent);
+
+    // === Sección: Registro de depuración (fase alfa) ===
+    const debugSection = div({ styles: sectionStyles });
+    debugSection.appendChild(div({
+        styles: sectionTitleStyles,
+        children: [
+            createElement('span', { text: '🧪' }),
+            createElement('span', { text: 'Registro de depuración (alfa)' }),
+        ],
+    }));
+    const debugStatus = createElement('p', {
+        text: 'Guarda cómo va cada sesión: objetivos enviados al rodillo, potencia real, guardado y sincronización. Descárgalo si algo no cuadra.',
+        styles: { color: colors.textMuted, margin: 0 },
+    });
+    debugSection.append(debugStatus, button({
+        text: 'Descargar registro',
+        styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, alignSelf: 'flex-start' },
+        events: {
+            click: () => {
+                const count = downloadDebugLog();
+                debugStatus.textContent = `Registro descargado (${count} eventos).`;
+            },
+        },
+    }));
+    container.appendChild(debugSection);
 
     // === Sección: Copia de seguridad local ===
     const backupSection = div({ styles: sectionStyles });

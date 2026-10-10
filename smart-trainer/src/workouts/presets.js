@@ -557,6 +557,64 @@ export const WORKOUT_PRESETS = {
     
     // === ESPECIALES ===
     
+    SWEET_SPOT_3X8: createWorkout({
+        name: 'Sweet Spot 3×8 · Alfa',
+        description: 'Tres series de 8 minutos en sweet spot con 4 de recuperación. Pensado para la primera sesión de prueba sin FTP calibrada: cada bloque trae una referencia de esfuerzo (RPE) por si los vatios no cuadran con tus sensaciones.',
+        author: 'Smart Trainer',
+        category: 'intervals',
+        difficulty: 'medium',
+        tags: ['sweet spot', 'umbral', 'alfa'],
+        blocks: [
+            createBlock({
+                type: BLOCK_TYPES.RAMP,
+                duration: 8 * 60,
+                name: 'Calentamiento',
+                targetValue: 45,
+                targetValueEnd: 65,
+                cadenceTarget: 85,
+                instructions: 'Empieza muy suave y sube poco a poco. RPE 2 → 4.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.INTERVAL,
+                duration: 40,
+                name: 'Activación',
+                targetValue: 100,
+                cadenceTarget: 95,
+                repeat: 3,
+                restBetween: 80,
+                restTargetValue: 50,
+                instructions: 'Tres acelerones cortos para despertar las piernas. RPE 7, sin llegar al límite.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.REST,
+                duration: 2 * 60,
+                name: 'Recuperación previa',
+                targetValue: 50,
+                cadenceTarget: 85,
+                instructions: 'Gira suave y respira antes de empezar las series.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.INTERVAL,
+                duration: 8 * 60,
+                name: 'Sweet Spot',
+                targetValue: 88,
+                cadenceTarget: 88,
+                repeat: 3,
+                restBetween: 4 * 60,
+                restTargetValue: 55,
+                instructions: 'Duro pero sostenible: RPE 6-7, podrías decir frases cortas. Si no llegas a terminar la serie, baja el objetivo en la siguiente.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.COOLDOWN,
+                duration: 6 * 60,
+                name: 'Vuelta a la calma',
+                targetValue: 45,
+                cadenceTarget: 80,
+                instructions: 'Baja pulsaciones y suelta las piernas. RPE 2.',
+            }),
+        ],
+    }),
+
     PYRAMID: createWorkout({
         name: 'Pirámide',
         description: 'Intervalos en forma de pirámide: 1-2-3-4-3-2-1 minutos con descanso igual.',

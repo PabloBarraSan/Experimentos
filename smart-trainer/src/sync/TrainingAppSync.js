@@ -7,6 +7,7 @@
  */
 
 import { getAllSessions, getSyncJobs, removeSyncJob } from '../storage/sessions.js';
+import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
 
 const STORAGE_KEY = 'smartTrainer_trainingApp';
 const SYNCABLE_STATUSES = new Set(['completed', 'abandoned']);
@@ -69,6 +70,11 @@ async function postSession(config, session) {
         },
         body: JSON.stringify({ clientSessionId: session.clientSessionId, session }),
     });
+    logAppEvent('sync.post', {
+        clientSessionId: session.clientSessionId,
+        plannedWorkoutId: session.plannedWorkoutId ?? null,
+        status: response.status,
+    });
     if (response.status === 401) {
         // Token caducado: el usuario debe volver a conectar. Se conserva la URL y el email.
         saveSyncConfig({ baseUrl: config.baseUrl, email: config.email });
@@ -89,9 +95,21 @@ export async function fetchTodayPlan() {
         const response = await fetch(`${config.baseUrl}/api/smart-trainer/plan/today?date=${localDate}`, {
             headers: { Authorization: `Bearer ${config.token}` },
         });
-        if (!response.ok) return null;
-        return await response.json();
-    } catch {
+        if (!response.ok) {
+            logAppEvent('plan.fetch', { status: response.status, date: localDate });
+            return null;
+        }
+        const result = await response.json();
+        logAppEvent('plan.fetch', {
+            status: response.status,
+            date: localDate,
+            planned: result.planned ? { id: result.planned.id, name: result.planned.name, blocks: result.planned.structure?.length ?? 0, source: result.planned.structureSource } : null,
+            next: result.next?.name ?? null,
+            ftp: result.ftp ?? null,
+        });
+        return result;
+    } catch (error) {
+        logAppEvent('plan.fetch', { error: error.message, date: localDate });
         return null;
     }
 }
@@ -125,12 +143,14 @@ async function runFlush() {
         try {
             await postSession(config, job.payload.session);
         } catch (error) {
+            logAppEvent('sync.post.error', { clientSessionId: job.payload.session?.clientSessionId, error: error.message, code: error.code ?? null });
             if (error.code === 'AUTH_EXPIRED') break;
             continue;
         }
         await removeSyncJob(job.id);
         synced++;
     }
+    if (jobs.length) logAppEvent('sync.flush', { jobs: jobs.length, synced, pending: jobs.length - synced });
     return { synced, pending: jobs.length - synced };
 }
 
