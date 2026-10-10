@@ -12,6 +12,7 @@ import { LapTracker, createLapTable, createLapToast, createRacePanel, createWork
 import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
 import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSettings.js';
 import { summarizeIntensity } from '../session/intensitySummary.js';
+import { createSessionFeedbackPanel } from '../components/SessionFeedbackPanel.js';
 
 export function ExpeditionView({
     state,
@@ -1042,6 +1043,8 @@ export function ExpeditionView({
             intensityPanel,
             createLapTable(lapTracker.laps) || div(),
             blockResults,
+            // Solo tiene sentido valorar una sesión que puntúa; las muy cortas se descartan.
+            scored ? createSessionFeedbackPanel(session) : div(),
             createElement('p', {
                 text: result.adherence >= 0.9 ? 'Excelente precisión. Prueba una ruta técnica en la próxima expedición.'
                     : result.adherence >= 0.75 ? 'Buen ritmo. Tu siguiente mejora está en mantener la potencia durante los cambios.'

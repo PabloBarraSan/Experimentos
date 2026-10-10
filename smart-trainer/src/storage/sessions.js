@@ -477,6 +477,40 @@ export function withIntegratedDistance(session) {
     return { ...session, dataPoints, metrics };
 }
 
+export const FEEDBACK_LIMITERS = ['legs', 'breathing', 'fatigue', 'none'];
+
+/** Normaliza lo que escribe el usuario; null si no hay un RPE válido. */
+export function normalizeFeedback(input) {
+    const rpe = Math.round(Number(input?.rpe));
+    if (!(rpe >= 1 && rpe <= 10)) return null;
+    return {
+        rpe,
+        limiter: FEEDBACK_LIMITERS.includes(input.limiter) ? input.limiter : null,
+        note: String(input.note || '').trim().slice(0, 280),
+        submittedAt: new Date().toISOString(),
+    };
+}
+
+/**
+ * Guarda cómo se sintió el usuario (RPE, qué le limitó, nota) en la sesión.
+ * Solo reescribe la sesión si sigue en el historial: una sesión descartada no debe resucitar.
+ */
+export async function saveSessionFeedback(session, input) {
+    const feedback = normalizeFeedback(input);
+    if (!feedback) throw new Error('Indica un esfuerzo percibido (RPE) de 1 a 10');
+    session.feedback = feedback;
+    const stored = session.id ? await getSession(session.id).catch(() => null) : null;
+    if (stored) await saveSession(session);
+    logAppEvent('session.feedback', {
+        clientSessionId: session.clientSessionId,
+        rpe: feedback.rpe,
+        limiter: feedback.limiter,
+        hasNote: Boolean(feedback.note),
+        persisted: Boolean(stored),
+    });
+    return session;
+}
+
 export function exportToTCX(rawSession) {
     const session = withIntegratedDistance(rawSession);
     const startTime = new Date(session.startTime).toISOString();

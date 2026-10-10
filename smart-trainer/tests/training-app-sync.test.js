@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSession, enqueueSyncJob, getSyncJobs, initDB, saveSession } from '../src/storage/sessions.js';
+import { createSession, enqueueSyncJob, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback } from '../src/storage/sessions.js';
 import {
   connectTrainingApp,
   fetchTodayPlan,
@@ -86,5 +86,39 @@ describe('training-app sync', () => {
     expect(await fetchTodayPlan()).toBeNull();
     fetchMock.mockRejectedValue(new Error('offline'));
     expect(await fetchTodayPlan()).toBeNull();
+  });
+
+  it('normaliza el feedback y rechaza un RPE fuera de 1-10', () => {
+    expect(normalizeFeedback({ rpe: 0 })).toBeNull();
+    expect(normalizeFeedback({ rpe: 11 })).toBeNull();
+    expect(normalizeFeedback({})).toBeNull();
+    const feedback = normalizeFeedback({ rpe: '8', limiter: 'legs', note: '  piernas cargadas  ' });
+    expect(feedback).toMatchObject({ rpe: 8, limiter: 'legs', note: 'piernas cargadas' });
+    expect(normalizeFeedback({ rpe: 5, limiter: 'otro' }).limiter).toBeNull();
+    expect(normalizeFeedback({ rpe: 5, note: 'x'.repeat(500) }).note).toHaveLength(280);
+  });
+
+  it('guarda el feedback en la sesión y la cola envía la versión con el RPE', async () => {
+    localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 't' }));
+    const session = createSession({ workoutId: 'ss', workoutName: 'Sweet spot' });
+    session.status = 'completed';
+    await saveSession(session);
+    // El trabajo de la cola guarda una copia anterior, sin feedback.
+    await enqueueSyncJob('complete_session', { clientSessionId: session.clientSessionId, session: { ...session } });
+    await saveSessionFeedback(session, { rpe: 8, limiter: 'legs', note: 'me ardían' });
+    expect((await getSession(session.id)).feedback.rpe).toBe(8);
+
+    const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
+    vi.stubGlobal('fetch', fetchMock);
+    await flushSyncOutbox();
+    const sent = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body)).find((body) => body.clientSessionId === session.clientSessionId);
+    expect(sent.session.feedback).toMatchObject({ rpe: 8, limiter: 'legs', note: 'me ardían' });
+  });
+
+  it('no resucita una sesión que ya no está en el historial', async () => {
+    const session = createSession({ workoutId: 'x' });
+    session.id = 'ses_descartada';
+    await saveSessionFeedback(session, { rpe: 5 });
+    expect(await getSession('ses_descartada')).toBeFalsy();
   });
 });

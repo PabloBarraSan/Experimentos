@@ -6,7 +6,7 @@
  * (el servidor hace upsert por clientSessionId, así que reenviar no duplica).
  */
 
-import { getAllSessions, getSyncJobs, removeSyncJob, withIntegratedDistance } from '../storage/sessions.js';
+import { getAllSessions, getSession, getSyncJobs, removeSyncJob, withIntegratedDistance } from '../storage/sessions.js';
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
 
 const STORAGE_KEY = 'smartTrainer_trainingApp';
@@ -141,7 +141,9 @@ async function runFlush() {
     let synced = 0;
     for (const job of jobs) {
         try {
-            await postSession(config, job.payload.session);
+            // La cola guarda una copia del momento de terminar; el RPE se añade después, así que se envía la más reciente.
+            const latest = job.payload.session.id ? await getSession(job.payload.session.id).catch(() => null) : null;
+            await postSession(config, latest || job.payload.session);
         } catch (error) {
             logAppEvent('sync.post.error', { clientSessionId: job.payload.session?.clientSessionId, error: error.message, code: error.code ?? null });
             if (error.code === 'AUTH_EXPIRED') break;
