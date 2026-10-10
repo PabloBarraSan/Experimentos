@@ -2,6 +2,7 @@ import { createWorkoutPlayer } from '../components/WorkoutPlayer.js';
 import {
     clearActiveSession,
     createSession,
+    deleteSession,
     finishSession,
     saveActiveSession,
 } from '../storage/sessions.js';
@@ -10,6 +11,8 @@ import { createFlowTracker } from '../game/FlowEngine.js';
 import { TrainerAdapter } from './TrainerAdapter.js';
 import { createTelemetryPipeline } from '../telemetry/TelemetryPipeline.js';
 import { createSessionDebugLogger, logActiveSessionError, releaseSessionDebugLogger } from '../diagnostics/SessionDebugLogger.js';
+
+const MIN_SAVED_SECONDS = 60;
 
 export const SESSION_STATE = {
     IDLE: 'idle',
@@ -40,6 +43,7 @@ export class SessionController {
         this.currentBlock = null;
         this.currentTick = null;
         this.lastSampleTimestamp = 0;
+        this.lastFlow = null;
         this.lastDebugTickSecond = -1;
         this.sampleCount = 0;
         this.pausedAt = null;
@@ -50,7 +54,7 @@ export class SessionController {
         this.callbacks = { onStateChange, onTick, onTargetChange, onBlockChange };
     }
 
-    async start({ workout, mission = null, experienceMode = 'expedition', recoveredSession = null }) {
+    async start({ workout, mission = null, experienceMode = 'expedition', recoveredSession = null, startAtSeconds = 0 }) {
         if (!workout?.blocks?.length) throw new Error('El workout no contiene bloques');
         this.debug = createSessionDebugLogger({ sessionId: `session-${Date.now()}` });
         this.debug.log('controller.start', {
@@ -63,6 +67,7 @@ export class SessionController {
         this.workout = workout;
         this.session = recoveredSession || createSession({
             workoutId: workout.id,
+            plannedWorkoutId: workout.plannedWorkoutId || null,
             workoutName: workout.name,
             ftp: this.ftp,
         });
@@ -157,6 +162,18 @@ export class SessionController {
             this.session.status = 'active';
             this.flowTracker.setStatus('recovered');
         }
+        if (!recoveredSession && startAtSeconds > 0) {
+            this.player.seekToTime(startAtSeconds);
+            this.debug.log('player.start_at', { elapsedSeconds: startAtSeconds });
+        }
+        try {
+            await this.trainer.start();
+        } catch (error) {
+            this.state = SESSION_STATE.ERROR;
+            this.debug.log('trainer.start.error', { error });
+            this.emitState();
+            throw error;
+        }
         this.state = SESSION_STATE.RUNNING;
         this.autosaveId = setInterval(() => {
             this.saveDraft().catch((error) => this.debug?.log('autosave.error', { error }));
@@ -172,14 +189,19 @@ export class SessionController {
             this.debug?.log('bike_data.ignored', { state: this.state, hasSession: Boolean(this.session) });
             return null;
         }
-        if (timestamp - this.lastSampleTimestamp < 1000) return null;
+        // Todos los paquetes del rodillo (unos 4 por segundo) alimentan el filtro de telemetría:
+        // la potencia y la cadencia que se ven son así mucho más reactivas que con 1 muestra/s.
+        const frame = this.telemetry.ingest(data, timestamp);
+        if (timestamp - this.lastSampleTimestamp < 1000) {
+            // Entre muestras de 1 s solo se refresca lo que se ve en pantalla.
+            return this.lastFlow ? { ...this.lastFlow, telemetry: frame, sampled: false } : null;
+        }
         if (this.lastSampleTimestamp && timestamp - this.lastSampleTimestamp > 3000) {
             this.debug.log('bike_data.gap', { gapMs: timestamp - this.lastSampleTimestamp });
         }
         this.lastSampleTimestamp = timestamp;
         this.sampleCount++;
 
-        const frame = this.telemetry.ingest(data, timestamp);
         const block = this.currentBlock || this.currentTick?.currentBlock || {};
         const target = this.currentTarget || this.currentTick?.currentTarget || {};
         const elapsedSeconds = this.currentTick?.totalElapsedTime || 0;
@@ -214,7 +236,8 @@ export class SessionController {
             quality: frame.quality,
         });
         this.session.elapsedTime = elapsedSeconds;
-        return { ...flow, telemetry: frame };
+        this.lastFlow = flow;
+        return { ...flow, telemetry: frame, sampled: true };
     }
 
     async pause() {
@@ -298,8 +321,16 @@ export class SessionController {
         this.session.gameResult = gameResult;
         this.session.status = status;
         this.session.trainerCommands = this.trainer.getDiagnosticLog();
-        await finishSession(this.session, metrics, status);
-        await clearActiveSession();
+        const elapsed = this.session.elapsedTime || this.currentTick?.totalElapsedTime || 0;
+        if (status === 'abandoned' && elapsed < MIN_SAVED_SECONDS) {
+            // Un clic accidental no debe ensuciar el historial.
+            this.session.metrics = metrics;
+            if (this.session.id) await deleteSession(this.session.id).catch(() => {});
+            await clearActiveSession();
+        } else {
+            await finishSession(this.session, metrics, status);
+            await clearActiveSession();
+        }
         this.state = SESSION_STATE.COMPLETED;
         this.emitState();
         this.debug?.log('controller.completed', { status, metrics });

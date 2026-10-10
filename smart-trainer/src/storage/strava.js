@@ -19,6 +19,7 @@
  */
 
 import { exportToTCX, saveSession, getSession } from './sessions.js';
+import { pushSession } from '../sync/TrainingAppSync.js';
 
 // === CONFIGURACIÓN (PLACEHOLDERS) ===
 // Reemplazar con valores reales al activar la integración
@@ -271,6 +272,8 @@ export async function uploadSessionToStrava(sessionId) {
             error: null,
         };
         await saveSession(session);
+        // Enlaza con training-app el id de Strava para que no cuente la sesión dos veces
+        pushSession(session);
         
         console.log('✅ Actividad subida a Strava:', activityId);
         return { success: true, activityId };

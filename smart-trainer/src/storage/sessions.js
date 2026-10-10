@@ -73,6 +73,7 @@ export async function initDB() {
 export function createSession(options = {}) {
     const {
         workoutId = null,
+        plannedWorkoutId = null,
         workoutName = 'Entrenamiento Libre',
         ftp = 200,
     } = options;
@@ -82,6 +83,7 @@ export function createSession(options = {}) {
         id: generateId(),
         clientSessionId: createUuid(),
         workoutId,
+        plannedWorkoutId,
         workoutName,
         ftp,
         date: new Date().toISOString(),
