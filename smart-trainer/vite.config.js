@@ -63,7 +63,6 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('three')) return 'three';
-          if (id.includes('@supabase')) return 'supabase';
           return undefined;
         },
       },
