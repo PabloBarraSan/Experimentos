@@ -5,7 +5,7 @@
  * IMPORTANTE: Incrementar VERSION cuando hagas cambios para forzar actualización
  */
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const CACHE_NAME = `smart-trainer-v${VERSION}`;
 
 // Detectar BASE_PATH dinámicamente según el entorno
@@ -167,6 +167,12 @@ self.addEventListener('fetch', (event) => {
     }
     
     const url = new URL(event.request.url);
+
+    // Las llamadas a otros orígenes (API de training-app, Strava) van directas a la red: nunca desde caché.
+    if (url.origin !== self.location.origin) {
+        return;
+    }
+
     const isJSorHTML = url.pathname.endsWith('.js') || 
                        url.pathname.endsWith('.html') ||
                        url.pathname.endsWith('/');
