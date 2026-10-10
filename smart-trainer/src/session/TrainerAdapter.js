@@ -31,7 +31,7 @@ export class TrainerAdapter {
             }
         }
 
-        return { mode: 'manual', applied: false };
+        return { mode: 'manual', applied: false, error: 'El rodillo no admite el objetivo de este bloque. Control manual requerido.' };
     }
 
     async runCommand(mode, value, command) {
@@ -62,6 +62,13 @@ export class TrainerAdapter {
         } catch {
             // La sesión local se pausa aunque el rodillo no responda.
         }
+    }
+
+    async start() {
+        this.lastTargetKey = null;
+        if (!this.manager) return;
+        const result = await this.runCommand('start', null, () => this.manager.startTraining());
+        if (!result.applied) throw new Error(`No se pudo arrancar el rodillo: ${result.error}`);
     }
 
     async resume() {

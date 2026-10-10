@@ -1,4 +1,5 @@
 import { createTelemetryPipeline } from '../telemetry/TelemetryPipeline.js';
+import { inspectIndoorBikePacket } from './inspectIndoorBikePacket.js';
 
 const SAFE_ERG_TARGETS = new Set([80, 120, 160]);
 const SAFE_RESISTANCE_TARGETS = new Set([0, 20, 35]);
@@ -26,18 +27,19 @@ export class TrainerDiagnosticSession {
         this.now = now;
         this.startedAt = new Date(this.now()).toISOString();
         this.samples = [];
+        this.totalSamples = 0;
         this.events = [];
         this.commandResults = [];
         this.activeTargetPower = null;
         this.telemetryPipeline = createTelemetryPipeline();
     }
 
-    recordTelemetry(data, timestamp = this.now()) {
+    recordTelemetry(data, timestamp = data?.rawFtms?.timestamp ?? this.now()) {
         if (!data) return null;
         const sample = {
             timestamp,
-            power: finiteOrZero(data.power),
-            cadence: finiteOrZero(data.cadence),
+            power: finiteOrNull(data.power),
+            cadence: finiteOrNull(data.cadence),
             speed: finiteOrZero(data.speed),
             heartRate: finiteOrZero(data.heartRate),
             resistance: finiteOrZero(data.resistance),
@@ -49,6 +51,8 @@ export class TrainerDiagnosticSession {
             rawFtms: data.rawFtms ? sanitizeDetails(data.rawFtms) : null,
         };
         sample.processed = this.telemetryPipeline.ingest(data, timestamp);
+        sample.packetInspection = data.rawFtms?.bytes ? inspectIndoorBikePacket(data.rawFtms.bytes) : null;
+        this.totalSamples += 1;
         this.samples.push(sample);
         if (this.samples.length > MAX_SAMPLES) this.samples.shift();
         return sample;
@@ -58,6 +62,28 @@ export class TrainerDiagnosticSession {
         const event = { timestamp: this.now(), type, details: sanitizeDetails(details) };
         this.events.push(event);
         return event;
+    }
+
+    markReference({ cadence = null, power = null } = {}) {
+        const valid = (value) => value !== null && Number.isFinite(value) && value >= 0;
+        if (!valid(cadence) && !valid(power)) throw new Error('Introduce al menos una referencia válida; cero también es válido.');
+        const now = this.now();
+        const recent = this.samples.filter((sample) => sample.timestamp >= now - 5000 && sample.timestamp <= now);
+        if (!recent.length) throw new Error('No hay paquetes en los últimos 5 segundos.');
+        const average = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+        const appCadence = average(recent.map((sample) => sample.cadence).filter(Number.isFinite));
+        const appPower = average(recent.map((sample) => sample.power).filter(Number.isFinite));
+        return this.addEvent('reference_mark', {
+            cadence: valid(cadence) ? cadence : null,
+            power: valid(power) ? power : null,
+            appCadence, appPower,
+            cadenceError: valid(cadence) && appCadence !== null ? appCadence - cadence : null,
+            powerError: valid(power) && appPower !== null ? appPower - power : null,
+            periodCadence: average(recent.map((sample) => sample.packetInspection?.vendorHypotheses?.periodCadence).filter(Number.isFinite)),
+            sampleCount: recent.length,
+            windowMs: 5000,
+            packets: recent.map((sample) => ({ timestamp: sample.timestamp, rawFtms: sample.rawFtms })),
+        });
     }
 
     async setErg(watts) {
@@ -126,8 +152,8 @@ export class TrainerDiagnosticSession {
     }
 
     getSummary() {
-        const powers = this.samples.map((sample) => sample.power);
-        const cadences = this.samples.map((sample) => sample.cadence);
+        const powers = this.samples.map((sample) => sample.power).filter(Number.isFinite);
+        const cadences = this.samples.map((sample) => sample.cadence).filter(Number.isFinite);
         const successfulCommands = this.commandResults.filter((result) => result.success);
         const rawSamples = this.samples.filter((sample) => sample.rawFtms);
         const flags = rawSamples.reduce((counts, sample) => {
@@ -140,6 +166,8 @@ export class TrainerDiagnosticSession {
         );
         return {
             sampleCount: this.samples.length,
+            totalSampleCount: this.totalSamples,
+            droppedSampleCount: this.totalSamples - this.samples.length,
             power: summarizeValues(powers),
             cadence: summarizeValues(cadences),
             telemetry: {
@@ -161,7 +189,7 @@ export class TrainerDiagnosticSession {
 
     getReport() {
         return {
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: new Date(this.now()).toISOString(),
             startedAt: this.startedAt,
             simulated: this.simulated,
@@ -205,8 +233,8 @@ export class TrainerDiagnosticSession {
                 (sample) => sample.timestamp >= command.timestamp + 3000
             );
             const measured = settledSamples.length ? settledSamples : samples;
-            const powers = measured.map((sample) => sample.power);
-            const cadences = measured.map((sample) => sample.cadence);
+            const powers = measured.map((sample) => sample.power).filter(Number.isFinite);
+            const cadences = measured.map((sample) => sample.cadence).filter(Number.isFinite);
             const averagePower = powers.length
                 ? Math.round(powers.reduce((sum, value) => sum + value, 0) / powers.length)
                 : null;
@@ -316,6 +344,10 @@ export function getDiagnosticTargets() {
 
 function finiteOrZero(value) {
     return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function finiteOrNull(value) {
+    return value !== null && value !== undefined && Number.isFinite(Number(value)) ? Number(value) : null;
 }
 
 function summarizeValues(values) {

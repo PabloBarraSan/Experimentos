@@ -90,7 +90,7 @@ describe('trainer diagnostics', () => {
     });
 
     const report = diagnostic.getReport();
-    expect(report.schemaVersion).toBe(2);
+    expect(report.schemaVersion).toBe(3);
     expect(report.samples[0].rawFtms.flagsHex).toBe('0x0044');
     expect(report.summary.telemetry.flags).toEqual({ '0x0044': 1 });
     expect(report.summary.telemetry.ergWindows[0]).toMatchObject({
@@ -98,5 +98,29 @@ describe('trainer diagnostics', () => {
       averagePower: 76,
       averageAbsoluteError: 4,
     });
+  });
+});
+
+describe('reference measurements', () => {
+  it('uses a time window, keeps stopped references and rejects stale readings', () => {
+    let now = 10000;
+    const diagnostic = new TrainerDiagnosticSession({ now: () => now });
+    diagnostic.recordTelemetry({ power: 300, cadence: 120 }, 4000);
+    diagnostic.recordTelemetry({ power: 20, cadence: 10 }, 6000);
+    diagnostic.recordTelemetry({ power: 0, cadence: 0 }, 10000);
+    expect(diagnostic.markReference({ cadence: 0, power: 0 }).details).toMatchObject({
+      sampleCount: 2, appPower: 10, appCadence: 5, powerError: 10, cadenceError: 5,
+    });
+    expect(() => diagnostic.markReference({})).toThrow('referencia');
+    now = 16000;
+    expect(() => diagnostic.markReference({ cadence: 80 })).toThrow('últimos 5 segundos');
+  });
+
+  it('keeps missing cadence distinct from a measured zero', () => {
+    const diagnostic = new TrainerDiagnosticSession({ now: () => 1000 });
+    diagnostic.recordTelemetry({ power: 100 });
+    expect(diagnostic.samples[0].cadence).toBeNull();
+    expect(diagnostic.getSummary().cadence.average).toBeNull();
+    expect(diagnostic.markReference({ cadence: 80 }).details.cadenceError).toBeNull();
   });
 });

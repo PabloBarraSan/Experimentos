@@ -1,15 +1,16 @@
 import { colors, spacing, typography, baseStyles } from '../utils/theme.js';
 import { button, createElement, div } from '../utils/dom.js';
+import { GuidedTrainerTestView } from './GuidedTrainerTestView.js';
+import { checkBluetoothSupport } from '../bluetooth/scanner.js';
 import {
-    createTrainerSimulator,
     getDiagnosticTargets,
     TrainerDiagnosticSession,
 } from '../diagnostics/TrainerDiagnosticSession.js';
 
 export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
-    const simulated = state.connectionState !== 'connected';
-    const manager = simulated ? createTrainerSimulator() : state.bluetoothManager;
-    const capabilities = simulated ? manager.capabilities : state.deviceCapabilities;
+    const simulated = false;
+    const manager = state.bluetoothManager;
+    const capabilities = state.deviceCapabilities || manager.capabilities || {};
     const session = new TrainerDiagnosticSession({
         manager,
         capabilities,
@@ -19,41 +20,35 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
     session.addEvent('diagnostic_opened', { connectionState: state.connectionState });
 
     const container = div({
-        attrs: { 'data-view': 'trainer-diagnostics' },
-        styles: {
-            width: '100%',
-            maxWidth: '920px',
-            margin: '0 auto',
-            padding: spacing.lg,
-            boxSizing: 'border-box',
-            color: colors.text,
-        },
+        attrs: { 'data-view': 'trainer-diagnostics', class: 'trainer-test-page' },
     });
     const header = div({
-        styles: { display: 'flex', gap: spacing.md, alignItems: 'center', marginBottom: spacing.lg },
-        children: [
-            button({
-                text: '← Volver',
-                styles: secondaryButtonStyles(),
-                events: { click: onBack },
-            }),
-            div({
-                children: [
-                    createElement('h1', {
-                        text: 'Diagnóstico del rodillo',
-                        styles: { margin: 0, fontSize: typography.sizes.xxl },
-                    }),
-                    createElement('p', {
-                        text: simulated
-                            ? 'Modo simulador: puedes recorrer todo el protocolo sin tener el D100 delante.'
-                            : `Rodillo conectado: ${state.deviceName}. Pedalea suave y mantén libre el acceso al freno.`,
-                        styles: { margin: `${spacing.xs} 0 0`, color: colors.textMuted },
-                    }),
-                ],
-            }),
-        ],
+        attrs: { class: 'trainer-test-backrow' },
+        children: [button({ text: '← Volver', attrs: { class: 'trainer-test-back' }, events: { click: onBack } })],
     });
     container.appendChild(header);
+
+    const advanced = createElement('details', {
+        children: [createElement('summary', { text: 'Opciones avanzadas y datos Bluetooth', styles: { cursor: 'pointer', padding: spacing.md, color: colors.textMuted } })],
+    });
+    const guided = GuidedTrainerTestView({
+        session, simulated,
+        connectionState: state.connectionState,
+        deviceName: state.deviceName,
+        bluetoothSupported: checkBluetoothSupport().supported && Boolean(manager),
+        subscribeToState,
+        canStart: () => !autoTestRunning,
+        onConnect: () => {
+            state.bluetoothError = null;
+            return manager?.scan().catch(() => {});
+        },
+        onRunningChange: (running) => {
+            if (running) advanced.open = false;
+            advanced.querySelectorAll('button, input').forEach((control) => { control.disabled = running; });
+        },
+    });
+    container.appendChild(guided);
+    container.appendChild(advanced);
 
     const safety = div({
         styles: {
@@ -74,14 +69,14 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
             }),
         ],
     });
-    container.appendChild(safety);
+    advanced.appendChild(safety);
 
     const livePower = metric('Potencia', '0 W');
     const liveCadence = metric('Cadencia', '0 rpm');
     const sampleCount = metric('Muestras', '0');
     const commandStatus = metric('Último comando', 'Sin ejecutar');
     const liveFlags = metric('Flags FTMS', '—');
-    container.appendChild(div({
+    advanced.appendChild(div({
         styles: {
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
@@ -101,6 +96,11 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
             fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
             fontSize: typography.sizes.sm,
         },
+    });
+    const packetDetails = createElement('pre', {
+        attrs: { 'data-testid': 'ftms-packet-details' },
+        text: 'Esperando desglose de bytes…',
+        styles: { width: '100%', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: typography.sizes.sm, color: colors.textMuted },
     });
     const telemetryWarning = createElement('strong', {
         attrs: { 'data-testid': 'telemetry-warning' },
@@ -136,16 +136,52 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
         runAutomaticErgTest,
     );
 
-    container.append(
+    const referenceInput = (placeholder, label) => createElement('input', {
+        attrs: { type: 'number', min: '0', max: '2000', inputmode: 'numeric', placeholder, 'aria-label': label },
+        styles: {
+            width: '150px',
+            minHeight: '44px',
+            padding: `0 ${spacing.sm}`,
+            borderRadius: '10px',
+            border: '1px solid rgba(255,255,255,.18)',
+            background: 'rgba(255,255,255,.06)',
+            color: colors.text,
+            fontSize: typography.sizes.md,
+        },
+    });
+    const referenceCadence = referenceInput('Cadencia real (rpm)', 'Cadencia real en rpm');
+    const referencePower = referenceInput('Potencia real (W)', 'Potencia real en vatios');
+    const referenceResult = createElement('p', {
+        attrs: { role: 'status', 'aria-live': 'polite', 'data-testid': 'reference-result' },
+        text: '',
+        styles: { flexBasis: '100%', margin: 0, color: colors.textMuted, fontSize: typography.sizes.sm },
+    });
+    const markReference = () => {
+        try {
+            const read = (input) => input.value.trim() === '' ? null : Number(input.value);
+            const { details } = session.markReference({ cadence: read(referenceCadence), power: read(referencePower) });
+            referenceResult.textContent = `Guardado (${details.sampleCount} paquetes / 5 s) · referencia: ${details.cadence ?? '—'} rpm / ${details.power ?? '—'} W · app: ${details.appCadence?.toFixed(1) ?? '—'} rpm / ${details.appPower?.toFixed(1) ?? '—'} W · error: ${details.cadenceError?.toFixed(1) ?? '—'} rpm / ${details.powerError?.toFixed(1) ?? '—'} W`;
+        } catch (error) {
+            referenceResult.textContent = error.message;
+        }
+    };
+
+    advanced.append(
+        diagnosticSection(
+            '0. Comparar con una referencia',
+            'Mantén cada cadencia 20 segundos y marca 60, 80 y 100 rpm; después deja de pedalear y marca 0. Puedes contar vueltas de una misma biela durante 15 segundos y multiplicar por 4. Para los vatios usa un potenciómetro independiente: el objetivo ERG no es una medida real. Cada marca conserva los últimos 5 segundos de paquetes.',
+            [referenceCadence, referencePower, commandButton('Marcar ahora', markReference), referenceResult],
+        ),
         diagnosticSection(
             '1. Telemetría',
             'Comprueba que potencia y cadencia cambian de forma continua y vuelven a cero al dejar de pedalear.',
             [
                 createElement('span', {
-                    text: simulated ? 'El simulador genera datos cada segundo.' : 'La captura se inicia automáticamente al conectar.',
+                    text: simulated ? 'El simulador genera datos cada segundo.' : 'Captura directa de cada notificación. El informe conserva los últimos 600 paquetes y todas las marcas de referencia. Descárgalo al terminar cada prueba.',
                     styles: { color: colors.textMuted },
                 }),
                 rawPacket,
+                packetDetails,
                 telemetryWarning,
             ],
         ),
@@ -180,6 +216,7 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
         events: {
             click: () => {
                 autoTestCancelled = true;
+                guided.cancel('Terminada con el botón de parada');
                 execute('Pausa de seguridad', () => session.pauseAndRelease());
             },
         },
@@ -196,21 +233,40 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
         styles: { ...primaryButtonStyles(), width: '100%', marginTop: spacing.sm },
         events: { click: exportReport },
     });
-    container.append(releaseButton, resumeButton, commandLog, exportButton);
+    advanced.append(releaseButton, resumeButton, commandLog, exportButton);
 
     let unsubscribe = null;
     let simulatorTimer = null;
     const ingest = (data) => {
         const sample = session.recordTelemetry(data);
-        livePower.set(`${Math.round(sample.power)} W`);
-        liveCadence.set(`${Math.round(sample.cadence)} rpm`);
-        sampleCount.set(String(session.samples.length));
+        if (!sample) return;
+        guided.record(sample);
+        livePower.set(`${sample.power === null ? '—' : Math.round(sample.power)} W`);
+        liveCadence.set(`${sample.cadence === null ? '—' : Math.round(sample.cadence)} rpm`);
+        const recentSamples = session.samples.slice(-10);
+        const spanSeconds = recentSamples.length > 1
+            ? (recentSamples.at(-1).timestamp - recentSamples[0].timestamp) / 1000
+            : 0;
+        const rate = spanSeconds > 0 ? ((recentSamples.length - 1) / spanSeconds).toFixed(1) : '—';
+        sampleCount.set(`${session.totalSamples} · ${rate} Hz`);
         if (sample.rawFtms) {
             liveFlags.set(sample.rawFtms.flagsHex || `0x${Number(sample.rawFtms.flags || 0).toString(16)}`);
             rawPacket.textContent = `${sample.rawFtms.byteLength} bytes · ${sample.rawFtms.hex}`;
         }
-        telemetryWarning.textContent = sample.cadenceEncoding === 'd100-period-1024'
-            ? `Cadencia D100 estabilizada · periodo ${sample.cadencePeriodTicks} ticks`
+        const inspection = sample.packetInspection;
+        if (inspection) {
+            const format = (value) => Number.isFinite(value) ? value.toFixed(1) : '—';
+            packetDetails.textContent = [
+                'Lectura FTMS estricta (posición → campo = valor):',
+                ...inspection.fields.map((field) => `bytes ${field.offset}–${field.offset + field.size - 1} → ${field.name} = ${field.value} (crudo ${field.raw})`),
+                `Cadencia FTMS: ${format(inspection.standard.cadence)} rpm · potencia FTMS: ${format(inspection.standard.power)} W`,
+                `Hipótesis periodo D100: ${format(inspection.vendorHypotheses.periodCadence)} rpm · byte / 2: ${format(inspection.vendorHypotheses.legacyCadence)} rpm`,
+                `Pipeline diagnóstico suavizado: ${format(sample.processed.display.cadence)} rpm / ${format(sample.processed.display.power)} W`,
+                ...inspection.warnings,
+            ].join('\n');
+        }
+        telemetryWarning.textContent = sample.cadenceEncoding === 'd100-rpm-x16'
+            ? `Cadencia estimada, sin validar · valor ${sample.cadencePeriodTicks} (1/16 rpm)`
             : sample.power > 0 || sample.cadence > 0
                 ? 'Telemetría activa'
                 : 'Esperando pedaleo';
@@ -220,8 +276,17 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
         ingest(manager.sample());
         simulatorTimer = setInterval(() => ingest(manager.sample()), 1000);
     } else {
-        ingest(state.liveData);
-        unsubscribe = subscribeToState?.((nextState) => ingest(nextState.liveData));
+        if (manager.subscribeTelemetry) {
+            unsubscribe = manager.subscribeTelemetry(ingest);
+        } else {
+            let lastFrame = null;
+            unsubscribe = subscribeToState?.((nextState) => {
+                const frame = nextState.liveData?.rawFtms;
+                if (!frame || frame === lastFrame) return;
+                lastFrame = frame;
+                ingest(nextState.liveData);
+            });
+        }
     }
 
     async function execute(label, action) {
@@ -250,6 +315,7 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
             const resumed = await execute('Reanudación automática', () => session.resume());
             if (!resumed || autoTestCancelled) return;
             await wait(750);
+            if (autoTestCancelled) return;
 
             const ergResult = await execute('ERG automático 80 W', () => session.setErg(80));
             if (!ergResult || autoTestCancelled) return;
@@ -273,7 +339,7 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
 
     function exportReport() {
         session.addEvent('report_exported');
-        const report = JSON.stringify(session.getReport(), null, 2);
+        const report = JSON.stringify({ ...session.getReport(), guidedTest: guided.getReport() }, null, 2);
         const url = URL.createObjectURL(new Blob([report], { type: 'application/json' }));
         const anchor = document.createElement('a');
         anchor.href = url;
@@ -284,9 +350,13 @@ export function TrainerDiagnosticsView({ state, subscribeToState, onBack }) {
     }
 
     container.cleanup = () => {
+        guided.cleanup();
+        autoTestCancelled = true;
         if (unsubscribe) unsubscribe();
         if (simulatorTimer) clearInterval(simulatorTimer);
-        if (!simulated) session.pauseAndRelease().catch(() => {});
+        if (!simulated && session.commandResults.some((command) => command.success && ['resume', 'set_erg', 'set_resistance'].includes(command.type))) {
+            session.pauseAndRelease().catch(() => {});
+        }
     };
     return container;
 }

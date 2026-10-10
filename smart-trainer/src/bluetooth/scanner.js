@@ -194,6 +194,7 @@ export class BluetoothManager {
         this.lastDataTimestamp = 0; // Para debounce de datos
         this.dataDebounceMs = 50; // Debounce de 50ms para datos
         this.lastIndoorBikeFlags = null; // Para detectar cambios de flags FTMS (p. ej. D100 0x40 -> 0x42)
+        this.telemetryObservers = new Set();
         this.capabilities = null; // Capacidades del dispositivo
         this.diagnosticFrames = {
             indoorBikeData: [],
@@ -657,6 +658,13 @@ export class BluetoothManager {
         };
         appendBounded(this.diagnosticFrames.indoorBikeData, rawFrame);
 
+        // Diagnosis receives each original notification before UI throttling/merging.
+        const diagnosticData = { ...parseIndoorBikeData(dataView), rawFtms: rawFrame };
+        for (const observer of this.telemetryObservers) {
+            try { observer(diagnosticData); }
+            catch (error) { this.logger.warn('Error del observador de diagnóstico', error); }
+        }
+
         // Debounce de la UI, sin perder paquetes en el registro de diagnóstico.
         if (now - this.lastDataTimestamp < this.dataDebounceMs) {
             return;
@@ -684,7 +692,7 @@ export class BluetoothManager {
         }
         
         try {
-            const data = parseIndoorBikeData(dataView);
+            const data = diagnosticData;
             data.rawFtms = rawFrame;
             
             // Validar datos parseados
@@ -712,6 +720,11 @@ export class BluetoothManager {
     /**
      * Manejar cambios de estado
      */
+    subscribeTelemetry(observer) {
+        this.telemetryObservers.add(observer);
+        return () => this.telemetryObservers.delete(observer);
+    }
+
     handleStatusChange(event) {
         if (!event || !event.target || !event.target.value) {
             this.logger.warn('Evento de status inválido');

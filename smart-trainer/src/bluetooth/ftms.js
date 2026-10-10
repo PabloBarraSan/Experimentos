@@ -65,7 +65,8 @@ export function parseIndoorBikeData(dataView) {
     let offset = 2;
     
     // Van Rysel D100: flag 0x40. Byte 0-1 flags, 2-3 velocidad (Uint16/100),
-    // 4-5 potencia (Uint16) y 6-7 periodo de pedalada en ticks de 1/1024 s.
+    // 4-5 potencia (Uint16) y 6-7 cadencia en 1/16 rpm (calibrado con la prueba guiada:
+    // 949, 1288 y 1568 a 60, 80 y 100 rpm; sube con la cadencia, no es un periodo).
     // Algunos paquetes antiguos/cortos observados solo incluyen el byte 6; mantenemos
     // ese formato como compatibilidad, pero los paquetes reales de 16 bytes necesitan
     // leer el Uint16 completo para evitar saltos cada vez que cambia el byte alto.
@@ -90,9 +91,9 @@ export function parseIndoorBikeData(dataView) {
         } else if (dataView.byteLength >= 8) {
             const cadencePeriodTicks = dataView.getUint16(6, true);
             if (cadencePeriodTicks > 0) {
-                result.cadence = Math.round((60 * 1024) / cadencePeriodTicks);
+                result.cadence = Math.round(cadencePeriodTicks / 16);
                 result.cadencePeriodTicks = cadencePeriodTicks;
-                result.cadenceEncoding = 'd100-period-1024';
+                result.cadenceEncoding = 'd100-rpm-x16';
             }
         } else if (raw[6] > 0) {
             result.cadence = Math.round(raw[6] / 2);
