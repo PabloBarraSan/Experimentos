@@ -8,6 +8,7 @@ import { createProfileRibbon, createAsphaltTextures, createGravelTexture, ASPHAL
 import { createStartGate, createSummitBeacon, createFence, createCabin, createRoadPosts } from './scene/props.js';
 import { createPostProcessing } from './scene/post.js';
 import { createPrecipitation } from './scene/weather.js';
+import { createCyclist, animateCyclist } from './Cyclist.js';
 
 const CAMERA_PRESETS = {
     close: { distance: 5.9, height: 2.6, lookHeight: 1.15, lookAhead: 5.2, fov: 46 },
@@ -17,8 +18,9 @@ const CAMERA_PRESETS = {
 
 const QUALITY_PRESETS = {
     low: { pixelRatio: 1, shadows: false, shadowMap: 0, shadowExtent: 0, post: false, particles: 40, rivals: 2, precipitation: 600 },
-    medium: { pixelRatio: 1.35, shadows: true, shadowMap: 2048, shadowExtent: 46, post: true, particles: 80, rivals: 4, precipitation: 1400 },
-    high: { pixelRatio: 2, shadows: true, shadowMap: 4096, shadowExtent: 42, post: true, particles: 140, rivals: 5, precipitation: 2600 },
+    // Sombras solo cerca del ciclista (sin árboles ni hierba) y sin postproceso: ~3x más fluido en GPUs integradas.
+    medium: { pixelRatio: 1, shadows: true, shadowMap: 1024, shadowExtent: 16, post: false, particles: 80, rivals: 4, precipitation: 1400 },
+    high: { pixelRatio: 1.25, shadows: true, shadowMap: 2048, shadowExtent: 28, post: true, particles: 140, rivals: 5, precipitation: 2600 },
 };
 
 const WORLD_STYLES = {
@@ -69,8 +71,14 @@ class ExpeditionRenderer3D {
         quality = 'medium',
         reducedMotion = false,
         mission = null,
+        onQualityAdapt = null,
     } = {}) {
         this.canvas = canvas;
+        this.onQualityAdapt = onQualityAdapt;
+        this.frameAverageMs = 16.7;
+        this.perfElapsedMs = 0;
+        this.slowMs = 0;
+        this.pixelRatioScale = 1;
         this.cameraMode = CAMERA_PRESETS[cameraMode] ? cameraMode : 'standard';
         this.quality = resolveQuality(quality);
         this.reducedMotion = reducedMotion;
@@ -140,7 +148,7 @@ class ExpeditionRenderer3D {
         this.renderer.toneMappingExposure = 1;
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality.pixelRatio));
         this.renderer.shadowMap.enabled = quality.shadows;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.shadowMap.type = THREE.PCFShadowMap;
     }
 
     setupScene() {
@@ -445,7 +453,7 @@ class ExpeditionRenderer3D {
             label.sprite.visible = Math.abs(rival.gap) < 75;
             if (!near) continue;
             // Tamaño angular constante: legible de lejos y discreta de cerca.
-            const labelWidth = THREE.MathUtils.clamp(this.camera.position.distanceTo(cyclist.group.position) * 0.11, 2.2, 5);
+            const labelWidth = THREE.MathUtils.clamp(this.camera.position.distanceTo(cyclist.group.position) * 0.06, 1.2, 2.6);
             label.sprite.scale.set(labelWidth, labelWidth * (80 / 384) * 1.15, 1);
 
             const t = (((rival.distance % length) + length) % length) / length;
@@ -472,6 +480,17 @@ class ExpeditionRenderer3D {
                     label.setText(text, rival.gap >= 0);
                 }
             }
+        }
+
+        // Solo se etiquetan los dos rivales más cercanos: con más, los carteles se pisan.
+        const labelled = new Set(this.rivals
+            .filter(({ gap }) => Math.abs(gap) < 75)
+            .sort((a, b) => Math.abs(a.gap) - Math.abs(b.gap))
+            .slice(0, 2));
+        // Un rival pegado a la cámara taparía media pantalla con su cartel.
+        for (const rival of this.rivals) {
+            const farEnough = this.camera.position.distanceTo(rival.cyclist.group.position) > 9;
+            rival.label.sprite.visible = enabled && labelled.has(rival) && farEnough;
         }
 
         entries.sort((a, b) => b.gap - a.gap);
@@ -557,7 +576,63 @@ class ExpeditionRenderer3D {
         this.resize();
     }
 
+    // Si la GPU no da la talla, baja la calidad sola en vez de dejar que la sesión vaya a tirones.
+    monitorPerformance(rawMs) {
+        // Un fotograma de más de 0,6 s es una pausa del navegador (pestaña oculta, ventana tapada), no una GPU lenta.
+        if (document.hidden || rawMs <= 0 || rawMs > 600) {
+            this.slowMs = 0;
+            return;
+        }
+        this.perfElapsedMs += rawMs;
+        if (this.perfElapsedMs < 6000) return; // la compilación de shaders al arrancar no cuenta
+        this.frameAverageMs += (rawMs - this.frameAverageMs) * 0.05;
+        this.slowMs = this.frameAverageMs > 30 ? this.slowMs + rawMs : Math.max(0, this.slowMs - rawMs);
+        if (this.slowMs > 3000) {
+            this.slowMs = 0;
+            this.frameAverageMs = 16.7;
+            this.degradeQuality();
+        }
+    }
+
+    // Bajadas en caliente, sin reconstruir el mundo (reconstruirlo en una GPU que ya va justa empeora el tirón).
+    degradeQuality() {
+        const step = this.degradeStep || 0;
+        this.degradeStep = step + 1;
+        if (step === 0 && this.post) {
+            this.post.dispose();
+            this.post = null;
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1));
+            this.resize();
+        } else if (step <= 1 && this.renderer.shadowMap.enabled) {
+            this.degradeStep = 2;
+            this.sunLight.castShadow = false;
+            this.renderer.shadowMap.enabled = false;
+            this.scene.traverse((object) => {
+                const materials = Array.isArray(object.material) ? object.material : [object.material];
+                materials.forEach((material) => { if (material) material.needsUpdate = true; });
+            });
+        } else if (this.pixelRatioScale > 0.7) {
+            this.degradeStep = 3;
+            this.pixelRatioScale = 0.75;
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1) * this.pixelRatioScale);
+            this.resize();
+        } else {
+            return;
+        }
+        this.onQualityAdapt?.(this.quality, this.degradeStep);
+    }
+
     draw(timestamp) {
+        // Límite de 60 fps: en pantallas de 120-144 Hz se renderizaba el doble sin que se note.
+        const interval = 1000 / 60;
+        this.frameDebt = (this.frameDebt || 0) + (timestamp - (this.lastRafTimestamp ?? timestamp));
+        this.lastRafTimestamp = timestamp;
+        if (this.frameDebt < interval - 1) {
+            this.frameId = requestAnimationFrame((nextTimestamp) => this.draw(nextTimestamp));
+            return;
+        }
+        this.frameDebt = Math.min(this.frameDebt - interval, interval);
+        this.monitorPerformance(timestamp - this.lastTimestamp);
         const delta = Math.min(0.05, Math.max(0, (timestamp - this.lastTimestamp) / 1000));
         this.lastTimestamp = timestamp;
         this.elapsed += delta;
@@ -795,414 +870,6 @@ function getSoftDotTexture() {
     return softDotTexture;
 }
 
-// Ciclista en medidas reales (metros, +z hacia delante): rueda 700c, cuadro de ~55 cm y
-// ciclista de ~1,75 m en postura de carretera. Se escala el grupo entero al colocarlo.
-const BIKE = {
-    wheelRadius: 0.335,
-    bottomBracket: new THREE.Vector3(0, 0.27, 0),
-    rearHub: new THREE.Vector3(0, 0.335, -0.41),
-    frontHub: new THREE.Vector3(0, 0.335, 0.6),
-    seatCluster: new THREE.Vector3(0, 0.88, -0.17),
-    saddle: new THREE.Vector3(0, 0.95, -0.2),
-    headTop: new THREE.Vector3(0, 0.93, 0.4),
-    headBottom: new THREE.Vector3(0, 0.75, 0.435),
-    crankLength: 0.172,
-};
-const BODY = {
-    thigh: 0.43,
-    shin: 0.43,
-    upperArm: 0.29,
-    forearm: 0.27,
-    hipHalfWidth: 0.085,
-    hipHeight: 1.0,
-    hipZ: -0.21,
-};
-
-function createCyclist({ accent, ghost }) {
-    const group = new THREE.Group();
-    const ghostOpacity = (value) => ({ transparent: ghost, opacity: ghost ? value : 1, depthWrite: !ghost });
-    const frameMaterial = new THREE.MeshStandardMaterial({ color: ghost ? 0x8ed9ff : 0x1c2529, roughness: 0.32, metalness: 0.6, ...ghostOpacity(0.38) });
-    const accentMaterial = new THREE.MeshStandardMaterial({
-        color: accent, emissive: accent, emissiveIntensity: ghost ? 0.9 : 0.35, roughness: 0.4, metalness: 0.2, ...ghostOpacity(0.45),
-    });
-    const unlitAccentMaterial = new THREE.MeshBasicMaterial({ color: accent, ...ghostOpacity(0.5) });
-    const rubberMaterial = new THREE.MeshStandardMaterial({ color: 0x0b0f12, roughness: 0.9, ...ghostOpacity(0.3) });
-    const metalMaterial = new THREE.MeshStandardMaterial({ color: ghost ? 0x8ed9ff : 0xc5d0d0, roughness: 0.35, metalness: 0.75, ...ghostOpacity(0.34) });
-    const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xd9a98a, roughness: 0.78, ...ghostOpacity(0.32) });
-    const fabric = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.82, ...ghostOpacity(0.34), ...extra });
-    const jerseyMaterial = new THREE.MeshStandardMaterial({
-        color: accent, emissive: accent, emissiveIntensity: ghost ? 0.5 : 0.08, roughness: 0.75,
-        map: createJerseyTexture(), ...ghostOpacity(0.42),
-    });
-    const shortsMaterial = fabric(0x14191c, { roughness: 0.68 });
-    const sockMaterial = fabric(0xf2f0e8);
-    const helmetMaterial = fabric(0xf4f1e8, { roughness: 0.3 });
-    const gloveMaterial = fabric(0x1a1e21, { roughness: 0.9 });
-    const shoeMaterial = fabric(0xecece6, { roughness: 0.5 });
-    const v = (x, y, z) => new THREE.Vector3(x, y, z);
-
-    // ---- Ruedas: cubierta fina, llanta de perfil medio y radios finos ----
-    const buildWheel = () => {
-        const wheel = new THREE.Group();
-        const tire = new THREE.Mesh(new THREE.TorusGeometry(BIKE.wheelRadius, 0.0145, 8, 64), rubberMaterial);
-        tire.rotation.y = Math.PI / 2;
-        const rim = new THREE.Mesh(
-            new THREE.CylinderGeometry(BIKE.wheelRadius - 0.016, BIKE.wheelRadius - 0.016, 0.026, 64, 1, true),
-            new THREE.MeshStandardMaterial({ color: ghost ? 0x8ed9ff : 0x11161a, roughness: 0.3, metalness: 0.7, side: THREE.DoubleSide, ...ghostOpacity(0.3) }),
-        );
-        rim.rotation.z = Math.PI / 2;
-        const spokePoints = [];
-        for (let index = 0; index < 20; index += 1) {
-            const angle = (index / 20) * Math.PI * 2;
-            const side = index % 2 === 0 ? 0.018 : -0.018;
-            spokePoints.push(side, 0, 0, 0, Math.cos(angle) * (BIKE.wheelRadius - 0.03), Math.sin(angle) * (BIKE.wheelRadius - 0.03));
-        }
-        const spokeGeometry = new THREE.BufferGeometry();
-        spokeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(spokePoints, 3));
-        const spokes = new THREE.LineSegments(spokeGeometry, new THREE.LineBasicMaterial({ color: ghost ? 0x8ed9ff : 0x9aa5a8, transparent: true, opacity: ghost ? 0.25 : 0.7 }));
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.1, 12), metalMaterial);
-        hub.rotation.z = Math.PI / 2;
-        wheel.add(tire, rim, spokes, hub);
-        return wheel;
-    };
-    const rearWheel = buildWheel();
-    rearWheel.position.copy(BIKE.rearHub);
-    const frontWheel = buildWheel();
-    frontWheel.position.copy(BIKE.frontHub);
-    group.add(rearWheel, frontWheel);
-
-    // ---- Cuadro, horquilla y manillar ----
-    const { bottomBracket: bb, rearHub, frontHub, seatCluster, headTop, headBottom } = BIKE;
-    const barCenter = v(0, 0.97, 0.5);
-    [
-        [bb, seatCluster, 0.017, accentMaterial],
-        [seatCluster, headTop, 0.015, accentMaterial],
-        [bb, headBottom, 0.021, accentMaterial],
-        [headBottom, headTop, 0.02, frameMaterial],
-        [seatCluster, rearHub, 0.009, frameMaterial],
-        [bb, rearHub, 0.011, frameMaterial],
-        [headHubStart(headBottom), frontHub, 0.012, frameMaterial],
-        [headTop, barCenter, 0.013, frameMaterial],
-        [seatCluster, BIKE.saddle.clone().add(v(0, -0.02, 0)), 0.011, frameMaterial],
-    ].forEach(([start, end, radius, material]) => group.add(createTube(start, end, radius, material)));
-    for (const side of [-1, 1]) {
-        group.add(
-            createTube(v(side * 0.2, 0.97, 0.5), barCenter, 0.0115, frameMaterial),
-            createTube(v(side * 0.2, 0.97, 0.5), v(side * 0.205, 0.955, 0.6), 0.0115, frameMaterial),
-            createTube(v(side * 0.205, 0.955, 0.6), v(side * 0.205, 0.83, 0.645), 0.0115, frameMaterial),
-            createTube(v(side * 0.205, 0.83, 0.645), v(side * 0.2, 0.805, 0.57), 0.0115, frameMaterial),
-        );
-        const hood = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8), rubberMaterial);
-        hood.scale.set(0.8, 1.1, 1.5);
-        hood.position.set(side * 0.2, 0.965, 0.585);
-        group.add(hood);
-    }
-    const saddle = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), rubberMaterial);
-    saddle.scale.set(0.065, 0.02, 0.135);
-    saddle.position.copy(BIKE.saddle).add(v(0, 0.01, -0.02));
-    saddle.rotation.x = -0.05;
-    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.2, 10), new THREE.MeshStandardMaterial({ color: 0xe5e3d6, roughness: 0.4, ...ghostOpacity(0.4) }));
-    bottle.position.set(0, 0.55, 0.19);
-    bottle.rotation.x = 0.5;
-    const chainring = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.006, 6, 32), metalMaterial);
-    chainring.rotation.y = Math.PI / 2;
-    chainring.position.copy(bb).add(v(0.045, 0, 0));
-    const cassette = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 20), metalMaterial);
-    cassette.rotation.y = Math.PI / 2;
-    cassette.position.copy(rearHub).add(v(0.045, 0, 0));
-    const chain = new THREE.MeshStandardMaterial({ color: 0x969d98, roughness: 0.6, metalness: 0.6, ...ghostOpacity(0.3) });
-    group.add(
-        saddle, bottle, chainring, cassette,
-        createTube(v(0.045, 0.365, -0.41), v(0.045, 0.365, 0), 0.004, chain),
-        createTube(v(0.045, 0.175, -0.41), v(0.045, 0.175, 0), 0.004, chain),
-    );
-    const leftCrank = createTube(bb, bb, 0.011, frameMaterial);
-    const rightCrank = createTube(bb, bb, 0.011, frameMaterial);
-    group.add(leftCrank, rightCrank);
-
-    // ---- Ciclista: torso entallado, cabeza con casco, brazos apoyados en las manetas ----
-    const pelvis = v(0, BODY.hipHeight + 0.01, BODY.hipZ);
-    const shoulders = v(0, 1.35, 0.18);
-    const spineAt = (t) => pelvis.clone().lerp(shoulders, t).add(v(0, 0.022 * Math.sin(Math.PI * t), 0));
-    const torsoSections = [
-        { t: 0, width: 0.33, depth: 0.23 },
-        { t: 0.3, width: 0.28, depth: 0.2 },
-        { t: 0.65, width: 0.33, depth: 0.22 },
-        { t: 0.93, width: 0.4, depth: 0.17 },
-        { t: 1.06, width: 0.2, depth: 0.14 },
-    ].map(({ t, width, depth }) => ({ center: spineAt(t), width, depth }));
-    const torso = new THREE.Mesh(createLoft(torsoSections, 22), jerseyMaterial);
-    const shorts = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), shortsMaterial);
-    shorts.scale.set(0.15, 0.09, 0.13);
-    shorts.position.set(0, 0.99, -0.235);
-    group.add(torso, shorts);
-
-    const headCenter = v(0, 1.46, 0.31);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.095, 18, 14), skinMaterial);
-    head.scale.set(0.92, 1.1, 1.05);
-    head.position.copy(headCenter);
-    const neck = createTube(v(0, 1.36, 0.2), headCenter.clone().add(v(0, -0.06, -0.02)), 0.04, skinMaterial);
-    const helmet = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), helmetMaterial);
-    helmet.scale.set(0.1, 0.082, 0.15);
-    helmet.position.copy(headCenter).add(v(0, 0.035, -0.03));
-    helmet.rotation.x = -0.32;
-    const helmetBand = createTube(headCenter.clone().add(v(-0.098, -0.005, 0.02)), headCenter.clone().add(v(0.098, -0.005, 0.02)), 0.008, unlitAccentMaterial);
-    const glasses = new THREE.Mesh(
-        new THREE.SphereGeometry(0.098, 16, 8, 0, Math.PI * 2, Math.PI * 0.4, Math.PI * 0.11),
-        new THREE.MeshStandardMaterial({ color: 0x0f1a20, roughness: 0.12, metalness: 0.5, ...ghostOpacity(0.3) }),
-    );
-    glasses.scale.set(1, 1, 1.12);
-    glasses.position.copy(headCenter).add(v(0, -0.005, 0.02));
-    glasses.rotation.x = 0.1;
-    group.add(head, neck, helmet, helmetBand, glasses);
-
-    for (const side of [-1, 1]) {
-        const shoulder = v(side * 0.165, 1.315, 0.15);
-        const hand = v(side * 0.2, 0.97, 0.575);
-        const elbow = solveTwoBone(shoulder, hand, BODY.upperArm, BODY.forearm, v(side * 1, -0.25, -0.15));
-        const sleeveEnd = shoulder.clone().lerp(elbow, 0.5);
-        const sleeve = makeTaperedTube(0.044, 0.042, jerseyMaterial);
-        const upperSkin = makeTaperedTube(0.045, 0.038, skinMaterial);
-        const forearm = makeTaperedTube(0.037, 0.028, skinMaterial);
-        alignTube(sleeve, shoulder, sleeveEnd);
-        alignTube(upperSkin, sleeveEnd, elbow);
-        alignTube(forearm, elbow, hand);
-        const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.043, 12, 10), jerseyMaterial);
-        shoulderCap.position.copy(shoulder);
-        const elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.038, 10, 8), skinMaterial);
-        elbowJoint.position.copy(elbow);
-        const glove = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 10), gloveMaterial);
-        glove.scale.set(0.9, 0.85, 1.4);
-        glove.position.copy(hand).add(v(0, 0.012, 0.015));
-        group.add(sleeve, upperSkin, forearm, shoulderCap, elbowJoint, glove);
-    }
-
-    // ---- Piernas: muslo, gemelo, calcetín y zapatilla; se recolocan por frame con IK ----
-    const makeLeg = () => ({
-        short: makeTaperedTube(0.068, 0.058, shortsMaterial),
-        thigh: makeTaperedTube(0.058, 0.048, skinMaterial),
-        calf: makeTaperedTube(0.05, 0.03, skinMaterial),
-        sock: makeTaperedTube(0.032, 0.03, sockMaterial),
-        knee: new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10), skinMaterial),
-        shoe: new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), shoeMaterial),
-        stripe: new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.012, 0.07), new THREE.MeshBasicMaterial({ color: accent, transparent: ghost, opacity: ghost ? 0.35 : 0.95 })),
-        pedal: new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.014, 0.1), frameMaterial),
-    });
-    const leftLeg = makeLeg();
-    const rightLeg = makeLeg();
-    for (const leg of [leftLeg, rightLeg]) {
-        leg.shoe.scale.set(0.042, 0.038, 0.13);
-        group.add(...Object.values(leg));
-    }
-
-    const blob = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.9, 1.9),
-        new THREE.MeshBasicMaterial({ map: getBlobShadowTexture(), transparent: true, opacity: ghost ? 0.12 : 0.5, depthWrite: false }),
-    );
-    blob.rotation.x = -Math.PI / 2;
-    blob.position.set(0, 0.02, 0);
-    group.add(blob);
-
-    group.traverse((child) => {
-        if (!child.isMesh || child === blob) return;
-        child.castShadow = !ghost;
-        child.receiveShadow = !ghost;
-    });
-
-    return {
-        group,
-        rearWheel,
-        frontWheel,
-        leftLeg,
-        rightLeg,
-        leftCrank,
-        rightCrank,
-        crankRing: chainring,
-        outerRing: chainring,
-        accentMaterial,
-        accentMaterials: [accentMaterial, jerseyMaterial],
-        crankAngle: 0,
-    };
-}
-
-function headHubStart(headBottom) {
-    return headBottom.clone().add(new THREE.Vector3(0, -0.005, 0.005));
-}
-
-// Cinemática inversa de dos huesos: devuelve la articulación intermedia (rodilla/codo).
-function solveTwoBone(root, target, lengthA, lengthB, pole) {
-    const toTarget = target.clone().sub(root);
-    const distance = THREE.MathUtils.clamp(toTarget.length(), 0.001, lengthA + lengthB - 0.002);
-    const direction = toTarget.normalize();
-    const along = (lengthA * lengthA - lengthB * lengthB + distance * distance) / (2 * distance);
-    const height = Math.sqrt(Math.max(lengthA * lengthA - along * along, 0));
-    const perpendicular = pole.clone().sub(direction.clone().multiplyScalar(pole.dot(direction))).normalize();
-    return root.clone().addScaledVector(direction, along).addScaledVector(perpendicular, height);
-}
-
-let jerseyTexture = null;
-function createJerseyTexture() {
-    if (jerseyTexture) return jerseyTexture;
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, 256, 256);
-    // v = 0 en la cadera, v = 1 en el cuello (el canvas se lee de arriba abajo).
-    const y = (v) => (1 - v) * 256;
-    context.fillStyle = 'rgba(0,0,0,0.78)';
-    context.fillRect(0, y(0.66), 256, y(0.6) - y(0.66));
-    context.fillStyle = 'rgba(0,0,0,0.5)';
-    context.fillRect(0, y(0.3), 256, 3);
-    context.fillStyle = 'rgba(30,30,30,0.35)';
-    for (const start of [0.66, 0.74, 0.82]) {
-        // Tres bolsillos traseros (u ≈ 0.75 corresponde a la espalda).
-        context.fillRect(start * 256 - 8, y(0.28), 20, y(0.06) - y(0.28));
-    }
-    context.fillStyle = 'rgba(0,0,0,0.3)';
-    context.fillRect(0, 0, 256, 2);
-    for (const seam of [0, 0.5]) context.fillRect(seam * 256, 0, 2, 256);
-    jerseyTexture = new THREE.CanvasTexture(canvas);
-    jerseyTexture.colorSpace = THREE.SRGBColorSpace;
-    jerseyTexture.wrapS = THREE.RepeatWrapping;
-    return jerseyTexture;
-}
-
-let blobTexture = null;
-function getBlobShadowTexture() {
-    if (blobTexture) return blobTexture;
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-    context.translate(64, 128);
-    context.scale(1, 2);
-    const gradient = context.createRadialGradient(0, 0, 0, 0, 0, 62);
-    gradient.addColorStop(0, 'rgba(0,0,0,0.85)');
-    gradient.addColorStop(0.5, 'rgba(0,0,0,0.35)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0)');
-    context.fillStyle = gradient;
-    context.fillRect(-64, -64, 128, 128);
-    blobTexture = new THREE.CanvasTexture(canvas);
-    return blobTexture;
-}
-
-// Superficie elíptica que recorre una lista de secciones (tronco, etc.) con tapas.
-function createLoft(sections, radial = 16) {
-    const positions = [];
-    const uvs = [];
-    const indices = [];
-    const right = new THREE.Vector3(1, 0, 0);
-    sections.forEach((section, index) => {
-        const next = sections[Math.min(index + 1, sections.length - 1)].center;
-        const previous = sections[Math.max(index - 1, 0)].center;
-        const direction = next.clone().sub(previous).normalize();
-        const front = new THREE.Vector3().crossVectors(right, direction).normalize();
-        for (let step = 0; step <= radial; step += 1) {
-            const angle = (step / radial) * Math.PI * 2;
-            const point = section.center.clone()
-                .addScaledVector(right, Math.cos(angle) * section.width / 2)
-                .addScaledVector(front, Math.sin(angle) * section.depth / 2);
-            positions.push(point.x, point.y, point.z);
-            uvs.push(step / radial, index / (sections.length - 1));
-        }
-    });
-    const stride = radial + 1;
-    for (let row = 0; row < sections.length - 1; row += 1) {
-        for (let step = 0; step < radial; step += 1) {
-            const a = row * stride + step;
-            const b = a + stride;
-            indices.push(a, a + 1, b, a + 1, b + 1, b);
-        }
-    }
-    for (const [ringIndex, flip] of [[0, true], [sections.length - 1, false]]) {
-        const centerIndex = positions.length / 3;
-        const center = sections[ringIndex].center;
-        positions.push(center.x, center.y, center.z);
-        uvs.push(0.5, ringIndex === 0 ? 0 : 1);
-        for (let step = 0; step < radial; step += 1) {
-            const a = ringIndex * stride + step;
-            indices.push(...(flip ? [centerIndex, a + 1, a] : [centerIndex, a, a + 1]));
-        }
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
-    return geometry;
-}
-
-function makeTaperedTube(startRadius, endRadius, material) {
-    // Cilindro unitario orientado por alignTube: la base (-y) es el inicio y la tapa (+y) el final.
-    return new THREE.Mesh(new THREE.CylinderGeometry(endRadius, startRadius, 1, 14, 1), material);
-}
-
-const _hip = new THREE.Vector3();
-const _pedal = new THREE.Vector3();
-const _ankle = new THREE.Vector3();
-const _pole = new THREE.Vector3();
-const _mid = new THREE.Vector3();
-const _shoeOffset = new THREE.Vector3(0, 0.02, 0.035);
-const _stripeOffset = new THREE.Vector3(0, 0.038, 0.0);
-
-function poseLeg(leg, side, angle) {
-    const { bottomBracket, crankLength } = BIKE;
-    _hip.set(side * BODY.hipHalfWidth, BODY.hipHeight, BODY.hipZ);
-    _pedal.set(side * 0.11, bottomBracket.y + Math.sin(angle) * crankLength, Math.cos(angle) * crankLength);
-    // El tobillo queda unos centímetros detrás y encima del eje del pedal.
-    _ankle.copy(_pedal).add(_shoeOffsetAnkle).add(_ankleDrop.set(0, Math.max(0, Math.cos(angle) * 0.01), 0));
-    _pole.set(side * 0.18, 0.35, 1);
-    const knee = solveTwoBone(_hip, _ankle, BODY.thigh, BODY.shin, _pole);
-    _mid.copy(_hip).lerp(knee, 0.62);
-    const sockStart = knee.clone().lerp(_ankle, 0.72);
-    alignTube(leg.short, _hip, _mid);
-    alignTube(leg.thigh, _mid, knee);
-    alignTube(leg.calf, knee, sockStart);
-    alignTube(leg.sock, sockStart, _ankle);
-    leg.knee.position.copy(knee);
-    leg.pedal.position.copy(_pedal);
-    leg.shoe.position.copy(_pedal).add(_shoeOffset);
-    leg.shoe.rotation.x = -Math.sin(angle) * 0.12;
-    leg.stripe.position.copy(leg.shoe.position).add(_stripeOffset);
-    leg.stripe.rotation.x = leg.shoe.rotation.x;
-    return _pedal;
-}
-const _shoeOffsetAnkle = new THREE.Vector3(0, 0.085, -0.1);
-const _ankleDrop = new THREE.Vector3();
-
-function animateCyclist(cyclist, angle, speed, flow, active) {
-    const wheelRotation = active ? angle * 1.85 : angle;
-    cyclist.rearWheel.rotation.x = wheelRotation;
-    cyclist.frontWheel.rotation.x = wheelRotation;
-    // Un pie por lado: el izquierdo va con el ángulo, el derecho desfasado 180°.
-    const leftPedal = poseLeg(cyclist.leftLeg, -1, angle).clone();
-    const rightPedal = poseLeg(cyclist.rightLeg, 1, angle + Math.PI).clone();
-    const bb = BIKE.bottomBracket;
-    alignTube(cyclist.leftCrank, bb.clone().add(_crankSide.set(-0.075, 0, 0)), leftPedal);
-    alignTube(cyclist.rightCrank, bb.clone().add(_crankSide.set(0.075, 0, 0)), rightPedal);
-    cyclist.crankRing.rotation.x = angle;
-    const lean = Math.min(0.055, speed * 0.0018) + flow * 0.012;
-    cyclist.group.rotation.z = Math.sin(angle * 0.5) * lean * 0.08;
-}
-const _crankSide = new THREE.Vector3();
-
-function createTube(start, end, radius, material) {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 1, 10), material);
-    alignTube(mesh, start, end);
-    return mesh;
-}
-
-function alignTube(mesh, start, end) {
-    const midpoint = start.clone().add(end).multiplyScalar(0.5);
-    const direction = end.clone().sub(start);
-    const length = Math.max(0.001, direction.length());
-    mesh.position.copy(midpoint);
-    mesh.quaternion.setFromUnitVectors(Y_AXIS, direction.normalize());
-    mesh.scale.set(1, length, 1);
-}
-
 function orientAlongCurve(object, position, tangent) {
     object.position.copy(position);
     const horizontal = Math.max(0.0001, Math.hypot(tangent.x, tangent.z));
@@ -1220,6 +887,5 @@ function resolveQuality(quality) {
     const memory = Number(navigator.deviceMemory) || 4;
     const cores = Number(navigator.hardwareConcurrency) || 4;
     if (memory <= 2 || cores <= 2) return 'low';
-    if (memory >= 8 && cores >= 8) return 'high';
     return 'medium';
 }

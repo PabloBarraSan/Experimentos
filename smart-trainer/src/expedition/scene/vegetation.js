@@ -5,7 +5,7 @@ import { WATER_LEVEL, ROAD_CORRIDOR } from './terrain.js';
 
 const VEGETATION_QUALITY = {
     low: { nearTrees: 60, farTrees: 160, grass: 3500, blades: 4, flowers: 300, rocks: 36, bushes: 40, shadows: false },
-    medium: { nearTrees: 130, farTrees: 480, grass: 11000, blades: 5, flowers: 900, rocks: 64, bushes: 90, shadows: true },
+    medium: { nearTrees: 130, farTrees: 480, grass: 11000, blades: 5, flowers: 900, rocks: 64, bushes: 90, shadows: false },
     high: { nearTrees: 240, farTrees: 1000, grass: 26000, blades: 6, flowers: 2200, rocks: 110, bushes: 170, shadows: true },
 };
 

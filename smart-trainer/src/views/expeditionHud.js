@@ -98,9 +98,8 @@ export class LapTracker {
 }
 
 const glass = {
-    background: 'linear-gradient(135deg, rgba(7,14,18,.78), rgba(15,36,38,.66))',
+    background: 'linear-gradient(135deg, rgba(7,14,18,.86), rgba(15,36,38,.78))',
     border: '1px solid rgba(255,255,255,.12)',
-    backdropFilter: 'blur(12px)',
 };
 
 // Perfil del entrenamiento (estilo TrainerRoad/Zwift) + qué toca ahora y después.
@@ -149,16 +148,27 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
     });
     const nextLabel = createElement('span', {
         text: '',
-        styles: { color: 'rgba(255,255,255,.62)', textAlign: 'right', whiteSpace: 'nowrap', flex: '0 0 auto' },
+        styles: { color: 'rgba(255,255,255,.62)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    });
+    const blockClock = createElement('span', {
+        text: '--:--',
+        attrs: { 'aria-label': 'Tiempo restante del tramo' },
+        styles: { fontFamily: typography.fontMono, fontSize: '26px', fontWeight: 800, lineHeight: 1, color: '#fff', flex: '0 0 auto' },
     });
     const info = div({
         styles: {
-            display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
             fontSize: '11px', width: '100%',
         },
         children: [
-            div({ styles: { display: 'flex', gap: '9px', alignItems: 'baseline', minWidth: 0, flex: '1 1 auto' }, children: [lapLabel, lapAverage] }),
-            nextLabel,
+            div({
+                styles: { display: 'grid', gap: '3px', minWidth: 0, flex: '1 1 auto' },
+                children: [
+                    div({ styles: { display: 'flex', gap: '9px', alignItems: 'baseline', minWidth: 0 }, children: [lapLabel, lapAverage] }),
+                    nextLabel,
+                ],
+            }),
+            blockClock,
         ],
     });
     const element = div({
@@ -187,6 +197,10 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
             } else {
                 nextLabel.textContent = 'ÚLTIMO TRAMO';
             }
+        },
+        setBlockRemaining(seconds) {
+            blockClock.textContent = formatTime(Math.max(0, seconds));
+            blockClock.style.color = seconds <= 10 ? '#ffd379' : '#fff';
         },
         setProgress(elapsed) {
             cursor.style.left = `${Math.max(0, Math.min(100, (elapsed / totalDuration) * 100))}%`;
