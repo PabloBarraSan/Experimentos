@@ -208,6 +208,39 @@ export const WORKOUT_PRESETS = {
     
     // === INTERVALOS ===
     
+    VO2MAX_4x4: createWorkout({
+        name: 'VO2max 4x4',
+        description: '4 intervalos de 4 minutos al 110% del FTP con 3 minutos de recuperación entre esfuerzos. Incluye calentamiento y enfriamiento: 40 minutos en total.',
+        author: 'Smart Trainer',
+        category: 'intervals',
+        difficulty: 'hard',
+        tags: ['vo2max', '4x4', 'intervalos'],
+        blocks: [
+            createBlock({
+                type: BLOCK_TYPES.WARMUP,
+                duration: 10 * 60,
+                name: 'Calentamiento',
+                targetValue: 55,
+            }),
+            createBlock({
+                type: BLOCK_TYPES.INTERVAL,
+                duration: 4 * 60,
+                name: 'VO2max 4x4',
+                targetValue: 110,
+                repeat: 4,
+                restBetween: 3 * 60,
+                restTargetValue: 50,
+                instructions: 'Mantén un esfuerzo constante durante los cuatro minutos.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.COOLDOWN,
+                duration: 5 * 60,
+                name: 'Enfriamiento',
+                targetValue: 45,
+            }),
+        ],
+    }),
+
     VO2MAX_5x5: createWorkout({
         name: 'VO2max 5x5',
         description: '5 intervalos de 5 minutos al 105-120% del FTP con 5 minutos de recuperación. Excelente para mejorar tu consumo máximo de oxígeno.',
@@ -292,6 +325,46 @@ export const WORKOUT_PRESETS = {
         ],
     }),
     
+    SWEET_SPOT_2x15: withMission(createWorkout({
+        name: 'Sweet Spot 2x15',
+        description: '2 bloques de 15 minutos al 90% del FTP con 5 minutos de recuperación. Estímulo de umbral con menos fatiga que un 2x20; encaja 48 h después de un VO2max.',
+        author: 'Smart Trainer',
+        category: 'intervals',
+        difficulty: 'medium',
+        tags: ['expedición', 'sweet spot', 'umbral'],
+        blocks: [
+            createBlock({
+                type: BLOCK_TYPES.WARMUP,
+                duration: 12 * 60,
+                name: 'Calentamiento',
+                targetValue: 55,
+                targetValueEnd: 70,
+            }),
+            createBlock({
+                type: BLOCK_TYPES.INTERVAL,
+                duration: 15 * 60,
+                name: 'Sweet Spot',
+                targetValue: 90,
+                repeat: 2,
+                restBetween: 5 * 60,
+                restTargetValue: 50,
+                cadenceTarget: 88,
+                instructions: 'Esfuerzo sostenido y controlado. Si el primer bloque se te hace muy duro, baja al 85% en el segundo.',
+            }),
+            createBlock({
+                type: BLOCK_TYPES.COOLDOWN,
+                duration: 10 * 60,
+                name: 'Enfriamiento',
+                targetValue: 45,
+            }),
+        ],
+    }), {
+        id: 'sweet-spot-2x15', version: 1, world: 'aurora', title: 'Puerto de Aurora',
+        terrain: 'Valle · Puerto', objective: 'Sostén el ritmo del puerto', quality: 'medium',
+        checkpoints: [{ id: 'ss-start', progress: 0.3 }, { id: 'ss-pass', progress: 0.62 }, { id: 'ss-summit', progress: 0.9 }],
+        decisions: [], rewards: [], ghostVersion: 1,
+    }),
+
     THRESHOLD_4x8: createWorkout({
         name: 'Umbral 4x8',
         description: '4 intervalos de 8 minutos al 95-105% del FTP. Perfecto para mejorar tu potencia de umbral.',

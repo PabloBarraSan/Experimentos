@@ -9,18 +9,22 @@ import { BluetoothManager, CONNECTION_STATE } from './bluetooth/scanner.js';
 import { HeartRateManager, HR_CONNECTION_STATE } from './bluetooth/heartRate.js';
 import { ZwiftPlayManager, ZWIFT_PLAY_STATE } from './bluetooth/zwiftPlay.js';
 import { HomeView } from './views/HomeView.js';
+import { PrepareView } from './views/PrepareView.js';
+import { mergeTrainerData } from './utils/liveData.js';
 import { TrainingView } from './views/TrainingView.js';
 import { HistoryView } from './views/HistoryView.js';
 import { SettingsView } from './views/SettingsView.js';
 import { WorkoutsView } from './views/WorkoutsView.js';
 import { ExpeditionView } from './views/ExpeditionView.js';
 import { TrainerDiagnosticsView } from './views/TrainerDiagnosticsView.js';
+import { CyclistViewerView } from './views/CyclistViewerView.js';
+import { preloadRiderAvatar } from './expedition/AvatarRider.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './router.js';
 import { getActiveSession, getProgress, saveProgress } from './storage/sessions.js';
 import { getAllPresets } from './workouts/presets.js';
-import { startBackgroundSync } from './cloud/CloudSyncService.js';
-import { ChallengesView } from './views/ChallengesView.js';
+import { getCachedPlanWorkout } from './workouts/planConverter.js';
+import { startBackgroundSync } from './sync/TrainingAppSync.js';
 import { migrateProgress } from './game/ProgressionService.js';
 import { logActiveSessionEvent } from './diagnostics/SessionDebugLogger.js';
 
@@ -132,7 +136,7 @@ export function updateLiveData(data) {
     const now = Date.now();
     const previousTimestamp = AppState.lastDataUpdateTimestamp || now;
 
-    Object.assign(AppState.liveData, data);
+    mergeTrainerData(AppState.liveData, data);
     AppState.lastDataUpdateTimestamp = now;
 
     // Actualizar tiempo transcurrido si la sesión está activa (descontando tiempo en pausa)
@@ -324,10 +328,21 @@ function renderCurrentView() {
                 onSelectWorkout: (workout) => {
                     AppState.selectedWorkout = workout;
                     AppState.recoveredSession = null;
-                    navigateTo('expedition');
+                    AppState.prepareTarget = 'expedition';
+                    navigateTo('prepare');
                 },
             }));
             container.appendChild(workoutsWrapper);
+            break;
+        }
+
+        case 'prepare': {
+            cleanupFullscreenViews();
+            if (AppState.prepareTarget !== 'training' && !AppState.selectedWorkout) {
+                navigateTo('workouts', { replace: true });
+                break;
+            }
+            container.appendChild(PrepareView(AppState));
             break;
         }
 
@@ -358,6 +373,12 @@ function renderCurrentView() {
             break;
         }
 
+        case 'cyclist': {
+            cleanupFullscreenViews();
+            container.appendChild(CyclistViewerView({ onBack: () => navigateTo('home') }));
+            break;
+        }
+
         case 'diagnostics': {
             cleanupFullscreenViews();
             container.appendChild(TrainerDiagnosticsView({
@@ -365,12 +386,6 @@ function renderCurrentView() {
                 subscribeToState: subscribe,
                 onBack: () => navigateTo('home'),
             }));
-            break;
-        }
-
-        case 'challenges': {
-            cleanupFullscreenViews();
-            container.appendChild(ChallengesView({ onBack: () => navigateTo('home') }));
             break;
         }
 
@@ -490,13 +505,43 @@ function renderApp() {
 /**
  * Inicializar aplicación
  */
+/**
+ * Web Bluetooth suelta todas las conexiones al recargar (Ctrl+F5) y el rodillo o el pulsómetro
+ * tardan unos segundos en liberar la anterior, así que un único intento al arrancar suele fallar.
+ * Reintenta en segundo plano con espera creciente, sin selector (solo dispositivos ya permitidos).
+ */
+const AUTO_RECONNECT_DELAYS_MS = [1500, 4000, 8000, 15000, 30000];
+
+function startAutoReconnect(targets) {
+    targets.forEach(({ manager, disconnected }) => {
+        if (!manager?.cachedDevice) return;
+        let attempt = 0;
+        const tryReconnect = async () => {
+            // Si ya se conectó (o el usuario lo está haciendo a mano), no insistir.
+            if (manager.state !== disconnected) return;
+            try {
+                if (await manager.reconnectSilently()) return;
+            } catch {
+                // reconnectSilently ya registra el motivo
+            }
+            if (attempt < AUTO_RECONNECT_DELAYS_MS.length) {
+                setTimeout(tryReconnect, AUTO_RECONNECT_DELAYS_MS[attempt++]);
+            }
+        };
+        setTimeout(tryReconnect, AUTO_RECONNECT_DELAYS_MS[attempt++]);
+    });
+}
+
 async function init() {
     startBackgroundSync();
+    // El avatar del ciclista se descarga en segundo plano para que la expedición lo tenga listo.
+    preloadRiderAvatar();
     AppState.progress = migrateProgress(await getProgress().catch(() => null) || {});
     await saveProgress(AppState.progress).catch(() => null);
     AppState.recoveredSession = await getActiveSession().catch(() => null);
     if (AppState.recoveredSession) {
-        AppState.selectedWorkout = getAllPresets()
+        AppState.selectedWorkout = [...getAllPresets(), getCachedPlanWorkout()]
+            .filter(Boolean)
             .find((workout) => workout.id === AppState.recoveredSession.workoutId
                 || (AppState.recoveredSession.missionId && workout.missionId === AppState.recoveredSession.missionId)) || null;
     }
@@ -519,7 +564,7 @@ async function init() {
             // Re-renderizar aquí destruye el SessionController de la expedición
             // justo cuando BLE entra en RECONNECTING. La vista de expedición
             // recibe el cambio mediante subscribe() y conserva el borrador.
-            if (AppState.currentView !== 'expedition') renderApp();
+            if (!['expedition', 'diagnostics', 'cyclist'].includes(AppState.currentView)) renderApp();
         },
         onDeviceConnected: (deviceName) => {
             logActiveSessionEvent('app.bluetooth.connected', { deviceName });
@@ -556,6 +601,10 @@ async function init() {
         onDataReceived: (data) => {
             updateLiveData(data);
         },
+        onError: (message) => {
+            AppState.bluetoothError = message;
+            notify();
+        },
     });
     
     // Crear instancia del gestor Heart Rate (pulsómetro)
@@ -563,7 +612,7 @@ async function init() {
         onStateChange: (state) => {
             AppState.hrConnectionState = state;
             notify();
-            if (AppState.currentView !== 'expedition') renderApp();
+            if (!['expedition', 'cyclist'].includes(AppState.currentView)) renderApp();
         },
         onDeviceConnected: (deviceName, sensorLocation) => {
             AppState.hrDeviceName = deviceName;
@@ -593,7 +642,7 @@ async function init() {
     AppState.zwiftPlayManager.onStateChange = (state) => {
         AppState.zwiftPlayState = state;
         notify();
-        if (AppState.currentView !== 'expedition') renderApp();
+        if (!['expedition', 'cyclist'].includes(AppState.currentView)) renderApp();
     };
 
     // Cargar configuración guardada
@@ -602,10 +651,10 @@ async function init() {
     // Intentar reconexión automática si hay dispositivo cacheado
     // Nota: Solo funciona si el dispositivo ya fue permitido previamente
     // y getDevices() está disponible (Chrome 85+)
-    if (AppState.bluetoothManager && AppState.bluetoothManager.cachedDevice) {
-        // Intentar reconexión silenciosa en segundo plano (no bloquear la UI)
-        AppState.bluetoothManager.reconnectSilently().catch(() => {});
-    }
+    startAutoReconnect([
+        { manager: AppState.bluetoothManager, disconnected: CONNECTION_STATE.DISCONNECTED },
+        { manager: AppState.heartRateManager, disconnected: HR_CONNECTION_STATE.DISCONNECTED },
+    ]);
     
     renderApp();
     subscribe(() => {});

@@ -7,14 +7,14 @@ import { colors, spacing, typography, baseStyles, borderRadius, transitions } fr
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { loadSettings, saveSettings, resetSettings, calculatePowerZones } from '../storage/settings.js';
 import { ZWIFT_PLAY_STATE } from '../bluetooth/zwiftPlay.js';
+import { downloadBackup, restoreBackupFromFile } from '../storage/backup.js';
 import {
-    getCloudUser,
-    getAuthProviders,
-    isCloudConfigured,
-    sendMagicLink,
-    signInWithGoogle,
-    signOut,
-} from '../cloud/supabase.js';
+    connectTrainingApp,
+    disconnectTrainingApp,
+    getSyncConfig,
+    isSyncConnected,
+    syncAllSessions,
+} from '../sync/TrainingAppSync.js';
 
 /**
  * Vista de configuración del usuario
@@ -207,31 +207,89 @@ export function SettingsView({ state, onSave }) {
     prefsSection.appendChild(prefsFields);
     container.appendChild(prefsSection);
 
-    const cloudSection = div({ styles: sectionStyles });
-    cloudSection.appendChild(div({
+    const syncSection = div({ styles: sectionStyles });
+    syncSection.appendChild(div({
         styles: sectionTitleStyles,
         children: [
-            createElement('span', { text: '☁️' }),
-            createElement('span', { text: 'Cuenta y copia en la nube' }),
+            createElement('span', { text: '🔗' }),
+            createElement('span', { text: 'Sincronizar con training-app' }),
         ],
     }));
-    const cloudContent = div({
+    const syncContent = div({
+        styles: { display: 'flex', flexDirection: 'column', gap: spacing.sm },
+    });
+    syncSection.appendChild(syncContent);
+    container.appendChild(syncSection);
+    renderTrainingAppSync(syncContent);
+
+    // === Sección: Copia de seguridad local ===
+    const backupSection = div({ styles: sectionStyles });
+    backupSection.appendChild(div({
+        styles: sectionTitleStyles,
+        children: [
+            icon('download', 24, colors.accent),
+            createElement('span', { text: 'Copia de seguridad' }),
+        ],
+    }));
+    const backupStatus = createElement('p', {
+        text: 'Guarda todas tus sesiones, rutinas y progreso en un archivo JSON. Funciona sin cuenta ni conexión.',
+        styles: { color: colors.textMuted, margin: 0 },
+    });
+    const restoreInput = createElement('input', {
+        attrs: { type: 'file', accept: 'application/json,.json' },
+        styles: { display: 'none' },
+        events: {
+            change: async () => {
+                const file = restoreInput.files?.[0];
+                if (!file) return;
+                try {
+                    const result = await restoreBackupFromFile(file);
+                    backupStatus.textContent = `Restauradas ${result.sessions} sesiones y ${result.workouts} rutinas.`;
+                } catch (error) {
+                    backupStatus.textContent = error.message;
+                }
+                restoreInput.value = '';
+            },
+        },
+    });
+    const backupButtonStyles = {
+        ...baseStyles.button,
+        ...baseStyles.buttonSecondary,
+        padding: `${spacing.md} ${spacing.lg}`,
+    };
+    backupSection.appendChild(div({
         styles: { display: 'flex', flexDirection: 'column', gap: spacing.sm },
         children: [
-            createElement('p', {
-                text: isCloudConfigured()
-                    ? 'Opcional: entra con Google para sincronizar sesiones, progreso, ghosts y retos. El modo invitado siempre sigue disponible.'
-                    : 'La app funciona completamente como invitado. Añade las variables de Supabase para activar la sincronización opcional.',
-                styles: { color: colors.textMuted, margin: 0 },
+            backupStatus,
+            div({
+                styles: { display: 'flex', gap: spacing.sm, flexWrap: 'wrap' },
+                children: [
+                    button({
+                        styles: backupButtonStyles,
+                        children: [createElement('span', { text: 'Exportar todo' })],
+                        events: {
+                            click: async () => {
+                                try {
+                                    const counts = await downloadBackup();
+                                    backupStatus.textContent = `Exportadas ${counts.sessions} sesiones y ${counts.workouts} rutinas.`;
+                                } catch (error) {
+                                    backupStatus.textContent = `No se pudo exportar: ${error.message}`;
+                                }
+                            },
+                        },
+                    }),
+                    button({
+                        styles: backupButtonStyles,
+                        children: [createElement('span', { text: 'Restaurar copia' })],
+                        events: { click: () => restoreInput.click() },
+                    }),
+                    restoreInput,
+                ],
             }),
         ],
-    });
-    cloudSection.appendChild(cloudContent);
-    container.appendChild(cloudSection);
-    if (isCloudConfigured()) {
-        renderCloudAccount(cloudContent);
-    }
-    
+    }));
+    container.appendChild(backupSection);
+
     // === Sección: Rodillo ===
     const trainerSection = div({ styles: sectionStyles });
     trainerSection.appendChild(div({
@@ -455,82 +513,78 @@ export function SettingsView({ state, onSave }) {
     return container;
 }
 
-async function renderCloudAccount(container) {
-    const user = await getCloudUser().catch(() => null);
-    if (user) {
-        container.append(
-            createElement('span', {
-                text: `Sincronizando como ${user.email}`,
-                styles: { color: colors.primary, fontWeight: typography.weights.medium },
-            }),
-            button({
-                text: 'Cerrar sesión',
-                styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, alignSelf: 'flex-start' },
-                events: {
-                    click: async () => {
-                        await signOut();
-                        window.location.reload();
-                    },
+function renderTrainingAppSync(container) {
+    container.replaceChildren();
+    const config = getSyncConfig();
+    const status = createElement('p', { styles: { color: colors.textMuted, margin: 0 } });
+
+    if (isSyncConnected()) {
+        status.textContent = `Conectado como ${config.email} · ${config.baseUrl}. Las sesiones nuevas se envían solas al terminar.`;
+        const syncButton = button({
+            text: 'Enviar todo el historial',
+            styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
+            events: {
+                click: async () => {
+                    syncButton.disabled = true;
+                    status.textContent = 'Enviando…';
+                    try {
+                        const result = await syncAllSessions();
+                        status.textContent = `Enviadas ${result.synced} de ${result.total} sesiones${result.failed ? ` (${result.failed} con error)` : ''}.`;
+                    } catch (error) {
+                        status.textContent = error.message;
+                        if (error.code === 'AUTH_EXPIRED') renderTrainingAppSync(container);
+                    }
+                    syncButton.disabled = false;
                 },
-            }),
-        );
+            },
+        });
+        const disconnect = button({
+            text: 'Desconectar',
+            styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, alignSelf: 'flex-start' },
+            events: {
+                click: () => {
+                    disconnectTrainingApp();
+                    renderTrainingAppSync(container);
+                },
+            },
+        });
+        container.append(status, div({
+            styles: { display: 'flex', gap: spacing.sm, flexWrap: 'wrap' },
+            children: [syncButton, disconnect],
+        }));
         return;
     }
 
-    const providers = await getAuthProviders();
-
-    const email = createElement('input', {
-        attrs: {
-            type: 'email',
-            inputmode: 'email',
-            autocomplete: 'email',
-            placeholder: 'tu@email.com',
-            'aria-label': 'Correo para iniciar sesión',
-        },
+    status.textContent = 'Opcional: conecta con tu cuenta de training-app para guardar ahí una copia de tus sesiones. La app funciona igual sin conexión.';
+    const field = (attrs) => createElement('input', {
+        attrs,
         styles: { ...baseStyles.input, maxWidth: '360px' },
     });
-    const status = createElement('span', { styles: { color: colors.textMuted, fontSize: typography.sizes.sm } });
-    const googleLogin = button({
-        text: 'Continuar con Google',
+    const baseUrl = field({ type: 'url', placeholder: 'http://localhost:4000', 'aria-label': 'URL de training-app', value: config.baseUrl || 'http://localhost:4000' });
+    const email = field({ type: 'email', autocomplete: 'email', placeholder: 'tu@email.com', 'aria-label': 'Correo de training-app', value: config.email || '' });
+    const password = field({ type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña', 'aria-label': 'Contraseña de training-app' });
+    const connect = button({
+        text: 'Conectar',
         styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
         events: {
             click: async () => {
-                googleLogin.disabled = true;
-                const { error } = await signInWithGoogle();
-                if (error) {
-                    status.textContent = `No se pudo abrir Google: ${error.message}`;
-                    googleLogin.disabled = false;
-                }
-            },
-        },
-    });
-    const login = button({
-        text: 'Enviar enlace mágico',
-        styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
-        events: {
-            click: async () => {
-                if (!email.value || !email.checkValidity()) {
-                    status.textContent = 'Introduce un correo válido.';
+                if (!email.value || !password.value) {
+                    status.textContent = 'Introduce correo y contraseña.';
                     return;
                 }
-                login.disabled = true;
-                const { error } = await sendMagicLink(email.value.trim());
-                status.textContent = error
-                    ? `No se pudo enviar: ${error.message}`
-                    : 'Revisa tu correo para completar el acceso.';
-                login.disabled = false;
+                connect.disabled = true;
+                status.textContent = 'Conectando…';
+                try {
+                    await connectTrainingApp({ baseUrl: baseUrl.value, email: email.value.trim(), password: password.value });
+                    renderTrainingAppSync(container);
+                } catch (error) {
+                    status.textContent = error.message;
+                    connect.disabled = false;
+                }
             },
         },
     });
-    if (providers.google) {
-        container.append(googleLogin, createElement('span', { text: 'o usa un enlace por correo', styles: { color: colors.textMuted, fontSize: typography.sizes.xs } }));
-    } else {
-        container.appendChild(createElement('span', {
-            text: 'Google está preparado en la app y pendiente de activar en Supabase. Mientras tanto puedes usar el enlace por correo.',
-            styles: { color: colors.warning, fontSize: typography.sizes.sm },
-        }));
-    }
-    container.append(email, login, status);
+    container.append(status, baseUrl, email, password, connect);
 }
 
 /**

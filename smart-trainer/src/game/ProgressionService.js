@@ -1,5 +1,8 @@
 import { calculateMissionXp } from './FlowEngine.js';
 import { enqueueSyncJob, getProgress, saveProgress } from '../storage/sessions.js';
+import { flushSyncOutbox } from '../sync/TrainingAppSync.js';
+
+const MIN_SCORED_MINUTES = 3;
 
 const DEFAULT_PROGRESS = {
     schemaVersion: 2,
@@ -59,7 +62,8 @@ export async function recordMissionProgress(session) {
         ? { ...current.weekly }
         : { week: weekKey, activeMinutes: 0, goalMinutes: current.weekly?.goalMinutes || 90 };
     const activeMinutes = Math.max(0, (session.activeDuration || session.duration || 0) / 60);
-    const stars = session.gameResult?.totalStars || 0;
+    // Sesiones de menos de 3 minutos (p. ej. un clic accidental) no dan estrellas ni XP.
+    const stars = activeMinutes >= MIN_SCORED_MINUTES ? (session.gameResult?.totalStars || 0) : 0;
     const completed = session.status === 'completed';
     const gainedXp = calculateMissionXp({
         completed,
@@ -100,5 +104,6 @@ export async function recordMissionProgress(session) {
         session,
         progress: next,
     });
+    flushSyncOutbox().catch(() => {});
     return { progress: next, gainedXp };
 }

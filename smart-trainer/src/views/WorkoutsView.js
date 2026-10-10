@@ -5,11 +5,20 @@
 
 import { colors, spacing, typography, baseStyles, borderRadius, transitions } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
+import { expandBlocks, TARGET_TYPES } from '../workouts/model.js';
 import { getAllPresets, getPresetsByCategory, CATEGORIES, DIFFICULTIES } from '../workouts/presets.js';
 
 /**
  * Vista de biblioteca de entrenamientos
  */
+function intensityColor(percent) {
+    if (percent < 56) return '#6b7a86';
+    if (percent < 76) return '#3b8cff';
+    if (percent < 95) return '#f6c744';
+    if (percent < 106) return '#ff8a3d';
+    return '#ff4d5e';
+}
+
 export function WorkoutsView({ state, onBack, onSelectWorkout }) {
     const containerStyles = {
         padding: spacing.lg,
@@ -314,22 +323,32 @@ function createWorkoutCard(workout, onClick) {
     });
     body.appendChild(statsRow);
     
-    // Timeline mini
+    // Perfil de intensidad: altura y color según el % del FTP; los descansos entre series se dibujan.
     const totalDuration = workout.stats.totalDuration;
-    const timeline = div({ styles: timelineStyles });
-    
-    workout.blocks.forEach(block => {
-        const widthPercent = (block.duration * block.repeat / totalDuration) * 100;
-        const blockEl = div({
+    const timeline = div({
+        attrs: { 'aria-label': 'Perfil de intensidad del entrenamiento', role: 'img' },
+        styles: { display: 'flex', alignItems: 'flex-end', height: '44px', gap: '1px', overflow: 'hidden' },
+    });
+    expandBlocks(workout.blocks).forEach(block => {
+        const percent = block.targetType === TARGET_TYPES.POWER_FTP
+            ? ((block.targetValue + (block.targetValueEnd ?? block.targetValue)) / 2)
+            : 70;
+        timeline.appendChild(div({
+            attrs: { title: `${block.name} · ${Math.round(percent)}% FTP · ${Math.round(block.duration / 60)} min` },
             styles: {
-                flex: `${widthPercent} 0 0`,
+                flex: `${(block.duration / totalDuration) * 100} 0 0`,
                 minWidth: '2px',
-                backgroundColor: block.color || colors.primary,
+                height: `${Math.max(12, Math.min(100, (percent / 120) * 100))}%`,
+                backgroundColor: intensityColor(percent),
+                borderRadius: '2px 2px 0 0',
             },
-        });
-        timeline.appendChild(blockEl);
+        }));
     });
     body.appendChild(timeline);
+    body.appendChild(createElement('span', {
+        text: 'Más alto y más rojo = más intenso (% del FTP)',
+        styles: { display: 'block', marginTop: '6px', color: colors.textMuted, fontSize: typography.sizes.xs },
+    }));
     
     // Tags
     if (workout.tags && workout.tags.length > 0) {

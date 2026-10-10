@@ -19,9 +19,10 @@ const ROUTES = {
     '/history': 'history',
     '/settings': 'settings',
     '/workouts': 'workouts',
+    '/prepare': 'prepare',
     '/expedition': 'expedition',
     '/diagnostics': 'diagnostics',
-    '/challenges': 'challenges',
+    '/cyclist': 'cyclist',
 };
 
 // Mapeo inverso: vista → path para el hash
@@ -33,9 +34,10 @@ const VIEW_TO_ROUTE = {
     'history': '/history',
     'settings': '/settings',
     'workouts': '/workouts',
+    'prepare': '/prepare',
     'expedition': '/expedition',
     'diagnostics': '/diagnostics',
-    'challenges': '/challenges',
+    'cyclist': '/cyclist',
 };
 
 // Callback para cuando cambia la ruta

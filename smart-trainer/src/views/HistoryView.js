@@ -171,6 +171,7 @@ export async function HistoryView({ state, onBack }) {
                     text: [
                         formatDuration(session.duration),
                         session.metrics?.power?.avg != null && `${session.metrics.power.avg}W`,
+                        session.metrics?.heartRate?.avg > 0 && `♥ ${session.metrics.heartRate.avg} lpm`,
                         session.metrics?.intensity?.tss != null && `TSS ${session.metrics.intensity.tss}`,
                     ]
                         .filter(Boolean)
