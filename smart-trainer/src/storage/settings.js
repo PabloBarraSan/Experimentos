@@ -9,6 +9,7 @@ const STORAGE_KEY = 'smartTrainer_settings';
 const DEFAULT_SETTINGS = {
     // Datos del usuario
     ftp: 200,           // Functional Threshold Power
+    ftpProfileApplied: null, // Último FTP del perfil de training-app aplicado aquí (para no pisar cambios del usuario)
     weight: 70,         // Peso en kg
     maxHR: 190,         // Frecuencia cardíaca máxima
     restingHR: 60,      // Frecuencia cardíaca en reposo

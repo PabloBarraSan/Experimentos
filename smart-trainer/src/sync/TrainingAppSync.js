@@ -8,6 +8,7 @@
 
 import { getAllSessions, getSession, getSyncJobs, removeSyncJob, withIntegratedDistance } from '../storage/sessions.js';
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
+import { loadSettings, updateSettings } from '../storage/settings.js';
 
 const STORAGE_KEY = 'smartTrainer_trainingApp';
 const SYNCABLE_STATUSES = new Set(['completed', 'abandoned']);
@@ -85,6 +86,25 @@ async function postSession(config, session) {
     if (!response.ok) throw new Error(`training-app respondió ${response.status}`);
 }
 
+/**
+ * Adopta el FTP del perfil de training-app (vatios) como FTP local.
+ * Solo si el usuario no lo ha cambiado aquí: el local sigue siendo el de fábrica (200) o el último que aplicamos del perfil.
+ * Devuelve true si cambió el ajuste local.
+ */
+export function applyProfileFtp(profileFtp) {
+    const ftp = Math.round(Number(profileFtp));
+    if (!Number.isFinite(ftp) || ftp < 50 || ftp > 700) return false;
+    const settings = loadSettings();
+    const untouched = settings.ftp === 200 || settings.ftp === settings.ftpProfileApplied;
+    if (!untouched || settings.ftp === ftp) {
+        if (untouched && settings.ftpProfileApplied !== ftp) updateSettings({ ftpProfileApplied: ftp });
+        return false;
+    }
+    updateSettings({ ftp, ftpProfileApplied: ftp });
+    logAppEvent('ftp.profile.applied', { from: settings.ftp, to: ftp });
+    return true;
+}
+
 /** Entreno de rodillo que el plan de training-app prevé para hoy (y el siguiente). null si no hay conexión o falla. */
 export async function fetchTodayPlan() {
     if (!isSyncConnected() || !navigator.onLine) return null;
@@ -100,6 +120,7 @@ export async function fetchTodayPlan() {
             return null;
         }
         const result = await response.json();
+        applyProfileFtp(result.ftp);
         logAppEvent('plan.fetch', {
             status: response.status,
             date: localDate,

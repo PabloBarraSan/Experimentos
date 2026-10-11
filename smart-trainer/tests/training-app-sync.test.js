@@ -1,8 +1,10 @@
 import 'fake-indexeddb/auto';
+import { loadSettings, updateSettings } from '../src/storage/settings.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSession, enqueueSyncJob, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback } from '../src/storage/sessions.js';
 import {
   connectTrainingApp,
+  applyProfileFtp,
   fetchTodayPlan,
   flushSyncOutbox,
   getSyncConfig,
@@ -120,5 +122,31 @@ describe('training-app sync', () => {
     session.id = 'ses_descartada';
     await saveSessionFeedback(session, { rpe: 5 });
     expect(await getSession('ses_descartada')).toBeFalsy();
+  });
+
+  describe('FTP del perfil', () => {
+    it('lo adopta si el local es el de fábrica y lo actualiza mientras el usuario no lo toque', () => {
+      expect(loadSettings().ftp).toBe(200);
+      expect(applyProfileFtp(238)).toBe(true);
+      expect(loadSettings().ftp).toBe(238);
+      expect(applyProfileFtp(238)).toBe(false);
+      expect(applyProfileFtp(245)).toBe(true);
+      expect(loadSettings().ftp).toBe(245);
+    });
+
+    it('no pisa un FTP que el usuario cambió en la app ni acepta valores absurdos', () => {
+      updateSettings({ ftp: 260 });
+      expect(applyProfileFtp(238)).toBe(false);
+      expect(loadSettings().ftp).toBe(260);
+      expect(applyProfileFtp(9000)).toBe(false);
+      expect(applyProfileFtp(null)).toBe(false);
+    });
+
+    it('fetchTodayPlan aplica el FTP que devuelve el plan', async () => {
+      localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 't' }));
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { planned: null, next: null, ftp: 231 })));
+      await fetchTodayPlan();
+      expect(loadSettings().ftp).toBe(231);
+    });
   });
 });
