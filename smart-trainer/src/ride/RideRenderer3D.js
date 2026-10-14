@@ -5,11 +5,13 @@
  */
 
 import * as THREE from 'three';
-import { createCyclist, animateCyclist, disposeCyclist, BIKE, BIKE_PAINTS, DEFAULT_RIDER_POSITION } from '../expedition/Cyclist.js';
+import { createCyclist, animateCyclist, disposeCyclist, getCyclistStyle, BIKE, BIKE_PAINTS, DEFAULT_RIDER_POSITION } from '../expedition/Cyclist.js';
+import { preloadRiderAvatar, isRiderAvatarReady } from '../expedition/AvatarRider.js';
 import { createProfileRibbon, createAsphaltTextures, createGravelTexture } from '../expedition/scene/road.js';
 import { createSky } from '../expedition/scene/sky.js';
 import { RideTerrain } from './scenery/RideTerrain.js';
 import { RideDecor } from './scenery/RideDecor.js';
+import { buildRouteCurve } from './RouteCurve.js';
 
 // Escala del ciclista en la escena (el modelo está en metros reales)
 const RIDER_SCALE = 1.4;
@@ -64,137 +66,6 @@ function hashId(id) {
 }
 /** Altura de la barra de métricas (compatibilidad con RideView) */
 export const METRICS_BAR_HEIGHT = 60;
-
-/**
- * Interpolar punto de ruta a una distancia dada (búsqueda binaria O(log n))
- */
-function getPointAtDistance(points, distance) {
-    if (!points || points.length === 0) {
-        return { distance: 0, elevation: 0, grade: 0 };
-    }
-    
-    // Casos límite
-    if (distance <= points[0].distance) {
-        return points[0];
-    }
-    if (distance >= points[points.length - 1].distance) {
-        return points[points.length - 1];
-    }
-    
-    // Búsqueda binaria
-    let left = 0;
-    let right = points.length - 1;
-    
-    while (left < right - 1) {
-        const mid = Math.floor((left + right) / 2);
-        if (points[mid].distance <= distance) {
-            left = mid;
-        } else {
-            right = mid;
-        }
-    }
-    
-    const p1 = points[left];
-    const p2 = points[right];
-    const t = (distance - p1.distance) / (p2.distance - p1.distance);
-    
-    return {
-        distance,
-        elevation: p1.elevation + t * (p2.elevation - p1.elevation),
-        grade: p1.grade + t * (p2.grade - p1.grade),
-    };
-}
-
-/**
- * Generar coordenadas X,Z en el plano (curva procedural: serpentina)
- * Three.js: Y = altura, X/Z = plano del suelo
- */
-function getHorizontalPositionAtDistance(distance) {
-    const curveAmplitude = 50;
-    const curvePeriod = 200;
-    const x = curveAmplitude * Math.sin(distance / curvePeriod);
-    const z = distance;
-    return { x, z };
-}
-
-/**
- * Construir la trayectoria horizontal real de una ruta importada (GPX).
- * Devuelve { distances, xs, zs } o null si los puntos no traen lat/lon ni heading
- * (rutas generadas), en cuyo caso se usa la sinusoide procedural.
- * Convención: norte = +Z y este = -X (así el mapa no queda en espejo vista desde +Y).
- */
-function buildHorizontalPath(points) {
-    if (!points || points.length < 2) return null;
-
-    const hasLatLon = points.every(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
-    const hasHeading = points.every(p => Number.isFinite(p.heading));
-    if (!hasLatLon && !hasHeading) return null;
-
-    const xs = new Array(points.length);
-    const zs = new Array(points.length);
-
-    if (hasLatLon) {
-        // Proyección equirectangular local respecto al primer punto
-        const R = 6371008.8;
-        const lat0 = points[0].lat;
-        const lon0 = points[0].lon;
-        const cosLat0 = Math.cos((lat0 * Math.PI) / 180);
-        points.forEach((p, i) => {
-            const east = ((p.lon - lon0) * Math.PI / 180) * R * cosLat0;
-            const north = ((p.lat - lat0) * Math.PI / 180) * R;
-            xs[i] = -east;
-            zs[i] = north;
-        });
-    } else {
-        // Integrar el rumbo a lo largo de la distancia
-        xs[0] = 0;
-        zs[0] = 0;
-        for (let i = 1; i < points.length; i++) {
-            const ds = points[i].distance - points[i - 1].distance;
-            const rad = (points[i].heading * Math.PI) / 180;
-            xs[i] = xs[i - 1] - Math.sin(rad) * ds;
-            zs[i] = zs[i - 1] + Math.cos(rad) * ds;
-        }
-    }
-
-    // Suavizado (media móvil de 5 puntos) para evitar quiebros por ruido de GPS
-    const smooth = (arr) => arr.map((_, i) => {
-        const from = Math.max(0, i - 2);
-        const to = Math.min(arr.length - 1, i + 2);
-        let sum = 0;
-        for (let j = from; j <= to; j++) sum += arr[j];
-        return sum / (to - from + 1);
-    });
-
-    return {
-        distances: points.map(p => p.distance),
-        xs: smooth(xs),
-        zs: smooth(zs),
-    };
-}
-
-/**
- * Posición X,Z interpolada sobre una trayectoria horizontal real
- */
-function getPathPositionAtDistance(path, distance) {
-    const { distances, xs, zs } = path;
-    const last = distances.length - 1;
-    if (distance <= distances[0]) return { x: xs[0], z: zs[0] };
-    if (distance >= distances[last]) return { x: xs[last], z: zs[last] };
-
-    let left = 0;
-    let right = last;
-    while (left < right - 1) {
-        const mid = Math.floor((left + right) / 2);
-        if (distances[mid] <= distance) left = mid;
-        else right = mid;
-    }
-    const t = (distance - distances[left]) / (distances[right] - distances[left]);
-    return {
-        x: xs[left] + t * (xs[right] - xs[left]),
-        z: zs[left] + t * (zs[right] - zs[left]),
-    };
-}
 
 /**
  * Geometría de pintura (cintas planas sobre el asfalto) para un tramo [t0, t1] de la curva.
@@ -272,7 +143,9 @@ export class RideRenderer3D {
         this.roadChunks = new Map();  // índice de tramo -> { meshes: Mesh[] }
         this.roadChunksNeedFull = false;
         this.routeSeed = 0;           // Semilla determinista del decorado (id de ruta + mundo)
-        this.generatedRouteLength = 0;
+        this.generatedRouteLength = 0; // Longitud de la ruta (m, sin las prolongaciones de salida y meta)
+        this.routeCurve = null;       // Curva extendida (RouteCurve): distancia de ruta -> curva
+        this.curveLength = 0;         // Longitud de arco (m) de la curva extendida
         this.roadPoints = null;       // Referencia a los puntos con los que se construyó la carretera
         this.horizontalPath = null;   // Trayectoria real (rutas GPX) o null para la sinusoide
         this.snapCamera = false;      // Colocar la cámara sin interpolar tras construir una ruta real
@@ -374,13 +247,46 @@ export class RideRenderer3D {
         this.decor = new RideDecor(this.scene, this.terrain);
 
         // Un solo ciclista en toda la app: el mismo modelo procedural que la expedición
+        // Jugador y fantasma llevan el avatar con malla real; los rivales, el ciclista procedural (50 mallas
+        // skinned de 114 huesos serían demasiadas). Si el avatar aún se está descargando, se parte del
+        // procedural y se sustituye de golpe (en un solo frame) cuando llega.
         this.player = createCyclist({ accent: PLAYER_JERSEY, ghost: false, ...this.riderOptions });
         this.player.group.scale.setScalar(RIDER_SCALE);
         this.scene.add(this.player.group);
+        if (!isRiderAvatarReady()) {
+            preloadRiderAvatar().then((ready) => {
+                if (ready && this.scene && getCyclistStyle().avatar) this.upgradeRidersToAvatar();
+            });
+        }
 
         this.applyWorldConfig(DEFAULT_WORLD);
 
         window.addEventListener('resize', this._boundOnResize);
+    }
+
+    /**
+     * Sustituir de golpe el ciclista del jugador (y el fantasma, si existe) por su versión con avatar,
+     * conservando posición, orientación y fase del pedaleo para que no haya salto visible.
+     */
+    upgradeRidersToAvatar() {
+        const rebuild = (old, build) => {
+            const next = build();
+            next.group.position.copy(old.group.position);
+            next.group.quaternion.copy(old.group.quaternion);
+            next.group.scale.copy(old.group.scale);
+            next.group.visible = old.group.visible;
+            next.crankAngle = old.crankAngle;
+            next.wheelAngle = old.wheelAngle;
+            this.scene.add(next.group);
+            disposeCyclist(old);
+            return next;
+        };
+        if (this.player && !this.player.avatar) {
+            this.player = rebuild(this.player, () => createCyclist({ accent: PLAYER_JERSEY, ghost: false, ...this.riderOptions }));
+        }
+        if (this.ghostRider && !this.ghostRider.avatar) {
+            this.ghostRider = rebuild(this.ghostRider, () => createCyclist({ accent: GHOST_JERSEY, ghost: true, position: this.riderOptions.position }));
+        }
     }
 
     /**
@@ -395,45 +301,40 @@ export class RideRenderer3D {
         if (worldConfig) this.applyWorldConfig(worldConfig);
         this.disposeRoadChunks();
 
-        const step = 5;
-        const threePoints = [];
-
         this.roadPoints = points;
-        this.horizontalPath = buildHorizontalPath(points);
         // Siempre se coloca la cámara directamente: la cota es absoluta y partir del origen sería un barrido enorme
         this.snapCamera = true;
 
-        let lastDistance = 0;
-        for (let d = 0; d <= totalLength; d += step) {
-            const pt = getPointAtDistance(points, d);
-            const { x, z } = this.horizontalPath
-                ? getPathPositionAtDistance(this.horizontalPath, d)
-                : getHorizontalPositionAtDistance(d);
-            threePoints.push(new THREE.Vector3(x, pt.elevation, z));
-            lastDistance = d;
-        }
-        // Cerrar la curva exactamente en el final de la ruta
-        if (totalLength - lastDistance > 0.5) {
-            const pt = getPointAtDistance(points, totalLength);
-            const { x, z } = this.horizontalPath
-                ? getPathPositionAtDistance(this.horizontalPath, totalLength)
-                : getHorizontalPositionAtDistance(totalLength);
-            threePoints.push(new THREE.Vector3(x, pt.elevation, z));
-        }
-
-        if (threePoints.length < 2) {
+        // Curva prolongada antes de la salida y después de la meta (ver RouteCurve.js)
+        const routeCurve = buildRouteCurve(points, totalLength);
+        if (!routeCurve) {
+            this.routeCurve = null;
+            this.roadCurve = null;
             return;
         }
 
-        this.roadCurve = new THREE.CatmullRomCurve3(threePoints);
-        // Tabla de longitudes de arco proporcional a los puntos: getPointAt(t) debe ser preciso en rutas largas
-        this.roadCurve.arcLengthDivisions = Math.max(200, threePoints.length * 4);
-
+        this.routeCurve = routeCurve;
+        this.horizontalPath = routeCurve.horizontalPath;
+        this.roadCurve = routeCurve.curve;
+        this.curveLength = routeCurve.curveLength;
         this.generatedRouteLength = totalLength;
         this.roadChunksNeedFull = true;
 
-        this.terrain.setRoute(threePoints);
-        this.decor.setRoute({ curve: this.roadCurve, length: totalLength, seed: this.routeSeed });
+        this.terrain.setRoute(routeCurve.threePoints);
+        this.decor.setRoute({ curve: this.roadCurve, length: this.curveLength, seed: this.routeSeed });
+    }
+
+    /**
+     * Parámetro de longitud de arco (0..1) de la curva para una distancia de ruta.
+     * Única conversión distancia -> curva: jugador, bots, fantasma y cámara pasan por aquí.
+     */
+    curveU(distance) {
+        return this.routeCurve.distanceToU(distance);
+    }
+
+    /** Metros de arco desde el inicio de la curva extendida (tramos de carretera y decorado) */
+    curveMeters(distance) {
+        return this.routeCurve.distanceToMeters(distance);
     }
 
     /**
@@ -441,7 +342,7 @@ export class RideRenderer3D {
      * @returns {{meshes: THREE.Mesh[]}|null}
      */
     buildRoadChunk(index) {
-        const length = this.generatedRouteLength;
+        const length = this.curveLength;
         const t0 = (index * CHUNK_LENGTH) / length;
         const t1 = Math.min(1, ((index + 1) * CHUNK_LENGTH) / length);
         if (!(t1 > t0)) return null;
@@ -504,13 +405,13 @@ export class RideRenderer3D {
     /**
      * Mantiene la ventana de tramos de carretera alrededor del ciclista.
      * Normalmente construye como mucho un tramo por frame; con `full` construye todos los pendientes.
-     * @param {number} distance - Distancia del ciclista sobre la ruta (m)
+     * @param {number} curveMeters - Posición del ciclista en metros de arco de la curva (curveMeters)
      * @param {boolean} full
      */
-    updateRoadChunks(distance, full = false) {
-        if (!this.roadCurve || !(this.generatedRouteLength > 0)) return;
-        const lastChunk = Math.max(0, Math.ceil(this.generatedRouteLength / CHUNK_LENGTH) - 1);
-        const current = Math.min(lastChunk, Math.max(0, Math.floor(distance / CHUNK_LENGTH)));
+    updateRoadChunks(curveMeters, full = false) {
+        if (!this.roadCurve || !(this.curveLength > 0)) return;
+        const lastChunk = Math.max(0, Math.ceil(this.curveLength / CHUNK_LENGTH) - 1);
+        const current = Math.min(lastChunk, Math.max(0, Math.floor(curveMeters / CHUNK_LENGTH)));
         const from = Math.max(0, current - CHUNKS_BEHIND);
         const to = Math.min(lastChunk, current + CHUNKS_AHEAD);
 
@@ -646,6 +547,7 @@ export class RideRenderer3D {
         const rider = createCyclist({
             accent: new THREE.Color(bot.color || '#00aaff').getHex(),
             ghost: false,
+            style: { ...getCyclistStyle(), avatar: false }, // los rivales siempre procedurales (coste)
             bikeColor: BIKE_PAINTS[hash % BIKE_PAINTS.length].color,
             position: hash % 3 === 0 ? 'drops' : 'hoods',
         });
@@ -676,7 +578,7 @@ export class RideRenderer3D {
             this.scene.add(this.ghostRider.group);
         }
         
-        const t = Math.min(1, Math.max(0, distance / this.generatedRouteLength));
+        const t = this.curveU(distance);
         const position = this.roadCurve.getPointAt(t);
         const tangent = this.roadCurve.getTangentAt(t).clone().normalize();
         
@@ -734,7 +636,7 @@ export class RideRenderer3D {
             mesh.visible = true;
             
             // Calcular posición en la curva
-            const t = Math.min(1, Math.max(0, bot.distance / this.generatedRouteLength));
+            const t = this.curveU(bot.distance);
             const position = this.roadCurve.getPointAt(t);
             const tangent = this.roadCurve.getTangentAt(t).clone().normalize();
             
@@ -803,7 +705,7 @@ export class RideRenderer3D {
 
         const rawDistance = state.position?.distance;
         const distance = Number.isFinite(rawDistance) ? rawDistance : 0;
-        const t = Math.min(1, Math.max(0, distance / this.generatedRouteLength));
+        const t = this.curveU(distance);
         const currentGrade = state.currentGrade || 0;
 
         const position = this.roadCurve.getPointAt(t);
@@ -841,10 +743,11 @@ export class RideRenderer3D {
 
         // Escenario: terreno, decorado y carretera acompañan al ciclista (la cota de la ruta es absoluta)
         // Tras construir una ruta se genera la ventana completa de golpe; después, un tramo por frame
-        this.updateRoadChunks(distance, this.roadChunksNeedFull);
+        const curveMeters = this.curveMeters(distance);
+        this.updateRoadChunks(curveMeters, this.roadChunksNeedFull);
         this.roadChunksNeedFull = false;
         this.terrain.update(position.x, position.z);
-        this.decor.update(distance);
+        this.decor.update(curveMeters);
 
         // La cámara nunca queda bajo el terreno (crestas, bajadas fuertes)
         const minCameraY = this.terrain.heightAt(cameraPos.x, cameraPos.z) + 1.0;

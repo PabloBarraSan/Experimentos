@@ -858,7 +858,11 @@ export function createCyclist({
     }
 
     // Avatar con malla real: sustituye al cuerpo procedural (que queda como respaldo si no carga).
-    const avatar = style.avatar !== false && isRiderAvatarReady() ? createAvatarRig({ accent, ghost }) : null;
+    const avatar = style.avatar !== false && isRiderAvatarReady() ? createAvatarRig({
+        accent,
+        ghost,
+        headGear: { geometries: headParts, materials: { vent: M.vent, glasses: M.glasses, strap: M.strap } },
+    }) : null;
     if (avatar) {
         body.visible = false;
         group.add(avatar.holder);
@@ -957,6 +961,7 @@ export function createCyclist({
             arm.glove.rotation.x = -lean + pose.glove;
         });
         aeroBars.visible = pose.aero;
+        avatar?.setPose({ id: cyclist.position, hand: pose.hand });
     }
 
     cyclist.setPosition(initialPosition);
@@ -969,6 +974,7 @@ export function createCyclist({
  */
 export function disposeCyclist(cyclist) {
     cyclist.group.removeFromParent();
+    cyclist.avatar?.dispose();
     cyclist.group.traverse((object) => {
         if (!object.isMesh && !object.isLineSegments) return;
         if (object.geometry && !object.geometry.userData.shared && !object.isSkinnedMesh) object.geometry.dispose();
