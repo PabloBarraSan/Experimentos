@@ -207,37 +207,68 @@ export const WORKOUT_PRESETS = {
     }),
     
     // === INTERVALOS ===
-    
-    VO2MAX_4x4: createWorkout({
-        name: 'VO2max 4x4',
-        description: '4 intervalos de 4 minutos al 110% del FTP con 3 minutos de recuperación entre esfuerzos. Incluye calentamiento y enfriamiento: 40 minutos en total.',
+
+    VO2MAX_4X4: createWorkout({
+        name: 'VO₂max · 4×4',
+        description: 'Cuatro esfuerzos de cuatro minutos con recuperación entre repeticiones y calentamiento progresivo.',
         author: 'Smart Trainer',
         category: 'intervals',
         difficulty: 'hard',
-        tags: ['vo2max', '4x4', 'intervalos'],
+        tags: ['vo2max', '4x4', 'intervalos', 'destacado'],
         blocks: [
             createBlock({
                 type: BLOCK_TYPES.WARMUP,
                 duration: 10 * 60,
-                name: 'Calentamiento',
+                name: 'Calentamiento progresivo',
                 targetValue: 55,
+                targetValueEnd: 72,
+                cadenceTarget: 85,
+                instructions: 'Sube la cadencia y deja que las piernas entren en ritmo.',
             }),
             createBlock({
                 type: BLOCK_TYPES.INTERVAL,
                 duration: 4 * 60,
-                name: 'VO2max 4x4',
-                targetValue: 110,
+                name: 'VO₂max · repetición',
+                targetValue: 108,
                 repeat: 4,
                 restBetween: 3 * 60,
                 restTargetValue: 50,
-                instructions: 'Mantén un esfuerzo constante durante los cuatro minutos.',
+                cadenceMin: 90,
+                cadenceMax: 100,
+                instructions: 'Mantén un esfuerzo fuerte y uniforme en las cuatro repeticiones.',
             }),
             createBlock({
                 type: BLOCK_TYPES.COOLDOWN,
-                duration: 5 * 60,
-                name: 'Enfriamiento',
+                duration: 8 * 60,
+                name: 'Vuelta a la calma',
                 targetValue: 45,
+                instructions: 'Suelta las piernas y baja el pulso poco a poco.',
             }),
+        ],
+    }),
+
+    VO2MAX_5X3: createWorkout({
+        name: 'VO₂max · 5×3',
+        description: 'Cinco esfuerzos de tres minutos con tres minutos de recuperación activa.',
+        author: 'Smart Trainer',
+        category: 'intervals',
+        difficulty: 'hard',
+        tags: ['vo2max', '5x3', 'intervalos', 'destacado'],
+        blocks: [
+            createBlock({ type: BLOCK_TYPES.WARMUP, duration: 10 * 60, name: 'Calentamiento progresivo', targetValue: 55, targetValueEnd: 72, cadenceTarget: 85 }),
+            createBlock({
+                type: BLOCK_TYPES.INTERVAL,
+                duration: 3 * 60,
+                name: 'VO₂max · repetición',
+                targetValue: 112,
+                repeat: 5,
+                restBetween: 3 * 60,
+                restTargetValue: 50,
+                cadenceMin: 90,
+                cadenceMax: 100,
+                instructions: 'Repite el esfuerzo con control; intenta sostener la misma potencia en cada bloque.',
+            }),
+            createBlock({ type: BLOCK_TYPES.COOLDOWN, duration: 8 * 60, name: 'Vuelta a la calma', targetValue: 45 }),
         ],
     }),
 

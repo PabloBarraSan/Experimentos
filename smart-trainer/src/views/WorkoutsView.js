@@ -62,9 +62,9 @@ export function WorkoutsView({ state, onBack, onSelectWorkout }) {
                 },
                 events: { click: onBack },
             }),
-            createElement('h1', { text: 'Mapa de expediciones', styles: titleStyles }),
+            createElement('h1', { text: 'Biblioteca de entrenamientos', styles: titleStyles }),
             createElement('p', { 
-                text: 'Elige una ruta de 10, 20 o 30 minutos. Todas premian precisión, no vatios extra.',
+                text: 'Elige un plan estructurado. La expedición visual y el tiempo de sesión se configuran por separado.',
                 styles: subtitleStyles 
             }),
         ],

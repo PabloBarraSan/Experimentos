@@ -1,42 +1,25 @@
-#!/bin/bash
-# Script para servir la app Smart Trainer localmente
-# Útil para desarrollo y pruebas
+#!/usr/bin/env bash
+# Arranca la aplicación con Vite para resolver sus dependencias del proyecto.
 
-PORT=${1:-8000}
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+set -euo pipefail
 
-echo "🚴 Iniciando servidor para Smart Trainer..."
-echo "📁 Directorio: $DIR"
-echo "🌐 Puerto: $PORT"
-echo ""
-echo "⚠️  IMPORTANTE:"
-echo "   - Web Bluetooth NO funciona en http://localhost"
-echo "   - Para probar desde el móvil, usa ngrok:"
-echo "     ngrok http $PORT"
-echo ""
-echo "📱 Accede desde: http://localhost:$PORT"
-echo "   (Presiona Ctrl+C para detener)"
-echo ""
+PORT="${1:-8000}"
+DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# Intentar usar Python primero, luego Node.js, luego PHP
-if command -v python3 &> /dev/null; then
-    echo "✅ Usando Python 3..."
-    cd "$DIR"
-    python3 -m http.server "$PORT"
-elif command -v python &> /dev/null; then
-    echo "✅ Usando Python 2..."
-    cd "$DIR"
-    python -m SimpleHTTPServer "$PORT"
-elif command -v node &> /dev/null; then
-    echo "✅ Usando Node.js (npx serve)..."
-    cd "$DIR"
-    npx --yes serve -p "$PORT"
-elif command -v php &> /dev/null; then
-    echo "✅ Usando PHP..."
-    cd "$DIR"
-    php -S localhost:"$PORT"
-else
-    echo "❌ Error: No se encontró Python, Node.js ni PHP"
-    echo "   Instala uno de ellos para servir la app"
+if ! command -v npm >/dev/null 2>&1; then
+    echo "❌ Se necesita Node.js con npm para iniciar Smart Trainer."
     exit 1
 fi
+
+cd "$DIR"
+
+if [[ ! -x "$DIR/node_modules/.bin/vite" ]]; then
+    echo "📦 Instalando las dependencias del proyecto..."
+    npm ci
+fi
+
+echo "🚴 Iniciando Smart Trainer con Vite en http://localhost:$PORT"
+echo "⚠️ Para probar Web Bluetooth desde otro dispositivo, usa una URL HTTPS."
+echo "   (Presiona Ctrl+C para detener)"
+
+exec npm run dev -- --host 0.0.0.0 --port "$PORT"

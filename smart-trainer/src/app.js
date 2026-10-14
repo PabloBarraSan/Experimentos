@@ -25,6 +25,7 @@ import { getActiveSession, getProgress, saveProgress } from './storage/sessions.
 import { getAllPresets } from './workouts/presets.js';
 import { getCachedPlanWorkout } from './workouts/planConverter.js';
 import { startBackgroundSync } from './sync/TrainingAppSync.js';
+import { buildWorkoutForDuration, getDefaultWorkoutDuration, getWorkoutDurationOptions } from './workouts/WorkoutConfiguration.js';
 import { migrateProgress } from './game/ProgressionService.js';
 import { logActiveSessionEvent } from './diagnostics/SessionDebugLogger.js';
 
@@ -36,6 +37,9 @@ const AppState = {
     deviceName: null,
     deviceCapabilities: null, // Capacidades del dispositivo
     selectedWorkout: null,
+    selectedWorkoutTemplate: null,
+    selectedDurationMinutes: null,
+    selectedMission: null,
     recoveredSession: null,
     progress: null,
     lastDataUpdateTimestamp: null, // Timestamp de la última actualización de datos
@@ -187,6 +191,21 @@ export function getState() {
     return AppState;
 }
 
+function configureWorkout(workout, preferredDuration = null) {
+    if (!workout) return;
+    const templateId = workout.parentWorkoutId || workout.id;
+    const template = getAllPresets().find((candidate) => candidate.id === templateId) || workout;
+    const durationOptions = getWorkoutDurationOptions(template);
+    const requestedDuration = Number(preferredDuration);
+    const durationMinutes = durationOptions.includes(requestedDuration)
+        ? requestedDuration
+        : getDefaultWorkoutDuration(template);
+
+    AppState.selectedWorkoutTemplate = template;
+    AppState.selectedDurationMinutes = durationMinutes;
+    AppState.selectedWorkout = buildWorkoutForDuration(template, durationMinutes) || template;
+}
+
 /**
  * Navegar a una vista
  * @param {string} viewName - Nombre de la vista
@@ -326,8 +345,9 @@ function renderCurrentView() {
                 state: AppState,
                 onBack: () => navigateTo('home'),
                 onSelectWorkout: (workout) => {
-                    AppState.selectedWorkout = workout;
                     AppState.recoveredSession = null;
+                    configureWorkout(workout);
+                    if (workout.mission) AppState.selectedMission = workout.mission;
                     AppState.prepareTarget = 'expedition';
                     navigateTo('prepare');
                 },
@@ -355,6 +375,7 @@ function renderCurrentView() {
             container.appendChild(ExpeditionView({
                 state: AppState,
                 workout: AppState.selectedWorkout,
+                mission: AppState.selectedMission,
                 availableWorkouts: getAllPresets(),
                 recoveredSession: AppState.recoveredSession,
                 subscribeToState: subscribe,
@@ -363,9 +384,18 @@ function renderCurrentView() {
                     AppState.recoveredSession = null;
                 },
                 onExit: () => navigateTo('workouts'),
-                onSelectWorkout: (workout) => {
-                    AppState.selectedWorkout = workout;
+                onSelectWorkout: (workout, preferredDuration) => {
                     AppState.recoveredSession = null;
+                    configureWorkout(workout, preferredDuration ?? AppState.selectedDurationMinutes);
+                    navigateTo('expedition', { replace: true });
+                },
+                onSelectDuration: (durationMinutes) => {
+                    AppState.recoveredSession = null;
+                    configureWorkout(AppState.selectedWorkoutTemplate || AppState.selectedWorkout, durationMinutes);
+                    navigateTo('expedition', { replace: true });
+                },
+                onSelectMission: (mission) => {
+                    AppState.selectedMission = mission;
                     navigateTo('expedition', { replace: true });
                 },
                 onCompleted: () => navigateTo('history'),
@@ -540,11 +570,21 @@ async function init() {
     await saveProgress(AppState.progress).catch(() => null);
     AppState.recoveredSession = await getActiveSession().catch(() => null);
     if (AppState.recoveredSession) {
-        AppState.selectedWorkout = [...getAllPresets(), getCachedPlanWorkout()]
-            .filter(Boolean)
-            .find((workout) => workout.id === AppState.recoveredSession.workoutId
-                || (AppState.recoveredSession.missionId && workout.missionId === AppState.recoveredSession.missionId)) || null;
+        const variant = AppState.recoveredSession.workoutId?.match(/^(.*)--(\d+)m$/);
+        const workoutId = variant?.[1] || AppState.recoveredSession.workoutId;
+        const presets = [...getAllPresets(), getCachedPlanWorkout()].filter(Boolean);
+        const template = presets.find((workout) => workout.id === workoutId)
+            || presets.find((workout) => AppState.recoveredSession.missionId && workout.missionId === AppState.recoveredSession.missionId)
+            || null;
+        if (template) {
+            configureWorkout(template, Number(variant?.[2]) || null);
+            AppState.selectedMission = presets.find((workout) => workout.mission?.id === AppState.recoveredSession.missionId)?.mission
+                || template.mission
+                || presets.find((workout) => workout.mission)?.mission
+                || null;
+        }
     }
+    if (!AppState.selectedMission) AppState.selectedMission = getAllPresets().find((workout) => workout.mission)?.mission || null;
     // Inicializar el router y obtener la vista desde la URL
     const initialView = initRouter();
     AppState.currentView = initialView;
