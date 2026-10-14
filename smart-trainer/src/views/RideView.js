@@ -3,12 +3,57 @@
  * Smart Trainer - Virtual Cycling
  */
 
-import { colors, spacing, typography, baseStyles, borderRadius, premiumCardStyles, getZoneColor } from '../utils/theme.js';
+import { colors, spacing, typography, baseStyles, borderRadius, premiumCardStyles } from '../utils/theme.js';
 import { createElement, div, button, icon, formatTime, formatDistance } from '../utils/dom.js';
 import { createRideEngine } from '../ride/RideEngine.js';
-import { createRideRenderer3D, METRICS_BAR_HEIGHT } from '../ride/RideRenderer3D.js';
+import { createRideRenderer3D } from '../ride/RideRenderer3D.js';
 import { RIDE_STATUS, formatTime as formatTimeMs } from '../ride/RideState.js';
 import { getAvailableWorlds, getWorldConfig } from '../ride/worlds/WorldConfig.js';
+import { parseGpx } from '../ride/gpx.js';
+import { saveRoute, getAllRoutes, getRoute, deleteRoute } from '../storage/routes.js';
+import { getSessionsByRoute, getSessionTrace } from '../storage/sessions.js';
+import { createGhost } from '../ride/GhostRider.js';
+import { createRideRecorder } from '../ride/RideRecorder.js';
+import { BIKE_PAINTS, RIDER_POSITIONS, DEFAULT_RIDER_POSITION } from '../expedition/Cyclist.js';
+import { getRiderPrefs, saveRiderPrefs } from '../storage/settings.js';
+import { createRideHud } from '../components/ride/RideHud.js';
+import { createProfileSvg } from '../components/ride/RouteProfile.js';
+
+// Tamaño máximo de GPX aceptado (se lee entero en memoria)
+const MAX_GPX_BYTES = 30 * 1024 * 1024;
+
+// Máximo de rides pasados que se ofrecen como fantasma
+const MAX_GHOST_OPTIONS = 5;
+
+/**
+ * Preferencias guardadas del ciclista (posición y pintura de la bici), validadas contra Cyclist.js
+ */
+function resolveRiderPrefs() {
+    const saved = getRiderPrefs();
+    return {
+        position: RIDER_POSITIONS[saved.position] ? saved.position : DEFAULT_RIDER_POSITION,
+        bikeColor: (BIKE_PAINTS.find((paint) => paint.id === saved.bikeColor) || BIKE_PAINTS[0]).id,
+    };
+}
+
+const paintHex = (id) => `#${(BIKE_PAINTS.find((paint) => paint.id === id) || BIKE_PAINTS[0]).color.toString(16).padStart(6, '0')}`;
+
+/**
+ * Segundos a m:ss (o h:mm:ss) sin signo
+ */
+function formatClock(totalSeconds) {
+    const total = Math.max(0, Math.round(totalSeconds));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const ss = seconds.toString().padStart(2, '0');
+    if (hours > 0) return `${hours}:${minutes.toString().padStart(2, '0')}:${ss}`;
+    return `${minutes}:${ss}`;
+}
+
+function formatGhostDate(isoDate) {
+    return new Date(isoDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 /**
  * Vista del ciclismo virtual
@@ -60,275 +105,9 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
     const canvas = createElement('canvas', { styles: canvasStyles });
     container.appendChild(canvas);
     
-    // HUD de métricas (overlay sobre el canvas)
-    const hudOverlay = div({
-        styles: {
-            position: 'absolute',
-            top: '0',
-            left: '0',
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-            display: 'none',
-            zIndex: '1001',
-            padding: 'env(safe-area-inset-top, 8px) env(safe-area-inset-right, 8px) env(safe-area-inset-bottom, 8px) env(safe-area-inset-left, 8px)',
-            boxSizing: 'border-box',
-        },
-    });
-    container.appendChild(hudOverlay);
-    
-    // Contenedor superior - POTENCIA (protagonista) + métricas secundarias
-    const hudTop = div({
-        styles: {
-            position: 'absolute',
-            top: 'max(8px, env(safe-area-inset-top, 8px))',
-            left: '8px',
-            right: '8px',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'flex-start',
-            gap: '8px',
-            flexWrap: 'wrap',
-            pointerEvents: 'none',
-        },
-    });
-    hudOverlay.appendChild(hudTop);
-    
-    // Contenedor inferior izquierdo (distancia, tiempo)
-    const hudBottomLeft = div({
-        styles: {
-            position: 'absolute',
-            bottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
-            left: 'max(8px, env(safe-area-inset-left, 8px))',
-            display: 'flex',
-            flexDirection: 'row',
-            gap: '6px',
-            pointerEvents: 'none',
-        },
-    });
-    hudOverlay.appendChild(hudBottomLeft);
-    
-    // Contenedor inferior derecho (pendiente, elevación)
-    const hudBottomRight = div({
-        styles: {
-            position: 'absolute',
-            bottom: 'max(12px, env(safe-area-inset-bottom, 12px))',
-            right: 'max(8px, env(safe-area-inset-right, 8px))',
-            display: 'flex',
-            flexDirection: 'row',
-            gap: '6px',
-            alignItems: 'flex-end',
-            pointerEvents: 'none',
-        },
-    });
-    hudOverlay.appendChild(hudBottomRight);
-    
-    /**
-     * Crear tarjeta de métrica para el HUD - Responsiva
-     */
-    function createHudMetric(label, value, unit, iconName, accentColor, priority = 'secondary') {
-        // Prioridades: 'primary' (potencia), 'secondary' (velocidad, cadencia), 'tertiary' (resto)
-        const configs = {
-            primary: { 
-                padding: '10px 16px',
-                valueFontSize: 'clamp(32px, 8vw, 48px)',
-                labelFontSize: '11px',
-                minWidth: '100px',
-                iconSize: 16,
-            },
-            secondary: { 
-                padding: '6px 10px',
-                valueFontSize: 'clamp(18px, 4vw, 24px)',
-                labelFontSize: '9px',
-                minWidth: '60px',
-                iconSize: 12,
-            },
-            tertiary: { 
-                padding: '4px 8px',
-                valueFontSize: 'clamp(14px, 3vw, 18px)',
-                labelFontSize: '8px',
-                minWidth: '50px',
-                iconSize: 10,
-            },
-        };
-        const c = configs[priority] || configs.secondary;
-        
-        const card = div({
-            styles: {
-                backgroundColor: priority === 'primary' ? 'rgba(0, 0, 0, 0.75)' : 'rgba(0, 0, 0, 0.5)',
-                backdropFilter: 'blur(8px)',
-                WebkitBackdropFilter: 'blur(8px)',
-                borderRadius: priority === 'primary' ? '12px' : '8px',
-                padding: c.padding,
-                minWidth: c.minWidth,
-                textAlign: 'center',
-                borderLeft: accentColor ? `3px solid ${accentColor}` : 'none',
-                boxShadow: priority === 'primary' ? '0 4px 12px rgba(0,0,0,0.3)' : 'none',
-            },
-        });
-        
-        // Label con icono (oculto en móvil para métricas terciarias)
-        const labelRow = div({
-            styles: {
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '3px',
-                marginBottom: '2px',
-            },
-        });
-        
-        if (iconName) {
-            labelRow.appendChild(icon(iconName, c.iconSize, colors.textMuted));
-        }
-        
-        labelRow.appendChild(createElement('span', {
-            text: label,
-            styles: {
-                fontSize: c.labelFontSize,
-                color: colors.textMuted,
-                textTransform: 'uppercase',
-                letterSpacing: '0.3px',
-                whiteSpace: 'nowrap',
-            },
-        }));
-        
-        card.appendChild(labelRow);
-        
-        // Valor + unidad
-        const valueRow = div({
-            styles: {
-                display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'center',
-                gap: '2px',
-            },
-        });
-        
-        valueRow.appendChild(createElement('span', {
-            text: String(value),
-            styles: {
-                fontSize: c.valueFontSize,
-                fontWeight: typography.weights.bold,
-                color: colors.text,
-                fontFamily: typography.fontMono,
-                lineHeight: '1',
-            },
-            attrs: { 'data-value': 'true' },
-        }));
-        
-        if (unit) {
-            valueRow.appendChild(createElement('span', {
-                text: unit,
-                styles: {
-                    fontSize: priority === 'primary' ? '14px' : '10px',
-                    color: colors.textMuted,
-                    marginLeft: '2px',
-                },
-            }));
-        }
-        
-        card.appendChild(valueRow);
-        
-        return card;
-    }
-    
-    // Elementos del HUD (referencias para actualizar)
-    let hudElements = {
-        power: null,
-        speed: null,
-        heartRate: null,
-        distance: null,
-        time: null,
-        grade: null,
-        elevation: null,
-    };
-    
-    /**
-     * Inicializar HUD - Jerarquía: Potencia > Velocidad/Cadencia > Resto
-     */
-    function initHud() {
-        hudTop.innerHTML = '';
-        hudBottomLeft.innerHTML = '';
-        hudBottomRight.innerHTML = '';
-        
-        // POTENCIA - Métrica principal (protagonista)
-        hudElements.power = createHudMetric('Potencia', '0', 'W', 'zap', colors.primary, 'primary');
-        hudTop.appendChild(hudElements.power);
-        
-        // Velocidad - Secundaria
-        hudElements.speed = createHudMetric('Velocidad', '0.0', 'km/h', 'speedometer', colors.secondary, 'secondary');
-        hudTop.appendChild(hudElements.speed);
-        
-        // Frecuencia cardíaca - Secundaria
-        hudElements.heartRate = createHudMetric('FC', '--', 'bpm', 'heart', colors.error, 'secondary');
-        hudTop.appendChild(hudElements.heartRate);
-        
-        // Distancia - Terciaria (esquina inferior izquierda)
-        hudElements.distance = createHudMetric('Dist', '0.00', 'km', 'route', null, 'tertiary');
-        hudBottomLeft.appendChild(hudElements.distance);
-        
-        // Tiempo - Terciaria
-        hudElements.time = createHudMetric('Tiempo', '00:00', '', 'clock', null, 'tertiary');
-        hudBottomLeft.appendChild(hudElements.time);
-        
-        // Pendiente - Terciaria
-        hudElements.grade = createHudMetric('Pend', '0.0', '%', 'chevronUp', null, 'tertiary');
-        hudBottomRight.appendChild(hudElements.grade);
-        
-        // Elevación - Terciaria
-        hudElements.elevation = createHudMetric('Elev', '0', 'm', null, null, 'tertiary');
-        hudBottomRight.appendChild(hudElements.elevation);
-    }
-    
-    /**
-     * Actualizar valor de un elemento del HUD
-     */
-    function updateHudValue(element, value, accentColor = null) {
-        if (!element) return;
-        const valueEl = element.querySelector('[data-value]');
-        if (valueEl) {
-            valueEl.textContent = String(value);
-        }
-        if (accentColor) {
-            element.style.borderLeftColor = accentColor;
-        }
-    }
-    
-    /**
-     * Actualizar HUD con el estado del ride
-     */
-    function updateHud(rideState) {
-        const { bikeData, position, currentGrade, elapsedTime, ftp } = rideState;
-        
-        // Potencia con color de zona
-        const zoneColor = getZoneColor(bikeData.power, ftp);
-        updateHudValue(hudElements.power, bikeData.power || 0, zoneColor);
-        
-        // Velocidad
-        updateHudValue(hudElements.speed, position.virtualSpeed?.toFixed(1) || '0.0');
-        
-        // Frecuencia cardíaca
-        updateHudValue(hudElements.heartRate, bikeData.heartRate || '--');
-        
-        // Distancia (metros a km)
-        const distanceKm = (position.distance / 1000).toFixed(2);
-        updateHudValue(hudElements.distance, distanceKm);
-        
-        // Tiempo (ms a mm:ss)
-        const totalSeconds = Math.floor(elapsedTime / 1000);
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        updateHudValue(hudElements.time, timeStr);
-        
-        // Pendiente (con color según subida/bajada)
-        const gradeColor = currentGrade > 0 ? colors.error : (currentGrade < 0 ? colors.success : colors.textMuted);
-        updateHudValue(hudElements.grade, currentGrade?.toFixed(1) || '0.0', gradeColor);
-        
-        // Elevación
-        updateHudValue(hudElements.elevation, Math.round(position.elevation || 0));
-    }
+    // HUD (overlay sobre el canvas). Ignora el puntero salvo su botón de modo; ver components/ride/RideHud.js
+    const hud = createRideHud();
+    container.appendChild(hud.element);
     
     // Overlay para menús
     const menuOverlay = div({
@@ -369,6 +148,91 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
     let engine = null;
     let renderer = null;
     let dataUpdateInterval = null;
+    let recorder = null;
+    let riderPrefs = resolveRiderPrefs();
+    
+    /**
+     * Selector de la pantalla previa: posición sobre la bici (cambia el CdA de la física) y color de la bici
+     */
+    function createRiderSelector() {
+        const chipStyles = (active) => ({
+            ...baseStyles.button,
+            cursor: 'pointer',
+            padding: `${spacing.xs} ${spacing.sm}`,
+            fontSize: typography.sizes.sm,
+            backgroundColor: active ? colors.primary : colors.surface,
+            color: active ? colors.background : colors.text,
+            border: `1px solid ${active ? colors.primary : colors.border}`,
+        });
+        const dotStyles = (active, hex) => ({
+            width: '24px',
+            height: '24px',
+            padding: '0',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            backgroundColor: hex,
+            border: `2px solid ${active ? colors.text : colors.border}`,
+            transform: active ? 'scale(1.15)' : 'none',
+        });
+        
+        const positionButtons = Object.values(RIDER_POSITIONS).map((position) => button({
+            text: position.label,
+            attrs: { title: `CdA ${position.cda.toFixed(2)} m²` },
+            styles: chipStyles(position.id === riderPrefs.position),
+            events: {
+                click: () => {
+                    riderPrefs = { ...riderPrefs, position: position.id };
+                    saveRiderPrefs({ position: position.id });
+                    renderer?.setRiderPosition(position.id);
+                    engine?.setCda(position.cda);
+                    refresh();
+                },
+            },
+        }));
+        const colorButtons = BIKE_PAINTS.map((paint) => button({
+            attrs: { title: paint.name, 'aria-label': `Bici ${paint.name}` },
+            styles: dotStyles(paint.id === riderPrefs.bikeColor, paintHex(paint.id)),
+            events: {
+                click: () => {
+                    riderPrefs = { ...riderPrefs, bikeColor: paint.id };
+                    saveRiderPrefs({ bikeColor: paint.id });
+                    renderer?.setRiderBikeColor(paint.color);
+                    refresh();
+                },
+            },
+        }));
+        
+        function refresh() {
+            Object.values(RIDER_POSITIONS).forEach((position, index) => {
+                Object.assign(positionButtons[index].style, chipStyles(position.id === riderPrefs.position));
+            });
+            BIKE_PAINTS.forEach((paint, index) => {
+                Object.assign(colorButtons[index].style, dotStyles(paint.id === riderPrefs.bikeColor, paintHex(paint.id)));
+            });
+        }
+        
+        const row = (title, ...children) => div({
+            styles: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, flexWrap: 'wrap' },
+            children: [
+                createElement('span', { text: title, styles: { color: colors.textMuted, fontSize: typography.sizes.sm, minWidth: '70px', textAlign: 'right' } }),
+                ...children,
+            ],
+        });
+        return div({
+            styles: { display: 'flex', flexDirection: 'column', gap: spacing.sm, marginBottom: spacing.lg },
+            children: [row('Posición', ...positionButtons), row('Bici', ...colorButtons)],
+        });
+    }
+    
+    /**
+     * Guardar el ride en el historial (no hace nada si ya se guardó o fue demasiado corto)
+     */
+    function saveRide(status) {
+        if (!engine || !recorder) return;
+        recorder.finish(engine.getState(), status).catch((err) => {
+            console.debug('No se pudo guardar el ride:', err);
+        });
+    }
     
     /**
      * Mostrar menú de selección de mundo
@@ -483,11 +347,13 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
             styles: {
                 maxWidth: '600px',
                 width: '90%',
+                maxHeight: '100%',
+                overflowY: 'auto',
                 padding: spacing.xl,
                 textAlign: 'center',
             },
         });
-        
+
         // Título con nombre del mundo
         menuContent.appendChild(createElement('h2', {
             text: worldConfig.name,
@@ -507,6 +373,9 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
                 marginBottom: spacing.lg,
             },
         }));
+        
+        // Posición y color de la bici
+        menuContent.appendChild(createRiderSelector());
         
         // Lista de rutas
         const routesList = div({
@@ -587,7 +456,10 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
         });
         
         menuContent.appendChild(routesList);
-        
+
+        // Importar GPX + vista previa + Mis rutas
+        menuContent.appendChild(createGpxSection());
+
         // Botón volver
         const backBtn = button({
             styles: {
@@ -610,6 +482,403 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
         menuOverlay.appendChild(menuContent);
     }
     
+    /**
+     * Perfil de elevación sencillo en SVG a partir de los puntos de la ruta
+     */
+    function createElevationProfile(points) {
+        return createProfileSvg(points, { height: 70 });
+    }
+
+    /**
+     * Lista "Competir contra tu pasado" con selección opcional y chip del fantasma activo
+     * @param {HTMLElement} box - Contenedor donde se dibuja
+     * @param {Array} past - Rides pasados de la ruta (getSessionsByRoute)
+     * @param {Function} getSelected - Devuelve la elección actual (o null)
+     * @param {Function} setSelected - Guarda la elección
+     */
+    function renderGhostBox(box, past, getSelected, setSelected) {
+        box.innerHTML = '';
+        box.style.display = 'block';
+        const selected = getSelected();
+
+        box.appendChild(createElement('div', {
+            text: 'Competir contra tu pasado',
+            styles: {
+                color: colors.textMuted,
+                fontSize: typography.sizes.sm,
+                marginBottom: spacing.xs,
+            },
+        }));
+
+        const options = [{ id: null, label: 'Ninguno (sin fantasma)', detail: '' }, ...past.map((item) => ({
+            id: item.id,
+            date: item.date,
+            label: formatGhostDate(item.date),
+            detail: `${formatClock(item.duration)} · ${Math.round(item.avgPower)} W`,
+        }))];
+
+        options.forEach((option) => {
+            const isSelected = (selected?.id ?? null) === option.id;
+            box.appendChild(button({
+                styles: {
+                    ...baseStyles.button,
+                    width: '100%',
+                    padding: spacing.sm,
+                    marginBottom: spacing.xs,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    backgroundColor: isSelected ? `${colors.primary}22` : colors.surface,
+                    border: `1px solid ${isSelected ? colors.primary : colors.border}`,
+                },
+                attrs: { 'aria-pressed': isSelected ? 'true' : 'false' },
+                children: [
+                    createElement('span', {
+                        text: option.label,
+                        styles: { color: colors.text, fontSize: typography.sizes.sm },
+                    }),
+                    createElement('span', {
+                        text: option.detail,
+                        styles: { color: colors.primary, fontSize: typography.sizes.sm, fontFamily: typography.fontMono },
+                    }),
+                ],
+                events: {
+                    click: () => {
+                        setSelected(option.id ? { id: option.id, date: option.date } : null);
+                        renderGhostBox(box, past, getSelected, setSelected);
+                    },
+                },
+            }));
+        });
+
+        if (selected) {
+            box.appendChild(createElement('span', {
+                text: `Fantasma: ${formatGhostDate(selected.date)}`,
+                styles: {
+                    display: 'inline-block',
+                    marginTop: spacing.xs,
+                    padding: `2px ${spacing.sm}`,
+                    borderRadius: borderRadius.md,
+                    backgroundColor: `${colors.primary}33`,
+                    color: colors.primary,
+                    fontSize: typography.sizes.xs,
+                },
+            }));
+        }
+    }
+
+    /**
+     * Sección de rutas GPX: importar, vista previa y "Mis rutas"
+     */
+    function createGpxSection() {
+        const section = div({
+            styles: {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: spacing.sm,
+                marginBottom: spacing.lg,
+                paddingTop: spacing.md,
+                borderTop: `1px solid ${colors.border}`,
+            },
+        });
+
+        const errorBox = div({
+            styles: {
+                display: 'none',
+                color: colors.error,
+                fontSize: typography.sizes.sm,
+                padding: spacing.sm,
+                border: `1px solid ${colors.error}`,
+                borderRadius: borderRadius.md,
+            },
+        });
+        errorBox.setAttribute('role', 'alert');
+
+        const previewBox = div({ styles: { display: 'none' } });
+        const myRoutesBox = div({
+            styles: { display: 'flex', flexDirection: 'column', gap: spacing.xs },
+        });
+
+        const showError = (message) => {
+            errorBox.textContent = message;
+            errorBox.style.display = message ? 'block' : 'none';
+        };
+
+        // Cargar una ruta (ya parseada) en el motor y empezar
+        // ghostChoice (opcional): { id, date } de un ride pasado en esta ruta
+        const rideRoute = (route, ghostChoice = null) => {
+            showLoadingIndicator(`Cargando ${route.name}...`);
+            setTimeout(async () => {
+                let ghost = null;
+                if (ghostChoice) {
+                    try {
+                        ghost = createGhost(await getSessionTrace(ghostChoice.id));
+                    } catch (err) {
+                        console.debug('No se pudo cargar el fantasma:', err);
+                    }
+                }
+                if (!engine) return; // Se salió de la vista mientras cargaba
+                engine.setCustomRoute(route);
+                engine.clearGhost();
+                if (ghost) engine.setGhost(ghost, formatGhostDate(ghostChoice.date));
+                startRide();
+            }, 100);
+        };
+
+        const showPreview = (route, note = '') => {
+            previewBox.innerHTML = '';
+            previewBox.style.display = 'block';
+
+            const card = div({
+                styles: {
+                    ...premiumCardStyles,
+                    padding: spacing.md,
+                    border: `1px solid ${colors.primary}`,
+                    textAlign: 'left',
+                },
+            });
+            card.appendChild(createElement('div', {
+                text: route.name,
+                styles: {
+                    color: colors.text,
+                    fontSize: typography.sizes.md,
+                    fontWeight: typography.weights.bold,
+                    marginBottom: spacing.xs,
+                },
+            }));
+            card.appendChild(createElement('div', {
+                text: route.hasElevation === false
+                    ? `${(route.totalDistance / 1000).toFixed(1)} km · sin datos de elevación (pendiente 0%)`
+                    : `${(route.totalDistance / 1000).toFixed(1)} km · +${Math.round(route.ascent)} m`,
+                styles: {
+                    color: colors.textMuted,
+                    fontSize: typography.sizes.sm,
+                    marginBottom: spacing.sm,
+                },
+            }));
+            if (route.hasElevation !== false) {
+                card.appendChild(createElevationProfile(route.points));
+            }
+            if (note) {
+                card.appendChild(createElement('div', {
+                    text: note,
+                    styles: { color: colors.textMuted, fontSize: typography.sizes.xs, marginTop: spacing.xs },
+                }));
+            }
+
+            // Competir contra tu pasado: ninguno por defecto
+            let selectedGhost = null;
+            const ghostBox = div({ styles: { display: 'none', marginTop: spacing.md } });
+            card.appendChild(ghostBox);
+            if (route.id) {
+                getSessionsByRoute(route.id)
+                    .then((past) => {
+                        if (past.length === 0 || !ghostBox.isConnected) return;
+                        renderGhostBox(ghostBox, past.slice(0, MAX_GHOST_OPTIONS), () => selectedGhost, (choice) => {
+                            selectedGhost = choice;
+                        });
+                    })
+                    .catch((err) => console.debug('No se pudieron leer los rides pasados:', err));
+            }
+
+            card.appendChild(button({
+                styles: {
+                    ...baseStyles.button,
+                    backgroundColor: colors.primary,
+                    color: colors.background,
+                    fontWeight: typography.weights.bold,
+                    padding: `${spacing.sm} ${spacing.lg}`,
+                    marginTop: spacing.md,
+                    width: '100%',
+                },
+                children: [createElement('span', { text: 'Recorrer esta ruta' })],
+                events: { click: () => rideRoute(route, selectedGhost) },
+            }));
+            previewBox.appendChild(card);
+        };
+
+        // Lista "Mis rutas"
+        const renderMyRoutes = async () => {
+            let saved = [];
+            try {
+                saved = await getAllRoutes();
+            } catch (err) {
+                console.debug('No se pudieron leer las rutas guardadas:', err);
+            }
+            if (!myRoutesBox.isConnected) return; // El menú ya se cerró o se redibujó
+
+            myRoutesBox.innerHTML = '';
+            if (saved.length === 0) return;
+
+            myRoutesBox.appendChild(createElement('div', {
+                text: 'Mis rutas',
+                styles: {
+                    color: colors.textMuted,
+                    fontSize: typography.sizes.sm,
+                    textAlign: 'left',
+                    marginTop: spacing.xs,
+                },
+            }));
+
+            saved.forEach(item => {
+                const row = div({
+                    styles: {
+                        display: 'flex',
+                        gap: spacing.xs,
+                        alignItems: 'stretch',
+                    },
+                });
+
+                const selectBtn = button({
+                    styles: {
+                        ...baseStyles.button,
+                        flex: '1',
+                        padding: spacing.sm,
+                        backgroundColor: colors.surface,
+                        border: `1px solid ${colors.border}`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                    },
+                    children: [
+                        createElement('span', {
+                            text: item.name,
+                            styles: { color: colors.text, fontSize: typography.sizes.sm },
+                        }),
+                        createElement('span', {
+                            text: `${(item.totalDistance / 1000).toFixed(1)} km · +${Math.round(item.ascent)} m`,
+                            styles: { color: colors.primary, fontSize: typography.sizes.sm, whiteSpace: 'nowrap', marginLeft: spacing.sm },
+                        }),
+                    ],
+                    events: {
+                        click: async () => {
+                            showError('');
+                            try {
+                                const full = await getRoute(item.id);
+                                if (!full) throw new Error('La ruta ya no existe.');
+                                showPreview(full);
+                            } catch (err) {
+                                showError(`No se pudo abrir la ruta: ${err.message}`);
+                            }
+                        },
+                    },
+                });
+
+                // Borrado con confirmación en dos pasos (sin alert/confirm)
+                let confirmTimer = null;
+                const deleteBtn = button({
+                    styles: {
+                        ...baseStyles.button,
+                        padding: `${spacing.sm} ${spacing.md}`,
+                        backgroundColor: 'transparent',
+                        border: `1px solid ${colors.border}`,
+                        color: colors.textMuted,
+                        fontSize: typography.sizes.xs,
+                        cursor: 'pointer',
+                    },
+                    attrs: { title: 'Borrar ruta' },
+                    children: [icon('x', 14, colors.textMuted)],
+                    events: {
+                        click: async () => {
+                            if (!confirmTimer) {
+                                deleteBtn.replaceChildren(createElement('span', { text: '¿Borrar?' }));
+                                deleteBtn.style.color = colors.error;
+                                deleteBtn.style.borderColor = colors.error;
+                                confirmTimer = setTimeout(() => {
+                                    confirmTimer = null;
+                                    deleteBtn.replaceChildren(icon('x', 14, colors.textMuted));
+                                    deleteBtn.style.color = colors.textMuted;
+                                    deleteBtn.style.borderColor = colors.border;
+                                }, 3000);
+                                return;
+                            }
+                            clearTimeout(confirmTimer);
+                            confirmTimer = null;
+                            try {
+                                await deleteRoute(item.id);
+                            } catch (err) {
+                                showError(`No se pudo borrar la ruta: ${err.message}`);
+                                return;
+                            }
+                            renderMyRoutes();
+                        },
+                    },
+                });
+
+                row.appendChild(selectBtn);
+                row.appendChild(deleteBtn);
+                myRoutesBox.appendChild(row);
+            });
+        };
+
+        // Importar: el archivo se lee en local, no se sube a ningún sitio
+        const fileInput = createElement('input', {
+            attrs: { type: 'file', accept: '.gpx,application/gpx+xml' },
+            styles: { display: 'none' },
+        });
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files && fileInput.files[0];
+            fileInput.value = ''; // Permite reimportar el mismo archivo
+            if (!file) return;
+
+            showError('');
+            try {
+                if (file.size > MAX_GPX_BYTES) {
+                    throw new Error('El archivo es demasiado grande (máx. 30 MB).');
+                }
+                const route = parseGpx(await file.text());
+                if (route.name === 'Ruta GPX') {
+                    route.name = file.name.replace(/\.gpx$/i, '') || route.name;
+                }
+
+                let note = '';
+                let toShow = route;
+                try {
+                    toShow = await saveRoute(route);
+                    note = 'Guardada en Mis rutas (solo en este dispositivo).';
+                } catch (err) {
+                    console.debug('No se pudo guardar la ruta:', err);
+                    note = 'No se pudo guardar; solo estará disponible en esta sesión.';
+                }
+                showPreview(toShow, note);
+                renderMyRoutes();
+            } catch (err) {
+                previewBox.style.display = 'none';
+                showError(err.message || 'No se pudo leer el archivo GPX.');
+            }
+        });
+
+        const importBtn = button({
+            styles: {
+                ...baseStyles.button,
+                backgroundColor: 'transparent',
+                color: colors.primary,
+                border: `1px solid ${colors.primary}`,
+                padding: `${spacing.sm} ${spacing.lg}`,
+                cursor: 'pointer',
+            },
+            children: [
+                icon('route', 16, colors.primary),
+                createElement('span', { text: 'Importar GPX', styles: { marginLeft: spacing.xs } }),
+            ],
+            events: { click: () => fileInput.click() },
+        });
+
+        section.appendChild(importBtn);
+        section.appendChild(fileInput);
+        section.appendChild(errorBox);
+        section.appendChild(previewBox);
+        section.appendChild(myRoutesBox);
+
+        // La lista se rellena cuando la sección ya está en el DOM
+        setTimeout(renderMyRoutes, 0);
+
+        return section;
+    }
+
     /**
      * Mostrar indicador de carga
      */
@@ -654,9 +923,11 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
      */
     function startRide() {
         menuOverlay.style.display = 'none';
-        hudOverlay.style.display = 'block';
-        initHud();
         engine.start();
+        hud.start(engine.getState());
+        hud.setVisible(true);
+        recorder = createRideRecorder({ ftp: settings.ftp });
+        recorder.start(engine.getState());
     }
     
     /**
@@ -768,6 +1039,37 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
         
         modalContent.appendChild(statsGrid);
         
+        // Resumen contra el fantasma: tiempo propio vs tiempo del fantasma y diferencia final
+        if (rideState.ghost) {
+            const diff = rideState.ghost.duration - elapsedTime / 1000;
+            const diffColor = diff >= 0 ? colors.success : colors.error;
+            modalContent.appendChild(div({
+                styles: {
+                    backgroundColor: colors.surface,
+                    borderRadius: borderRadius.md,
+                    padding: spacing.md,
+                    marginBottom: spacing.xl,
+                    border: `1px solid ${diffColor}`,
+                },
+                children: [
+                    createElement('div', {
+                        text: `Fantasma: ${rideState.ghost.label}`,
+                        styles: { fontSize: typography.sizes.xs, color: colors.textMuted, marginBottom: spacing.xs },
+                    }),
+                    createElement('div', {
+                        text: `Tú ${formatClock(elapsedTime / 1000)} · Fantasma ${formatClock(rideState.ghost.duration)}`,
+                        styles: { fontSize: typography.sizes.md, color: colors.text, fontFamily: typography.fontMono },
+                    }),
+                    createElement('div', {
+                        text: diff >= 0
+                            ? `Le ganaste por ${formatClock(diff)}`
+                            : `Te ganó por ${formatClock(-diff)}`,
+                        styles: { fontSize: typography.sizes.lg, fontWeight: typography.weights.bold, color: diffColor, marginTop: spacing.xs },
+                    }),
+                ],
+            }));
+        }
+        
         // Botones de acción
         const buttonsContainer = div({
             styles: {
@@ -828,6 +1130,8 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
      * Limpiar recursos
      */
     function cleanup() {
+        // Un ride en curso o pausado se guarda como abandonado (si no es demasiado corto)
+        saveRide('abandoned');
         if (dataUpdateInterval) {
             clearInterval(dataUpdateInterval);
             dataUpdateInterval = null;
@@ -840,6 +1144,7 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
             renderer.destroy();
             renderer = null;
         }
+        hud.destroy();
     }
     
     // Inicializar cuando el canvas esté en el DOM
@@ -850,31 +1155,36 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
         canvas.height = rect.height;
         
         // Crear renderer
-        renderer = createRideRenderer3D(canvas);
+        renderer = createRideRenderer3D(canvas, {
+            position: riderPrefs.position,
+            bikeColor: BIKE_PAINTS.find((paint) => paint.id === riderPrefs.bikeColor).color,
+        });
         
         // Crear motor del ride
         engine = createRideEngine({
             canvas,
             ftp: settings.ftp,
             weight: settings.weight || 70,
+            cda: RIDER_POSITIONS[riderPrefs.position].cda,
             onStateChange: (rideState) => {
+                // Grabar muestra para el historial (1/s, solo jugando)
+                if (recorder) recorder.sample(rideState);
+                
                 // Actualizar HUD si está jugando o pausado
                 if (rideState.status === RIDE_STATUS.PLAYING || rideState.status === RIDE_STATUS.PAUSED) {
-                    updateHud(rideState);
+                    hud.update(rideState);
                 }
                 
                 // Mostrar/ocultar HUD según estado
-                if (rideState.status === RIDE_STATUS.PLAYING) {
-                    hudOverlay.style.display = 'block';
-                } else if (rideState.status === RIDE_STATUS.PAUSED) {
-                    hudOverlay.style.display = 'block';
-                    // Podríamos añadir un indicador de pausa aquí
+                if (rideState.status === RIDE_STATUS.PLAYING || rideState.status === RIDE_STATUS.PAUSED) {
+                    hud.setVisible(true); // En pausa el HUD muestra su indicador de PAUSA
                 } else if (rideState.status === RIDE_STATUS.FINISHED) {
-                    hudOverlay.style.display = 'none';
+                    hud.setVisible(false);
+                    saveRide('completed');
                     // Mostrar resultados con modal personalizado
                     showFinishModal(rideState);
                 } else {
-                    hudOverlay.style.display = 'none';
+                    hud.setVisible(false);
                 }
             },
             onRouteComplete: (results) => {

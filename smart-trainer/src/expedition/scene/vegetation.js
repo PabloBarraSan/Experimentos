@@ -11,7 +11,7 @@ const VEGETATION_QUALITY = {
 
 const GRASS_CHUNKS = 14;
 
-function createRandom(seed) {
+export function createRandom(seed) {
     let state = seed >>> 0;
     return () => {
         state = (state + 0x6d2b79f5) >>> 0;
@@ -51,12 +51,12 @@ function applyWind(material, wind, strength, frequency = 1) {
     };
 }
 
-function finalize(geometry) {
+export function finalize(geometry) {
     geometry.deleteAttribute('uv');
     return geometry;
 }
 
-function withColor(geometry, colorFn) {
+export function withColor(geometry, colorFn) {
     const position = geometry.getAttribute('position');
     const colors = new Float32Array(position.count * 3);
     for (let index = 0; index < position.count; index += 1) {
@@ -76,7 +76,7 @@ function buildConiferFoliage() {
         const baseY = 1.25 + f * 4.7;
         const radius = 2.05 * Math.pow(1 - f, 0.85) + 0.32;
         const height = 1.75 - f * 0.55;
-        const cone = ensureNonIndexed(new THREE.ConeGeometry(radius, height, 12, 2, true));
+        const cone = ensureNonIndexed(new THREE.ConeGeometry(radius, height, 16, 3, true));
         cone.translate(0, baseY + height / 2, 0);
         const position = cone.getAttribute('position');
         const normal = new Float32Array(position.count * 3);
@@ -106,7 +106,7 @@ function buildConiferFoliage() {
     return mergeGeometries(parts);
 }
 
-function buildTrunk(height, topRadius, baseRadius, color) {
+export function buildTrunk(height, topRadius, baseRadius, color) {
     const geometry = ensureNonIndexed(new THREE.CylinderGeometry(topRadius, baseRadius, height, 8, 3));
     geometry.translate(0, height / 2, 0);
     geometry.computeVertexNormals();
@@ -122,7 +122,7 @@ function buildTrunk(height, topRadius, baseRadius, color) {
 // unificada" para que se ilumine como un volumen, no como bolas sueltas.
 function buildCrown(blobs, crownCenter, crownRadius) {
     const parts = blobs.map((blob, blobIndex) => {
-        const geometry = new THREE.IcosahedronGeometry(1, 2);
+        const geometry = new THREE.IcosahedronGeometry(1, 3);
         const position = geometry.getAttribute('position');
         const normal = new Float32Array(position.count * 3);
         const tint = new Float32Array(position.count * 3);
@@ -174,7 +174,7 @@ function buildBroadleaf() {
     };
 }
 
-function buildFarTree() {
+export function buildFarTree() {
     const parts = [0, 1, 2].map((tier) => {
         const radius = 1.7 - tier * 0.42;
         const height = 2.6 - tier * 0.3;
@@ -193,7 +193,7 @@ function buildFarTree() {
     return mergeGeometries(parts);
 }
 
-function buildRock() {
+export function buildRock() {
     const geometry = new THREE.IcosahedronGeometry(1, 1);
     const position = geometry.getAttribute('position');
     for (let index = 0; index < position.count; index += 1) {
@@ -414,7 +414,7 @@ export function createVegetation({ terrain, routeCurve, worldStyle, quality }) {
     attempts = 0;
     while (rocks.length < preset.rocks && attempts < preset.rocks * 8) {
         attempts += 1;
-        const point = roadsidePoint(ROAD_CORRIDOR - 1, 55, { maxSlope: 0.3, power: 1.3 });
+        const point = roadsidePoint(ROAD_CORRIDOR + 1.2, 55, { maxSlope: 0.3, power: 1.3 });
         if (!point) continue;
         const scale = 0.35 + Math.pow(random(), 2.2) * 2.4;
         rocks.push({
@@ -445,7 +445,7 @@ export function createVegetation({ terrain, routeCurve, worldStyle, quality }) {
         while (placements.length < perChunk && tries < perChunk * 4) {
             tries += 1;
             const t = (chunk + random()) / GRASS_CHUNKS;
-            const point = roadsidePoint(ROAD_CORRIDOR - 0.8, 34, { maxSlope: 0.25, power: 1.7, t });
+            const point = roadsidePoint(ROAD_CORRIDOR, 34, { maxSlope: 0.25, power: 1.7, t });
             if (!point) continue;
             const meadow = fbm(point.x * 0.03, point.z * 0.03, 3);
             if (random() > 0.35 + smoothstep(0.3, 0.55, meadow) * 0.65) continue;
@@ -473,7 +473,7 @@ export function createVegetation({ terrain, routeCurve, worldStyle, quality }) {
     attempts = 0;
     while (flowers.length < preset.flowers && attempts < preset.flowers * 5) {
         attempts += 1;
-        const point = roadsidePoint(ROAD_CORRIDOR - 0.5, 26, { maxSlope: 0.16, power: 1.6 });
+        const point = roadsidePoint(ROAD_CORRIDOR + 1.5, 26, { maxSlope: 0.16, power: 1.6 });
         if (!point) continue;
         // Las flores crecen en manchas, no uniformes.
         if (fbm(point.x * 0.05 + 30, point.z * 0.05, 3) < 0.55) continue;

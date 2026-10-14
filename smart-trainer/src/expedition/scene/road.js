@@ -6,9 +6,13 @@ export const ASPHALT_WIDTH = 5.9;
 // Cinta que sigue la curva con perfil transversal arbitrario: [[offset, dy], ...].
 // `tileMeters` fija cuántos metros de ruta abarca una repetición de la textura
 // para que los texels sean cuadrados y no salgan vetas alargadas.
-export function createProfileRibbon(curve, { profile, material, tileMeters, lift = 0, uSpan = null }) {
+// Opcionales: `tRange` limita la cinta a un tramo [t0, t1] de la curva (la
+// textura sigue siendo continua entre tramos) y `segmentLength` fija la
+// separación entre filas en metros.
+export function createProfileRibbon(curve, { profile, material, tileMeters, lift = 0, uSpan = null, tRange = [0, 1], segmentLength = 1.4 }) {
     const length = curve.getLength();
-    const segments = Math.ceil(length / 1.4);
+    const [t0, t1] = tRange;
+    const segments = Math.max(1, Math.ceil(((t1 - t0) * length) / segmentLength));
     const columns = profile.length;
     const positions = new Float32Array((segments + 1) * columns * 3);
     const uvs = new Float32Array((segments + 1) * columns * 2);
@@ -17,7 +21,7 @@ export function createProfileRibbon(curve, { profile, material, tileMeters, lift
     const maxOffset = profile[columns - 1][0];
     const span = uSpan ?? (maxOffset - minOffset);
     for (let row = 0; row <= segments; row += 1) {
-        const t = row / segments;
+        const t = t0 + ((t1 - t0) * row) / segments;
         const point = curve.getPointAt(t);
         const tangent = curve.getTangentAt(t);
         const sideX = -tangent.z;
@@ -140,7 +144,7 @@ export function createGravelTexture() {
     canvas.width = size;
     canvas.height = size;
     const context = canvas.getContext('2d');
-    context.fillStyle = '#8e846e';
+    context.fillStyle = '#7c735f';
     context.fillRect(0, 0, size, size);
     for (let index = 0; index < 3800; index += 1) {
         const x = hash2(index, 1.9) * size;
@@ -148,7 +152,7 @@ export function createGravelTexture() {
         const radius = 0.8 + hash2(index, 8.3) * 2.2;
         const tone = hash2(index, 6.1);
         context.fillStyle = tone > 0.5
-            ? `rgba(202, 192, 168, ${0.2 + tone * 0.22})`
+            ? `rgba(191, 181, 159, ${0.2 + tone * 0.22})`
             : `rgba(55, 51, 43, ${0.2 + (1 - tone) * 0.3})`;
         context.beginPath();
         context.arc(x, y, radius, 0, Math.PI * 2);

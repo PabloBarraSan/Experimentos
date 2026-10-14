@@ -1,53 +1,130 @@
 /**
- * Ciclista cartoon rechoncho: cabeza y casco enormes, formas redondeadas, sombreado de tres
- * escalones y contorno oscuro. Se lee bien desde la cámara en el jugador, el ghost y el pelotón.
+ * Ciclista de carretera low-poly con proporciones realistas: cabeza pequeña, torso esbelto, piernas largas,
+ * casco aerodinámico, gafas, maillot con diseño, culotte con tirantes y una bici de tubos finos.
+ * Se lee bien desde la cámara en el jugador, el ghost y el pelotón.
  *
  * Se modela en metros (z+ = delante, y+ = arriba). El renderer lo amplía con RIDER_SCALE.
+ *
+ * Rendimiento: las geometrías son compartidas entre instancias (marcadas con userData.shared) y las piezas
+ * estáticas se fusionan por material, así que cada ciclista son unas 55 mallas. Los materiales neutros
+ * también se comparten; solo son propios de cada ciclista el maillot, el detalle de color y la pintura de la bici.
+ *
+ * Personalización: createCyclist({ bikeColor, position }) o, después, rider.setBikeColor() / rider.setPosition().
  */
 
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { createAvatarRig, isRiderAvatarReady } from './AvatarRider.js';
+import { getRiderPrefs } from '../storage/settings.js';
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const X_AXIS = new THREE.Vector3(1, 0, 0);
 const GHOST_COLOR = 0x8ed9ff;
+const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
 export const BIKE = {
     wheelRadius: 0.335,
-    bottomBracket: new THREE.Vector3(0, 0.27, 0),
-    rearHub: new THREE.Vector3(0, 0.335, -0.41),
-    frontHub: new THREE.Vector3(0, 0.335, 0.6),
-    seatCluster: new THREE.Vector3(0, 0.88, -0.17),
-    saddle: new THREE.Vector3(0, 0.95, -0.2),
-    headTop: new THREE.Vector3(0, 0.93, 0.4),
-    headBottom: new THREE.Vector3(0, 0.75, 0.435),
+    bottomBracket: v(0, 0.27, 0),
+    rearHub: v(0, 0.335, -0.41),
+    frontHub: v(0, 0.335, 0.6),
+    seatCluster: v(0, 0.88, -0.17),
+    saddle: v(0, 0.945, -0.2),
+    headTop: v(0, 0.93, 0.4),
+    headBottom: v(0, 0.75, 0.435),
     crankLength: 0.172,
 };
 
 export const BODY = {
-    thigh: 0.43,
-    shin: 0.43,
+    thigh: 0.44,
+    shin: 0.44,
     upperArm: 0.31,
     forearm: 0.29,
     hipHalfWidth: 0.085,
-    hipHeight: 1.0,
+    hipHeight: 1.02,
     hipZ: -0.21,
 };
 
+// Los 8 colores de pintura de la bici.
+export const BIKE_PAINTS = [
+    { id: 'blue', name: 'Azul', color: 0x2f6fed },
+    { id: 'red', name: 'Rojo', color: 0xd8343c },
+    { id: 'green', name: 'Verde', color: 0x2f9e5b },
+    { id: 'orange', name: 'Naranja', color: 0xf08a24 },
+    { id: 'violet', name: 'Violeta', color: 0x8a55e0 },
+    { id: 'white', name: 'Blanco', color: 0xf0f2f2 },
+    { id: 'cyan', name: 'Cian', color: 0x22c3d6 },
+    { id: 'black', name: 'Negro', color: 0x23282c },
+];
+
+// Posiciones sobre la bici. cda = área frontal * coeficiente aerodinámico orientativo (m²) para la física.
+export const RIDER_POSITIONS = {
+    hoods: { id: 'hoods', label: 'Manetas', cda: 0.36 },
+    drops: { id: 'drops', label: 'Cuernos', cda: 0.32 },
+    aero: { id: 'aero', label: 'Aero', cda: 0.27 },
+};
+export const DEFAULT_RIDER_POSITION = 'hoods';
+
+// Manillar (lado derecho, x > 0; el izquierdo es su espejo). Una única definición alimenta la geometría
+// y el agarre de las manos, así que las manos siempre quedan sobre el manillar, las manetas o las extensiones.
+// Curva continua: barra superior -> codo de las manetas -> caída (drops) -> punta trasera.
+const BAR_CURVE_POINTS = [
+    [0.2, 0.97, 0.5],
+    [0.203, 0.972, 0.55],
+    [0.207, 0.969, 0.6],
+    [0.21, 0.952, 0.642],
+    [0.21, 0.918, 0.668],
+    [0.21, 0.878, 0.668],
+    [0.208, 0.846, 0.645],
+    [0.205, 0.828, 0.605],
+    [0.203, 0.826, 0.565],
+];
+const HOOD = { center: v(0.207, 0.978, 0.62), radii: [0.027, 0.033, 0.06], tilt: -0.22 };
+// Extensiones de triatlón: del anclaje a la punta; el agarre es la goma de la parte delantera.
+const AERO_BAR = { clamp: v(0.07, 0.975, 0.5), end: v(0.065, 1.0, 0.72), tip: v(0.065, 1.027, 0.778) };
+// El codo descansa en un apoyo fijo de la bici (la pose aero fija el codo, no lo deja a la cinemática inversa).
+const AERO_ELBOW = v(0.085, 1.032, 0.43);
+const AERO_PAD_DROP = 0.042;
+
+const barCurve = (side) => new THREE.CatmullRomCurve3(
+    BAR_CURVE_POINTS.map(([x, y, z]) => v(side * x, y, z)),
+    false,
+    'centripetal',
+);
+const DROP_GRIP = barCurve(1).getPointAt(0.56);
+
+// Geometría de cada posición. lean = inclinación del torso desde la vertical; neck y head = cabeceo (rad, hacia abajo)
+// del cuello y de la cabeza en el mundo (la cabeza sigue mirando al frente); hand = centro del guante en el espacio
+// de la bici (sobre el manillar); glove = cabeceo extra del guante; elbow = codo fijo (solo aero).
+const POSES = {
+    hoods: { lean: 0.9, neck: 0.52, head: 0.2, hand: HOOD.center.clone().add(v(0, 0.012, 0)), glove: 0.2, aero: false },
+    drops: { lean: 1.08, neck: 0.66, head: 0.3, hand: DROP_GRIP.clone(), glove: 0.75, aero: false },
+    aero: {
+        lean: 1.2,
+        neck: 0.8,
+        head: 0.35,
+        hand: AERO_BAR.clamp.clone().lerp(AERO_BAR.end, 0.75),
+        glove: 0,
+        elbow: AERO_ELBOW,
+        aero: true,
+    },
+};
+
 const PALETTE = {
-    skin: 0xf6b98f,
+    skin: 0xf0b48c,
     hair: 0x4a3226,
-    shorts: 0x2a3138,
-    helmet: 0xfff4dc,
+    shorts: 0x22282e,
+    helmet: 0xf3f1ea,
     helmetVent: 0x1b2328,
-    shoe: 0x2a3138,
+    shoe: 0x20262b,
     sock: 0xffffff,
-    glove: 0x3a4248,
-    frame: 0x4f6a68,
-    tire: 0x1d2328,
-    rim: 0x8a9a9c,
+    glove: 0x30373c,
+    rubber: 0x1b2024,
+    tape: 0x2a3035,
+    tire: 0x15191c,
+    rim: 0x98a4a7,
     spoke: 0xc7d0d1,
-    metal: 0xc9d2d3,
-    eye: 0x141b1f,
+    metal: 0xb8c2c4,
+    bottle: 0xf2efe4,
 };
 
 const OUTLINE_COLOR = 0x1d2a2c;
@@ -90,6 +167,7 @@ function getOutlineMaterial(thickness) {
             uniform vec3 uColor;
             void main() { gl_FragColor = vec4(uColor, 1.0); }`,
     });
+    material.userData.shared = true;
     outlineMaterials.set(thickness, material);
     return material;
 }
@@ -118,228 +196,413 @@ export function saveCyclistStyle(style) {
     }
 }
 
-export function createCyclist({ accent, ghost, style = getCyclistStyle() }) {
-    const group = new THREE.Group();
-    const tone = (color) => (ghost ? GHOST_COLOR : color);
-    const ghostProps = ghost
-        ? { transparent: true, opacity: 0.4, depthWrite: false, emissive: GHOST_COLOR, emissiveIntensity: 0.5 }
-        : {};
-    // 'toon' = tres escalones de luz; 'soft' = sombreado suave, más cercano a un juego realista.
-    const toon = (color, extra = {}) => (style.shading === 'toon'
-        ? new THREE.MeshToonMaterial({ color: tone(color), gradientMap: getToonGradient(), ...ghostProps, ...extra })
-        : new THREE.MeshStandardMaterial({ color: tone(color), roughness: 0.78, metalness: 0.02, ...ghostProps, ...extra }));
+/** Preferencias de ciclista guardadas en los ajustes; si no hay almacenamiento, vacío. */
+function readSavedRiderPrefs() {
+    try {
+        const prefs = getRiderPrefs() || {};
+        return {
+            bikeColor: prefs.bikeColor,
+            position: POSES[prefs.position] ? prefs.position : undefined,
+        };
+    } catch {
+        return {};
+    }
+}
 
-    const jerseyMaterial = toon(accent, { emissive: accent, emissiveIntensity: ghost ? 0.5 : 0.12 });
-    // Detalles de color (tubo superior, franja de las zapatillas): es el material que el renderer anima con el flow.
-    const accentMaterial = toon(accent, { emissive: accent, emissiveIntensity: ghost ? 0.9 : 0.35 });
-    const skinMaterial = toon(PALETTE.skin);
-    const hairMaterial = toon(PALETTE.hair);
-    const shortsMaterial = toon(PALETTE.shorts);
-    const helmetMaterial = toon(PALETTE.helmet);
-    const ventMaterial = toon(PALETTE.helmetVent);
-    const shoeMaterial = toon(PALETTE.shoe);
-    const sockMaterial = toon(PALETTE.sock);
-    const gloveMaterial = toon(PALETTE.glove);
-    const frameMaterial = toon(PALETTE.frame);
-    const tireMaterial = toon(PALETTE.tire);
-    const rimMaterial = toon(PALETTE.rim);
-    const metalMaterial = toon(PALETTE.metal);
-    const darkMetalMaterial = toon(0x6f7b7e, { roughness: 0.55 });
-    const eyeMaterial = toon(PALETTE.eye);
-    const spokeMaterial = new THREE.LineBasicMaterial({
-        color: tone(PALETTE.spoke), transparent: true, opacity: ghost ? 0.3 : 0.9,
-    });
-    const v = (x, y, z) => new THREE.Vector3(x, y, z);
-    const sphere = (radius, material, scale = [1, 1, 1]) => {
-        const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 18, 14), material);
-        mesh.scale.set(...scale);
-        return mesh;
-    };
-    // Los meshes que llevan contorno se anotan aquí y se les añade al final.
-    const outlined = new Map();
-    const mark = (mesh, thickness = OUTLINE.normal) => {
-        outlined.set(mesh, thickness);
-        return mesh;
-    };
-    const tube = (start, end, radius, material, thickness = OUTLINE.thin) => mark(createTube(start, end, radius, material), thickness);
+/** Acepta un hex numérico, un id de BIKE_PAINTS o un color CSS; devuelve siempre un hex numérico. */
+function resolveBikeColor(value) {
+    if (typeof value === 'number') return value;
+    const paint = BIKE_PAINTS.find((item) => item.id === value);
+    if (paint) return paint.color;
+    try {
+        return new THREE.Color(value).getHex();
+    } catch {
+        return BIKE_PAINTS[0].color;
+    }
+}
 
-    // ---- Ruedas: la cubierta apoya justo en el suelo (el radio exterior es BIKE.wheelRadius) ----
-    const TIRE_TUBE = 0.029;
-    const tireRadius = BIKE.wheelRadius - TIRE_TUBE; // radio de la línea central de la goma
-    const buildWheel = ({ rear }) => {
-        const wheel = new THREE.Group();
-        const tire = mark(new THREE.Mesh(new THREE.TorusGeometry(tireRadius, TIRE_TUBE, 12, 48), tireMaterial), OUTLINE.thin);
-        tire.rotation.y = Math.PI / 2;
-        const rim = new THREE.Mesh(new THREE.TorusGeometry(tireRadius - 0.03, 0.012, 6, 48), rimMaterial);
-        rim.rotation.y = Math.PI / 2;
-        const spokePoints = [];
-        for (let index = 0; index < 12; index += 1) {
-            const angle = (index / 12) * Math.PI * 2;
-            spokePoints.push(0, 0, 0, 0, Math.cos(angle) * (tireRadius - 0.04), Math.sin(angle) * (tireRadius - 0.04));
-        }
-        const spokeGeometry = new THREE.BufferGeometry();
-        spokeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(spokePoints, 3));
-        const spokes = new THREE.LineSegments(spokeGeometry, spokeMaterial);
-        const hub = mark(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.07, 12), metalMaterial), OUTLINE.thin);
-        hub.rotation.z = Math.PI / 2;
-        // Disco de freno a la izquierda y, en la rueda trasera, el cassette a la derecha.
-        const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.005, 24), darkMetalMaterial);
-        disc.rotation.z = Math.PI / 2;
-        disc.position.x = -0.04;
-        wheel.add(tire, rim, spokes, hub, disc);
+// ---- Caché de geometrías y piezas fusionadas (compartidas entre ciclistas) ----
+
+const geometryCache = new Map();
+function sharedGeometry(key, build) {
+    let geometry = geometryCache.get(key);
+    if (!geometry) {
+        geometry = build();
+        geometry.userData.shared = true;
+        geometryCache.set(key, geometry);
+    }
+    return geometry;
+}
+
+const unitSphere = () => sharedGeometry('sphere', () => new THREE.SphereGeometry(1, 12, 9));
+// Cilindro unitario orientado por alignTube: la base (-y) es el inicio y la tapa (+y) el final.
+const tubeGeometry = (startRadius, endRadius = startRadius) => sharedGeometry(
+    `tube:${startRadius}:${endRadius}`,
+    () => new THREE.CylinderGeometry(endRadius, startRadius, 1, 10, 1),
+);
+
+/**
+ * Acumula primitivas ya colocadas y las fusiona en una sola geometría por material ("slot").
+ * Así toda la bici estática o la cabeza son un puñado de mallas en lugar de decenas.
+ */
+class Baker {
+    constructor() {
+        this.parts = {};
+        this.base = null;
+    }
+
+    push(slot, geometry) {
+        geometry.deleteAttribute('uv');
+        if (this.base) geometry.applyMatrix4(this.base);
+        (this.parts[slot] ||= []).push(geometry);
+        return this;
+    }
+
+    tube(slot, start, end, startRadius, endRadius = startRadius, radial = 8) {
+        const geometry = new THREE.CylinderGeometry(endRadius, startRadius, 1, radial, 1);
+        const direction = end.clone().sub(start);
+        const length = Math.max(0.001, direction.length());
+        geometry.scale(1, length, 1);
+        geometry.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(Y_AXIS, direction.normalize()));
+        geometry.translate(...start.clone().add(end).multiplyScalar(0.5).toArray());
+        return this.push(slot, geometry);
+    }
+
+    blob(slot, center, radii, rotation = null) {
+        const geometry = new THREE.SphereGeometry(1, 12, 9);
+        geometry.scale(...radii);
+        if (rotation) geometry.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation)));
+        geometry.translate(...center);
+        return this.push(slot, geometry);
+    }
+
+    box(slot, center, size, rotationX = 0) {
+        const geometry = new THREE.BoxGeometry(...size);
+        geometry.rotateX(rotationX);
+        geometry.translate(...center);
+        return this.push(slot, geometry);
+    }
+
+    loft(slot, sections, radial = 16, shade = null) {
+        return this.push(slot, createLoft(sections, radial, shade));
+    }
+
+    finish() {
+        const result = {};
+        Object.entries(this.parts).forEach(([slot, list]) => {
+            result[slot] = mergeGeometries(list);
+            result[slot].userData.shared = true;
+            list.forEach((geometry) => geometry.dispose());
+        });
+        return result;
+    }
+}
+
+const bakedCache = new Map();
+function getBaked(key, build) {
+    if (!bakedCache.has(key)) bakedCache.set(key, build());
+    return bakedCache.get(key);
+}
+
+const loftSections = (list, zShift = () => 0) => list.map(({ y, width, depth }) => ({
+    center: v(0, y, zShift(y)),
+    width,
+    depth,
+}));
+
+// ---- Cuadro, manillar, sillín y transmisión (todo lo que no se mueve respecto a la bici) ----
+function buildBikeStatic() {
+    const b = new Baker();
+    const { bottomBracket: bb, rearHub, frontHub, seatCluster, saddle, headTop, headBottom } = BIKE;
+
+    // Triángulo principal con tubos finos.
+    b.tube('paint', bb, seatCluster, 0.017);
+    b.tube('paint', seatCluster, headTop, 0.016);
+    b.tube('paint', bb, headBottom, 0.023);
+    b.tube('paint', headBottom, headTop, 0.02);
+    b.tube('accent', bb.clone().lerp(headBottom, 0.3), bb.clone().lerp(headBottom, 0.68), 0.0245);
+    b.tube('metal', seatCluster, v(0, 0.935, -0.198), 0.0125);
+    for (const side of [-1, 1]) {
+        b.tube('paint', v(side * 0.004, seatCluster.y, seatCluster.z), v(side * 0.055, rearHub.y, rearHub.z), 0.0085);
+        b.tube('paint', v(side * 0.01, bb.y, bb.z), v(side * 0.055, rearHub.y, rearHub.z), 0.0095);
+        b.tube('paint', v(side * 0.03, headBottom.y, headBottom.z), v(side * 0.048, frontHub.y, frontHub.z), 0.012);
+    }
+    b.blob('paint', [0, headBottom.y - 0.005, headBottom.z], [0.05, 0.02, 0.03]);
+
+    // Potencia y manillar: barra superior de aluminio y curva continua con cinta (de la barra a las manetas y por
+    // la caída hasta la punta). Las manetas se asientan sobre el codo de la curva, con su palanca de freno.
+    b.tube('rubber', v(0, 0.935, 0.4), v(0, 0.968, 0.488), 0.016);
+    b.tube('metal', v(-0.2, 0.97, 0.5), v(0.2, 0.97, 0.5), 0.0115);
+    b.blob('metal', [0, 0.97, 0.5], [0.03, 0.022, 0.026]);
+    for (const side of [-1, 1]) {
+        const tube = new THREE.TubeGeometry(barCurve(side), 32, 0.0125, 8, false);
+        b.push('tape', tube);
+        const end = barCurve(side).getPointAt(1);
+        b.blob('tape', end.toArray(), [0.0125, 0.0125, 0.0125]);
+        const [hx, hy, hz] = HOOD.center.toArray();
+        b.blob('rubber', [side * hx, hy, hz], HOOD.radii, [HOOD.tilt, 0, 0]);
+        // Palanca de freno: baja desde la punta de la maneta, justo delante de la caída.
+        b.tube('rubber', v(side * hx, hy - 0.012, hz + 0.05), v(side * hx, 0.885, 0.7), 0.0055, 0.0045);
+    }
+
+    // Sillín y raíles.
+    b.blob('rubber', [0, 0.955, -0.215], [0.07, 0.022, 0.09], [-0.04, 0, 0]);
+    b.blob('rubber', [0, 0.953, -0.125], [0.03, 0.016, 0.07], [-0.04, 0, 0]);
+    for (const side of [-1, 1]) b.tube('metal', v(side * 0.025, 0.937, -0.285), v(side * 0.02, 0.937, -0.1), 0.003);
+
+    // Bidón con su portabidón sobre el tubo diagonal.
+    const downDirection = headBottom.clone().sub(bb).normalize();
+    const upBack = v(0, downDirection.z, -downDirection.y).normalize();
+    const downLength = headBottom.distanceTo(bb);
+    const bottleStart = bb.clone().addScaledVector(downDirection, downLength * 0.3).addScaledVector(upBack, 0.052);
+    const bottleEnd = bb.clone().addScaledVector(downDirection, downLength * 0.62).addScaledVector(upBack, 0.052);
+    b.tube('bottle', bottleStart, bottleEnd, 0.03, 0.028);
+    b.tube('rubber', bottleEnd, bottleEnd.clone().addScaledVector(downDirection, 0.03), 0.017, 0.012);
+    b.tube('rubber', bb.clone().addScaledVector(downDirection, downLength * 0.28).addScaledVector(upBack, 0.03), bb.clone().addScaledVector(downDirection, downLength * 0.64).addScaledVector(upBack, 0.03), 0.006);
+
+    // Cadena y cambio trasero.
+    b.tube('rubber', v(0.045, 0.365, 0), v(0.045, 0.38, -0.41), 0.004);
+    b.tube('rubber', v(0.045, 0.175, 0), v(0.045, 0.29, -0.41), 0.004);
+    b.blob('rubber', [0.045, rearHub.y - 0.06, rearHub.z - 0.02], [0.012, 0.05, 0.025]);
+
+    // Caja del pedalier y tija; las bielas y el plato se animan aparte.
+    b.blob('metal', [0, bb.y, bb.z], [0.045, 0.026, 0.026]);
+    b.blob('rubber', [0, saddle.y - 0.02, saddle.z], [0.012, 0.012, 0.012]);
+    return b.finish();
+}
+
+// Extensiones de triatlón y apoyos de antebrazo (solo visibles en posición aero).
+function buildAeroBars() {
+    const b = new Baker();
+    const { clamp, end, tip } = AERO_BAR;
+    for (const side of [-1, 1]) {
+        const m = (point) => v(side * point.x, point.y, point.z);
+        b.tube('metal', m(clamp), m(end), 0.0125);
+        b.tube('rubber', m(clamp.clone().lerp(end, 0.5)), m(end), 0.0165);
+        b.tube('metal', m(end), m(tip), 0.011);
+        b.blob('metal', m(end).toArray(), [0.011, 0.011, 0.011]);
+        // Apoyo de antebrazo bajo el codo, atornillado al anclaje de la extensión.
+        const pad = m(AERO_ELBOW).add(v(0, -AERO_PAD_DROP, 0));
+        b.blob('rubber', pad.toArray(), [0.04, 0.012, 0.07]);
+        b.tube('metal', pad.clone().add(v(0, -0.004, 0.02)), m(clamp), 0.008);
+    }
+    return b.finish();
+}
+
+// Piezas del mismo plato y piñón en el espacio de la rueda (eje x).
+function buildWheelParts() {
+    const tubeRadius = 0.017;
+    const tire = new THREE.TorusGeometry(BIKE.wheelRadius - tubeRadius, tubeRadius, 8, 40);
+    tire.rotateY(Math.PI / 2);
+    tire.userData.shared = true;
+
+    // Llanta con perfil: anillo de sección rectangular (alto 24 mm, ancho 22 mm).
+    const rimInner = 0.28;
+    const rimOuter = BIKE.wheelRadius - tubeRadius * 2 + 0.002;
+    const rimProfile = [
+        new THREE.Vector2(rimInner, -0.011), new THREE.Vector2(rimOuter, -0.011),
+        new THREE.Vector2(rimOuter, 0.011), new THREE.Vector2(rimInner, 0.011),
+        new THREE.Vector2(rimInner, -0.011),
+    ];
+    const makeRim = (rear) => {
+        const b = new Baker();
+        const rim = new THREE.LatheGeometry(rimProfile, 40);
+        rim.rotateZ(Math.PI / 2);
+        b.push('rim', rim);
+        const hub = new THREE.CylinderGeometry(0.018, 0.018, 0.1, 10);
+        hub.rotateZ(Math.PI / 2);
+        b.push('rim', hub);
+        // Disco de freno a la izquierda.
+        const disc = new THREE.CylinderGeometry(0.075, 0.075, 0.003, 20);
+        disc.rotateZ(Math.PI / 2);
+        disc.translate(-0.045, 0, 0);
+        b.push('rim', disc);
         if (rear) {
-            const cassette = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.04, 0.04, 14), darkMetalMaterial);
-            cassette.rotation.z = Math.PI / 2;
-            cassette.position.x = 0.05;
-            wheel.add(cassette);
+            const cassette = new THREE.CylinderGeometry(0.025, 0.045, 0.045, 12);
+            cassette.rotateZ(-Math.PI / 2);
+            cassette.translate(0.05, 0, 0);
+            b.push('rim', cassette);
         }
-        return wheel;
+        return b.finish().rim;
     };
-    const rearWheel = buildWheel({ rear: true });
-    rearWheel.position.copy(BIKE.rearHub);
-    const frontWheel = buildWheel({ rear: false });
-    frontWheel.position.copy(BIKE.frontHub);
-    group.add(rearWheel, frontWheel);
-    // Sombra de contacto bajo cada cubierta: ancla la bici al suelo.
-    for (const hubPosition of [BIKE.rearHub, BIKE.frontHub]) {
-        const contact = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.2, 0.5),
-            new THREE.MeshBasicMaterial({ map: getBlobShadowTexture(), transparent: true, opacity: ghost ? 0 : 0.75, depthWrite: false }),
+
+    // Radios cruzados: de las bridas del buje a la llanta.
+    const spokeCount = 20;
+    const points = [];
+    for (let index = 0; index < spokeCount; index += 1) {
+        const rimAngle = (index / spokeCount) * Math.PI * 2;
+        const hubAngle = rimAngle + (index % 4 < 2 ? 0.45 : -0.45);
+        const flange = index % 2 === 0 ? 0.03 : -0.03;
+        points.push(
+            flange, Math.cos(hubAngle) * 0.026, Math.sin(hubAngle) * 0.026,
+            0, Math.cos(rimAngle) * (rimInner + 0.002), Math.sin(rimAngle) * (rimInner + 0.002),
         );
-        contact.rotation.x = -Math.PI / 2;
-        contact.position.set(0, 0.012, hubPosition.z);
-        group.add(contact);
     }
+    const spokes = new THREE.BufferGeometry();
+    spokes.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+    spokes.userData.shared = true;
+    return { tire, rimFront: makeRim(false), rimRear: makeRim(true), spokes };
+}
 
-    // ---- Cuadro, horquilla y manillar: tubos gruesos y redondeados ----
-    const { bottomBracket: bb, rearHub, frontHub, seatCluster, headTop, headBottom } = BIKE;
-    const barCenter = v(0, 0.97, 0.5);
-    [
-        [bb, seatCluster, 0.03, frameMaterial],
-        [seatCluster, headTop, 0.028, accentMaterial],
-        [bb, headBottom, 0.036, frameMaterial],
-        [headBottom, headTop, 0.034, frameMaterial],
-        [seatCluster, rearHub, 0.018, frameMaterial],
-        [bb, rearHub, 0.02, frameMaterial],
-        [headBottom.clone().add(v(0, -0.005, 0.005)), frontHub, 0.022, frameMaterial],
-        [headTop, barCenter, 0.024, frameMaterial],
-        [seatCluster, BIKE.saddle.clone().add(v(0, -0.02, 0)), 0.02, frameMaterial],
-    ].forEach(([start, end, radius, material]) => group.add(tube(start, end, radius, material)));
+// Plato con brazos (gira con la cadencia); el eje es x y se desplaza al lado de la transmisión.
+function buildChainring() {
+    const b = new Baker();
+    const ring = new THREE.LatheGeometry([
+        new THREE.Vector2(0.075, -0.003), new THREE.Vector2(0.098, -0.003),
+        new THREE.Vector2(0.098, 0.003), new THREE.Vector2(0.075, 0.003), new THREE.Vector2(0.075, -0.003),
+    ], 24);
+    ring.rotateZ(Math.PI / 2);
+    ring.translate(0.045, 0, 0);
+    b.push('metal', ring);
+    for (let index = 0; index < 5; index += 1) {
+        const arm = new THREE.BoxGeometry(0.006, 0.07, 0.014);
+        arm.translate(0, 0.04, 0);
+        arm.rotateX((index / 5) * Math.PI * 2);
+        arm.translate(0.045, 0, 0);
+        b.push('metal', arm);
+    }
+    return b.finish().metal;
+}
+
+// ---- Cuerpo en el espacio del torso (origen en la pelvis, y a lo largo de la espalda, z hacia el pecho) ----
+const NECK_BASE = v(0, 0.575, 0.01);
+const SHOULDER_Y = 0.48;
+const SHOULDER_X = 0.185;
+
+const jerseyArch = (y) => -0.012 * Math.sin(Math.PI * (y / 0.58));
+const JERSEY_SECTIONS = [
+    { y: 0.03, width: 0.3, depth: 0.2 },
+    { y: 0.16, width: 0.29, depth: 0.2 },
+    { y: 0.28, width: 0.28, depth: 0.2 },
+    { y: 0.4, width: 0.335, depth: 0.22 },
+    { y: 0.48, width: 0.385, depth: 0.19 },
+    { y: 0.54, width: 0.3, depth: 0.14 },
+    { y: 0.575, width: 0.13, depth: 0.11 },
+];
+
+// Sombreado por vértice del maillot: más oscuro en el bajo, en el pliegue de la cintura y en los costados;
+// da volumen sin coste extra (el color se multiplica con el del material). angle: 0 = costado, PI/2 = pecho.
+function jerseyShade(y, angle) {
+    const t = THREE.MathUtils.smoothstep(y, 0.05, 0.5);
+    const crease = 0.1 * Math.exp(-(((y - 0.16) / 0.05) ** 2));
+    const side = 0.1 * Math.cos(angle) ** 2;
+    const back = 0.06 * Math.max(0, -Math.sin(angle));
+    return THREE.MathUtils.clamp(0.8 + 0.2 * t - crease - side - back, 0.5, 1);
+}
+
+// Interpola ancho y profundidad del tronco a una altura dada (mismo perfil lineal que el loft).
+function jerseySectionAt(y) {
+    for (let index = 0; index < JERSEY_SECTIONS.length - 1; index += 1) {
+        const a = JERSEY_SECTIONS[index];
+        const c = JERSEY_SECTIONS[index + 1];
+        if (y >= a.y && y <= c.y) {
+            const t = (y - a.y) / (c.y - a.y);
+            return { width: a.width + (c.width - a.width) * t, depth: a.depth + (c.depth - a.depth) * t };
+        }
+    }
+    return JERSEY_SECTIONS[JERSEY_SECTIONS.length - 1];
+}
+
+// Bolsillo trasero: parche fino que copia la superficie elíptica del maillot (sobresale solo `lift` metros),
+// con color de vértice más oscuro que el maillot.
+function createPocketPatch(centerX, yMin, yMax, halfWidth, lift = 0.004, shade = 0.58) {
+    const cols = 4;
+    const rows = 3;
+    const positions = [];
+    const colors = [];
+    const outward = [];
+    for (let row = 0; row <= rows; row += 1) {
+        const y = yMin + ((yMax - yMin) * row) / rows;
+        const { width, depth } = jerseySectionAt(y);
+        const a = width / 2;
+        const c = depth / 2;
+        for (let col = 0; col <= cols; col += 1) {
+            const x = centerX - halfWidth + ((2 * halfWidth) * col) / cols;
+            const k = Math.sqrt(Math.max(0, 1 - (x / a) ** 2));
+            const normal = v(x / (a * a), 0, -k / c).normalize();
+            positions.push(x + normal.x * lift, y, jerseyArch(y) - c * k + normal.z * lift);
+            colors.push(shade, shade, shade);
+            outward.push(normal);
+        }
+    }
+    const indices = [];
+    for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+            const i = row * (cols + 1) + col;
+            indices.push(i, i + 1, i + cols + 1, i + 1, i + cols + 2, i + cols + 1);
+        }
+    }
+    // Garantiza que la cara visible mire hacia fuera (la espalda es -z).
+    const pa = v(positions[indices[0] * 3], positions[indices[0] * 3 + 1], positions[indices[0] * 3 + 2]);
+    const pb = v(positions[indices[1] * 3], positions[indices[1] * 3 + 1], positions[indices[1] * 3 + 2]);
+    const pc = v(positions[indices[2] * 3], positions[indices[2] * 3 + 1], positions[indices[2] * 3 + 2]);
+    const face = pb.sub(pa).cross(pc.sub(pa));
+    if (face.dot(outward[indices[0]]) < 0) {
+        for (let index = 0; index < indices.length; index += 3) [indices[index + 1], indices[index + 2]] = [indices[index + 2], indices[index + 1]];
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(outward.flatMap((n) => [n.x, n.y, n.z]), 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+    return geometry;
+}
+
+function buildTorsoParts() {
+    const b = new Baker();
+    // Cintura marcada, caja torácica y hombros: esbelto, sin barriga.
+    b.loft('jersey', loftSections(JERSEY_SECTIONS, jerseyArch), 18, jerseyShade);
+    // Diseño: canesú de hombros y franja en el bajo con el color secundario, cremallera y tres bolsillos
+    // traseros pegados al maillot (en un tono oscuro del propio maillot).
+    b.loft('jerseySec', loftSections([
+        { y: 0.41, width: 0.34, depth: 0.226 },
+        { y: 0.48, width: 0.392, depth: 0.196 },
+        { y: 0.535, width: 0.31, depth: 0.15 },
+    ], jerseyArch), 18, jerseyShade);
+    b.loft('jerseySec', loftSections([
+        { y: 0.028, width: 0.306, depth: 0.206 },
+        { y: 0.1, width: 0.298, depth: 0.204 },
+    ], jerseyArch), 18, jerseyShade);
+    for (const x of [-0.085, 0, 0.085]) b.push('jersey', createPocketPatch(x, 0.17, 0.25, 0.031));
+    b.tube('zip', v(0, 0.3, 0.1), v(0, 0.55, 0.073), 0.004);
+    // Tirantes del culotte asomando por el cuello del maillot.
     for (const side of [-1, 1]) {
-        group.add(
-            tube(v(side * 0.2, 0.97, 0.5), barCenter, 0.019, frameMaterial),
-            tube(v(side * 0.2, 0.97, 0.5), v(side * 0.205, 0.955, 0.6), 0.017, tireMaterial),
-            tube(v(side * 0.205, 0.955, 0.6), v(side * 0.205, 0.855, 0.63), 0.017, tireMaterial),
-            tube(v(side * 0.205, 0.855, 0.63), v(side * 0.2, 0.84, 0.58), 0.017, tireMaterial),
-        );
-        const hood = mark(sphere(0.036, tireMaterial, [0.8, 1, 1.5]), OUTLINE.thin);
-        hood.position.set(side * 0.2, 0.965, 0.585);
-        group.add(hood);
+        b.tube('strap', v(side * 0.05, 0.585, 0.04), v(side * 0.075, 0.51, 0.085), 0.008);
+        b.tube('strap', v(side * 0.05, 0.585, -0.03), v(side * 0.07, 0.52, -0.08), 0.008);
     }
-    const saddle = mark(sphere(1, tireMaterial, [0.085, 0.032, 0.16]), OUTLINE.thin);
-    saddle.position.copy(BIKE.saddle).add(v(0, 0.014, -0.02));
-    saddle.rotation.x = -0.05;
-    const chainring = mark(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.014, 16), metalMaterial), OUTLINE.thin);
-    chainring.rotation.z = Math.PI / 2;
-    chainring.position.copy(bb).add(v(0.05, 0, 0));
-    group.add(saddle, chainring);
-    const leftCrank = tube(bb, bb, 0.02, metalMaterial);
-    const rightCrank = tube(bb, bb, 0.02, metalMaterial);
-    group.add(leftCrank, rightCrank);
+    return b.finish();
+}
 
-    // Bidón, cadena, desviador y potencia: detalles de bici de carretera moderna.
-    const bottleMaterial = toon(0xf4f1e6);
-    const bottle = createTube(v(0, 0.45, 0.115), v(0, 0.61, 0.255), 0.03, bottleMaterial);
-    const bottleCap = createTube(v(0, 0.61, 0.255), v(0, 0.635, 0.28), 0.019, tireMaterial);
-    const chainTop = createTube(v(0.05, 0.38, 0), v(0.05, 0.392, -0.41), 0.005, tireMaterial);
-    const chainBottom = createTube(v(0.05, 0.16, 0), v(0.05, 0.285, -0.41), 0.005, tireMaterial);
-    const derailleur = mark(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.045), tireMaterial), OUTLINE.thin);
-    derailleur.position.copy(BIKE.rearHub).add(v(0.05, -0.075, -0.015));
-    const forkCrown = mark(sphere(0.04, frameMaterial, [0.8, 0.7, 1]), OUTLINE.thin);
-    forkCrown.position.copy(BIKE.headBottom).add(v(0, -0.01, 0.01));
-    group.add(bottle, bottleCap, chainTop, chainBottom, derailleur, forkCrown);
+// Culotte en la pelvis: dos glúteos y la banda de la cintura (se asienta sobre el sillín).
+function buildHipsParts() {
+    const b = new Baker();
+    b.blob('shorts', [0, 0.01, -0.01], [0.155, 0.1, 0.115]);
+    for (const side of [-1, 1]) b.blob('shorts', [side * 0.055, -0.015, -0.045], [0.085, 0.085, 0.095]);
+    return b.finish();
+}
 
-    const body = new THREE.Group();
-    group.add(body);
+// Cabeza pequeña, casco aerodinámico con ventilaciones, gafas y correas (origen en el centro de la cabeza).
+function buildHeadParts() {
+    const b = new Baker();
+    b.blob('skin', [0, 0, 0], [0.072, 0.1, 0.088]);
+    b.blob('skin', [0, -0.06, 0.02], [0.052, 0.05, 0.06]);
+    b.blob('skin', [0, -0.012, 0.088], [0.012, 0.02, 0.016], [0.3, 0, 0]);
+    for (const side of [-1, 1]) b.blob('skin', [side * 0.073, -0.005, -0.012], [0.01, 0.02, 0.016]);
+    // Pelo que asoma bajo el casco: nuca y patillas.
+    b.blob('hair', [0, -0.04, -0.062], [0.066, 0.048, 0.046]);
+    b.blob('hair', [0, -0.075, -0.045], [0.05, 0.036, 0.04]);
+    for (const side of [-1, 1]) b.blob('hair', [side * 0.068, -0.02, 0.0], [0.014, 0.035, 0.024]);
 
-    // ---- Ciclista rechoncho: cabeza y casco enormes, torso redondo, extremidades gruesas ----
-    const pelvis = v(0, BODY.hipHeight + 0.01, BODY.hipZ);
-    const shoulders = v(0, 1.35, 0.18);
-    const spineAt = (t) => pelvis.clone().lerp(shoulders, t).add(v(0, 0.022 * Math.sin(Math.PI * t), 0));
-    // Cadera ancha, cintura marcada, caja torácica y hombros anchos; el eje se arquea hacia la espalda.
-    const torsoSections = [
-        { t: 0, width: 0.36, depth: 0.27, lift: 0 },
-        { t: 0.18, width: 0.32, depth: 0.24, lift: 0.012 },
-        { t: 0.4, width: 0.31, depth: 0.25, lift: 0.02 },
-        { t: 0.66, width: 0.38, depth: 0.28, lift: 0.024 },
-        { t: 0.88, width: 0.46, depth: 0.25, lift: 0.014 },
-        { t: 1.0, width: 0.42, depth: 0.2, lift: 0 },
-        { t: 1.08, width: 0.2, depth: 0.15, lift: 0 },
-    ].map(({ t, width, depth, lift }) => ({ center: spineAt(t).add(v(0, lift, 0)), width, depth }));
-    const torso = mark(new THREE.Mesh(createLoft(torsoSections, 22), jerseyMaterial), OUTLINE.normal);
-    // Culote: dos glúteos redondeados unidos por una zona central, asentados sobre el sillín.
-    const shorts = new THREE.Group();
+    // Gafas envolventes: dos lentes, puente y patillas.
     for (const side of [-1, 1]) {
-        const glute = mark(sphere(1, shortsMaterial, [0.104, 0.1, 0.108]), OUTLINE.normal);
-        glute.position.set(side * 0.05, 0.99, -0.238);
-        shorts.add(glute);
+        b.blob('glasses', [side * 0.032, 0.012, 0.08], [0.032, 0.02, 0.012], [0, side * 0.3, 0]);
+        b.tube('glasses', v(side * 0.062, 0.01, 0.07), v(side * 0.075, 0.005, -0.02), 0.003);
     }
-    const hipBand = mark(sphere(1, shortsMaterial, [0.165, 0.098, 0.15]), OUTLINE.normal);
-    hipBand.position.set(0, 0.998, -0.218);
-    shorts.add(hipBand);
-    body.add(torso, shorts);
+    b.blob('glasses', [0, 0.016, 0.088], [0.01, 0.004, 0.006]);
 
-    const headCenter = v(0, 1.52, 0.33);
-    // Casco, gafas y correas: van en el cuerpo procedural o, con avatar, siguen a la cabeza del avatar.
-    const headAccessories = new THREE.Group();
-    body.add(headAccessories);
-    const head = mark(sphere(0.146, skinMaterial, [0.95, 1.03, 1]), OUTLINE.normal);
-    head.position.copy(headCenter);
-    // Cara: mandíbula y mentón, mejillas, nariz con puente y boca.
-    const jaw = sphere(0.095, skinMaterial, [0.9, 0.8, 0.96]);
-    jaw.position.copy(headCenter).add(v(0, -0.082, 0.004));
-    const chin = sphere(0.024, skinMaterial, [1, 0.85, 0.9]);
-    chin.position.copy(headCenter).add(v(0, -0.13, 0.07));
-    const cheeks = [-1, 1].map((side) => {
-        const cheek = sphere(0.03, skinMaterial, [1, 0.9, 0.7]);
-        cheek.position.copy(headCenter).add(v(side * 0.068, -0.05, 0.066));
-        return cheek;
-    });
-    const nose = sphere(1, skinMaterial, [0.017, 0.03, 0.024]);
-    nose.position.copy(headCenter).add(v(0, -0.03, 0.138));
-    nose.rotation.x = 0.25;
-    const noseTip = sphere(0.015, skinMaterial);
-    noseTip.position.copy(headCenter).add(v(0, -0.048, 0.149));
-    const mouth = sphere(1, toon(0x9a5656), [0.036, 0.007, 0.012]);
-    mouth.position.copy(headCenter).add(v(0, -0.092, 0.122));
-    const eyes = [-1, 1].map((side) => {
-        const eye = sphere(0.013, eyeMaterial, [0.7, 1.2, 0.5]);
-        eye.position.copy(headCenter).add(v(side * 0.058, 0.016, 0.134));
-        return eye;
-    });
-    const hair = mark(sphere(0.1, hairMaterial, [0.98, 0.62, 0.62]), OUTLINE.thin);
-    hair.position.copy(headCenter).add(v(0, -0.055, -0.1));
-    const glassesMaterial = toon(0x151c20, { roughness: 0.25, metalness: 0.3 });
-    // Dos lentes y un puente fino pegados a la cara: de lado y de frente se leen como gafas de sol.
-    const glasses = new THREE.Group();
-    for (const side of [-1, 1]) {
-        const lens = sphere(1, glassesMaterial, [0.052, 0.032, 0.022]);
-        lens.position.set(side * 0.058, 0, 0);
-        glasses.add(lens);
-    }
-    glasses.add(sphere(1, glassesMaterial, [0.02, 0.008, 0.012]));
-    glasses.position.copy(headCenter).add(v(0, 0.012, 0.128));
-    glasses.rotation.x = 0.1;
-    const ears = [-1, 1].map((side) => {
-        const ear = sphere(0.027, skinMaterial, [0.5, 1, 0.8]);
-        ear.position.copy(headCenter).add(v(side * 0.14, -0.005, -0.015));
-        return ear;
-    });
-    const neck = tube(v(0, 1.36, 0.2), headCenter.clone().add(v(0, -0.1, -0.03)), 0.065, skinMaterial, OUTLINE.thin);
-
-    // Casco aerodinámico de carretera: cúpula alargada con cola, ranuras de ventilación y correas.
-    // Perfil de cabeza a cola en el sistema del casco (z hacia delante, y arriba).
-    const helmetProfile = [
+    // Casco: cúpula alargada con cola; el perfil va de la frente a la cola (z hacia delante, y arriba).
+    const scale = 0.62;
+    const profile = [
         { z: 0.215, y: -0.005, w: 0.15, h: 0.09 },
         { z: 0.15, y: 0.02, w: 0.245, h: 0.165 },
         { z: 0.05, y: 0.036, w: 0.28, h: 0.215 },
@@ -347,104 +610,252 @@ export function createCyclist({ accent, ghost, style = getCyclistStyle() }) {
         { z: -0.17, y: 0.018, w: 0.21, h: 0.17 },
         { z: -0.27, y: -0.004, w: 0.12, h: 0.1 },
         { z: -0.34, y: -0.022, w: 0.04, h: 0.036 },
-    ];
-    const helmet = new THREE.Group();
-    helmet.position.copy(headCenter).add(v(0, 0.082, -0.03));
-    helmet.rotation.x = -0.1;
-    const helmetShell = mark(new THREE.Mesh(
-        createLoft(helmetProfile.map(({ z, y, w, h }) => ({ center: v(0, y, z), width: w, depth: h })), 24),
-        helmetMaterial,
-    ), OUTLINE.bold);
-    helmet.add(helmetShell);
-    // Altura de la cúpula en (x, z): interpola entre secciones del perfil.
-    const helmetTopY = (x, z) => {
-        for (let index = 0; index < helmetProfile.length - 1; index += 1) {
-            const a = helmetProfile[index];
-            const b = helmetProfile[index + 1];
-            if (z <= a.z && z >= b.z) {
-                const t = (a.z - z) / (a.z - b.z);
-                const lerp = (key) => a[key] + (b[key] - a[key]) * t;
+    ].map(({ z, y, w, h }) => ({ z: z * scale, y: y * scale, w: w * scale, h: h * scale }));
+    const topY = (x, z) => {
+        for (let index = 0; index < profile.length - 1; index += 1) {
+            const a = profile[index];
+            const c = profile[index + 1];
+            if (z <= a.z && z >= c.z) {
+                const t = (a.z - z) / (a.z - c.z);
+                const lerp = (key) => a[key] + (c[key] - a[key]) * t;
                 const across = Math.min(Math.abs(x) / (lerp('w') / 2), 0.98);
                 return lerp('y') + (lerp('h') / 2) * Math.sqrt(1 - across * across);
             }
         }
         return 0;
     };
-    // Ranuras de ventilación alargadas a cada lado de la cresta, más una entrada frontal.
+    b.base = new THREE.Matrix4().makeTranslation(0, 0.04, -0.012).multiply(new THREE.Matrix4().makeRotationX(-0.06));
+    b.loft('helmet', profile.map(({ z, y, w, h }) => ({ center: v(0, y, z), width: w, depth: h })), 20);
     for (const z of [0.085, -0.035, -0.15]) {
         for (const x of [-0.05, 0.05]) {
-            const slot = sphere(1, ventMaterial, [0.011, 0.005, 0.048]);
-            slot.position.set(x, helmetTopY(x, z) - 0.003, z);
-            slot.rotation.z = -x * 2.2;
-            helmet.add(slot);
+            b.blob('vent', [x * scale, topY(x * scale, z * scale) - 0.002, z * scale], [0.011 * scale, 0.005, 0.048 * scale], [0, 0, -x * 2.2]);
         }
     }
-    const intake = sphere(1, ventMaterial, [0.05, 0.01, 0.018]);
-    intake.position.set(0, helmetTopY(0, 0.19) - 0.002, 0.19);
-    helmet.add(intake);
-    // Correas bajo la barbilla (sistema de la cabeza, no del casco).
-    const strapMaterial = toon(0x1b2227);
-    const straps = [];
-    for (const side of [-1, 1]) {
-        straps.push(
-            createTube(headCenter.clone().add(v(side * 0.118, 0.012, 0.02)), headCenter.clone().add(v(side * 0.06, -0.128, 0.058)), 0.006, strapMaterial),
-        );
-    }
-    straps.push(createTube(
-        headCenter.clone().add(v(-0.06, -0.128, 0.058)),
-        headCenter.clone().add(v(0.06, -0.128, 0.058)),
-        0.006,
-        strapMaterial,
-    ));
-    body.add(head, jaw, chin, ...cheeks, nose, noseTip, mouth, ...eyes, ...ears, hair, neck);
-    headAccessories.add(helmet, glasses, ...straps);
+    b.blob('vent', [0, topY(0, 0.19 * scale) - 0.001, 0.19 * scale], [0.05 * scale, 0.006, 0.018 * scale]);
+    b.base = null;
 
-    for (const side of [-1, 1]) {
-        const shoulder = v(side * 0.2, 1.31, 0.15);
-        const hand = v(side * 0.2, 0.97, 0.575);
-        const elbow = solveTwoBone(shoulder, hand, BODY.upperArm, BODY.forearm, v(side * 1, -0.25, -0.15));
-        const sleeveEnd = shoulder.clone().lerp(elbow, 0.55);
-        const sleeve = mark(makeTaperedTube(0.07, 0.062, jerseyMaterial), OUTLINE.thin);
-        const upperSkin = mark(makeTaperedTube(0.058, 0.05, skinMaterial), OUTLINE.thin);
-        const forearm = mark(makeTaperedTube(0.05, 0.04, skinMaterial), OUTLINE.thin);
-        alignTube(sleeve, shoulder, sleeveEnd);
-        alignTube(upperSkin, sleeveEnd, elbow);
-        alignTube(forearm, elbow, hand);
-        const shoulderCap = mark(sphere(0.066, jerseyMaterial), OUTLINE.thin);
-        shoulderCap.position.copy(shoulder);
-        // El codo es del mismo radio que el brazo: sin bulto, solo cierra la unión.
-        const elbowJoint = sphere(0.05, skinMaterial);
-        elbowJoint.position.copy(elbow);
-        const sleeveDirection = sleeveEnd.clone().sub(shoulder).normalize();
-        const cuff = makeTaperedTube(0.067, 0.067, sockMaterial);
-        alignTube(cuff, sleeveEnd.clone().addScaledVector(sleeveDirection, -0.03), sleeveEnd.clone().addScaledVector(sleeveDirection, 0.004));
-        const glove = mark(sphere(0.05, gloveMaterial, [0.95, 0.9, 1.2]), OUTLINE.thin);
-        glove.position.copy(hand).add(v(0, 0.016, 0.015));
-        body.add(sleeve, cuff, upperSkin, forearm, shoulderCap, elbowJoint, glove);
-    }
+    // Correas bajo la barbilla.
+    for (const side of [-1, 1]) b.tube('strap', v(side * 0.075, 0.0, 0.02), v(side * 0.04, -0.105, 0.04), 0.0035);
+    b.tube('strap', v(-0.04, -0.105, 0.04), v(0.04, -0.105, 0.04), 0.0035);
+    return b.finish();
+}
 
-    // ---- Piernas gruesas: pantalón, muslo, gemelo, calcetín y zapatilla; se recolocan por frame con IK ----
+// ---- Materiales neutros compartidos ----
+const neutralMaterials = new Map();
+
+let blobTexture = null;
+function getBlobShadowTexture() {
+    if (blobTexture) return blobTexture;
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    context.translate(64, 128);
+    context.scale(1, 2);
+    const gradient = context.createRadialGradient(0, 0, 0, 0, 0, 62);
+    gradient.addColorStop(0, 'rgba(0,0,0,0.85)');
+    gradient.addColorStop(0.5, 'rgba(0,0,0,0.35)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    context.fillStyle = gradient;
+    context.fillRect(-64, -64, 128, 128);
+    blobTexture = new THREE.CanvasTexture(canvas);
+    return blobTexture;
+}
+
+export function createCyclist({
+    accent,
+    ghost,
+    style = getCyclistStyle(),
+    bikeColor,
+    position,
+    secondary,
+} = {}) {
+    const group = new THREE.Group();
+    const tone = (color) => (ghost ? GHOST_COLOR : color);
+    const ghostProps = ghost
+        ? { transparent: true, opacity: 0.4, depthWrite: false, emissive: GHOST_COLOR, emissiveIntensity: 0.5 }
+        : {};
+    // 'toon' = tres escalones de luz; 'soft' = sombreado suave, más cercano a un juego realista.
+    const makeMaterial = (color, { rough = 0.78, metal = 0.02, flatShading, ...extra } = {}) => (style.shading === 'toon'
+        ? new THREE.MeshToonMaterial({ color: tone(color), gradientMap: getToonGradient(), ...ghostProps, ...extra })
+        : new THREE.MeshStandardMaterial({ color: tone(color), roughness: rough, metalness: metal, ...(flatShading ? { flatShading } : {}), ...ghostProps, ...extra }));
+    const neutral = (name, color, extra) => {
+        const key = `${style.shading}|${ghost ? 1 : 0}|${name}`;
+        if (!neutralMaterials.has(key)) {
+            const material = makeMaterial(color, extra);
+            material.userData.shared = true;
+            neutralMaterials.set(key, material);
+        }
+        return neutralMaterials.get(key);
+    };
+
+    // Propios de cada ciclista: el renderer anima el detalle de color y el usuario cambia maillot y pintura.
+    const accentColor = new THREE.Color(accent);
+    const luminance = accentColor.r * 0.3 + accentColor.g * 0.59 + accentColor.b * 0.11;
+    const secondaryColor = secondary ?? (luminance > 0.62 ? 0x1f2a36 : 0xf2f4f5);
+    // Sin opciones explícitas (expedición, rivales) se usan las preferencias guardadas del usuario.
+    const saved = bikeColor === undefined || position === undefined ? readSavedRiderPrefs() : null;
+    const initialPaint = resolveBikeColor(bikeColor ?? saved?.bikeColor ?? BIKE_PAINTS[0].color);
+    const initialPosition = position ?? saved?.position ?? DEFAULT_RIDER_POSITION;
+    const M = {
+        // El tronco lleva color por vértice (volumen); mangas y hombreras usan el mismo color sin degradado.
+        jersey: makeMaterial(accent, { emissive: accent, emissiveIntensity: ghost ? 0.5 : 0.1, vertexColors: true }),
+        jerseyArm: makeMaterial(accent, { emissive: accent, emissiveIntensity: ghost ? 0.5 : 0.1 }),
+        jerseySec: makeMaterial(secondaryColor, { ...(ghost ? {} : { emissive: secondaryColor, emissiveIntensity: 0.04 }), vertexColors: true }),
+        // Detalles de color (franja de las zapatillas, tubo diagonal): es el material que el renderer anima con el flow.
+        accent: makeMaterial(accent, { emissive: accent, emissiveIntensity: ghost ? 0.9 : 0.35 }),
+        paint: makeMaterial(initialPaint, { rough: 0.4, metal: 0.25 }),
+        skin: neutral('skin', PALETTE.skin),
+        hair: neutral('hair', PALETTE.hair),
+        glasses: neutral('glasses', 0x141b22, { rough: 0.25, metal: 0.3 }),
+        helmet: neutral('helmet', PALETTE.helmet, { rough: 0.45 }),
+        vent: neutral('vent', PALETTE.helmetVent, { flatShading: true }),
+        strap: neutral('strap', 0x1b2227),
+        shorts: neutral('shorts', PALETTE.shorts),
+        zip: neutral('zip', 0xe9ecec, { flatShading: true }),
+        shoe: neutral('shoe', PALETTE.shoe),
+        sock: neutral('sock', PALETTE.sock),
+        glove: neutral('glove', PALETTE.glove),
+        rubber: neutral('rubber', PALETTE.rubber),
+        tape: neutral('tape', PALETTE.tape),
+        tire: neutral('tire', PALETTE.tire),
+        rim: neutral('rim', PALETTE.rim, { rough: 0.5, metal: 0.15, flatShading: true }),
+        metal: neutral('metal', PALETTE.metal, { rough: 0.45, metal: 0.15, flatShading: true }),
+        bottle: neutral('bottle', PALETTE.bottle, { flatShading: true }),
+    };
+    const spokeKey = `spoke|${ghost ? 1 : 0}`;
+    if (!neutralMaterials.has(spokeKey)) {
+        const material = new THREE.LineBasicMaterial({ color: tone(PALETTE.spoke), transparent: true, opacity: ghost ? 0.3 : 0.9 });
+        material.userData.shared = true;
+        neutralMaterials.set(spokeKey, material);
+    }
+    const spokeMaterial = neutralMaterials.get(spokeKey);
+
+    // Los meshes que llevan contorno se anotan aquí y se les añade al final.
+    const outlined = new Map();
+    const mark = (mesh, thickness = OUTLINE.normal) => {
+        outlined.set(mesh, thickness);
+        return mesh;
+    };
+    const blobMesh = (radii, material) => {
+        const mesh = new THREE.Mesh(unitSphere(), material);
+        mesh.scale.set(...(Array.isArray(radii) ? radii : [radii, radii, radii]));
+        return mesh;
+    };
+    const taperedMesh = (startRadius, endRadius, material) => new THREE.Mesh(tubeGeometry(startRadius, endRadius), material);
+    const addBaked = (parent, parts, outlineSlots = {}) => {
+        Object.entries(parts).forEach(([slot, geometry]) => {
+            const mesh = new THREE.Mesh(geometry, M[slot]);
+            parent.add(mesh);
+            if (outlineSlots[slot]) mark(mesh, outlineSlots[slot]);
+        });
+    };
+
+    // ---- Ruedas: cubierta + llanta con perfil + radios; la cubierta apoya justo en el suelo ----
+    const wheelParts = getBaked('wheels', buildWheelParts);
+    const buildWheel = (rear) => {
+        const wheel = new THREE.Group();
+        const tire = mark(new THREE.Mesh(wheelParts.tire, M.tire), OUTLINE.thin);
+        const rim = new THREE.Mesh(rear ? wheelParts.rimRear : wheelParts.rimFront, M.rim);
+        wheel.add(tire, rim, new THREE.LineSegments(wheelParts.spokes, spokeMaterial));
+        return wheel;
+    };
+    const rearWheel = buildWheel(true);
+    rearWheel.position.copy(BIKE.rearHub);
+    const frontWheel = buildWheel(false);
+    frontWheel.position.copy(BIKE.frontHub);
+    group.add(rearWheel, frontWheel);
+
+    // ---- Cuadro, manillar, sillín: un mesh por material ----
+    addBaked(group, getBaked('bike', buildBikeStatic), { paint: OUTLINE.thin });
+    const { bottomBracket: bb } = BIKE;
+    const chainring = new THREE.Mesh(getBaked('chainring', buildChainring), M.metal);
+    chainring.position.copy(bb);
+    group.add(chainring);
+    const leftCrank = new THREE.Mesh(tubeGeometry(0.011), M.metal);
+    const rightCrank = new THREE.Mesh(tubeGeometry(0.011), M.metal);
+    group.add(leftCrank, rightCrank);
+
+    // Extensiones de triatlón y apoyos de antebrazo (fijos a la bici): solo en posición aero.
+    const aeroBars = new THREE.Group();
+    addBaked(aeroBars, getBaked('aero', buildAeroBars));
+    group.add(aeroBars);
+
+    // ---- Cuerpo: pelvis fija sobre el sillín, torso que se inclina y piernas con IK ----
+    const body = new THREE.Group();
+    group.add(body);
+    const pelvis = v(0, BODY.hipHeight, BODY.hipZ);
+
+    const hips = new THREE.Group();
+    hips.rotation.order = 'ZXY';
+    hips.position.copy(pelvis);
+    addBaked(hips, getBaked('hips', buildHipsParts), { shorts: OUTLINE.normal });
+    const torso = new THREE.Group();
+    // Orden ZXY: el balanceo se aplica sobre el eje longitudinal de la bici, no sobre el de la espalda inclinada.
+    torso.rotation.order = 'ZXY';
+    torso.position.copy(pelvis);
+    addBaked(torso, getBaked('torso', buildTorsoParts), { jersey: OUTLINE.normal });
+    body.add(hips, torso);
+
+    // Cabeza, cuello, casco y gafas: siguen al torso y se contrarrotan para seguir mirando al frente.
+    const headGroup = new THREE.Group();
+    const headParts = getBaked('head', buildHeadParts);
+    addBaked(headGroup, headParts, { skin: OUTLINE.thin, helmet: OUTLINE.bold });
+    const neck = mark(taperedMesh(0.043, 0.039, M.skin), OUTLINE.thin);
+    torso.add(headGroup, neck);
+
+    // Brazos finos: manga corta, brazo, antebrazo y guante; se recolocan al cambiar de posición.
+    const makeArm = () => ({
+        sleeve: mark(taperedMesh(0.056, 0.049, M.jerseyArm), OUTLINE.thin),
+        upper: mark(taperedMesh(0.043, 0.038, M.skin), OUTLINE.thin),
+        fore: mark(taperedMesh(0.036, 0.027, M.skin), OUTLINE.thin),
+        cap: mark(blobMesh(0.057, M.jerseyArm), OUTLINE.thin),
+        elbow: blobMesh(0.038, M.skin),
+        glove: mark(blobMesh([0.036, 0.031, 0.05], M.glove), OUTLINE.thin),
+    });
+    const arms = [makeArm(), makeArm()];
+    arms.forEach((arm) => torso.add(...Object.values(arm)));
+
+    // ---- Piernas: culotte, muslo, gemelo, calcetín y zapatilla; se recolocan por frame con IK ----
     const makeLeg = () => ({
-        short: mark(makeTaperedTube(0.098, 0.082, shortsMaterial), OUTLINE.thin),
-        thigh: mark(makeTaperedTube(0.078, 0.064, skinMaterial), OUTLINE.thin),
-        calf: mark(makeTaperedTube(0.066, 0.042, skinMaterial), OUTLINE.thin),
-        sock: mark(makeTaperedTube(0.047, 0.044, sockMaterial), OUTLINE.thin),
-        knee: sphere(0.064, skinMaterial),
-        shoe: mark(sphere(1, shoeMaterial, [0.06, 0.052, 0.145]), OUTLINE.thin),
-        stripe: sphere(1, accentMaterial, [0.052, 0.014, 0.085]),
-        pedal: new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.016, 0.105), frameMaterial),
+        short: mark(taperedMesh(0.077, 0.066, M.shorts), OUTLINE.thin),
+        thigh: mark(taperedMesh(0.063, 0.05, M.skin), OUTLINE.thin),
+        calf: mark(taperedMesh(0.05, 0.034, M.skin), OUTLINE.thin),
+        sock: mark(taperedMesh(0.037, 0.036, M.sock), OUTLINE.thin),
+        knee: blobMesh(0.05, M.skin),
+        shoe: mark(blobMesh([0.04, 0.034, 0.115], M.shoe), OUTLINE.thin),
+        stripe: blobMesh([0.03, 0.008, 0.06], M.accent),
+        pedal: new THREE.Mesh(sharedGeometry('pedal', () => new THREE.BoxGeometry(0.07, 0.014, 0.1)), M.rubber),
     });
     const leftLeg = makeLeg();
     const rightLeg = makeLeg();
     for (const leg of [leftLeg, rightLeg]) body.add(...Object.values(leg));
 
-    const blob = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.9, 1.9),
-        new THREE.MeshBasicMaterial({ map: getBlobShadowTexture(), transparent: true, opacity: ghost ? 0.12 : 0.5, depthWrite: false }),
-    );
-    blob.rotation.x = -Math.PI / 2;
-    blob.position.set(0, 0.02, 0);
-    group.add(blob);
+    // Sombras de contacto (suelo bajo cada cubierta y bajo el conjunto); el ghost no proyecta.
+    if (!ghost) {
+        const shadowMaterial = (opacity) => {
+            const key = `shadow|${opacity}`;
+            if (!neutralMaterials.has(key)) {
+                const material = new THREE.MeshBasicMaterial({ map: getBlobShadowTexture(), transparent: true, opacity, depthWrite: false });
+                material.userData.shared = true;
+                neutralMaterials.set(key, material);
+            }
+            return neutralMaterials.get(key);
+        };
+        const contactGeometry = sharedGeometry('contact', () => new THREE.PlaneGeometry(0.2, 0.5));
+        for (const hubPosition of [BIKE.rearHub, BIKE.frontHub]) {
+            const contact = new THREE.Mesh(contactGeometry, shadowMaterial(0.75));
+            contact.rotation.x = -Math.PI / 2;
+            contact.position.set(0, 0.012, hubPosition.z);
+            contact.userData.noShadow = true;
+            group.add(contact);
+        }
+        const blob = new THREE.Mesh(sharedGeometry('blob', () => new THREE.PlaneGeometry(0.9, 1.9)), shadowMaterial(0.5));
+        blob.rotation.x = -Math.PI / 2;
+        blob.position.set(0, 0.02, 0);
+        blob.userData.noShadow = true;
+        group.add(blob);
+    }
 
     // Avatar con malla real: sustituye al cuerpo procedural (que queda como respaldo si no carga).
     const avatar = style.avatar !== false && isRiderAvatarReady() ? createAvatarRig({ accent, ghost }) : null;
@@ -466,12 +877,12 @@ export function createCyclist({ accent, ghost, style = getCyclistStyle() }) {
     }
 
     group.traverse((child) => {
-        if (!child.isMesh || child === blob || child.material?.isShaderMaterial) return;
+        if (!child.isMesh || child.userData.noShadow || child.material?.isShaderMaterial) return;
         child.castShadow = !ghost;
         child.receiveShadow = !ghost;
     });
 
-    return {
+    const cyclist = {
         group,
         rearWheel,
         frontWheel,
@@ -481,107 +892,197 @@ export function createCyclist({ accent, ghost, style = getCyclistStyle() }) {
         rightCrank,
         crankRing: chainring,
         outerRing: chainring,
-        accentMaterial,
+        torso,
+        hips,
+        accentMaterial: M.accent,
         // El jersey conserva su color de identidad; solo los detalles se tiñen con el ambiente del bloque.
-        accentMaterials: [accentMaterial],
+        accentMaterials: [M.accent],
+        paintMaterial: M.paint,
         crankAngle: 0,
         avatar,
+        position: DEFAULT_RIDER_POSITION,
+        bikeColor: initialPaint,
+        cda: RIDER_POSITIONS[DEFAULT_RIDER_POSITION].cda,
+        setBikeColor(color) {
+            cyclist.bikeColor = resolveBikeColor(color);
+            // El ghost conserva su tono azul translúcido.
+            if (!ghost) M.paint.color.setHex(cyclist.bikeColor);
+            return cyclist;
+        },
+        setPosition(name) {
+            const id = POSES[name] ? name : DEFAULT_RIDER_POSITION;
+            const pose = POSES[id];
+            cyclist.position = id;
+            cyclist.cda = RIDER_POSITIONS[id].cda;
+            applyPose(pose);
+            return cyclist;
+        },
     };
+
+    // Inclina el torso, orienta la cabeza y recoloca los brazos sobre manetas, cuernos o extensiones.
+    function applyPose(pose) {
+        const { lean } = pose;
+        torso.rotation.x = lean;
+        hips.rotation.x = lean * 0.3;
+
+        // Cuello y cabeza: en el espacio del torso el cuello se echa hacia atrás lo que se inclina la espalda.
+        const neckAngle = pose.neck - lean;
+        const neckDirection = v(0, Math.cos(neckAngle), Math.sin(neckAngle));
+        alignTube(neck, NECK_BASE.clone().addScaledVector(neckDirection, -0.04), NECK_BASE.clone().addScaledVector(neckDirection, 0.085));
+        headGroup.position.copy(NECK_BASE).addScaledVector(neckDirection, 0.15);
+        headGroup.rotation.x = pose.head - lean;
+
+        // Brazos: IK de dos huesos en el espacio del torso, hacia la mano fijada en el manillar.
+        // En aero el codo queda fijo en el apoyo de antebrazo y solo se orientan los dos huesos.
+        const toTorso = (point) => point.clone().sub(pelvis).applyAxisAngle(X_AXIS, -lean);
+        [-1, 1].forEach((side, index) => {
+            const arm = arms[index];
+            const shoulder = v(side * SHOULDER_X, SHOULDER_Y, 0);
+            const hand = toTorso(v(side * pose.hand.x, pose.hand.y, pose.hand.z));
+            let elbow;
+            if (pose.elbow) {
+                elbow = toTorso(v(side * pose.elbow.x, pose.elbow.y, pose.elbow.z));
+            } else {
+                const pole = v(side * 0.7, -0.6, -0.2).applyAxisAngle(X_AXIS, -lean);
+                elbow = solveTwoBone(shoulder, hand, BODY.upperArm, BODY.forearm, pole, new THREE.Vector3());
+            }
+            const sleeveEnd = shoulder.clone().lerp(elbow, 0.5);
+            alignTube(arm.sleeve, shoulder, sleeveEnd);
+            alignTube(arm.upper, sleeveEnd, elbow);
+            alignTube(arm.fore, elbow, hand);
+            arm.cap.position.copy(shoulder);
+            arm.elbow.position.copy(elbow);
+            arm.glove.position.copy(hand);
+            // Guante en el mundo: alineado con la bici y cabeceado según la presa (sobre maneta, caída o extensión).
+            arm.glove.rotation.x = -lean + pose.glove;
+        });
+        aeroBars.visible = pose.aero;
+    }
+
+    cyclist.setPosition(initialPosition);
+    return cyclist;
 }
 
-export function animateCyclist(cyclist, angle, speed, flow, active) {
-    const wheelRotation = active ? angle * 1.85 : angle;
+/**
+ * Libera lo propio de un ciclista (materiales de maillot/pintura y geometrías no compartidas).
+ * Las geometrías y materiales marcados como compartidos se conservan para el resto de ciclistas.
+ */
+export function disposeCyclist(cyclist) {
+    cyclist.group.removeFromParent();
+    cyclist.group.traverse((object) => {
+        if (!object.isMesh && !object.isLineSegments) return;
+        if (object.geometry && !object.geometry.userData.shared && !object.isSkinnedMesh) object.geometry.dispose();
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach((material) => {
+            if (material && !material.userData.shared) material.dispose();
+        });
+    });
+}
+
+export function animateCyclist(cyclist, angle, speed, flow, active, wheelAngle) {
+    // Si el llamante conoce el giro real de la rueda (velocidad / radio) lo usa; si no, deriva de la biela.
+    const wheelRotation = wheelAngle ?? (active ? angle * 1.85 : angle);
     cyclist.rearWheel.rotation.x = wheelRotation;
     cyclist.frontWheel.rotation.x = wheelRotation;
+
+    // Ligera oscilación de cadera y torso: sube y baja dos veces por vuelta de biela y se balancea de lado a lado.
+    const bob = active ? Math.sin(angle * 2) * 0.003 : 0;
+    const roll = active ? Math.sin(angle) * 0.018 : 0;
+    const hipY = BODY.hipHeight + bob;
+    cyclist.hips.position.y = hipY;
+    cyclist.hips.rotation.z = roll * 0.5;
+    cyclist.torso.position.y = hipY;
+    cyclist.torso.rotation.z = roll;
+
     // Un pie por lado: el izquierdo va con el ángulo, el derecho desfasado 180°.
-    const leftPedal = poseLeg(cyclist.leftLeg, -1, angle).clone();
-    const rightPedal = poseLeg(cyclist.rightLeg, 1, angle + Math.PI).clone();
+    poseLeg(cyclist.leftLeg, -1, angle, hipY, _pedalLeft);
+    poseLeg(cyclist.rightLeg, 1, angle + Math.PI, hipY, _pedalRight);
     const bb = BIKE.bottomBracket;
-    alignTube(cyclist.leftCrank, bb.clone().add(_crankSide.set(-0.075, 0, 0)), leftPedal);
-    alignTube(cyclist.rightCrank, bb.clone().add(_crankSide.set(0.075, 0, 0)), rightPedal);
+    alignTube(cyclist.leftCrank, _crankStart.copy(bb).add(_crankSide.set(-0.07, 0, 0)), _pedalLeft);
+    alignTube(cyclist.rightCrank, _crankStart.copy(bb).add(_crankSide.set(0.07, 0, 0)), _pedalRight);
     cyclist.crankRing.rotation.x = angle;
-    cyclist.avatar?.update(cyclist.group, leftPedal, rightPedal);
+    cyclist.avatar?.update(cyclist.group, _pedalLeft, _pedalRight);
     const lean = Math.min(0.055, speed * 0.0018) + flow * 0.012;
     cyclist.group.rotation.z = Math.sin(angle * 0.5) * lean * 0.08;
 }
 
 // ---- Cinemática y geometría auxiliar ----
 
-// Cinemática inversa de dos huesos: devuelve la articulación intermedia (rodilla/codo).
-function solveTwoBone(root, target, lengthA, lengthB, pole) {
-    const toTarget = target.clone().sub(root);
-    const distance = THREE.MathUtils.clamp(toTarget.length(), 0.001, lengthA + lengthB - 0.002);
-    const direction = toTarget.normalize();
+const _toTarget = new THREE.Vector3();
+const _perpendicular = new THREE.Vector3();
+
+// Cinemática inversa de dos huesos: escribe en `out` la articulación intermedia (rodilla/codo).
+function solveTwoBone(root, target, lengthA, lengthB, pole, out) {
+    _toTarget.subVectors(target, root);
+    const distance = THREE.MathUtils.clamp(_toTarget.length(), 0.001, lengthA + lengthB - 0.002);
+    _toTarget.normalize();
     const along = (lengthA * lengthA - lengthB * lengthB + distance * distance) / (2 * distance);
     const height = Math.sqrt(Math.max(lengthA * lengthA - along * along, 0));
-    const perpendicular = pole.clone().sub(direction.clone().multiplyScalar(pole.dot(direction))).normalize();
-    return root.clone().addScaledVector(direction, along).addScaledVector(perpendicular, height);
+    _perpendicular.copy(pole).addScaledVector(_toTarget, -pole.dot(_toTarget)).normalize();
+    return out.copy(root).addScaledVector(_toTarget, along).addScaledVector(_perpendicular, height);
 }
 
 const _hip = new THREE.Vector3();
-const _pedal = new THREE.Vector3();
 const _ankle = new THREE.Vector3();
+const _knee = new THREE.Vector3();
 const _pole = new THREE.Vector3();
 const _mid = new THREE.Vector3();
+const _sockStart = new THREE.Vector3();
 const _crankSide = new THREE.Vector3();
-const _ankleDrop = new THREE.Vector3();
-const _shoeOffset = new THREE.Vector3(0, 0.025, 0.035);
-const _stripeOffset = new THREE.Vector3(0, 0.038, 0.02);
-const _shoeOffsetAnkle = new THREE.Vector3(0, 0.085, -0.1);
+const _crankStart = new THREE.Vector3();
+const _pedalLeft = new THREE.Vector3();
+const _pedalRight = new THREE.Vector3();
+const _shoeOffset = new THREE.Vector3(0, 0.03, 0.03);
+const _stripeOffset = new THREE.Vector3(0, 0.03, 0.015);
+const _ankleOffset = new THREE.Vector3(0, 0.085, -0.08);
 
-function poseLeg(leg, side, angle) {
+function poseLeg(leg, side, angle, hipY, pedalOut) {
     const { bottomBracket, crankLength } = BIKE;
-    _hip.set(side * BODY.hipHalfWidth, BODY.hipHeight, BODY.hipZ);
+    _hip.set(side * BODY.hipHalfWidth, hipY, BODY.hipZ);
     // Delante -> abajo -> detrás -> arriba al aumentar el ángulo (pedaleo hacia delante), igual que el plato.
-    _pedal.set(side * 0.11, bottomBracket.y - Math.sin(angle) * crankLength, Math.cos(angle) * crankLength);
+    pedalOut.set(side * 0.1, bottomBracket.y - Math.sin(angle) * crankLength, Math.cos(angle) * crankLength);
     // El tobillo queda unos centímetros detrás y encima del eje del pedal.
-    _ankle.copy(_pedal).add(_shoeOffsetAnkle).add(_ankleDrop.set(0, Math.max(0, Math.cos(angle) * 0.01), 0));
+    _ankle.copy(pedalOut).add(_ankleOffset);
+    _ankle.y += Math.max(0, Math.cos(angle) * 0.01);
     _pole.set(side * 0.18, 0.35, 1);
-    const knee = solveTwoBone(_hip, _ankle, BODY.thigh, BODY.shin, _pole);
-    _mid.copy(_hip).lerp(knee, 0.62);
-    const sockStart = knee.clone().lerp(_ankle, 0.72);
+    solveTwoBone(_hip, _ankle, BODY.thigh, BODY.shin, _pole, _knee);
+    _mid.copy(_hip).lerp(_knee, 0.55);
+    _sockStart.copy(_knee).lerp(_ankle, 0.72);
     alignTube(leg.short, _hip, _mid);
-    alignTube(leg.thigh, _mid, knee);
-    alignTube(leg.calf, knee, sockStart);
-    alignTube(leg.sock, sockStart, _ankle);
-    leg.knee.position.copy(knee);
-    leg.pedal.position.copy(_pedal);
-    leg.shoe.position.copy(_pedal).add(_shoeOffset);
+    alignTube(leg.thigh, _mid, _knee);
+    alignTube(leg.calf, _knee, _sockStart);
+    alignTube(leg.sock, _sockStart, _ankle);
+    leg.knee.position.copy(_knee);
+    leg.pedal.position.copy(pedalOut);
+    leg.shoe.position.copy(pedalOut).add(_shoeOffset);
     leg.shoe.rotation.x = Math.sin(angle) * 0.12;
     leg.stripe.position.copy(leg.shoe.position).add(_stripeOffset);
     leg.stripe.rotation.x = leg.shoe.rotation.x;
-    return _pedal;
 }
 
-function createTube(start, end, radius, material) {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 1, 14), material);
-    alignTube(mesh, start, end);
-    return mesh;
-}
-
-// Cilindro unitario orientado por alignTube: la base (-y) es el inicio y la tapa (+y) el final.
-function makeTaperedTube(startRadius, endRadius, material) {
-    return new THREE.Mesh(new THREE.CylinderGeometry(endRadius, startRadius, 1, 14, 1), material);
-}
-
+const _alignDirection = new THREE.Vector3();
 function alignTube(mesh, start, end) {
-    const midpoint = start.clone().add(end).multiplyScalar(0.5);
-    const direction = end.clone().sub(start);
-    const length = Math.max(0.001, direction.length());
-    mesh.position.copy(midpoint);
-    mesh.quaternion.setFromUnitVectors(Y_AXIS, direction.normalize());
+    _alignDirection.subVectors(end, start);
+    const length = Math.max(0.001, _alignDirection.length());
+    mesh.position.addVectors(start, end).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(Y_AXIS, _alignDirection.divideScalar(length));
     mesh.scale.set(1, length, 1);
 }
 
-// Superficie elíptica que recorre una lista de secciones (tronco, etc.) con tapas.
-function createLoft(sections, radial = 16) {
-    const positions = [];
-    const indices = [];
+// Superficie elíptica que recorre una lista de secciones (tronco, casco...) con tapas.
+// Normales suaves (la costura queda soldada) y tapas con vértices propios para que no contaminen el sombreado
+// del borde. Con `shade(y, angle)` añade un color por vértice (gradiente suave sobre el color del material).
+function createLoft(sections, radial = 16, shade = null) {
+    const stride = radial + 1;
     const right = new THREE.Vector3(1, 0, 0);
+    const positions = [];
+    const colors = [];
+    const directions = [];
     sections.forEach((section, index) => {
         const next = sections[Math.min(index + 1, sections.length - 1)].center;
         const previous = sections[Math.max(index - 1, 0)].center;
         const direction = next.clone().sub(previous).normalize();
+        directions.push(direction);
         const front = new THREE.Vector3().crossVectors(right, direction).normalize();
         for (let step = 0; step <= radial; step += 1) {
             const angle = (step / radial) * Math.PI * 2;
@@ -589,9 +1090,13 @@ function createLoft(sections, radial = 16) {
                 .addScaledVector(right, Math.cos(angle) * section.width / 2)
                 .addScaledVector(front, Math.sin(angle) * section.depth / 2);
             positions.push(point.x, point.y, point.z);
+            if (shade) {
+                const value = shade(section.center.y, angle);
+                colors.push(value, value, value);
+            }
         }
     });
-    const stride = radial + 1;
+    const indices = [];
     for (let row = 0; row < sections.length - 1; row += 1) {
         for (let step = 0; step < radial; step += 1) {
             const a = row * stride + step;
@@ -599,37 +1104,49 @@ function createLoft(sections, radial = 16) {
             indices.push(a, b, a + 1, a + 1, b, b + 1);
         }
     }
+
+    // Normales del costado y soldadura de la costura (primer y último vértice de cada anillo coinciden).
+    const side = new THREE.BufferGeometry();
+    side.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    side.setIndex(indices);
+    side.computeVertexNormals();
+    const normals = Array.from(side.getAttribute('normal').array);
+    side.dispose();
+    for (let row = 0; row < sections.length; row += 1) {
+        const first = row * stride * 3;
+        const last = (row * stride + radial) * 3;
+        for (let axis = 0; axis < 3; axis += 1) {
+            const mean = (normals[first + axis] + normals[last + axis]) / 2;
+            normals[first + axis] = mean;
+            normals[last + axis] = mean;
+        }
+    }
+
+    // Tapas planas: centro + copia del anillo con la normal de la tapa.
     for (const [ringIndex, flip] of [[0, true], [sections.length - 1, false]]) {
-        const centerIndex = positions.length / 3;
         const center = sections[ringIndex].center;
+        const capNormal = directions[ringIndex].clone().multiplyScalar(flip ? -1 : 1);
+        const centerIndex = positions.length / 3;
+        const capShade = shade ? shade(center.y, Math.PI / 2) : 1;
         positions.push(center.x, center.y, center.z);
+        normals.push(capNormal.x, capNormal.y, capNormal.z);
+        if (shade) colors.push(capShade, capShade, capShade);
+        const ringStart = positions.length / 3;
+        for (let step = 0; step <= radial; step += 1) {
+            const source = (ringIndex * stride + step) * 3;
+            positions.push(positions[source], positions[source + 1], positions[source + 2]);
+            normals.push(capNormal.x, capNormal.y, capNormal.z);
+            if (shade) colors.push(capShade, capShade, capShade);
+        }
         for (let step = 0; step < radial; step += 1) {
-            const a = ringIndex * stride + step;
+            const a = ringStart + step;
             indices.push(...(flip ? [centerIndex, a, a + 1] : [centerIndex, a + 1, a]));
         }
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    if (shade) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
     geometry.setIndex(indices);
-    geometry.computeVertexNormals();
     return geometry;
-}
-
-let blobTexture = null;
-function getBlobShadowTexture() {
-    if (blobTexture) return blobTexture;
-    const canvas = document.createElement('canvas');
-    canvas.width = 128;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-    context.translate(64, 128);
-    context.scale(1, 2);
-    const gradient = context.createRadialGradient(0, 0, 0, 0, 0, 62);
-    gradient.addColorStop(0, 'rgba(0,0,0,0.85)');
-    gradient.addColorStop(0.5, 'rgba(0,0,0,0.35)');
-    gradient.addColorStop(1, 'rgba(0,0,0,0)');
-    context.fillStyle = gradient;
-    context.fillRect(-64, -64, 128, 128);
-    blobTexture = new THREE.CanvasTexture(canvas);
-    return blobTexture;
 }

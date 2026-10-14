@@ -77,6 +77,7 @@ export function createStartGate({ curve, t, title, accentHex }) {
     gate.traverse((child) => {
         if (child.isMesh) child.castShadow = true;
     });
+    gate.scale.setScalar(0.82);
     placeOnRoute(gate, curve, t);
     return { object: gate, dispose: () => disposeTree(gate) };
 }

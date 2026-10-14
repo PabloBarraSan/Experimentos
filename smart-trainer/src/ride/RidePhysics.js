@@ -17,9 +17,10 @@ const DEFAULT_CDA = 0.35; // Coeficiente aerodinámico * área frontal (m²)
 export function createRidePhysics(options = {}) {
     const {
         crr = DEFAULT_CRR,
-        cda = DEFAULT_CDA,
         drivetrainLoss = 0.03, // 3% pérdida en transmisión
     } = options;
+    // CdA mutable: cambia con la posición del ciclista (manetas, cuernos, aero)
+    let cda = options.cda ?? DEFAULT_CDA;
     
     let currentVelocity = 0; // m/s
     
@@ -132,6 +133,17 @@ export function createRidePhysics(options = {}) {
     }
     
     /**
+     * Cambiar el CdA (m²) en caliente; lo usan calculateVelocity, calculateSimpleVelocity y getSimulationParams
+     */
+    function setCda(value) {
+        if (Number.isFinite(value) && value > 0) cda = value;
+    }
+    
+    function getCda() {
+        return cda;
+    }
+    
+    /**
      * Obtener velocidad actual en km/h
      */
     function getSpeedKmh() {
@@ -171,6 +183,8 @@ export function createRidePhysics(options = {}) {
         getSpeedMs,
         reset,
         getSimulationParams,
+        setCda,
+        getCda,
     };
 }
 

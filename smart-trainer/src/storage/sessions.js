@@ -78,6 +78,9 @@ export function createSession(options = {}) {
         plannedWorkoutId = null,
         workoutName = 'Entrenamiento Libre',
         ftp = 200,
+        routeId = null,
+        routeName = null,
+        experienceMode = 'metrics',
     } = options;
     
     return {
@@ -98,7 +101,9 @@ export function createSession(options = {}) {
         status: 'active', // 'active', 'paused', 'completed', 'discarded'
         metrics: null,    // Se calculan al finalizar
         controlMode: 'manual',
-        experienceMode: 'metrics',
+        experienceMode,
+        routeId,    // Ruta del ride virtual (null si no aplica o no tiene id estable)
+        routeName,
         adherence: null,
         gameResult: null,
         // Campos para sincronización con plataformas externas
@@ -205,6 +210,70 @@ export async function getAllSessions() {
 export async function getRecentSessions(limit = 10) {
     const all = await getAllSessions();
     return all.slice(0, limit);
+}
+
+/**
+ * Sesiones completadas de una ruta (solo metadatos), más recientes primero
+ * @returns {Promise<Array<{id, date, duration, totalDistance, avgPower}>>}
+ */
+export async function getSessionsByRoute(routeId) {
+    if (!routeId) return [];
+    await initDB();
+
+    return new Promise((resolve, reject) => {
+        const store = db.transaction([SESSIONS_STORE], 'readonly').objectStore(SESSIONS_STORE);
+        const request = store.index('date').openCursor(null, 'prev');
+        const result = [];
+
+        request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (!cursor) {
+                resolve(result);
+                return;
+            }
+            const session = cursor.value;
+            if (session.routeId === routeId && session.status === 'completed') {
+                const lastPoint = session.dataPoints?.[session.dataPoints.length - 1];
+                result.push({
+                    id: session.id,
+                    date: session.date,
+                    duration: session.duration || 0,
+                    totalDistance: session.metrics?.distance || lastPoint?.distance || 0,
+                    avgPower: session.metrics?.power?.avg || 0,
+                });
+            }
+            cursor.continue();
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/**
+ * Serie compacta [{t, d}] (segundos, metros) de una sesión, con un punto cada 2 s como máximo.
+ * Siempre incluye el primer y el último punto; d nunca decrece.
+ */
+export async function getSessionTrace(id) {
+    const session = await getSession(id);
+    if (!session) return [];
+
+    const MIN_STEP_SECONDS = 2;
+    const trace = [];
+    let maxDistance = 0;
+
+    const points = (session.dataPoints || []).filter(
+        (p) => Number.isFinite(p.elapsedSeconds) && Number.isFinite(p.distance)
+    );
+    points.forEach((point, index) => {
+        maxDistance = Math.max(maxDistance, point.distance);
+        const last = trace[trace.length - 1];
+        const isLast = index === points.length - 1;
+        if (!last || isLast || point.elapsedSeconds - last.t >= MIN_STEP_SECONDS) {
+            if (last && point.elapsedSeconds <= last.t) return; // Tiempo no creciente
+            trace.push({ t: Math.round(point.elapsedSeconds * 10) / 10, d: maxDistance });
+        }
+    });
+
+    return trace;
 }
 
 /**
@@ -674,6 +743,8 @@ function normalizeSession(session) {
         pausedDuration: session.pausedDuration ?? 0,
         controlMode: session.controlMode || 'manual',
         experienceMode: session.experienceMode || 'metrics',
+        routeId: session.routeId ?? null,
+        routeName: session.routeName ?? null,
         adherence: session.adherence || null,
         gameResult: session.gameResult || null,
     };

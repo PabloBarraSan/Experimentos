@@ -3,6 +3,8 @@
  * Smart Trainer - Virtual Cycling
  */
 
+import { getCurrentZone } from '../storage/settings.js';
+
 // Estados del ride
 export const RIDE_STATUS = {
     MENU: 'menu',
@@ -123,18 +125,13 @@ export function resetRideState(state, routePoints = []) {
 }
 
 /**
- * Obtener zona de potencia actual
+ * Obtener zona de potencia actual.
+ * Delega en settings.getCurrentZone para tener UNA sola definición de zonas
+ * (la configurable por el usuario) en lugar de umbrales duplicados aquí.
  */
 export function getCurrentPowerZone(power, ftp) {
-    const ratio = power / ftp;
-    
-    if (ratio < 0.55) return { zone: 1, name: 'Recuperación', color: '#808080' };
-    if (ratio < 0.75) return { zone: 2, name: 'Resistencia', color: '#00aaff' };
-    if (ratio < 0.90) return { zone: 3, name: 'Tempo', color: '#00ff00' };
-    if (ratio < 1.05) return { zone: 4, name: 'Umbral', color: '#ffff00' };
-    if (ratio < 1.20) return { zone: 5, name: 'VO2max', color: '#ff8800' };
-    if (ratio < 1.50) return { zone: 6, name: 'Anaeróbico', color: '#ff0000' };
-    return { zone: 7, name: 'Neuromuscular', color: '#ff00ff' };
+    const { key, name, color } = getCurrentZone(power, ftp);
+    return { zone: Number(key.slice(1)), name, color };
 }
 
 // Límite máximo de muestras (1 hora a ~60 muestras/segundo = 3600, pero solo agregamos 1/segundo)

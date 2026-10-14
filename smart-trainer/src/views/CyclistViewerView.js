@@ -8,7 +8,11 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { createCyclist, animateCyclist, getCyclistStyle, saveCyclistStyle } from '../expedition/Cyclist.js';
+import {
+    createCyclist, animateCyclist, disposeCyclist, getCyclistStyle, saveCyclistStyle,
+    BIKE_PAINTS, RIDER_POSITIONS, DEFAULT_RIDER_POSITION,
+} from '../expedition/Cyclist.js';
+import { getRiderPrefs, saveRiderPrefs } from '../storage/settings.js';
 import { preloadRiderAvatar, isRiderAvatarReady } from '../expedition/AvatarRider.js';
 import { colors, spacing, typography } from '../utils/theme.js';
 import { button, createElement, div } from '../utils/dom.js';
@@ -38,8 +42,12 @@ const VIEWS = [
 const hex = (value) => `#${value.toString(16).padStart(6, '0')}`;
 
 export function CyclistViewerView({ onBack }) {
+    // La posición y la pintura de la bici son las mismas que se eligen en el ride (se guardan en los ajustes).
+    const savedRider = getRiderPrefs();
     const settings = {
         jersey: JERSEYS[0].color,
+        position: RIDER_POSITIONS[savedRider.position] ? savedRider.position : DEFAULT_RIDER_POSITION,
+        bikeColor: (BIKE_PAINTS.find((paint) => paint.id === savedRider.bikeColor) || BIKE_PAINTS[0]).id,
         view: 'rear',
         peloton: false,
         ghost: false,
@@ -147,18 +155,8 @@ export function CyclistViewerView({ onBack }) {
     // ---- Ciclistas ----
     let entries = [];
     function disposeEntries() {
-        entries.forEach(({ rider }) => {
-            scene.remove(rider.group);
-            rider.group.traverse((object) => {
-                if (!object.isMesh) return;
-                object.geometry?.dispose?.();
-                const materials = Array.isArray(object.material) ? object.material : [object.material];
-                // Los materiales de contorno son compartidos entre ciclistas: no se liberan aquí.
-                materials.forEach((material) => {
-                    if (material && !material.isShaderMaterial) material.dispose();
-                });
-            });
-        });
+        // Las geometrías y materiales compartidos entre ciclistas (incluidos los de contorno) se conservan.
+        entries.forEach(({ rider }) => disposeCyclist(rider));
         entries = [];
     }
 
@@ -173,7 +171,13 @@ export function CyclistViewerView({ onBack }) {
         }
         if (settings.ghost) specs.push({ color: GHOST_COLOR, ghost: true, x: settings.peloton ? 3.8 : 1.9, phase: 0.6 });
         entries = specs.map(({ color, ghost, x, phase }) => {
-            const rider = createCyclist({ accent: color, ghost, style: { outline: settings.outline, shading: settings.shading, avatar: settings.avatar } });
+            const rider = createCyclist({
+                accent: color,
+                ghost,
+                style: { outline: settings.outline, shading: settings.shading, avatar: settings.avatar },
+                bikeColor: settings.bikeColor,
+                position: settings.position,
+            });
             rider.group.scale.setScalar(ghost ? RIDER_SCALE * 0.96 : RIDER_SCALE);
             rider.group.position.x = x;
             scene.add(rider.group);
@@ -206,9 +210,23 @@ export function CyclistViewerView({ onBack }) {
         padding: '8px 14px',
         pointerEvents: 'auto',
     };
+    // Plegado por defecto en pantallas de poca altura: el panel tapaba media bici.
+    let controlsVisible = window.innerHeight >= 760;
+    const toggleControlsButton = button({
+        text: controlsVisible ? 'Ocultar controles' : 'Mostrar controles',
+        attrs: { 'aria-expanded': String(controlsVisible) },
+        styles: { ...pill, cursor: 'pointer', fontWeight: '600' },
+        events: { click: () => setControlsVisible(!controlsVisible) },
+    });
     topBar.append(
         button({ text: '← Volver', styles: { ...pill, cursor: 'pointer', fontWeight: '600' }, events: { click: onBack } }),
-        createElement('span', { text: 'Visor del ciclista', styles: { ...pill, pointerEvents: 'none' } }),
+        div({
+            styles: { display: 'flex', alignItems: 'center', gap: spacing.sm },
+            children: [
+                toggleControlsButton,
+                createElement('span', { text: 'Visor del ciclista', styles: { ...pill, pointerEvents: 'none' } }),
+            ],
+        }),
     );
 
     const panel = div({
@@ -227,8 +245,11 @@ export function CyclistViewerView({ onBack }) {
             flexDirection: 'column',
             gap: spacing.md,
             color: colors.text,
+            maxHeight: 'calc(100% - 84px)',
+            overflowY: 'auto',
         },
     });
+    panel.style.display = controlsVisible ? 'flex' : 'none';
 
     const label = (text) => createElement('span', {
         text,
@@ -273,6 +294,40 @@ export function CyclistViewerView({ onBack }) {
             border: '2px solid rgba(255,255,255,.25)',
         },
         events: { click: () => { settings.jersey = jersey.color; buildRiders(); refreshChips(); } },
+    }));
+
+    // Posición sobre la bici y pintura de la bici: se aplican sin reconstruir los ciclistas
+    const positionButtons = Object.values(RIDER_POSITIONS).map((position) => button({
+        text: position.label,
+        attrs: { title: `CdA ${position.cda.toFixed(2)} m²` },
+        styles: chipStyles(position.id === settings.position),
+        events: {
+            click: () => {
+                settings.position = position.id;
+                saveRiderPrefs({ position: position.id });
+                entries.forEach(({ rider }) => rider.setPosition(position.id));
+                refreshChips();
+            },
+        },
+    }));
+    const bikeSwatches = BIKE_PAINTS.map((paint) => button({
+        attrs: { 'aria-label': `Bici ${paint.name}`, title: paint.name },
+        styles: {
+            width: '28px',
+            height: '28px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            background: hex(paint.color),
+            border: '2px solid rgba(255,255,255,.25)',
+        },
+        events: {
+            click: () => {
+                settings.bikeColor = paint.id;
+                saveRiderPrefs({ bikeColor: paint.id });
+                entries.forEach(({ rider }) => rider.setBikeColor(paint.color));
+                refreshChips();
+            },
+        },
     }));
 
     // Opciones
@@ -346,6 +401,11 @@ export function CyclistViewerView({ onBack }) {
         Object.assign(shadingButton.style, chipStyles(false));
         shadingButton.textContent = settings.shading === 'toon' ? 'Sombreado: toon' : 'Sombreado: suave';
         playButton.textContent = settings.playing ? 'Pausar' : 'Pedalear';
+        positionButtons.forEach((chip, index) => Object.assign(chip.style, chipStyles(Object.values(RIDER_POSITIONS)[index].id === settings.position)));
+        bikeSwatches.forEach((swatch, index) => {
+            swatch.style.borderColor = BIKE_PAINTS[index].id === settings.bikeColor ? '#ffffff' : 'rgba(255,255,255,.25)';
+            swatch.style.transform = BIKE_PAINTS[index].id === settings.bikeColor ? 'scale(1.15)' : 'none';
+        });
         swatches.forEach((swatch, index) => {
             swatch.style.borderColor = JERSEYS[index].color === settings.jersey ? '#ffffff' : 'rgba(255,255,255,.25)';
             swatch.style.transform = JERSEYS[index].color === settings.jersey ? 'scale(1.15)' : 'none';
@@ -355,6 +415,8 @@ export function CyclistViewerView({ onBack }) {
     panel.append(
         row('Vista', ...viewButtons, spinButton),
         row('Jersey', ...swatches),
+        row('Bici', ...bikeSwatches),
+        row('Posición', ...positionButtons),
         row('Escena', pelotonButton, ghostButton, playButton),
         row('Estilo', avatarButton, outlineButton, shadingButton),
         row('Cadencia', rpmSlider, rpmValue),
@@ -364,6 +426,27 @@ export function CyclistViewerView({ onBack }) {
         }),
     );
     container.append(topBar, panel);
+
+    // Con el panel abierto el ciclista se centra en el espacio libre de arriba (desplazando la imagen, no la
+    // cámara); con el panel oculto ocupa toda la vista.
+    function applyLayout() {
+        const width = canvasHost.clientWidth || window.innerWidth;
+        const height = canvasHost.clientHeight || window.innerHeight;
+        const panelHeight = controlsVisible ? panel.offsetHeight + 12 : 0;
+        if (panelHeight > 0 && panelHeight < height * 0.8) {
+            camera.setViewOffset(width, height, 0, Math.round(panelHeight / 2), width, height);
+        } else {
+            camera.clearViewOffset();
+        }
+    }
+
+    function setControlsVisible(visible) {
+        controlsVisible = visible;
+        panel.style.display = visible ? 'flex' : 'none';
+        toggleControlsButton.textContent = visible ? 'Ocultar controles' : 'Mostrar controles';
+        toggleControlsButton.setAttribute('aria-expanded', String(visible));
+        applyLayout();
+    }
 
     // ---- Bucle ----
     const clock = new THREE.Clock();
@@ -387,6 +470,7 @@ export function CyclistViewerView({ onBack }) {
         // En vertical hay que alejar la cámara para que quepa la bici entera.
         camera.fov = width / height < 0.8 ? 52 : 38;
         camera.updateProjectionMatrix();
+        applyLayout();
         refit();
     }
     const resizeObserver = new window.ResizeObserver(resize);

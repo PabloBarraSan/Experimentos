@@ -39,6 +39,17 @@ const DEFAULT_SETTINGS = {
         lastCalibration: null,    // Fecha última calibración
     },
     
+    // Ciclista 3D: posición sobre la bici ('hoods' | 'drops' | 'aero') y pintura de la bici (id de BIKE_PAINTS)
+    rider: {
+        position: 'hoods',
+        bikeColor: 'blue',
+    },
+    
+    // HUD del ride: modo 'essential' | 'full' (null = automático según el tamaño de pantalla)
+    rideHud: {
+        mode: null,
+    },
+    
     // Configuración de pantalla
     display: {
         showHeartRate: true,
@@ -88,6 +99,35 @@ export function updateSettings(updates) {
     const updated = deepMerge(current, updates);
     saveSettings(updated);
     return updated;
+}
+
+/**
+ * Preferencias del ciclista 3D ({ position, bikeColor }); el llamante valida los ids contra Cyclist.js
+ */
+export function getRiderPrefs() {
+    return { ...loadSettings().rider };
+}
+
+/**
+ * Guardar parcialmente las preferencias del ciclista 3D
+ */
+export function saveRiderPrefs(prefs) {
+    return updateSettings({ rider: prefs }).rider;
+}
+
+/**
+ * Preferencias del HUD del ride ({ mode }); mode es null si el usuario nunca lo ha cambiado
+ */
+export function getRideHudPrefs() {
+    const saved = loadSettings().rideHud || {};
+    return { mode: saved.mode === 'essential' || saved.mode === 'full' ? saved.mode : null };
+}
+
+/**
+ * Guardar parcialmente las preferencias del HUD del ride
+ */
+export function saveRideHudPrefs(prefs) {
+    return updateSettings({ rideHud: prefs }).rideHud;
 }
 
 /**

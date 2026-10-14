@@ -3,10 +3,11 @@ import { fbm, ridged, smoothstep, hash2 } from './noise.js';
 
 export const WATER_LEVEL = -5.4;
 // Ancho del corredor totalmente plano bajo la carretera y su talud.
-export const ROAD_CORRIDOR = 9;
+export const ROAD_CORRIDOR = 6.4;
 const ROAD_SINK = 0.85;
 
 const ROUTE_SAMPLES = 320;
+const ROUTE_BUCKET_SIZE = 48;
 
 // Terreno fractal: valle plano junto a la ruta, colinas suaves, lagos y una
 // cordillera perimetral que cierra el horizonte. Devuelve la malla, una
@@ -19,21 +20,35 @@ export function createTerrain({ routeCurve, worldStyle, quality }) {
     const routeSamples = Array.from({ length: ROUTE_SAMPLES + 1 }, (_, index) => (
         routeCurve.getPointAt(index / ROUTE_SAMPLES)
     ));
+    const routeBuckets = new Map();
+    routeSamples.slice(0, ROUTE_SAMPLES).forEach((point, index) => {
+        const key = routeBucketKey(point.x, point.z);
+        if (!routeBuckets.has(key)) routeBuckets.set(key, []);
+        routeBuckets.get(key).push(index);
+    });
 
     // Distancia a la polilínea de la ruta y altura interpolada en el punto más cercano.
     function nearestRoute(x, z) {
         let best = Infinity;
         let bestIndex = 0;
-        for (let index = 0; index < ROUTE_SAMPLES; index += 1) {
-            const point = routeSamples[index];
-            const dx = point.x - x;
-            const dz = point.z - z;
-            const distanceSq = dx * dx + dz * dz;
-            if (distanceSq < best) {
-                best = distanceSq;
-                bestIndex = index;
+        const bucketX = Math.floor(x / ROUTE_BUCKET_SIZE);
+        const bucketZ = Math.floor(z / ROUTE_BUCKET_SIZE);
+        for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+            for (let offsetZ = -1; offsetZ <= 1; offsetZ += 1) {
+                const candidates = routeBuckets.get(`${bucketX + offsetX},${bucketZ + offsetZ}`) || [];
+                for (const index of candidates) {
+                    const point = routeSamples[index];
+                    const dx = point.x - x;
+                    const dz = point.z - z;
+                    const distanceSq = dx * dx + dz * dz;
+                    if (distanceSq < best) {
+                        best = distanceSq;
+                        bestIndex = index;
+                    }
+                }
             }
         }
+        if (!Number.isFinite(best)) return { distance: Infinity, height: 0 };
         let distance = Math.sqrt(best);
         let height = routeSamples[bestIndex].y;
         if (distance < 60) {
@@ -113,6 +128,10 @@ export function createTerrain({ routeCurve, worldStyle, quality }) {
 
     function distanceToRoute(x, z) {
         return nearestRoute(x, z).distance;
+    }
+
+    function routeBucketKey(x, z) {
+        return `${Math.floor(x / ROUTE_BUCKET_SIZE)},${Math.floor(z / ROUTE_BUCKET_SIZE)}`;
     }
 
     const mesh = buildMesh();
@@ -212,7 +231,7 @@ export function createTerrain({ routeCurve, worldStyle, quality }) {
     };
 }
 
-function createPalette(worldStyle) {
+export function createPalette(worldStyle) {
     const meadow = new THREE.Color(worldStyle.ground);
     return {
         forestFloor: new THREE.Color(0x385436),
@@ -229,7 +248,7 @@ function createPalette(worldStyle) {
     };
 }
 
-function terrainColor(target, palette, x, y, z, slope, routeDistance) {
+export function terrainColor(target, palette, x, y, z, slope, routeDistance) {
     const patches = fbm(x * 0.021, z * 0.021, 3);
     target.copy(palette.forestFloor).lerp(palette.meadow, smoothstep(0.28, 0.58, patches));
     target.lerp(palette.lush, smoothstep(0.55, 0.82, fbm(x * 0.009 + 9, z * 0.009 - 4, 3)) * 0.8);
@@ -249,13 +268,13 @@ function terrainColor(target, palette, x, y, z, slope, routeDistance) {
     target.lerp(palette.sand, shore * 0.85);
     target.lerp(palette.mud, (1 - smoothstep(WATER_LEVEL - 4, WATER_LEVEL, y)) * 0.8);
 
-    const roadFringe = 1 - smoothstep(ROAD_CORRIDOR - 1, ROAD_CORRIDOR + 3.5, routeDistance);
+    const roadFringe = 1 - smoothstep(ROAD_CORRIDOR - 1.2, ROAD_CORRIDOR + 0.7, routeDistance);
     target.lerp(palette.gravel, roadFringe * 0.75);
     target.offsetHSL(0, 0, (hash2(x * 0.7, z * 0.7) - 0.5) * 0.035);
 }
 
 // Textura de detalle en tonos medios: modula el color de vértice sin cambiar su tono.
-function createGroundTexture() {
+export function createGroundTexture() {
     const size = 256;
     const canvas = document.createElement('canvas');
     canvas.width = size;

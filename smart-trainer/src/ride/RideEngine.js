@@ -17,6 +17,7 @@ export function createRideEngine(options = {}) {
         canvas,
         ftp = 200,
         weight = 70,
+        cda, // CdA inicial (m²); si falta, la física usa su valor por defecto
         worldId = 'green_valley',
         onStateChange = () => {},
         onRouteComplete = () => {},
@@ -34,9 +35,11 @@ export function createRideEngine(options = {}) {
     let pausedElapsedTime = 0; // Tiempo acumulado antes de pausar
     
     // Sistemas
-    let physics = createRidePhysics();
+    let physics = createRidePhysics({ cda });
     let routeGenerator = createRouteGenerator(worldId);
     let botSystem = createBotsForWorld(worldId, ftp, weight);
+    let ghost = null; // Fantasma opcional (ver GhostRider.js)
+    let ghostLabel = '';
     
     // Configuración del mundo
     let worldConfig = getWorldConfigFromModule(worldId);
@@ -108,6 +111,9 @@ export function createRideEngine(options = {}) {
         botSystem.update(state.position.distance, state.currentGrade, deltaTime);
         state.bots = botSystem.getVisibleBots(state.position.distance);
         
+        // Actualizar fantasma
+        updateGhost();
+        
         // Actualizar estadísticas
         updateStats(state, dtSeconds);
         
@@ -135,6 +141,46 @@ export function createRideEngine(options = {}) {
             lastStateNotification = now;
             onStateChange(state);
         }
+    }
+    
+    /**
+     * Calcular posición y hueco del fantasma según el tiempo del ride
+     */
+    function updateGhost() {
+        if (!ghost) return;
+        const elapsedSeconds = state.elapsedTime / 1000;
+        const gap = ghost.getGapAt(elapsedSeconds, state.position.distance);
+        state.ghost = {
+            label: ghostLabel,
+            distance: ghost.getDistanceAt(elapsedSeconds),
+            gapMeters: gap.meters,   // + = vas por delante
+            gapSeconds: gap.seconds, // + = vas por delante
+            duration: ghost.duration,
+        };
+    }
+    
+    /**
+     * Activar un fantasma (de GhostRider.createGhost) para el ride actual
+     */
+    function setGhost(newGhost, label = '') {
+        ghost = newGhost;
+        ghostLabel = label;
+        state.ghost = ghost && {
+            label: ghostLabel,
+            distance: ghost.getDistanceAt(0),
+            gapMeters: 0,
+            gapSeconds: 0,
+            duration: ghost.duration,
+        };
+    }
+    
+    /**
+     * Quitar el fantasma
+     */
+    function clearGhost() {
+        ghost = null;
+        ghostLabel = '';
+        state.ghost = null;
     }
     
     /**
@@ -231,12 +277,38 @@ export function createRideEngine(options = {}) {
         
         state.route.length = length;
         state = resetRideState(state, routePoints);
+        // Ruta generada: sin fantasma ni identidad de ruta importada previa.
+        // Solo las rutas con seed son reproducibles, así que solo ellas tienen id estable.
+        ghost = null;
+        state.ghost = null;
+        state.route.id = seed ? `gen-${state.worldId}-${length}-${seed}` : null;
+        state.route.name = routeConfig.name || null;
         botSystem.reset();
         physics.reset();
-        
+
         onStateChange(state);
     }
-    
+
+    /**
+     * Seleccionar una ruta importada (GPX) con sus puntos ya calculados
+     * @param {Object} route - { id, name, points, totalDistance }
+     */
+    function setCustomRoute(route) {
+        if (!route || !Array.isArray(route.points) || route.points.length < 2) {
+            throw new Error('Ruta inválida');
+        }
+
+        const lastPoint = route.points[route.points.length - 1];
+        state.route.length = route.totalDistance || lastPoint.distance;
+        state = resetRideState(state, route.points);
+        state.route.id = route.id || null;
+        state.route.name = route.name || null;
+        botSystem.reset();
+        physics.reset();
+
+        onStateChange(state);
+    }
+
     /**
      * Iniciar ride
      */
@@ -388,6 +460,13 @@ export function createRideEngine(options = {}) {
     }
     
     /**
+     * Cambiar el CdA (m²) según la posición del ciclista; se usa en la velocidad y se envía al rodillo
+     */
+    function setCda(newCda) {
+        physics?.setCda(newCda);
+    }
+    
+    /**
      * Ir al menú de selección de mundo
      */
     function goToWorldSelection() {
@@ -413,6 +492,7 @@ export function createRideEngine(options = {}) {
         physics = null;
         routeGenerator = null;
         botSystem = null;
+        ghost = null;
     }
     
     // API pública
@@ -430,8 +510,12 @@ export function createRideEngine(options = {}) {
         getAvailableRoutes,
         selectWorld,
         selectRoute,
+        setCustomRoute,
+        setGhost,
+        clearGhost,
         setFTP,
         setWeight,
+        setCda,
         goToWorldSelection,
         goToMenu,
         finishRide,
