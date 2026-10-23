@@ -36,9 +36,10 @@ export async function HistoryView({ state, onBack }) {
         flex: 1,
     };
 
-    const container = div({ styles: containerStyles, attrs: { 'data-view': 'history' } });
+    const container = div({ className: 'history-page', styles: containerStyles, attrs: { 'data-view': 'history' } });
 
     const backRow = div({
+        className: 'history-back',
         styles: {
             display: 'flex',
             alignItems: 'center',
@@ -67,6 +68,7 @@ export async function HistoryView({ state, onBack }) {
 
     function buildStatsStrip(stats) {
         const strip = div({
+            className: 'history-stats',
             styles: {
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -87,6 +89,7 @@ export async function HistoryView({ state, onBack }) {
         ];
         items.forEach((item) => {
             const el = div({
+                className: 'history-stat',
                 styles: {
                     display: 'flex',
                     alignItems: 'center',
@@ -125,6 +128,7 @@ export async function HistoryView({ state, onBack }) {
         const month = date.toLocaleString('es', { month: 'short' });
         const time = date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
         const card = div({
+            className: 'history-card',
             styles: {
                 ...baseStyles.card,
                 padding: spacing.md,
@@ -202,6 +206,7 @@ export async function HistoryView({ state, onBack }) {
         fragment.appendChild(buildStatsStrip(totalStats));
         const sectionTitle = createElement('h2', {
             text: 'Sesiones',
+            className: 'history-heading',
             styles: {
                 fontSize: typography.sizes.lg,
                 fontWeight: typography.weights.semibold,
@@ -213,6 +218,7 @@ export async function HistoryView({ state, onBack }) {
 
         if (sessions.length === 0) {
             const empty = div({
+                className: 'history-empty',
                 styles: {
                     ...baseStyles.card,
                     padding: spacing.xxl,
@@ -234,6 +240,7 @@ export async function HistoryView({ state, onBack }) {
             fragment.appendChild(empty);
         } else {
             const list = div({
+                className: 'history-list',
                 styles: { display: 'flex', flexDirection: 'column', gap: spacing.md },
             });
             sessions.forEach((s) => {

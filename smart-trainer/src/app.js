@@ -8,6 +8,7 @@ import { createElement, div, render } from './utils/dom.js';
 import { BluetoothManager, CONNECTION_STATE } from './bluetooth/scanner.js';
 import { HeartRateManager, HR_CONNECTION_STATE } from './bluetooth/heartRate.js';
 import { ZwiftPlayManager, ZWIFT_PLAY_STATE } from './bluetooth/zwiftPlay.js';
+import './views/desktop-pages.css';
 import { HomeView } from './views/HomeView.js';
 import { PrepareView } from './views/PrepareView.js';
 import { mergeTrainerData } from './utils/liveData.js';

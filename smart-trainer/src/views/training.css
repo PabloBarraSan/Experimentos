@@ -538,6 +538,133 @@
     }
 }
 
+/* ---- Escritorio: mismo lenguaje de cristal que el HUD de la expedición ---- */
+
+@media (min-width: 1000px) and (min-height: 620px) {
+    .training-cockpit {
+        width: min(100%, 1560px);
+        padding: max(22px, env(safe-area-inset-top)) 36px max(26px, env(safe-area-inset-bottom));
+        grid-template-rows: 78px minmax(0, 1fr) auto;
+        gap: 18px;
+        background:
+            radial-gradient(ellipse 60rem 30rem at 12% 20%, rgba(255, 107, 53, 0.07), transparent 70%),
+            radial-gradient(ellipse 50rem 26rem at 95% 0%, rgba(0, 212, 170, 0.08), transparent 70%),
+            var(--cockpit-bg);
+    }
+
+    .cockpit-header,
+    .cockpit-metric,
+    .control-dock {
+        border-color: rgba(255, 255, 255, 0.1);
+        background: linear-gradient(145deg, rgba(23, 39, 40, 0.5), rgba(10, 14, 14, 0.88));
+        box-shadow: 0 18px 46px rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.05);
+    }
+
+    .cockpit-header {
+        padding: 12px 26px;
+        border-radius: 22px;
+    }
+
+    .cockpit-eyebrow {
+        font-size: 10px;
+        letter-spacing: 0.16em;
+    }
+
+    .cockpit-title {
+        font-size: 28px;
+    }
+
+    .cockpit-time {
+        font-size: 48px;
+    }
+
+    .cockpit-main {
+        grid-template-columns: minmax(0, 1.5fr) minmax(420px, 1fr);
+        gap: 18px;
+    }
+
+    .power-panel {
+        position: relative;
+        overflow: hidden;
+        padding: clamp(28px, 4vw, 56px);
+        border-radius: 28px;
+        border-color: color-mix(in srgb, var(--zone-color) 38%, transparent);
+        background:
+            radial-gradient(ellipse 70% 80% at 12% 0%, color-mix(in srgb, var(--zone-color) 22%, transparent), transparent 70%),
+            linear-gradient(145deg, rgba(18, 28, 30, 0.9), rgba(8, 11, 12, 0.95));
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4), inset 0 1px rgba(255, 255, 255, 0.06);
+        transition: border-color 0.3s ease;
+    }
+
+    .power-panel__topline {
+        font-size: 13px;
+    }
+
+    .power-reading__value {
+        font-size: clamp(150px, 29vh, 300px);
+        text-shadow: 0 0 60px color-mix(in srgb, var(--zone-color) 38%, transparent);
+    }
+
+    .power-reading__unit {
+        font-size: clamp(34px, 5vh, 56px);
+    }
+
+    .power-reading__zone {
+        margin-top: 8px;
+        font-size: 20px;
+        letter-spacing: 0.02em;
+    }
+
+    .power-progress {
+        height: 12px;
+        margin-top: clamp(20px, 4vh, 40px);
+    }
+
+    .power-progress__fill {
+        box-shadow: 0 0 18px color-mix(in srgb, var(--zone-color) 60%, transparent);
+    }
+
+    .cockpit-metrics {
+        gap: 18px;
+    }
+
+    .cockpit-metric {
+        padding: clamp(20px, 2.6vw, 32px);
+        border-radius: 24px;
+        transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .cockpit-metric__label {
+        font-size: 12px;
+    }
+
+    .cockpit-metric__value {
+        font-size: clamp(54px, 9vh, 96px);
+    }
+
+    .cockpit-metric__unit {
+        font-size: 16px;
+    }
+
+    .control-dock {
+        padding: 18px 24px;
+        border-radius: 24px;
+        gap: 28px;
+    }
+
+    .cockpit-action {
+        min-height: 60px;
+        border-radius: 16px;
+        font-size: 15px;
+        transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .cockpit-action:hover:not(:disabled) {
+        transform: translateY(-2px);
+        border-color: currentColor;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .training-cockpit *,
     .training-cockpit *::before,
