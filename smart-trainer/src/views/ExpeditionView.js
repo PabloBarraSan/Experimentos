@@ -8,11 +8,12 @@ import { clearActiveSession } from '../storage/sessions.js';
 import { getCoachingState, getHeartRateZone } from '../game/CoachingEngine.js';
 import { AudioCueService } from '../game/AudioCueService.js';
 import { getPersonalGhost, interpolateGhost } from '../game/GhostService.js';
-import { LapTracker, createLapTable, createLapToast, createRacePanel, createWorkoutStrip } from './expeditionHud.js';
+import { LapTracker, createLapToast, createRacePanel, createWorkoutStrip } from './expeditionHud.js';
 import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
 import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSettings.js';
 import { summarizeIntensity } from '../session/intensitySummary.js';
 import { createSessionFeedbackPanel } from '../components/SessionFeedbackPanel.js';
+import { createSessionResult } from '../components/SessionResult.js';
 
 export function ExpeditionView({
     state,
@@ -964,99 +965,23 @@ export function ExpeditionView({
         audio.cue(session.status === 'completed' ? 'finish' : 'lost');
         onProgress?.(progress);
         const completed = session.status === 'completed';
-        const blockResults = div({
-            styles: { display: 'grid', gap: '8px', width: '100%', marginBottom: spacing.lg },
-            children: (result.blocks || []).map((block) => div({
-                styles: {
-                    display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '12px', alignItems: 'center',
-                    padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,.05)',
-                },
-                children: [
-                    createElement('strong', { text: block.name }),
-                    createElement('span', { text: `${Math.round((block.powerAdherence ?? block.adherence) * 100)}% potencia`, styles: { color: colors.textMuted, fontSize: '12px' } }),
-                    createElement('span', { text: `${block.stars} ★`, styles: { color: colors.warning, fontWeight: 800 } }),
-                ],
-            })),
-        });
         const scored = (session.activeDuration || session.duration || 0) >= 180;
         const intensity = summarizeIntensity(session.dataPoints, state.settings);
-        const zoneColors = ['#92a4ad', '#5ca8ff', '#63e0b5', '#ffd166', '#ff6b7a'];
-        const zoneTotal = intensity.zoneSeconds.reduce((sum, value) => sum + value, 0) || 1;
-        const stat = (label, value) => div({
-            children: [
-                createElement('span', { text: label, styles: { display: 'block', color: 'rgba(255,255,255,.42)', fontSize: '10px', fontWeight: 800, letterSpacing: '1px' } }),
-                createElement('strong', { text: value, styles: { display: 'block', marginTop: '3px', fontSize: '20px' } }),
-            ],
-        });
-        const intensityPanel = div({
-            styles: { width: '100%', padding: '14px', marginBottom: spacing.lg, borderRadius: '14px', background: 'rgba(255,255,255,.05)', textAlign: 'left' },
-            children: [
-                createElement('div', { text: 'INTENSIDAD DE LA SESIÓN', styles: { color: '#75ebc1', fontSize: '11px', fontWeight: 800, letterSpacing: '1.4px', marginBottom: '10px' } }),
-                div({
-                    styles: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' },
-                    children: [
-                        stat('POTENCIA MEDIA', intensity.avgPower ? `${intensity.avgPower} W` : '—'),
-                        stat('FC MEDIA', intensity.hasHeartRate ? `${intensity.avgHeartRate} ppm` : '—'),
-                        stat('FC MÁXIMA', intensity.hasHeartRate ? `${intensity.maxHeartRate} ppm` : '—'),
-                    ],
-                }),
-                intensity.hasHeartRate
-                    ? div({
-                        styles: { marginTop: '12px' },
-                        children: [
-                            div({
-                                styles: { display: 'flex', height: '10px', borderRadius: '99px', overflow: 'hidden', background: 'rgba(255,255,255,.08)' },
-                                children: intensity.zoneSeconds.map((seconds, index) => div({
-                                    attrs: { title: `Z${index + 1}: ${formatTime(Math.round(seconds))}` },
-                                    styles: { width: `${(seconds / zoneTotal) * 100}%`, background: zoneColors[index] },
-                                })),
-                            }),
-                            createElement('p', {
-                                text: intensity.zoneSeconds.map((seconds, index) => `Z${index + 1} ${formatTime(Math.round(seconds))}`).join(' · '),
-                                styles: { margin: '8px 0 0', color: 'rgba(255,255,255,.55)', fontSize: '12px' },
-                            }),
-                        ],
-                    })
-                    : createElement('p', {
-                        text: 'Sin datos de pulso: conecta un pulsómetro en la pantalla de preparación para medir la intensidad.',
-                        styles: { margin: '10px 0 0', color: 'rgba(255,255,255,.55)', fontSize: '12px' },
-                    }),
-            ],
-        });
-        card.replaceChildren(
-            createElement('div', {
-                text: completed ? 'MISIÓN COMPLETADA' : 'EXPEDICIÓN FINALIZADA ANTES DE TIEMPO',
-                styles: { color: completed ? colors.success : colors.warning, fontWeight: 800, letterSpacing: '1.5px' },
-            }),
-            createElement('h1', {
-                text: scored ? `${result.totalStars || 0} ★` : 'Sesión muy corta',
-                styles: { margin: '12px 0 4px', fontSize: scored ? '52px' : '30px', color: colors.warning },
-            }),
-            createElement('p', {
-                text: scored ? `${Math.round((result.adherence || 0) * 100)}% de adherencia · ${result.score || 0} puntos` : 'Menos de 3 minutos: no puntúa ni da XP.',
-                styles: { color: colors.textMuted, marginBottom: spacing.lg },
-            }),
-            createElement('p', {
-                text: `${visualSettings.rivals !== false && renderer?.getRaceStatus ? `Pelotón: ${renderer.getRaceStatus().rank}º de ${renderer.getRaceStatus().total} · ` : ''}${gainedXp > 0 ? `+${gainedXp} XP · ` : ''}Nivel ${progress.level} · ${Math.round(progress.weekly.activeMinutes)}/${progress.weekly.goalMinutes} min esta semana`,
-                styles: { color: colors.primary, marginBottom: spacing.lg, fontWeight: 700 },
-            }),
-            intensityPanel,
-            createLapTable(lapTracker.laps) || div(),
-            blockResults,
+        const race = visualSettings.rivals !== false && renderer?.getRaceStatus ? renderer.getRaceStatus() : null;
+        card.style.width = 'min(1040px, 94vw)';
+        card.replaceChildren(createSessionResult({
+            completed,
+            scored,
+            result,
+            intensity,
+            progress,
+            gainedXp,
+            peloton: race ? `${race.rank}º de ${race.total}` : null,
+            laps: lapTracker.laps,
             // Solo tiene sentido valorar una sesión que puntúa; las muy cortas se descartan.
-            scored ? createSessionFeedbackPanel(session) : div(),
-            createElement('p', {
-                text: result.adherence >= 0.9 ? 'Excelente precisión. Prueba una ruta técnica en la próxima expedición.'
-                    : result.adherence >= 0.75 ? 'Buen ritmo. Tu siguiente mejora está en mantener la potencia durante los cambios.'
-                        : 'Busca primero estabilidad: suaviza las transiciones y deja que el ERG se adapte.',
-                styles: { color: colors.textMuted, lineHeight: 1.5, margin: `0 0 ${spacing.md}` },
-            }),
-            button({
-                text: 'Ver historial',
-                styles: { ...compactButtonStyles(), width: '100%', minHeight: '52px', color: colors.success },
-                events: { click: () => onCompleted?.(session) },
-            }),
-        );
+            feedback: scored ? createSessionFeedbackPanel(session) : null,
+            onHistory: () => onCompleted?.(session),
+        }));
         briefing.style.display = 'flex';
     }
 
