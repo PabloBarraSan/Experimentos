@@ -1009,7 +1009,8 @@ export function animateCyclist(cyclist, angle, speed, flow, active, wheelAngle) 
     cyclist.crankRing.rotation.x = angle;
     cyclist.avatar?.update(cyclist.group, _pedalLeft, _pedalRight);
     const lean = Math.min(0.055, speed * 0.0018) + flow * 0.012;
-    cyclist.group.rotation.z = Math.sin(angle * 0.5) * lean * 0.08;
+    // Inclinación de curva (la fija el renderer) + vaivén suave del pedaleo.
+    cyclist.group.rotation.z = (cyclist.bank || 0) + Math.sin(angle * 0.5) * lean * 0.08;
 }
 
 // ---- Cinemática y geometría auxiliar ----
