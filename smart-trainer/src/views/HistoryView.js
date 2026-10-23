@@ -7,6 +7,16 @@ import { colors, spacing, typography, baseStyles, borderRadius, transitions } fr
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { getAllSessions, getTotalStats } from '../storage/sessions.js';
 import { SessionDetailBottomSheet } from '../components/SessionDetailBottomSheet.js';
+import { getAllPresets } from '../workouts/presets.js';
+import { getCachedPlanWorkout } from '../workouts/planConverter.js';
+import { navigateTo } from '../app.js';
+
+/** Workout con el que se hizo una sesión (preset o entreno del plan en caché); null si ya no existe. */
+function findWorkoutForSession(session) {
+    if (!session?.workoutId) return null;
+    return [...getAllPresets(), getCachedPlanWorkout()].filter(Boolean)
+        .find((workout) => workout.id === session.workoutId) || null;
+}
 
 function formatDuration(seconds) {
     if (!seconds) return '0:00';
@@ -239,8 +249,15 @@ export async function HistoryView({ state, onBack }) {
             sessions.forEach((s) => {
                 list.appendChild(
                     buildSessionCard(s, (session) => {
+                        const workout = findWorkoutForSession(session);
                         const sheet = SessionDetailBottomSheet({
                             session,
+                            onRepeat: workout ? () => {
+                                state.selectedWorkout = workout;
+                                state.recoveredSession = null;
+                                state.prepareTarget = 'expedition';
+                                navigateTo('prepare');
+                            } : null,
                             onClose: () => {},
                             onDeleted: () => {
                                 refresh();
