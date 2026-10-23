@@ -18,6 +18,9 @@ function fakeCyclist() {
     leftCrank: part(),
     rightCrank: part(),
     crankRing: new THREE.Group(),
+    // animateCyclist también mueve cadera y torso (oscilación del pedaleo).
+    hips: new THREE.Group(),
+    torso: new THREE.Group(),
   };
 }
 
