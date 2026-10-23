@@ -1,4 +1,4 @@
-import { colors, typography } from '../utils/theme.js';
+import { typography } from '../utils/theme.js';
 import { createElement, div, formatTime } from '../utils/dom.js';
 import { BLOCK_TYPES, expandBlocks } from '../workouts/model.js';
 
@@ -97,17 +97,10 @@ export class LapTracker {
     }
 }
 
-const glass = {
-    background: 'linear-gradient(135deg, rgba(7,14,18,.86), rgba(15,36,38,.78))',
-    border: '1px solid rgba(255,255,255,.12)',
-};
-
 // Perfil del entrenamiento (estilo TrainerRoad/Zwift) + qué toca ahora y después.
 export function createWorkoutStrip({ workout, ftp, totalDuration }) {
     const blocks = expandBlocks(workout.blocks || []);
-    const strip = div({
-        styles: { position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '1px', height: '38px', width: '100%' },
-    });
+    const strip = div({ className: 'xh-strip' });
     const segments = blocks.map((block) => {
         const { start, end } = blockPercent(block);
         const top = Math.max(start, end);
@@ -115,13 +108,11 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
         const startHeight = Math.max(14, Math.min(100, (start / 130) * 100));
         const endHeight = Math.max(14, Math.min(100, (end / 130) * 100));
         const el = div({
+            className: 'xh-strip__seg',
             styles: {
                 flex: `${block.duration} 0 0`,
                 height: `${height}%`,
                 background: zoneColor((start + end) / 2),
-                opacity: '.5',
-                borderRadius: '3px 3px 0 0',
-                transition: 'opacity .3s ease, filter .3s ease',
                 clipPath: start !== end
                     ? `polygon(0 ${100 - (startHeight / height) * 100}%, 100% ${100 - (endHeight / height) * 100}%, 100% 100%, 0 100%)`
                     : 'none',
@@ -130,54 +121,39 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
         strip.appendChild(el);
         return el;
     });
-    const cursor = div({
-        styles: {
-            position: 'absolute', top: '-3px', bottom: '0', width: '2px', left: '0%',
-            background: '#fff', boxShadow: '0 0 8px rgba(255,255,255,.9)', transition: 'left .6s linear',
-        },
-    });
+    // Línea del 100 % del FTP: referencia para ver cuánto aprietan los tramos
+    strip.appendChild(div({ className: 'xh-strip__ftp', styles: { bottom: `${(100 / 130) * 100}%` } }));
+    const cursor = div({ className: 'xh-strip__cursor' });
     strip.appendChild(cursor);
 
-    const lapLabel = createElement('span', {
-        text: '',
-        styles: { fontWeight: 800, letterSpacing: '1px', color: colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    });
-    const lapAverage = createElement('span', {
-        text: '',
-        styles: { fontFamily: typography.fontMono, fontWeight: 800, color: 'rgba(255,255,255,.7)', whiteSpace: 'nowrap' },
-    });
-    const nextLabel = createElement('span', {
-        text: '',
-        styles: { color: 'rgba(255,255,255,.62)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    });
+    const lapLabel = createElement('span', { className: 'xh-lap__name' });
+    const lapAverage = createElement('span', { className: 'xh-lap__avg' });
+    const nextLabel = createElement('div', { className: 'xh-lap__next' });
     const blockClock = createElement('span', {
         text: '--:--',
+        className: 'xh-lap__clock',
         attrs: { 'aria-label': 'Tiempo restante del tramo' },
-        styles: { fontFamily: typography.fontMono, fontSize: '26px', fontWeight: 800, lineHeight: 1, color: '#fff', flex: '0 0 auto' },
     });
     const info = div({
-        styles: {
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
-            fontSize: '11px', width: '100%',
-        },
+        className: 'xh-lap__head',
         children: [
             div({
-                styles: { display: 'grid', gap: '3px', minWidth: 0, flex: '1 1 auto' },
+                className: 'xh-lap__titles',
                 children: [
-                    div({ styles: { display: 'flex', gap: '9px', alignItems: 'baseline', minWidth: 0 }, children: [lapLabel, lapAverage] }),
-                    nextLabel,
+                    createElement('span', { text: 'Tramo actual', className: 'xh-eyebrow' }),
+                    lapLabel,
+                    lapAverage,
                 ],
             }),
-            blockClock,
+            div({
+                children: [
+                    createElement('span', { text: 'Restante', className: 'xh-eyebrow xh-lap__clock-label' }),
+                    blockClock,
+                ],
+            }),
         ],
     });
-    const element = div({
-        styles: {
-            ...glass, borderRadius: '14px', padding: '9px 12px 8px', display: 'grid', gap: '6px',
-            width: 'min(520px, 90vw)', boxSizing: 'border-box',
-        },
-        children: [info, strip],
-    });
+    const element = div({ className: 'xh-lap xh-glass', children: [info, strip, nextLabel] });
 
     let activeIndex = -1;
     return {
@@ -193,7 +169,7 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
             if (next) {
                 const watts = targetWatts(next, ftp);
                 const kind = next.type === BLOCK_TYPES.REST ? 'Descanso' : next.type === BLOCK_TYPES.INTERVAL ? 'Esfuerzo' : next.type === BLOCK_TYPES.COOLDOWN ? 'Vuelta a la calma' : 'Ritmo';
-                nextLabel.textContent = `→ ${kind} ${formatTime(next.duration)}${watts ? ` · ${watts} W` : ''}`;
+                nextLabel.textContent = `Siguiente → ${kind} ${formatTime(next.duration)}${watts ? ` · ${watts} W` : ''}`;
             } else {
                 nextLabel.textContent = 'ÚLTIMO TRAMO';
             }
@@ -211,7 +187,7 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
                 return;
             }
             const ratio = average.power / average.target;
-            lapAverage.textContent = `${Math.round(average.power)} W · ${Math.round(ratio * 100)}%`;
+            lapAverage.textContent = `MEDIA ${Math.round(average.power)} W · ${Math.round(ratio * 100)}%`;
             lapAverage.style.color = Math.abs(ratio - 1) <= 0.05 ? '#63e0b5' : Math.abs(ratio - 1) <= 0.1 ? '#ffd379' : '#ff8a6b';
         },
         get activeIndex() { return activeIndex; },
@@ -220,23 +196,15 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
 
 // Aviso al cerrar una serie/vuelta con su media y tiempo en zona.
 export function createLapToast() {
-    const title = createElement('div', { styles: { fontSize: '11px', letterSpacing: '1.2px', fontWeight: 800, color: 'rgba(255,255,255,.66)' } });
-    const main = createElement('div', { styles: { fontSize: '22px', fontWeight: 800, fontFamily: typography.fontMono } });
-    const detail = createElement('div', { styles: { fontSize: '12px', color: 'rgba(255,255,255,.72)' } });
-    const element = div({
-        styles: {
-            ...glass, position: 'absolute', left: '50%', top: '150px', transform: 'translate(-50%, -8px)',
-            padding: '10px 18px', borderRadius: '14px', textAlign: 'center', opacity: '0', pointerEvents: 'none',
-            transition: 'opacity .3s ease, transform .3s ease', minWidth: '210px',
-        },
-        children: [title, main, detail],
-    });
+    const title = createElement('div', { className: 'xh-eyebrow' });
+    const main = createElement('div', { className: 'xh-toast__main' });
+    const detail = createElement('div', { className: 'xh-toast__detail' });
+    const element = div({ className: 'xh-toast xh-glass', children: [title, main, detail] });
     let timeout = null;
     return {
         element,
-        setCompact(compact) {
-            element.style.top = compact ? '216px' : '150px';
-        },
+        // El alto se resuelve en CSS (media queries); se mantiene por compatibilidad.
+        setCompact() {},
         show(summary) {
             title.textContent = `${summary.label} COMPLETADA`;
             main.textContent = `${summary.avgPower} W`;
@@ -246,13 +214,9 @@ export function createLapToast() {
             detail.textContent = parts.join(' · ');
             const good = summary.percent != null && Math.abs(summary.percent - 100) <= 5;
             main.style.color = good ? '#63e0b5' : Math.abs((summary.percent ?? 100) - 100) <= 10 ? '#ffd379' : '#ff8a6b';
-            element.style.opacity = '1';
-            element.style.transform = 'translate(-50%, 0)';
+            element.classList.add('is-visible');
             clearTimeout(timeout);
-            timeout = setTimeout(() => {
-                element.style.opacity = '0';
-                element.style.transform = 'translate(-50%, -8px)';
-            }, 6000);
+            timeout = setTimeout(() => element.classList.remove('is-visible'), 6000);
         },
         destroy() { clearTimeout(timeout); },
     };
@@ -262,13 +226,13 @@ const ORDINAL = (n) => `${n}º`;
 
 // Clasificación del pelotón: chip compacto y lista completa en modo "Completa".
 export function createRacePanel() {
-    const rank = createElement('div', { styles: { fontSize: '26px', fontWeight: 900, lineHeight: 1 } });
-    const total = createElement('span', { styles: { fontSize: '12px', color: 'rgba(255,255,255,.55)', fontWeight: 700 } });
-    const rival = createElement('div', { styles: { fontSize: '11px', color: 'rgba(255,255,255,.72)', fontFamily: typography.fontMono } });
-    const list = div({ styles: { display: 'grid', gap: '3px', marginTop: '8px' } });
+    const rank = createElement('div', { className: 'xh-race__rank' });
+    const total = createElement('span', { className: 'xh-race__total' });
+    const rival = createElement('div', { className: 'xh-race__rival' });
+    const list = div({ className: 'xh-race__list' });
     const element = div({
-        styles: { ...glass, position: 'absolute', left: '18px', top: '64px', padding: '9px 12px', borderRadius: '14px', minWidth: '132px' },
-        children: [div({ styles: { display: 'flex', alignItems: 'baseline', gap: '6px' }, children: [rank, total] }), rival, list],
+        className: 'xh-race xh-glass',
+        children: [div({ className: 'xh-race__head', children: [rank, total] }), rival, list],
     });
     let showList = false;
     let lastKey = '';
@@ -280,10 +244,7 @@ export function createRacePanel() {
             element.style.opacity = mode === 'hidden' ? '0' : '1';
             lastKey = '';
         },
-        setCompact(compact) {
-            element.style.left = compact ? '12px' : '18px';
-            element.style.top = compact ? '60px' : '64px';
-        },
+        setCompact() {},
         setEnabled(enabled) {
             element.style.display = enabled ? 'block' : 'none';
         },
@@ -303,17 +264,14 @@ export function createRacePanel() {
             rival.style.color = ahead ? '#ffd379' : '#63e0b5';
             if (!showList) return;
             list.replaceChildren(...status.entries.map((entry, position) => div({
-                styles: {
-                    display: 'grid', gridTemplateColumns: '14px 8px 1fr auto', gap: '6px', alignItems: 'center', fontSize: '11px',
-                    fontWeight: entry.isPlayer ? 800 : 600, color: entry.isPlayer ? '#63e0b5' : 'rgba(255,255,255,.8)',
-                },
+                className: `xh-race__row${entry.isPlayer ? ' is-player' : ''}`,
                 children: [
-                    createElement('span', { text: String(position + 1), styles: { color: 'rgba(255,255,255,.45)' } }),
-                    div({ styles: { width: '8px', height: '8px', borderRadius: '50%', background: `#${entry.color.toString(16).padStart(6, '0')}` } }),
+                    createElement('span', { text: String(position + 1), className: 'xh-race__pos' }),
+                    div({ className: 'xh-race__dot', styles: { background: `#${entry.color.toString(16).padStart(6, '0')}` } }),
                     createElement('span', { text: entry.name }),
                     createElement('span', {
                         text: entry.isPlayer ? '—' : `${entry.gap >= 0 ? '+' : '−'}${Math.abs(Math.round(entry.gap))} m`,
-                        styles: { fontFamily: typography.fontMono, color: 'rgba(255,255,255,.55)' },
+                        className: 'xh-race__gap',
                     }),
                 ],
             })));

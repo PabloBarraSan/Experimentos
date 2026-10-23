@@ -13,6 +13,7 @@ import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
 import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSettings.js';
 import { summarizeIntensity } from '../session/intensitySummary.js';
 import { createSessionFeedbackPanel } from '../components/SessionFeedbackPanel.js';
+import './expedition-hud.css';
 
 export function ExpeditionView({
     state,
@@ -92,229 +93,104 @@ export function ExpeditionView({
     });
     container.appendChild(loadingScene);
 
-    const hud = div({
-        styles: {
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            padding: 'max(16px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom))',
-        },
-    });
+    const hud = div({ className: 'xh', attrs: { 'data-hud': visualSettings.hud } });
     container.appendChild(hud);
 
-    const top = div({
-        styles: {
-            display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr',
-            alignItems: 'start',
-            gap: spacing.md,
-        },
-    });
-    const blockLabel = createElement('div', {
-        text: 'PREPARANDO RUTA',
-        styles: {
-            justifySelf: 'start',
-            padding: '8px 12px',
-            borderRadius: '999px',
-            background: 'linear-gradient(135deg, rgba(7,14,18,.76), rgba(19,53,49,.62))',
-            border: '1px solid rgba(255,255,255,.12)',
-            fontSize: typography.sizes.xs,
-            fontWeight: 800,
-            letterSpacing: '1px',
-        },
-    });
+    const top = div({ className: 'xh-top' });
+    const blockLabel = createElement('div', { text: 'PREPARANDO RUTA', className: 'xh-pill xh-glass' });
     const timer = createElement('div', {
         text: formatTime(totalDuration),
+        className: 'xh-clock__time xh-glass',
         attrs: { 'aria-label': 'Tiempo restante' },
-        styles: {
-            padding: '10px 18px',
-            borderRadius: '16px',
-            background: 'rgba(7,9,14,.78)',
-            border: '1px solid rgba(255,255,255,.14)',
-            fontFamily: typography.fontMono,
-            fontSize: '24px',
-            fontWeight: 700,
-        },
     });
     const clockStack = div({
-        styles: {
-            justifySelf: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '7px',
-        },
-        children: [timer],
+        className: 'xh-clock',
+        children: [
+            div({ children: [createElement('span', { text: 'Tiempo restante', className: 'xh-eyebrow xh-clock__label' }), timer] }),
+        ],
     });
     const modeLabel = createElement('div', {
         text: isDemo ? 'MODO DEMO' : 'D100 · ERG',
+        className: 'xh-mode',
         styles: {
-            justifySelf: 'end',
-            padding: '9px 13px',
-            borderRadius: '999px',
             background: isDemo ? 'rgba(255,204,0,.16)' : 'rgba(0,212,170,.15)',
             color: isDemo ? colors.warning : colors.success,
-            fontSize: typography.sizes.xs,
-            fontWeight: 700,
         },
     });
-    top.append(blockLabel, clockStack, modeLabel);
-    hud.appendChild(top);
 
-    const stagePrompt = createElement('div', {
-        text: 'Alcanza al guía y entra en ritmo',
-        styles: {
-            position: 'absolute',
-            top: '102px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            padding: '8px 14px',
-            borderRadius: '12px',
-            color: 'rgba(255,255,255,.86)',
-            background: 'rgba(5,12,16,.76)',
-            fontSize: typography.sizes.sm,
-            fontWeight: 700,
-            letterSpacing: '.3px',
-            maxWidth: 'min(540px, 72vw)',
-            textAlign: 'center',
-            opacity: '0',
-            transition: 'opacity .28s ease, transform .28s ease',
-        },
-    });
-    hud.appendChild(stagePrompt);
+    const stagePrompt = createElement('div', { text: 'Alcanza al guía y entra en ritmo', className: 'xh-prompt xh-glass' });
 
-    const routeProgress = div({
-        styles: {
-            width: 'min(320px, 42vw)',
-            height: '3px',
-            borderRadius: '999px',
-            overflow: 'hidden',
-            background: 'rgba(5,12,16,.4)',
-        },
-    });
-    const routeProgressFill = div({
-        styles: {
-            width: '0%',
-            height: '100%',
-            borderRadius: '999px',
-            background: 'linear-gradient(90deg, #63e0b5, #ffd379)',
-            boxShadow: '0 0 16px rgba(99,224,181,.6)',
-            transition: 'width .5s ease',
-        },
-    });
+    const routeProgress = div({ styles: { display: 'none' } });
+    const routeProgressFill = div({});
     routeProgress.appendChild(routeProgressFill);
-    clockStack.appendChild(routeProgress);
 
-    const bottom = div({
-        styles: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' },
+    const bottom = div({ className: 'xh-dock' });
+    const flowFill = div({
+        className: 'xh-gauge__fill',
+        styles: { background: `linear-gradient(90deg, ${colors.error}, ${colors.warning} 35%, ${colors.success} 50%, #5cc8ff 100%)` },
     });
     const flowBar = div({
+        className: 'xh-gauge',
         attrs: {
             'aria-label': 'Potencia actual, escala hasta el doble del objetivo',
             title: 'Potencia · la marca indica el objetivo',
         },
-        styles: {
-            position: 'relative',
-            width: '100%',
-            height: '8px',
-            borderRadius: '999px',
-            overflow: 'hidden',
-            background: 'rgba(255,255,255,.1)',
-        },
     });
-    const flowFill = div({
-        styles: {
-            width: '0%',
-            height: '100%',
-            borderRadius: '999px',
-            background: `linear-gradient(90deg, ${colors.error}, ${colors.warning} 35%, ${colors.success} 50%, #5cc8ff 100%)`,
-            transition: 'width .3s ease',
-        },
-    });
-    const targetMarker = div({
-        attrs: { title: 'Potencia objetivo' },
-        styles: {
-            position: 'absolute',
-            zIndex: 1,
-            left: '50%',
-            top: '-3px',
-            width: '3px',
-            height: '14px',
-            borderRadius: '2px',
-            background: '#fff',
-            boxShadow: '0 0 8px rgba(255,255,255,.85)',
-        },
-    });
-    const targetBand = div({
-        attrs: { title: 'Zona objetivo ±5%' },
-        styles: { position: 'absolute', top: 0, bottom: 0, left: '50%', width: '0%', background: 'rgba(99,224,181,.45)' },
-    });
+    const targetMarker = div({ className: 'xh-gauge__target', attrs: { title: 'Potencia objetivo' } });
+    const targetBand = div({ className: 'xh-gauge__band', attrs: { title: 'Zona objetivo ±5%' } });
     flowBar.append(targetBand, flowFill, targetMarker);
-    const metrics = div({
-        attrs: { 'data-hud-mode': visualSettings.hud },
-        styles: {
-            width: 'min(520px, 90vw)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            padding: '10px 14px 11px',
-            borderRadius: '16px',
-            background: 'linear-gradient(145deg, rgba(6,13,17,.84), rgba(11,25,28,.7))',
-            border: '1px solid rgba(255,255,255,.11)',
-            boxShadow: '0 10px 30px rgba(0,0,0,.28)',
-        },
-    });
-    const actualPower = createElement('strong', {
-        text: '0',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(38px, 9vw, 52px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color .25s ease' },
-    });
-    const targetPower = createElement('span', {
-        text: 'Objetivo -- W',
-        styles: { color: 'rgba(255,255,255,.62)', fontSize: '13px', fontWeight: 750 },
-    });
-    const actualHeartRate = createElement('strong', {
-        text: '--',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, 7vw, 40px)', lineHeight: 1, color: '#ff7893', fontVariantNumeric: 'tabular-nums' },
-    });
-    const actualCadence = createElement('strong', {
-        text: '0',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, 7vw, 40px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
-    });
-    const targetCadence = createElement('span', { text: '', styles: { color: 'rgba(255,255,255,.62)', fontSize: '12px', fontWeight: 750 } });
-    const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontSize: '11px', fontWeight: 800 } });
-    const coach = createElement('strong', {
+
+    const actualPower = createElement('strong', { text: '0', className: 'xh-power__value' });
+    const targetPower = createElement('span', { text: 'Objetivo -- W', className: 'xh-power__target' });
+    const powerFtp = createElement('span', { text: '0% FTP', className: 'xh-power__ftp' });
+    const actualHeartRate = createElement('strong', { text: '--', className: 'xh-stat__value xh-stat__value--hr' });
+    const actualCadence = createElement('strong', { text: '0', className: 'xh-stat__value' });
+    const targetCadence = createElement('span', { className: 'xh-stat__sub' });
+    const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary } });
+    const coach = createElement('div', {
         text: 'Adapta el ritmo',
+        className: 'xh-coach',
         attrs: { role: 'status', 'aria-live': 'polite' },
-        styles: { fontSize: '16px', color: '#8ed9ff', letterSpacing: '.2px', textAlign: 'center' },
+        styles: { color: '#8ed9ff' },
     });
-    const heartZone = createElement('span', { text: 'Sin pulso', styles: { color: 'rgba(255,255,255,.58)', fontSize: '12px', fontWeight: 750 } });
-    const ghostDelta = createElement('span', { text: '', styles: { color: '#8ed9ff', fontSize: '12px', fontWeight: 800 } });
-    const tile = (label, valueEl, subEl, flex) => div({
-        styles: { flex, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' },
+    const heartZone = createElement('span', { text: 'Sin pulso', className: 'xh-stat__sub' });
+    const ghostDelta = createElement('span', { styles: { color: '#8ed9ff' } });
+    const contextValues = div({ className: 'xh-context', children: [combo, ghostDelta] });
+
+    const powerCard = div({
+        className: 'xh-power xh-glass',
+        attrs: { 'data-state': 'free' },
         children: [
-            createElement('span', { text: label, styles: { color: 'rgba(255,255,255,.45)', fontSize: '10px', fontWeight: 800, letterSpacing: '1.1px' } }),
+            div({ className: 'xh-power__head', children: [createElement('span', { text: 'Potencia', className: 'xh-eyebrow' }), targetPower] }),
+            div({
+                className: 'xh-power__row',
+                children: [actualPower, createElement('span', { text: 'W', className: 'xh-power__unit' }), powerFtp],
+            }),
+            flowBar,
+            coach,
+            contextValues,
+        ],
+    });
+    const heartIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 5 6 5c2.2 0 3.6 1.2 4.6 2.7h2.8C14.4 6.2 15.8 5 18 5c3.3 0 5.1 3.4 3.6 6.8C19.5 16.4 12 21 12 21z"/></svg>';
+    const cadenceIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>';
+    const stat = (label, iconHtml, valueEl, subEl) => div({
+        className: 'xh-stat xh-glass',
+        children: [
+            createElement('span', { className: 'xh-eyebrow xh-stat__label', html: `${iconHtml}${label}` }),
             valueEl,
             subEl,
         ],
     });
-    const metricValues = div({
-        styles: { display: 'flex', gap: '18px', alignItems: 'flex-start' },
+    const sideCard = div({
+        className: 'xh-side',
         children: [
-            tile('POTENCIA · W', actualPower, targetPower, '1.5 1 0'),
-            tile('FC · LPM', actualHeartRate, heartZone, '1 1 0'),
-            tile('CADENCIA · RPM', actualCadence, targetCadence, '1 1 0'),
+            stat('FC · lpm', heartIcon, actualHeartRate, heartZone),
+            stat('Cadencia · rpm', cadenceIcon, actualCadence, targetCadence),
         ],
     });
-    const contextValues = div({
-        styles: { display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', color: 'rgba(255,255,255,.5)' },
-        children: [combo, ghostDelta],
-    });
-    metrics.append(coach, flowBar, metricValues, contextValues);
+    const metrics = div({ className: 'xh-metrics', children: [powerCard, sideCard] });
     bottom.append(metrics);
-    hud.appendChild(bottom);
+    hud.append(top, stagePrompt, bottom);
 
     // Perfil del entrenamiento, vueltas/series y clasificación del pelotón.
     const workoutStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration });
@@ -323,66 +199,40 @@ export function ExpeditionView({
     const racePanel = createRacePanel();
     racePanel.setEnabled(visualSettings.rivals !== false);
     bottom.prepend(workoutStrip.element);
-    hud.append(lapToast.element, racePanel.element);
-    routeProgress.style.display = 'none'; // el perfil del entrenamiento ya muestra el avance
+    hud.append(lapToast.element);
     const applyHudExtras = () => {
         racePanel.setMode(visualSettings.hud);
         workoutStrip.element.style.opacity = visualSettings.hud === 'hidden' ? '0' : '1';
     };
     applyHudExtras();
 
-    const controls = div({
-        styles: {
-            position: 'absolute',
-            right: '18px',
-            bottom: '18px',
-            display: 'flex',
-            justifyContent: 'flex-end',
-            flexWrap: 'wrap',
-            gap: spacing.sm,
-            maxWidth: 'calc(100vw - 36px)',
-            pointerEvents: 'auto',
-            zIndex: 5,
-        },
-    });
     const pauseButton = button({
         text: 'Pausar',
+        className: 'xh-btn',
         attrs: { 'aria-label': 'Pausar expedición', disabled: 'true' },
-        styles: compactButtonStyles(),
     });
     const finishButton = button({
         text: 'Finalizar',
+        className: 'xh-btn xh-btn--stop',
         attrs: { 'aria-label': 'Finalizar expedición', disabled: 'true' },
-        styles: { ...compactButtonStyles(), color: colors.error },
     });
     const cameraButton = button({
         text: `CAM · ${cameraLabel(visualSettings.camera)}`,
+        className: 'xh-toolbar__btn',
         attrs: { 'aria-label': 'Cambiar cámara' },
-        styles: toolbarButtonStyles(),
     });
     const hudButton = button({
         text: `HUD · ${hudLabel(visualSettings.hud)}`,
+        className: 'xh-toolbar__btn',
         attrs: { 'aria-label': 'Cambiar información visible' },
-        styles: toolbarButtonStyles(),
     });
-    const visualControls = div({
-        styles: {
-            position: 'absolute',
-            top: '72px',
-            right: '18px',
-            display: 'flex',
-            gap: '3px',
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-            pointerEvents: 'auto',
-            padding: '4px',
-            borderRadius: '14px',
-            background: 'rgba(5,12,16,.8)',
-            border: '1px solid rgba(255,255,255,.1)',
-        },
-        children: [cameraButton, hudButton],
-    });
-    controls.append(pauseButton, finishButton);
+    const visualControls = div({ className: 'xh-toolbar xh-glass', children: [cameraButton, hudButton] });
+    const controls = div({ className: 'xh-actions', children: [pauseButton, finishButton] });
+    top.append(
+        div({ className: 'xh-top__left', children: [blockLabel, racePanel.element] }),
+        clockStack,
+        div({ className: 'xh-top__right', children: [modeLabel, visualControls, controls] }),
+    );
 
     const pauseTitle = createElement('strong', {
         text: 'PAUSA',
@@ -406,8 +256,6 @@ export function ExpeditionView({
         children: [pauseTitle, pauseReason, resumeBig],
     });
     container.appendChild(pauseOverlay);
-    container.appendChild(visualControls);
-    container.appendChild(controls);
 
     const decisionOverlay = div({
         attrs: { role: 'dialog', 'aria-label': 'Elige una ruta' },
@@ -627,24 +475,8 @@ export function ExpeditionView({
     const rendererReady = initializeRenderer();
     const applyResponsiveLayout = () => {
         const compact = window.innerWidth < 600;
-        blockLabel.style.maxWidth = compact ? '126px' : '';
-        blockLabel.style.fontSize = compact ? '10px' : typography.sizes.xs;
-        timer.style.fontSize = compact ? '20px' : '24px';
-        timer.style.padding = compact ? '9px 13px' : '10px 18px';
-        modeLabel.style.maxWidth = compact ? '76px' : '';
-        modeLabel.style.textAlign = compact ? 'center' : '';
-        routeProgress.style.width = compact ? '42vw' : 'min(320px, 42vw)';
-        visualControls.style.top = compact ? '64px' : '72px';
-        visualControls.style.right = compact ? '12px' : '18px';
-        visualControls.style.justifyContent = 'flex-end';
-        stagePrompt.style.top = compact ? '142px' : '102px';
-        racePanel.setCompact(compact);
-        lapToast.setCompact(compact);
-        stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
-        controls.style.right = compact ? '12px' : '18px';
-        controls.style.bottom = compact ? `${bottom.offsetHeight + 26}px` : '18px';
-        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(520px, 90vw)';
-        metricValues.style.gap = compact ? '11px' : '18px';
+        // El dock ocupa un alto variable: en pantallas estrechas las acciones flotan justo encima.
+        hud.style.setProperty('--xh-dock-h', `${bottom.offsetHeight}px`);
         decisionButtons.style.gridTemplateColumns = compact ? '1fr' : 'repeat(3, 1fr)';
     };
     applyResponsiveLayout();
@@ -684,16 +516,7 @@ export function ExpeditionView({
         visualSettings.quality = qualitySelect.select.value;
         visualSettings.rivals = rivalsSelect.select.value !== 'off';
         saveVisualSettings(visualSettings);
-        applyHudMode(visualSettings.hud, {
-            top,
-            stagePrompt,
-            routeProgress,
-            flowBar,
-            metrics,
-            actualCadence,
-            combo,
-            contextValues,
-        });
+        applyHudMode(visualSettings.hud, hud);
         applyHudExtras();
         await rendererReady;
         renderer?.setCameraMode?.(visualSettings.camera);
@@ -856,7 +679,8 @@ export function ExpeditionView({
         // El color de la potencia dice si estás en zona: verde ±5%, ámbar ±10%, rojo fuera.
         const settled = (latestTick?.blockElapsedTime || 0) > 8;
         const deviation = target > 0 && settled ? Math.abs(power - target) / target : null;
-        actualPower.style.color = deviation == null ? '#fff' : deviation <= 0.05 ? '#63e0b5' : deviation <= 0.1 ? '#ffd379' : '#ff8a6b';
+        powerCard.setAttribute('data-state', deviation == null ? 'free' : deviation <= 0.05 ? 'good' : deviation <= 0.1 ? 'warn' : 'off');
+        powerFtp.textContent = `${Math.round((power / Math.max(1, state.settings.ftp)) * 100)}% FTP`;
         const gaugeMaximum = Math.max(400, state.settings.ftp * 1.5, target * 1.5, power * 1.12);
         flowFill.style.width = `${Math.min(100, (power / gaugeMaximum) * 100)}%`;
         targetMarker.style.display = target > 0 ? 'block' : 'none';
@@ -1078,16 +902,7 @@ export function ExpeditionView({
         );
         hudButton.textContent = `HUD · ${hudLabel(visualSettings.hud)}`;
         hudSelect.select.value = visualSettings.hud;
-        applyHudMode(visualSettings.hud, {
-            top,
-            stagePrompt,
-            routeProgress,
-            flowBar,
-            metrics,
-            actualCadence,
-            combo,
-            contextValues,
-        });
+        applyHudMode(visualSettings.hud, hud);
         applyHudExtras();
         saveVisualSettings(visualSettings);
     });
@@ -1294,17 +1109,9 @@ function configSelect(label, options, selectedValue) {
     };
 }
 
-function applyHudMode(mode, elements) {
-    const hidden = mode === 'hidden';
-    const full = mode === 'full';
-    elements.top.style.opacity = hidden ? '0' : '1';
-    if (hidden) elements.stagePrompt.style.opacity = '0';
-    elements.routeProgress.style.opacity = hidden ? '0' : '1';
-    elements.flowBar.style.display = hidden ? 'none' : 'block';
-    elements.metrics.style.opacity = hidden ? '0' : '1';
-    elements.metrics.style.pointerEvents = 'none';
-    elements.contextValues.style.display = full && !hidden ? 'flex' : 'none';
-    elements.combo.style.display = full && !hidden ? 'inline' : 'none';
+function applyHudMode(mode, hud) {
+    hud.setAttribute('data-hud', mode);
+    if (mode === 'hidden') hud.querySelector('.xh-prompt').style.opacity = '0';
 }
 
 function getStagePrompt(blockType) {
