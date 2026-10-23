@@ -111,7 +111,7 @@ const POSES = {
 };
 
 const PALETTE = {
-    skin: 0xf0b48c,
+    skin: 0xe2a97f,
     hair: 0x4a3226,
     shorts: 0x22282e,
     helmet: 0xf3f1ea,
@@ -348,16 +348,16 @@ function buildBikeStatic() {
 
     // Triángulo principal con tubos finos.
     // Tubos de perfil aerodinámico: gruesos vistos de lado y estrechos de frente.
-    b.tube('paint', bb, seatCluster, 0.026, 0.024, 14, 0.6);
-    b.tube('paint', seatCluster, headTop, 0.022, 0.026, 14, 0.62);
-    b.tube('paint', bb, headBottom, 0.036, 0.034, 14, 0.62);
-    b.tube('paint', headBottom, headTop, 0.031, 0.029, 14, 0.8);
-    b.tube('accent', bb.clone().lerp(headBottom, 0.3), bb.clone().lerp(headBottom, 0.68), 0.0385, 0.0385, 14, 0.64);
+    b.tube('paint', bb, seatCluster, 0.034, 0.03, 14, 0.78);
+    b.tube('paint', seatCluster, headTop, 0.03, 0.034, 14, 0.78);
+    b.tube('paint', bb, headBottom, 0.05, 0.044, 14, 0.78);
+    b.tube('paint', headBottom, headTop, 0.04, 0.036, 14, 0.7);
+    b.tube('accent', bb.clone().lerp(headBottom, 0.3), bb.clone().lerp(headBottom, 0.68), 0.054, 0.054, 14, 0.8);
     b.tube('metal', seatCluster, v(0, 0.935, -0.198), 0.0125);
     for (const side of [-1, 1]) {
-        b.tube('paint', v(side * 0.004, seatCluster.y, seatCluster.z), v(side * 0.055, rearHub.y, rearHub.z), 0.011);
-        b.tube('paint', v(side * 0.01, bb.y, bb.z), v(side * 0.055, rearHub.y, rearHub.z), 0.012);
-        b.tube('paint', v(side * 0.03, headBottom.y, headBottom.z), v(side * 0.048, frontHub.y, frontHub.z), 0.015);
+        b.tube('paint', v(side * 0.004, seatCluster.y, seatCluster.z), v(side * 0.055, rearHub.y, rearHub.z), 0.017, 0.013, 12, 0.55);
+        b.tube('paint', v(side * 0.01, bb.y, bb.z), v(side * 0.055, rearHub.y, rearHub.z), 0.019, 0.014, 12, 0.55);
+        b.tube('paint', v(side * 0.03, headBottom.y, headBottom.z), v(side * 0.048, frontHub.y, frontHub.z), 0.027, 0.017, 12, 0.55);
     }
     b.blob('paint', [0, headBottom.y - 0.005, headBottom.z], [0.05, 0.02, 0.03]);
 
@@ -469,14 +469,17 @@ function buildWheelParts() {
         return b.finish().rim;
     };
 
-    // Cuñas de color sobre la tapa, a ambos lados.
+    // Palas de color sobre la tapa (a ambos lados): se ven girar y dan carácter a la rueda.
     const decalBuilder = new Baker();
-    for (let wedge = 0; wedge < 3; wedge += 1) {
+    const blade = [[0.05, -0.006], [0.25, -0.017], [0.25, 0.017], [0.05, 0.006]];
+    for (let index = 0; index < 5; index += 1) {
         for (const side of [-1, 1]) {
-            const piece = new THREE.BoxGeometry(0.0025, 0.1, 0.05);
-            piece.translate(0, 0.17, 0);
-            piece.rotateX((wedge / 3) * Math.PI * 2);
-            piece.translate(side * 0.0118, 0, 0);
+            const shape = new THREE.Shape(blade.map(([y, z]) => new THREE.Vector2(z, y)));
+            const piece = new THREE.ShapeGeometry(shape);
+            // El plano de la forma (xy) pasa al plano yz de la rueda, mirando hacia fuera.
+            piece.rotateY(side * Math.PI / 2);
+            piece.translate(side * 0.0111, 0, 0);
+            piece.rotateX((index / 5) * Math.PI * 2);
             decalBuilder.push('accent', piece);
         }
     }
@@ -656,8 +659,7 @@ function buildHeadParts() {
     b.blob('skin', [0, -0.012, 0.088], [0.012, 0.02, 0.016], [0.3, 0, 0]);
     for (const side of [-1, 1]) b.blob('skin', [side * 0.073, -0.005, -0.012], [0.01, 0.02, 0.016]);
     // Pelo que asoma bajo el casco: nuca y patillas.
-    b.blob('hair', [0, -0.04, -0.062], [0.066, 0.048, 0.046]);
-    b.blob('hair', [0, -0.075, -0.045], [0.05, 0.036, 0.04]);
+    b.blob('hair', [0, -0.045, -0.055], [0.062, 0.04, 0.04]);
     for (const side of [-1, 1]) b.blob('hair', [side * 0.068, -0.02, 0.0], [0.014, 0.035, 0.024]);
 
     // Gafas envolventes: dos lentes, puente y patillas.
@@ -891,7 +893,7 @@ export function createCyclist({
         thigh: mark(limbMesh('thigh', M.skin), OUTLINE.thin),
         calf: mark(limbMesh('calf', M.skin), OUTLINE.thin),
         sock: mark(limbMesh('sock', M.sock), OUTLINE.thin),
-        knee: blobMesh(0.056, M.skin),
+        knee: blobMesh(0.05, M.skin),
         shoe: mark(blobMesh([0.04, 0.034, 0.115], M.shoe), OUTLINE.thin),
         stripe: blobMesh([0.03, 0.008, 0.06], M.accent),
         pedal: new THREE.Mesh(sharedGeometry('pedal', () => new THREE.BoxGeometry(0.07, 0.014, 0.1)), M.rubber),
