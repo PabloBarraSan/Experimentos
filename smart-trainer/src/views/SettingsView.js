@@ -7,6 +7,7 @@ import { colors, spacing, typography, baseStyles, borderRadius, transitions } fr
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { loadSettings, saveSettings, resetSettings, calculatePowerZones } from '../storage/settings.js';
 import { ZWIFT_PLAY_STATE } from '../bluetooth/zwiftPlay.js';
+import { navigateTo } from '../app.js';
 import { downloadBackup, restoreBackupFromFile } from '../storage/backup.js';
 import { downloadDebugLog } from '../diagnostics/SessionDebugLogger.js';
 import {
@@ -80,7 +81,13 @@ export function SettingsView({ state, onSave }) {
     const container = div({ className: 'settings-view', styles: containerStyles });
     
     // Título
-    container.appendChild(createElement('h1', { text: 'Configuración', className: 'settings-title', styles: titleStyles }));
+    container.appendChild(button({
+        text: '← Volver',
+        attrs: { type: 'button', class: 'prep-back', 'aria-label': 'Volver al inicio' },
+        styles: { marginBottom: spacing.md },
+        events: { click: () => navigateTo('home') },
+    }));
+    container.appendChild(createElement('h1', { text: 'Configuración', className: 'settings-title', styles: { ...titleStyles, fontFamily: typography.fontDisplay, letterSpacing: '-1px' } }));
     
     // === Sección: Datos del usuario ===
     const userSection = div({ className: 'settings-card', styles: sectionStyles });
@@ -88,7 +95,7 @@ export function SettingsView({ state, onSave }) {
         className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
-            icon('bike', 24, colors.primary),
+            icon('bike', 22, '#70e6c6'),
             createElement('span', { text: 'Datos del Ciclista' }),
         ],
     }));

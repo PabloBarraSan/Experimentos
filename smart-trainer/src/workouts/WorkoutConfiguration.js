@@ -5,6 +5,8 @@ export const SESSION_DURATION_OPTIONS = [10, 20, 30, 35, 40, 45, 60, 90];
 export function getWorkoutDurationOptions(workout) {
     if (!workout?.blocks?.length) return SESSION_DURATION_OPTIONS;
     const baseDuration = calculateWorkoutStats(workout).totalDuration;
+    // Un test tiene un protocolo fijo: cambiar su duración invalidaría el resultado.
+    if (workout.category === 'ftp_test') return [Math.round(baseDuration / 60)];
     const { protectedDuration, flexibleMinimum } = getDurationBounds(workout, baseDuration);
     const minimumDuration = protectedDuration + flexibleMinimum;
     const options = SESSION_DURATION_OPTIONS.filter((minutes) => minutes * 60 >= minimumDuration);
@@ -23,6 +25,7 @@ export function getDefaultWorkoutDuration(workout) {
 
 export function buildWorkoutForDuration(template, durationMinutes) {
     if (!template?.blocks?.length || !Number.isFinite(Number(durationMinutes))) return null;
+    if (template.category === 'ftp_test') return null;
     const baseId = template.parentWorkoutId || template.id;
     const targetDuration = Math.round(Number(durationMinutes) * 60);
     const baseDuration = calculateWorkoutStats(template).totalDuration;
