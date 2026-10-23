@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-    createCyclist, animateCyclist, disposeCyclist, getCyclistStyle, saveCyclistStyle,
+    createCyclist, animateCyclist, disposeCyclist, setCyclistEnvironment, getCyclistStyle, saveCyclistStyle,
     BIKE_PAINTS, RIDER_POSITIONS, DEFAULT_RIDER_POSITION,
 } from '../expedition/Cyclist.js';
 import { getRiderPrefs, saveRiderPrefs } from '../storage/settings.js';
@@ -78,6 +78,7 @@ export function CyclistViewerView({ onBack }) {
     renderer.toneMappingExposure = 1.05;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    setCyclistEnvironment(renderer);
     canvasHost.appendChild(renderer.domElement);
     renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;cursor:grab;';
 

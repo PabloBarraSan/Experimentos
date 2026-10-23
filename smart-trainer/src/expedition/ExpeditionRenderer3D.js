@@ -8,7 +8,7 @@ import { createProfileRibbon, createAsphaltTextures, createGravelTexture, ASPHAL
 import { createStartGate, createSummitBeacon, createFence, createCabin, createRoadPosts } from './scene/props.js';
 import { createPostProcessing } from './scene/post.js';
 import { createPrecipitation } from './scene/weather.js';
-import { createCyclist, animateCyclist, BIKE } from './Cyclist.js';
+import { createCyclist, animateCyclist, setCyclistEnvironment, BIKE } from './Cyclist.js';
 import { placeOnRoad, createPlacement, ROAD_LIFT, ROAD_CROWN } from './roadPlacement.js';
 
 const CAMERA_PRESETS = {
@@ -121,6 +121,7 @@ class ExpeditionRenderer3D {
         this.setupRenderer();
         this.setupScene();
         this.buildWorld();
+        setCyclistEnvironment(this.renderer);
         this.player = createCyclist({ accent: 0x63e0b5, ghost: false });
         this.ghost = createCyclist({ accent: 0x8ed9ff, ghost: true });
         this.player.group.scale.setScalar(RIDER_SCALE);
