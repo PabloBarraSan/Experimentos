@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "smart-trainer",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "smart-trainer",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5173"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "smart-trainer-plan-test",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "smart-trainer",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5174"
+      ],
+      "port": 5174
+    }
+  ]
+}

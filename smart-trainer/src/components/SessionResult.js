@@ -114,7 +114,7 @@ function coachingTip(adherence) {
  * @param {HTMLElement|null} data.feedback Panel de valoración
  * @param {Function} data.onHistory
  */
-export function createSessionResult({ completed, scored, result, intensity, progress, gainedXp, peloton, laps, feedback, onHistory }) {
+export function createSessionResult({ completed, scored, result, intensity, progress, gainedXp, peloton, laps, feedback, testResult, onHistory }) {
     const adherence = result.adherence || 0;
     const stats = [];
     if (gainedXp > 0) stats.push(progressStat(`+${gainedXp}`, 'XP ganados', { gain: true }));
@@ -147,7 +147,7 @@ export function createSessionResult({ completed, scored, result, intensity, prog
 
     // Tramos y vueltas a la izquierda; a la derecha cómo fue el cuerpo (intensidad y valoración).
     const left = [blocksPanel(result.blocks), lapsPanel(laps)].filter(Boolean);
-    const right = [intensityPanel(intensity), scored ? feedback : null].filter(Boolean);
+    const right = [testResult, intensityPanel(intensity), scored ? feedback : null].filter(Boolean);
 
     return div({
         attrs: { class: 'rs' },

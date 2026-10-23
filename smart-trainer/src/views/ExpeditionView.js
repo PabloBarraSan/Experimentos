@@ -14,6 +14,7 @@ import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSett
 import { summarizeIntensity } from '../session/intensitySummary.js';
 import { createSessionFeedbackPanel } from '../components/SessionFeedbackPanel.js';
 import { createSessionResult } from '../components/SessionResult.js';
+import { createFitnessTestResultPanel } from '../components/FitnessTestResultPanel.js';
 
 export function ExpeditionView({
     state,
@@ -257,7 +258,7 @@ export function ExpeditionView({
     const metrics = div({
         attrs: { 'data-hud-mode': visualSettings.hud },
         styles: {
-            width: 'min(520px, 90vw)',
+            width: 'min(clamp(520px, 46vw, 780px), 90vw)',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
@@ -270,7 +271,7 @@ export function ExpeditionView({
     });
     const actualPower = createElement('strong', {
         text: '0',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(38px, 9vw, 52px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color .25s ease' },
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(38px, calc(4vw + 12px), 72px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color .25s ease' },
     });
     const targetPower = createElement('span', {
         text: 'Objetivo -- W',
@@ -278,11 +279,11 @@ export function ExpeditionView({
     });
     const actualHeartRate = createElement('strong', {
         text: '--',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, 7vw, 40px)', lineHeight: 1, color: '#ff7893', fontVariantNumeric: 'tabular-nums' },
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, calc(3vw + 10px), 54px)', lineHeight: 1, color: '#ff7893', fontVariantNumeric: 'tabular-nums' },
     });
     const actualCadence = createElement('strong', {
         text: '0',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, 7vw, 40px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, calc(3vw + 10px), 54px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
     });
     const targetCadence = createElement('span', { text: '', styles: { color: 'rgba(255,255,255,.62)', fontSize: '12px', fontWeight: 750 } });
     const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontSize: '11px', fontWeight: 800 } });
@@ -644,7 +645,7 @@ export function ExpeditionView({
         stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
         controls.style.right = compact ? '12px' : '18px';
         controls.style.bottom = compact ? `${bottom.offsetHeight + 26}px` : '18px';
-        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(520px, 90vw)';
+        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(clamp(520px, 46vw, 780px), 90vw)';
         metricValues.style.gap = compact ? '11px' : '18px';
         decisionButtons.style.gridTemplateColumns = compact ? '1fr' : 'repeat(3, 1fr)';
     };
@@ -980,6 +981,8 @@ export function ExpeditionView({
             laps: lapTracker.laps,
             // Solo tiene sentido valorar una sesión que puntúa; las muy cortas se descartan.
             feedback: scored ? createSessionFeedbackPanel(session) : null,
+            // Si la sesión era un test (FTP / CP), el resultado con el botón para aplicarlo.
+            testResult: createFitnessTestResultPanel({ workout, session, settings: state.settings }),
             onHistory: () => onCompleted?.(session),
         }));
         briefing.style.display = 'flex';

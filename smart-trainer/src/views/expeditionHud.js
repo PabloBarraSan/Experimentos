@@ -13,9 +13,12 @@ function zoneColor(percent) {
     return '#ff5a4d';
 }
 
-function blockPercent(block) {
-    const start = Number(block.targetValue) || 0;
-    const end = block.targetValueEnd != null && block.type === BLOCK_TYPES.RAMP ? Number(block.targetValueEnd) : start;
+// Porcentaje del FTP que pide un bloque; los objetivos en vatios (p. ej. el ramp test) se convierten con el FTP.
+function blockPercent(block, ftp = 0) {
+    const toPercent = (value) => (block.targetType === 'power_absolute' ? (ftp > 0 ? (Number(value) / ftp) * 100 : 70) : Number(value) || 0);
+    if (block.targetType === 'free') return { start: 100, end: 100, mean: 100 };
+    const start = toPercent(block.targetValue);
+    const end = block.targetValueEnd != null && block.type === BLOCK_TYPES.RAMP ? toPercent(block.targetValueEnd) : start;
     return { start, end, mean: (start + end) / 2 };
 }
 
@@ -23,7 +26,7 @@ function targetWatts(block, ftp) {
     if (block.targetType && block.targetType !== 'power_ftp') {
         return block.targetType === 'power_absolute' ? Math.round(block.targetValue) : null;
     }
-    return Math.round((blockPercent(block).mean / 100) * ftp);
+    return Math.round((blockPercent(block, ftp).mean / 100) * ftp);
 }
 
 export function describeLap(block) {
@@ -106,14 +109,16 @@ const glass = {
 export function createWorkoutStrip({ workout, ftp, totalDuration }) {
     const blocks = expandBlocks(workout.blocks || []);
     const strip = div({
-        styles: { position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '1px', height: '38px', width: '100%' },
+        styles: { position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '1px', height: 'clamp(38px, 7vh, 72px)', width: '100%' },
     });
+    // Escala: 130 % del FTP, o más si el entreno (ramp test) pide más.
+    const maxPercent = Math.max(130, ...blocks.map((block) => blockPercent(block, ftp).mean));
     const segments = blocks.map((block) => {
-        const { start, end } = blockPercent(block);
+        const { start, end } = blockPercent(block, ftp);
         const top = Math.max(start, end);
-        const height = Math.max(14, Math.min(100, (top / 130) * 100));
-        const startHeight = Math.max(14, Math.min(100, (start / 130) * 100));
-        const endHeight = Math.max(14, Math.min(100, (end / 130) * 100));
+        const height = Math.max(14, Math.min(100, (top / maxPercent) * 100));
+        const startHeight = Math.max(14, Math.min(100, (start / maxPercent) * 100));
+        const endHeight = Math.max(14, Math.min(100, (end / maxPercent) * 100));
         const el = div({
             styles: {
                 flex: `${block.duration} 0 0`,
@@ -158,7 +163,7 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
     const info = div({
         styles: {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
-            fontSize: '11px', width: '100%',
+            fontSize: 'clamp(11px, 1.05vw, 15px)', width: '100%',
         },
         children: [
             div({
@@ -174,7 +179,7 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
     const element = div({
         styles: {
             ...glass, borderRadius: '14px', padding: '9px 12px 8px', display: 'grid', gap: '6px',
-            width: 'min(520px, 90vw)', boxSizing: 'border-box',
+            width: 'min(clamp(520px, 46vw, 780px), 90vw)', boxSizing: 'border-box',
         },
         children: [info, strip],
     });

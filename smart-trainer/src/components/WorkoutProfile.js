@@ -30,10 +30,21 @@ function svg(tag, attrs = {}) {
     return element;
 }
 
-function blockPercents(block) {
+function blockPercents(block, ftp) {
+    if (block.targetType === TARGET_TYPES.FREE) return [100, 100];
+    if (block.targetType === TARGET_TYPES.POWER_ABSOLUTE) {
+        const toPercent = (watts) => (ftp > 0 ? (Number(watts) / ftp) * 100 : 70);
+        const from = toPercent(block.targetValue);
+        return [from, block.targetValueEnd != null ? toPercent(block.targetValueEnd) : from];
+    }
     if (block.targetType !== TARGET_TYPES.POWER_FTP) return [70, 70];
     const start = Number(block.targetValue) || 0;
     return [start, Number(block.targetValueEnd ?? start) || start];
+}
+
+/** Escala vertical: 130 % del FTP, o más si el entreno (p. ej. un ramp test) pide más. */
+function maxPercentFor(blocks, ftp) {
+    return Math.max(MAX_PERCENT, ...blocks.flatMap((block) => blockPercents(block, ftp)));
 }
 
 function tickLabel(seconds) {
@@ -52,11 +63,12 @@ function tickStep(totalSeconds) {
  * @param {Object} [options]
  * @param {number} [options.height] Alto del dibujo en px (por defecto 180)
  */
-export function createWorkoutProfile(workout, { height = 180 } = {}) {
+export function createWorkoutProfile(workout, { height = 180, ftp = 0 } = {}) {
     const blocks = expandBlocks(workout?.blocks || []);
     const total = blocks.reduce((sum, block) => sum + block.duration, 0) || 1;
     const plotHeight = height;
-    const yFor = (percent) => plotHeight - (Math.min(percent, MAX_PERCENT) / MAX_PERCENT) * (plotHeight - 8);
+    const maxPercent = maxPercentFor(blocks, ftp);
+    const yFor = (percent) => plotHeight - (Math.min(percent, maxPercent) / maxPercent) * (plotHeight - 8);
 
     const root = svg('svg', {
         viewBox: `0 0 ${WIDTH} ${height}`,
@@ -70,7 +82,7 @@ export function createWorkoutProfile(workout, { height = 180 } = {}) {
     let x = 0;
     blocks.forEach((block) => {
         const width = (block.duration / total) * WIDTH;
-        const [from, to] = blockPercents(block);
+        const [from, to] = blockPercents(block, ftp);
         const average = (from + to) / 2;
         const zone = zoneForPercent(average);
         const yFrom = yFor(from);
@@ -97,15 +109,16 @@ export function createWorkoutProfile(workout, { height = 180 } = {}) {
 /**
  * Perfil con eje de tiempo en HTML (el texto no se deforma al estirar el SVG) y leyenda de zonas.
  */
-export function createWorkoutProfileFrame(workout, { height = 190, legend = true } = {}) {
-    const total = expandBlocks(workout?.blocks || []).reduce((sum, block) => sum + block.duration, 0) || 1;
+export function createWorkoutProfileFrame(workout, { height = 190, legend = true, ftp = 0 } = {}) {
+    const blocks = expandBlocks(workout?.blocks || []);
+    const total = blocks.reduce((sum, block) => sum + block.duration, 0) || 1;
     const frame = document.createElement('div');
     frame.className = 'hp-profile-frame';
 
-    const plot = createWorkoutProfile(workout, { height });
+    const plot = createWorkoutProfile(workout, { height, ftp });
     const ftpLine = document.createElement('div');
     ftpLine.className = 'hp-profile-ftp';
-    ftpLine.style.bottom = `${(100 / MAX_PERCENT) * (height - 8) / height * 100}%`;
+    ftpLine.style.bottom = `${(100 / maxPercentFor(blocks, ftp)) * (height - 8) / height * 100}%`;
     ftpLine.innerHTML = '<span>FTP</span>';
 
     const plotWrap = document.createElement('div');

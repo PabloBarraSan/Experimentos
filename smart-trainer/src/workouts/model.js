@@ -135,6 +135,8 @@ export function calculateWorkoutStats(workout, ftp = 200) {
             if (block.targetValueEnd !== null) {
                 avgPower = (block.targetValue + block.targetValueEnd) / 2;
             }
+        } else if (block.targetType === TARGET_TYPES.FREE) {
+            avgPower = ftp; // Esfuerzo libre (tests): se estima como esfuerzo a FTP
         } else {
             avgPower = 0.5 * ftp; // Estimación para otros tipos
         }

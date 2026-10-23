@@ -8,6 +8,7 @@ import './workouts.css';
 import { createElement, div, button, icon, formatTime } from '../utils/dom.js';
 import { getAllPresets, getPresetsByCategory, CATEGORIES, DIFFICULTIES } from '../workouts/presets.js';
 import { createWorkoutProfile } from '../components/WorkoutProfile.js';
+import { loadSettings } from '../storage/settings.js';
 
 const sortMissionsFirst = (workouts) => workouts
     .sort((a, b) => Number(Boolean(b.mission)) - Number(Boolean(a.mission)));
@@ -108,7 +109,7 @@ function createWorkoutCard(workout, onClick) {
                     stat(String(workout.stats.intensityFactor), 'Intensidad'),
                 ],
             }),
-            createWorkoutProfile(workout, { height: 72 }),
+            createWorkoutProfile(workout, { height: 72, ftp: loadSettings().ftp }),
             workout.tags?.length
                 ? createElement('p', { text: workout.tags.slice(0, 4).map((tag) => `#${tag}`).join('  '), attrs: { class: 'wk-tags' } })
                 : null,

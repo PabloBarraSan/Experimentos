@@ -8,7 +8,7 @@ import { createElement, div, button, icon, formatTime } from '../utils/dom.js';
 import { checkBluetoothSupport, CONNECTION_STATE } from '../bluetooth/scanner.js';
 import { HR_CONNECTION_STATE } from '../bluetooth/heartRate.js';
 import { navigateTo, subscribe } from '../app.js';
-import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
+import { expandBlocks, BLOCK_TYPES, calculateWorkoutStats } from '../workouts/model.js';
 import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSettings.js';
 import { createWorkoutProfileFrame } from '../components/WorkoutProfile.js';
 import './home.css';
@@ -171,7 +171,8 @@ export function PrepareView(state) {
 
     // --- Cabecera / resumen ---
     const title = isFreeTraining ? 'Entrenamiento libre' : (workout?.name || 'Expedición');
-    const stats = workout?.stats || {};
+    // TSS e IF dependen del FTP del usuario; workout.stats se calculó con uno genérico de 200 W.
+    const stats = workout?.blocks?.length ? calculateWorkoutStats(workout, state.settings?.ftp || 200) : (workout?.stats || {});
     const summary = div({
         attrs: { class: 'hp-card hp-card-pad hp-hero' },
         children: [
@@ -190,7 +191,7 @@ export function PrepareView(state) {
                     [String(stats.intensityFactor ?? '—'), 'Intensidad (IF)'],
                 ].map(([value, label]) => div({ attrs: { class: 'hp-stat' }, children: [createElement('strong', { text: value }), createElement('span', { text: label })] })),
             }),
-            isFreeTraining ? null : createWorkoutProfileFrame(workout, { height: 210 }),
+            isFreeTraining ? null : createWorkoutProfileFrame(workout, { height: 210, ftp: state.settings?.ftp }),
             isFreeTraining ? null : div({ children: [button({
                 text: 'Elegir otro entreno',
                 attrs: { type: 'button', class: 'hp-link' },
