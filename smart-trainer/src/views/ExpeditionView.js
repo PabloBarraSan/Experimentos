@@ -473,10 +473,17 @@ export function ExpeditionView({
     const wakeLock = new WakeLockManager();
 
     const rendererReady = initializeRenderer();
+    let lastDockShare = -1;
     const applyResponsiveLayout = () => {
         const compact = window.innerWidth < 600;
         // El dock ocupa un alto variable: en pantallas estrechas las acciones flotan justo encima.
         hud.style.setProperty('--xh-dock-h', `${bottom.offsetHeight}px`);
+        // La escena se desplaza hacia arriba lo que ocupa el dock inferior (más panel = más desplazamiento).
+        const dockShare = visualSettings.hud === 'hidden' ? 0 : Math.min(0.3, (bottom.offsetHeight / Math.max(1, window.innerHeight)) * 0.5);
+        if (dockShare !== lastDockShare) {
+            lastDockShare = dockShare;
+            renderer?.setFrameOffset?.(dockShare);
+        }
         decisionButtons.style.gridTemplateColumns = compact ? '1fr' : 'repeat(3, 1fr)';
     };
     applyResponsiveLayout();
@@ -501,6 +508,8 @@ export function ExpeditionView({
             renderer = createExpeditionRenderer(canvas);
             loadingScene.querySelector('span').textContent = 'Modo visual compatible activado';
         } finally {
+            lastDockShare = -1;
+            applyResponsiveLayout();
             requestAnimationFrame(() => {
                 loadingScene.style.opacity = '0';
                 setTimeout(() => loadingScene.remove(), 550);
@@ -517,6 +526,7 @@ export function ExpeditionView({
         visualSettings.rivals = rivalsSelect.select.value !== 'off';
         saveVisualSettings(visualSettings);
         applyHudMode(visualSettings.hud, hud);
+        applyResponsiveLayout();
         applyHudExtras();
         await rendererReady;
         renderer?.setCameraMode?.(visualSettings.camera);
@@ -903,6 +913,7 @@ export function ExpeditionView({
         hudButton.textContent = `HUD · ${hudLabel(visualSettings.hud)}`;
         hudSelect.select.value = visualSettings.hud;
         applyHudMode(visualSettings.hud, hud);
+        applyResponsiveLayout();
         applyHudExtras();
         saveVisualSettings(visualSettings);
     });

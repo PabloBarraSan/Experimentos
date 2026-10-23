@@ -808,7 +808,23 @@ class ExpeditionRenderer3D {
         this.renderer.setSize(width, height, false);
         this.post?.setSize(width, height);
         this.camera.aspect = width / height;
+        this.applyFrameOffset(width, height);
         this.camera.updateProjectionMatrix();
+    }
+
+    /**
+     * Sube la escena una fracción del alto de la pantalla para que el ciclista quede por encima del panel inferior
+     * del HUD (solo hay panel ancho en escritorio). Desplaza el punto principal de la cámara: no cambia el encuadre.
+     */
+    setFrameOffset(fraction) {
+        this.frameOffset = THREE.MathUtils.clamp(Number(fraction) || 0, 0, 0.3);
+        this.resize();
+    }
+
+    applyFrameOffset(width, height) {
+        const offset = Math.round(height * (this.frameOffset || 0));
+        if (offset > 0) this.camera.setViewOffset(width, height, 0, offset, width, height);
+        else this.camera.clearViewOffset();
     }
 
     destroy() {

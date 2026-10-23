@@ -121,7 +121,7 @@ const PALETTE = {
     rubber: 0x1b2024,
     tape: 0x2a3035,
     tire: 0x15191c,
-    rim: 0x98a4a7,
+    rim: 0x2b3236,
     spoke: 0xc7d0d1,
     metal: 0xb8c2c4,
     bottle: 0xf2efe4,
@@ -234,12 +234,29 @@ function sharedGeometry(key, build) {
     return geometry;
 }
 
-const unitSphere = () => sharedGeometry('sphere', () => new THREE.SphereGeometry(1, 12, 9));
+const unitSphere = () => sharedGeometry('sphere', () => new THREE.SphereGeometry(1, 20, 14));
 // Cilindro unitario orientado por alignTube: la base (-y) es el inicio y la tapa (+y) el final.
 const tubeGeometry = (startRadius, endRadius = startRadius) => sharedGeometry(
     `tube:${startRadius}:${endRadius}`,
-    () => new THREE.CylinderGeometry(endRadius, startRadius, 1, 10, 1),
+    () => new THREE.CylinderGeometry(endRadius, startRadius, 1, 16, 1),
 );
+
+// Miembro con perfil muscular: revolución sobre Y (de -0.5 a 0.5) con el radio dado en cada punto [t, radio].
+// Se orienta con alignTube igual que un tubo; t = 0 es el inicio (cadera, hombro, rodilla...).
+const limbGeometry = (key, profile) => sharedGeometry(`limb:${key}`, () => {
+    const points = [new THREE.Vector2(0.0001, -0.5)];
+    profile.forEach(([t, radius]) => points.push(new THREE.Vector2(radius, t - 0.5)));
+    points.push(new THREE.Vector2(0.0001, 0.5));
+    return new THREE.LatheGeometry(points, 20);
+});
+const LIMBS = {
+    short: [[0, 0.074], [0.45, 0.079], [1, 0.067]],
+    thigh: [[0, 0.067], [0.35, 0.063], [1, 0.047]],
+    calf: [[0, 0.047], [0.22, 0.056], [0.55, 0.046], [1, 0.031]],
+    sock: [[0, 0.037], [1, 0.034]],
+    upper: [[0, 0.045], [0.4, 0.046], [1, 0.036]],
+    fore: [[0, 0.037], [0.3, 0.041], [1, 0.026]],
+};
 
 /**
  * Acumula primitivas ya colocadas y las fusiona en una sola geometría por material ("slot").
@@ -258,7 +275,7 @@ class Baker {
         return this;
     }
 
-    tube(slot, start, end, startRadius, endRadius = startRadius, radial = 8) {
+    tube(slot, start, end, startRadius, endRadius = startRadius, radial = 12) {
         const geometry = new THREE.CylinderGeometry(endRadius, startRadius, 1, radial, 1);
         const direction = end.clone().sub(start);
         const length = Math.max(0.001, direction.length());
@@ -269,7 +286,7 @@ class Baker {
     }
 
     blob(slot, center, radii, rotation = null) {
-        const geometry = new THREE.SphereGeometry(1, 12, 9);
+        const geometry = new THREE.SphereGeometry(1, 18, 12);
         geometry.scale(...radii);
         if (rotation) geometry.applyQuaternion(new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation)));
         geometry.translate(...center);
@@ -316,16 +333,16 @@ function buildBikeStatic() {
     const { bottomBracket: bb, rearHub, frontHub, seatCluster, saddle, headTop, headBottom } = BIKE;
 
     // Triángulo principal con tubos finos.
-    b.tube('paint', bb, seatCluster, 0.017);
-    b.tube('paint', seatCluster, headTop, 0.016);
-    b.tube('paint', bb, headBottom, 0.023);
-    b.tube('paint', headBottom, headTop, 0.02);
-    b.tube('accent', bb.clone().lerp(headBottom, 0.3), bb.clone().lerp(headBottom, 0.68), 0.0245);
+    b.tube('paint', bb, seatCluster, 0.02);
+    b.tube('paint', seatCluster, headTop, 0.019);
+    b.tube('paint', bb, headBottom, 0.027);
+    b.tube('paint', headBottom, headTop, 0.024);
+    b.tube('accent', bb.clone().lerp(headBottom, 0.3), bb.clone().lerp(headBottom, 0.68), 0.0285);
     b.tube('metal', seatCluster, v(0, 0.935, -0.198), 0.0125);
     for (const side of [-1, 1]) {
-        b.tube('paint', v(side * 0.004, seatCluster.y, seatCluster.z), v(side * 0.055, rearHub.y, rearHub.z), 0.0085);
-        b.tube('paint', v(side * 0.01, bb.y, bb.z), v(side * 0.055, rearHub.y, rearHub.z), 0.0095);
-        b.tube('paint', v(side * 0.03, headBottom.y, headBottom.z), v(side * 0.048, frontHub.y, frontHub.z), 0.012);
+        b.tube('paint', v(side * 0.004, seatCluster.y, seatCluster.z), v(side * 0.055, rearHub.y, rearHub.z), 0.011);
+        b.tube('paint', v(side * 0.01, bb.y, bb.z), v(side * 0.055, rearHub.y, rearHub.z), 0.012);
+        b.tube('paint', v(side * 0.03, headBottom.y, headBottom.z), v(side * 0.048, frontHub.y, frontHub.z), 0.015);
     }
     b.blob('paint', [0, headBottom.y - 0.005, headBottom.z], [0.05, 0.02, 0.03]);
 
@@ -335,7 +352,7 @@ function buildBikeStatic() {
     b.tube('metal', v(-0.2, 0.97, 0.5), v(0.2, 0.97, 0.5), 0.0115);
     b.blob('metal', [0, 0.97, 0.5], [0.03, 0.022, 0.026]);
     for (const side of [-1, 1]) {
-        const tube = new THREE.TubeGeometry(barCurve(side), 32, 0.0125, 8, false);
+        const tube = new THREE.TubeGeometry(barCurve(side), 32, 0.0125, 10, false);
         b.push('tape', tube);
         const end = barCurve(side).getPointAt(1);
         b.blob('tape', end.toArray(), [0.0125, 0.0125, 0.0125]);
@@ -391,22 +408,23 @@ function buildAeroBars() {
 
 // Piezas del mismo plato y piñón en el espacio de la rueda (eje x).
 function buildWheelParts() {
-    const tubeRadius = 0.017;
-    const tire = new THREE.TorusGeometry(BIKE.wheelRadius - tubeRadius, tubeRadius, 8, 40);
+    const tubeRadius = 0.0195;
+    const tire = new THREE.TorusGeometry(BIKE.wheelRadius - tubeRadius, tubeRadius, 12, 64);
     tire.rotateY(Math.PI / 2);
     tire.userData.shared = true;
 
-    // Llanta con perfil: anillo de sección rectangular (alto 24 mm, ancho 22 mm).
-    const rimInner = 0.28;
+    // Llanta de perfil alto (carbono, 36 mm) con forma de V suave, como las ruedas de carrera.
+    const rimInner = 0.262;
     const rimOuter = BIKE.wheelRadius - tubeRadius * 2 + 0.002;
     const rimProfile = [
-        new THREE.Vector2(rimInner, -0.011), new THREE.Vector2(rimOuter, -0.011),
-        new THREE.Vector2(rimOuter, 0.011), new THREE.Vector2(rimInner, 0.011),
-        new THREE.Vector2(rimInner, -0.011),
+        new THREE.Vector2(rimInner, -0.007), new THREE.Vector2(rimInner + 0.02, -0.013),
+        new THREE.Vector2(rimOuter, -0.011), new THREE.Vector2(rimOuter, 0.011),
+        new THREE.Vector2(rimInner + 0.02, 0.013), new THREE.Vector2(rimInner, 0.007),
+        new THREE.Vector2(rimInner, -0.007),
     ];
     const makeRim = (rear) => {
         const b = new Baker();
-        const rim = new THREE.LatheGeometry(rimProfile, 40);
+        const rim = new THREE.LatheGeometry(rimProfile, 56);
         rim.rotateZ(Math.PI / 2);
         b.push('rim', rim);
         const hub = new THREE.CylinderGeometry(0.018, 0.018, 0.1, 10);
@@ -719,7 +737,7 @@ export function createCyclist({
         rubber: neutral('rubber', PALETTE.rubber),
         tape: neutral('tape', PALETTE.tape),
         tire: neutral('tire', PALETTE.tire),
-        rim: neutral('rim', PALETTE.rim, { rough: 0.5, metal: 0.15, flatShading: true }),
+        rim: neutral('rim', PALETTE.rim, { rough: 0.32, metal: 0.35 }),
         metal: neutral('metal', PALETTE.metal, { rough: 0.45, metal: 0.15, flatShading: true }),
         bottle: neutral('bottle', PALETTE.bottle, { flatShading: true }),
     };
@@ -743,6 +761,7 @@ export function createCyclist({
         return mesh;
     };
     const taperedMesh = (startRadius, endRadius, material) => new THREE.Mesh(tubeGeometry(startRadius, endRadius), material);
+    const limbMesh = (name, material) => new THREE.Mesh(limbGeometry(name, LIMBS[name]), material);
     const addBaked = (parent, parts, outlineSlots = {}) => {
         Object.entries(parts).forEach(([slot, geometry]) => {
             const mesh = new THREE.Mesh(geometry, M[slot]);
@@ -807,8 +826,8 @@ export function createCyclist({
     // Brazos finos: manga corta, brazo, antebrazo y guante; se recolocan al cambiar de posición.
     const makeArm = () => ({
         sleeve: mark(taperedMesh(0.056, 0.049, M.jerseyArm), OUTLINE.thin),
-        upper: mark(taperedMesh(0.043, 0.038, M.skin), OUTLINE.thin),
-        fore: mark(taperedMesh(0.036, 0.027, M.skin), OUTLINE.thin),
+        upper: mark(limbMesh('upper', M.skin), OUTLINE.thin),
+        fore: mark(limbMesh('fore', M.skin), OUTLINE.thin),
         cap: mark(blobMesh(0.057, M.jerseyArm), OUTLINE.thin),
         elbow: blobMesh(0.038, M.skin),
         glove: mark(blobMesh([0.036, 0.031, 0.05], M.glove), OUTLINE.thin),
@@ -818,10 +837,10 @@ export function createCyclist({
 
     // ---- Piernas: culotte, muslo, gemelo, calcetín y zapatilla; se recolocan por frame con IK ----
     const makeLeg = () => ({
-        short: mark(taperedMesh(0.077, 0.066, M.shorts), OUTLINE.thin),
-        thigh: mark(taperedMesh(0.063, 0.05, M.skin), OUTLINE.thin),
-        calf: mark(taperedMesh(0.05, 0.034, M.skin), OUTLINE.thin),
-        sock: mark(taperedMesh(0.037, 0.036, M.sock), OUTLINE.thin),
+        short: mark(limbMesh('short', M.shorts), OUTLINE.thin),
+        thigh: mark(limbMesh('thigh', M.skin), OUTLINE.thin),
+        calf: mark(limbMesh('calf', M.skin), OUTLINE.thin),
+        sock: mark(limbMesh('sock', M.sock), OUTLINE.thin),
         knee: blobMesh(0.05, M.skin),
         shoe: mark(blobMesh([0.04, 0.034, 0.115], M.shoe), OUTLINE.thin),
         stripe: blobMesh([0.03, 0.008, 0.06], M.accent),
@@ -947,7 +966,7 @@ export function createCyclist({
             if (pose.elbow) {
                 elbow = toTorso(v(side * pose.elbow.x, pose.elbow.y, pose.elbow.z));
             } else {
-                const pole = v(side * 0.7, -0.6, -0.2).applyAxisAngle(X_AXIS, -lean);
+                const pole = v(side * 0.32, -0.8, -0.25).applyAxisAngle(X_AXIS, -lean);
                 elbow = solveTwoBone(shoulder, hand, BODY.upperArm, BODY.forearm, pole, new THREE.Vector3());
             }
             const sleeveEnd = shoulder.clone().lerp(elbow, 0.5);
