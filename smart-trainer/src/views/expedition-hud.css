@@ -851,26 +851,70 @@
 
     .xh-dock {
         width: 100%;
+        gap: 6px;
+    }
+
+    .xh-race__list {
+        display: none !important;
+    }
+
+    .xh-lap {
+        gap: 7px;
+        padding: 10px 13px 9px;
+        border-radius: 15px;
     }
 
     .xh-lap__clock {
-        font-size: 34px;
+        font-size: 32px;
+    }
+
+    .xh-lap__clock-label {
+        display: none;
     }
 
     .xh-lap__name {
-        font-size: 18px;
+        font-size: 17px;
     }
 
     .xh-strip {
-        height: 38px;
+        height: 28px;
+    }
+
+    .xh-lap__next {
+        font-size: 11px;
+    }
+
+    .xh-power {
+        gap: 6px;
+        padding: 10px 14px 11px;
+        border-radius: 15px;
     }
 
     .xh-power__value {
-        font-size: clamp(48px, 15vw, 64px);
+        font-size: clamp(44px, 14vw, 58px);
+    }
+
+    .xh-power__unit {
+        font-size: 18px;
+    }
+
+    .xh-coach {
+        min-height: 0;
+        font-size: 14px;
+    }
+
+    .xh-side {
+        gap: 6px;
+    }
+
+    .xh-stat {
+        gap: 3px;
+        padding: 8px 13px 9px;
+        border-radius: 15px;
     }
 
     .xh-stat__value {
-        font-size: 34px;
+        font-size: 30px;
     }
 }
 
