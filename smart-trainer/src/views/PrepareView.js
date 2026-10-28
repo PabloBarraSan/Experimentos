@@ -8,10 +8,8 @@ import { createElement, div, button, icon, formatTime } from '../utils/dom.js';
 import { checkBluetoothSupport, CONNECTION_STATE } from '../bluetooth/scanner.js';
 import { HR_CONNECTION_STATE } from '../bluetooth/heartRate.js';
 import { navigateTo, subscribe } from '../app.js';
-import { expandBlocks, BLOCK_TYPES, calculateWorkoutStats } from '../workouts/model.js';
+import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
 import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSettings.js';
-import { createWorkoutProfileFrame } from '../components/WorkoutProfile.js';
-import './home.css';
 
 const FRESH_MS = 3000;
 
@@ -66,7 +64,7 @@ function hrConnectionMessage(connectionState) {
 
 function liveStat(label, key) {
     const value = createElement('strong', { text: '—', attrs: { 'data-prep-stat': key } });
-    return { value, element: div({ attrs: { class: '' }, children: [createElement('span', { text: label }), value] }) };
+    return { value, element: div({ attrs: { class: 'prep-stat' }, children: [createElement('span', { text: label }), value] }) };
 }
 
 function configField(label, options, selected, onChange) {
@@ -75,7 +73,7 @@ function configField(label, options, selected, onChange) {
         children: options.map(([value, text]) => createElement('option', { text, attrs: { value, selected: value === selected } })),
         events: { change: () => onChange(select.value) },
     });
-    return div({ attrs: { class: 'hp-field' }, children: [createElement('span', { text: label }), select] });
+    return div({ attrs: { class: 'prep-field' }, children: [createElement('span', { text: label }), select] });
 }
 
 export function PrepareView(state) {
@@ -141,7 +139,7 @@ export function PrepareView(state) {
         saveVisualSettings(settings);
     };
     const settingsFields = div({
-        attrs: { class: 'hp-fields' },
+        attrs: { class: 'prep-fields' },
         children: [
             configField('Cámara', [['close', 'Cercana'], ['standard', 'Dinámica'], ['wide', 'Panorámica']], settings.camera, (v) => setSetting('camera', v)),
             configField('Datos en pantalla', [['essential', 'Esenciales'], ['full', 'Completos'], ['hidden', 'Inmersivo']], settings.hud, (v) => setSetting('hud', v)),
@@ -171,67 +169,61 @@ export function PrepareView(state) {
 
     // --- Cabecera / resumen ---
     const title = isFreeTraining ? 'Entrenamiento libre' : (workout?.name || 'Expedición');
-    // TSS e IF dependen del FTP del usuario; workout.stats se calculó con uno genérico de 200 W.
-    const stats = workout?.blocks?.length ? calculateWorkoutStats(workout, state.settings?.ftp || 200) : (workout?.stats || {});
     const summary = div({
-        attrs: { class: 'hp-card hp-card-pad hp-hero' },
+        attrs: { class: 'prep-card prep-summary' },
         children: [
-            div({ children: [
-                createElement('span', { text: isFreeTraining ? 'Control manual' : 'Preparar sesión', attrs: { class: 'hp-hero-state' } }),
-                createElement('h1', { text: title, attrs: { class: 'hp-prep-title' } }),
-                isFreeTraining
-                    ? createElement('p', { text: 'Ajusta resistencia y zonas a mano con tu rodillo.', attrs: { class: 'hp-lede' } })
-                    : createElement('p', { text: `${mission.terrain || 'Ruta mixta'} · ${mission.objective || 'Completar la sesión'}`, attrs: { class: 'hp-lede' } }),
-            ] }),
-            isFreeTraining ? null : div({
-                attrs: { class: 'hp-stats' },
-                children: [
-                    [formatTime(stats.totalDuration || 0), 'Duración'],
-                    [String(stats.tss ?? '—'), 'Carga (TSS)'],
-                    [String(stats.intensityFactor ?? '—'), 'Intensidad (IF)'],
-                ].map(([value, label]) => div({ attrs: { class: 'hp-stat' }, children: [createElement('strong', { text: value }), createElement('span', { text: label })] })),
-            }),
-            isFreeTraining ? null : createWorkoutProfileFrame(workout, { height: 210, ftp: state.settings?.ftp }),
-            isFreeTraining ? null : div({ children: [button({
-                text: 'Elegir otro entreno',
-                attrs: { type: 'button', class: 'hp-link' },
+            createElement('span', { text: isFreeTraining ? 'CONTROL MANUAL' : (mission.title || 'EXPEDICIÓN').toUpperCase(), attrs: { class: 'home-eyebrow' } }),
+            createElement('h1', { text: title }),
+            isFreeTraining
+                ? createElement('p', { text: 'Ajusta resistencia y zonas a mano con tu rodillo.' })
+                : div({
+                    attrs: { class: 'prep-facts' },
+                    children: [
+                        ['Duración', formatTime(workout?.stats?.totalDuration || 0)],
+                        ['Terreno', mission.terrain || 'Ruta mixta'],
+                        ['Misión', mission.objective || 'Completar'],
+                    ].map(([label, value]) => div({ children: [createElement('span', { text: label }), createElement('strong', { text: value })] })),
+                }),
+            isFreeTraining ? null : button({
+                text: 'Cambiar ruta',
+                attrs: { type: 'button', class: 'prep-link' },
                 events: { click: () => navigateTo('workouts') },
-            })] }),
+            }),
         ],
     });
 
     // --- Dispositivos ---
     const trainerPower = liveStat('Potencia', 'power');
     const trainerCadence = liveStat('Cadencia', 'cadence');
-    const trainerStatus = createElement('span', { attrs: { class: 'hp-status', 'data-prep-trainer-status': 'true' } });
+    const trainerStatus = createElement('span', { attrs: { class: 'prep-status', 'data-prep-trainer-status': 'true' } });
     const idleTrainerText = bluetoothSupport.supported ? connectionMessage(connectionState) : 'Bluetooth no disponible en este navegador';
     const trainerCard = div({
-        attrs: { class: `hp-card hp-device${isConnected ? ' is-connected' : ''}` },
+        attrs: { class: `prep-card prep-device${isConnected ? ' is-connected' : ''}` },
         children: [
-            div({ attrs: { class: 'hp-device-head' }, children: [
-                div({ attrs: { class: 'hp-device-icon' }, children: [icon('bike', 20, isConnected ? colors.accent : 'rgba(255,255,255,.5)')] }),
-                div({ attrs: { class: 'hp-device-title' }, children: [
+            div({ attrs: { class: 'prep-device-head' }, children: [
+                div({ attrs: { class: 'prep-device-icon' }, children: [icon('bike', 20, isConnected ? colors.accent : 'rgba(255,255,255,.5)')] }),
+                div({ attrs: { class: 'prep-device-title' }, children: [
                     createElement('strong', { text: isConnected ? (state.deviceName || 'Rodillo inteligente') : 'Rodillo inteligente' }),
                     isConnected ? trainerStatus : createElement('span', {
                         text: connectMessages.trainer || idleTrainerText,
-                        attrs: { class: 'hp-status', 'data-prep-msg': 'trainer', 'data-idle': idleTrainerText, ...(connectMessages.trainer ? { 'data-quality': 'stale' } : {}) },
+                        attrs: { class: 'prep-status', 'data-prep-msg': 'trainer', 'data-idle': idleTrainerText, ...(connectMessages.trainer ? { 'data-quality': 'stale' } : {}) },
                     }),
                 ] }),
                 isConnected
-                    ? button({ text: 'Cambiar', attrs: { type: 'button', class: 'hp-btn' }, events: { click: () => connectTrainer() } })
+                    ? button({ text: 'Cambiar', attrs: { type: 'button', class: 'prep-btn' }, events: { click: () => connectTrainer() } })
                     : (bluetoothSupport.supported
                         ? button({
                             text: trainerBusy ? connectionMessage(connectionState) : 'Conectar',
-                            attrs: { type: 'button', class: 'hp-btn hp-btn--ember', 'aria-busy': trainerBusy ? 'true' : 'false' },
+                            attrs: { type: 'button', class: 'prep-btn is-primary', 'aria-busy': trainerBusy ? 'true' : 'false' },
                             styles: { opacity: trainerBusy ? .6 : 1, cursor: trainerBusy ? 'wait' : 'pointer' },
                             events: { click: () => connectTrainer() },
                         })
                         : null),
             ] }),
-            isConnected ? div({ attrs: { class: 'hp-live' }, children: [trainerPower.element, trainerCadence.element] }) : null,
+            isConnected ? div({ attrs: { class: 'prep-stats' }, children: [trainerPower.element, trainerCadence.element] }) : null,
             !isConnected && state.bluetoothManager?.cachedDevice && !trainerBusy ? button({
                 text: `Reconectar ${state.bluetoothManager.cachedDevice.name || 'último rodillo'}`,
-                attrs: { type: 'button', class: 'hp-link' },
+                attrs: { type: 'button', class: 'prep-link' },
                 events: { click: () => connectTrainer({ silent: true }) },
             }) : null,
         ],
@@ -240,91 +232,78 @@ export function PrepareView(state) {
     const heartValue = liveStat('Pulso', 'heart');
     const idleHeartText = `Opcional · ${hrConnectionMessage(hrState)}`;
     const heartCard = div({
-        attrs: { class: `hp-card hp-device${isHRConnected ? ' is-connected' : ''}` },
+        attrs: { class: `prep-card prep-device${isHRConnected ? ' is-connected' : ''}` },
         children: [
-            div({ attrs: { class: 'hp-device-head' }, children: [
-                div({ attrs: { class: 'hp-device-icon' }, children: [icon('heart', 20, isHRConnected ? '#ff607b' : 'rgba(255,255,255,.5)')] }),
-                div({ attrs: { class: 'hp-device-title' }, children: [
+            div({ attrs: { class: 'prep-device-head' }, children: [
+                div({ attrs: { class: 'prep-device-icon' }, children: [icon('heart', 20, isHRConnected ? '#ff607b' : 'rgba(255,255,255,.5)')] }),
+                div({ attrs: { class: 'prep-device-title' }, children: [
                     createElement('strong', { text: isHRConnected ? (state.hrDeviceName || 'Pulsómetro') : 'Pulsómetro' }),
                     createElement('span', {
                         text: isHRConnected ? 'Conectado' : (connectMessages.heart || idleHeartText),
-                        attrs: { class: 'hp-status', 'data-prep-msg': 'heart', 'data-idle': idleHeartText, ...(!isHRConnected && connectMessages.heart ? { 'data-quality': 'stale' } : {}) },
+                        attrs: { class: 'prep-status', 'data-prep-msg': 'heart', 'data-idle': idleHeartText, ...(!isHRConnected && connectMessages.heart ? { 'data-quality': 'stale' } : {}) },
                     }),
                 ] }),
                 button({
                     text: isHRConnected ? 'Desconectar' : (hrBusy ? hrConnectionMessage(hrState) : 'Conectar'),
-                    attrs: { type: 'button', class: 'hp-btn', 'aria-busy': hrBusy ? 'true' : 'false' },
+                    attrs: { type: 'button', class: 'prep-btn', 'aria-busy': hrBusy ? 'true' : 'false' },
                     styles: { opacity: hrBusy ? .6 : 1, cursor: hrBusy ? 'wait' : 'pointer' },
                     events: { click: toggleHeartRate },
                 }),
             ] }),
-            isHRConnected ? div({ attrs: { class: 'hp-live' }, children: [heartValue.element] }) : null,
+            isHRConnected ? div({ attrs: { class: 'prep-stats' }, children: [heartValue.element] }) : null,
         ],
     });
 
     // --- Acción principal ---
     const ctaLabel = createElement('span');
     const cta = button({
-        attrs: { type: 'button', class: 'hp-btn hp-btn--primary', 'data-prep-cta': 'true' },
-        children: [icon('play', 18, '#1d0d05'), ctaLabel],
+        attrs: { type: 'button', class: 'home-primary-action prep-cta', 'data-prep-cta': 'true' },
+        children: [icon('play', 16, '#07100e'), ctaLabel],
     });
-    const ctaTitle = createElement('strong');
-    const ctaHint = createElement('p');
+    const ctaHint = createElement('p', { attrs: { class: 'home-cta-hint' } });
     const forceStart = button({
         text: 'Empezar de todos modos',
-        attrs: { type: 'button', class: 'hp-link' },
+        attrs: { type: 'button', class: 'prep-link' },
         styles: { display: 'none' },
         events: { click: () => launch({ resume: false }) },
     });
     const resumeButton = canResume ? button({
         text: `Continuar · quedan ${formatTime(totalDuration - recoveredElapsed)}`,
-        attrs: { type: 'button', class: 'hp-btn hp-btn--ready' },
+        attrs: { type: 'button', class: 'prep-btn prep-wide' },
         events: { click: () => launch({ resume: true }) },
     }) : null;
     const seriesButton = canSkipToSeries ? button({
         text: 'Empezar 30 s antes de la primera serie',
-        attrs: { type: 'button', class: 'hp-link' },
+        attrs: { type: 'button', class: 'prep-link' },
         events: { click: () => launch({ resume: false, startAtSeconds: firstIntervalStart - 30 }) },
     }) : null;
 
-    const wrapper = div({ attrs: { 'data-view': 'prepare', class: 'hp' } });
-    const shell = div({ attrs: { class: 'hp-shell' } });
+    const wrapper = div({ attrs: { 'data-view': 'prepare', class: 'home-view-bg' } });
+    const shell = div({ attrs: { class: 'home-shell prep-shell' } });
     wrapper.appendChild(shell);
-
-    const settingsCard = createElement('details', {
-        attrs: { class: 'hp-card hp-card-pad hp-settings' },
-        children: [
-            createElement('summary', { children: [
-                createElement('span', { text: isFreeTraining ? 'Ajustes' : 'Ajustes de la sesión', styles: { display: 'inline', margin: 0, color: 'inherit', fontSize: 'inherit', fontWeight: 'inherit' } }),
-                createElement('span', { text: 'Cámara, datos en pantalla, calidad gráfica y pelotón' }),
-            ] }),
-            settingsFields,
-        ],
-    });
-
     shell.append(
-        div({ attrs: { class: 'hp-topbar' }, children: [
+        div({ attrs: { class: 'prep-topbar' }, children: [
             button({
-                attrs: { type: 'button', class: 'hp-btn hp-back', 'aria-label': 'Volver al inicio' },
-                children: [icon('chevronLeft', 16, 'rgba(238,243,239,.8)'), createElement('span', { text: 'Inicio' })],
+                attrs: { type: 'button', class: 'prep-back', 'aria-label': 'Volver al inicio' },
+                children: [icon('chevronLeft', 16, 'rgba(255,255,255,.75)'), createElement('span', { text: 'Inicio' })],
                 events: { click: () => navigateTo('home') },
             }),
+            createElement('span', { text: 'PREPARAR SESIÓN', attrs: { class: 'home-eyebrow' } }),
         ] }),
-        div({ attrs: { class: 'hp-prep-grid' }, children: [
-            summary,
-            div({ attrs: { class: 'hp-side' }, children: [
-                createElement('h2', { text: 'Equipo' }),
-                trainerCard,
-                heartCard,
-                settingsCard,
-            ] }),
-        ] }),
-        div({ attrs: { class: 'hp-actionbar' }, children: [
-            div({ attrs: { class: 'hp-actionbar-copy' }, children: [ctaTitle, ctaHint] }),
-            div({ attrs: { class: 'hp-actionbar-buttons' }, children: [seriesButton, forceStart, resumeButton, cta] }),
-        ] }),
+        summary,
+        createElement('h2', { text: 'Dispositivos', attrs: { class: 'prep-heading' } }),
+        trainerCard,
+        heartCard,
+        createElement('details', {
+            attrs: { class: 'prep-card prep-settings' },
+            children: [
+                createElement('summary', { text: isFreeTraining ? 'Ajustes' : 'Ajustes de la sesión · cámara, datos, calidad y pelotón' }),
+                settingsFields,
+            ],
+        }),
+        div({ attrs: { class: 'prep-actions' }, children: [resumeButton, cta, ctaHint, forceStart, seriesButton] }),
     );
-    if (isFreeTraining) settingsCard.style.display = 'none';
+    if (isFreeTraining) settingsFields.parentElement.style.display = 'none';
 
     let ready = false;
     cta.addEventListener('click', () => {
@@ -360,10 +339,6 @@ export function PrepareView(state) {
                 : (isFreeTraining
                     ? 'El entrenamiento libre necesita un rodillo conectado.'
                     : 'Sin rodillo no hay resistencia real: la demo simula tu potencia.'));
-        ctaTitle.textContent = waiting
-            ? 'Esperando datos del rodillo'
-            : (isConnected ? 'Todo listo' : (needsTrainer ? 'Falta el rodillo' : 'Modo demo'));
-        ctaTitle.style.color = isConnected && !waiting ? '#8ee9d0' : '';
         forceStart.style.display = waiting && !isFreeTraining ? 'inline-block' : 'none';
     };
     updateLive();

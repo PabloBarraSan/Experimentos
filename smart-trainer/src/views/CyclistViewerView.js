@@ -9,11 +9,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
-    createCyclist, animateCyclist, disposeCyclist, setCyclistEnvironment, getCyclistStyle, saveCyclistStyle,
+    createCyclist, animateCyclist, updateRiderStance, disposeCyclist, getCyclistStyle, saveCyclistStyle,
     BIKE_PAINTS, RIDER_POSITIONS, DEFAULT_RIDER_POSITION,
 } from '../expedition/Cyclist.js';
 import { getRiderPrefs, saveRiderPrefs } from '../storage/settings.js';
 import { preloadRiderAvatar, isRiderAvatarReady } from '../expedition/AvatarRider.js';
+import { preloadBikeModel } from '../expedition/BikeModel.js';
 import { colors, spacing, typography } from '../utils/theme.js';
 import { button, createElement, div } from '../utils/dom.js';
 
@@ -53,6 +54,7 @@ export function CyclistViewerView({ onBack }) {
         ghost: false,
         rpm: 85,
         playing: true,
+        standing: false,
         autoRotate: false,
         ...getCyclistStyle(),
     };
@@ -78,7 +80,6 @@ export function CyclistViewerView({ onBack }) {
     renderer.toneMappingExposure = 1.05;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    setCyclistEnvironment(renderer);
     canvasHost.appendChild(renderer.domElement);
     renderer.domElement.style.cssText = 'display:block;width:100%;height:100%;cursor:grab;';
 
@@ -370,6 +371,12 @@ export function CyclistViewerView({ onBack }) {
             },
         },
     });
+    // De pie: alterna forzar de pie / sentado para probar la pose (el visor no tiene datos de pendiente ni potencia).
+    const standButton = button({
+        text: 'De pie',
+        styles: chipStyles(false),
+        events: { click: () => { settings.standing = !settings.standing; refreshChips(); } },
+    });
     const playButton = button({
         text: 'Pausar',
         styles: chipStyles(true),
@@ -395,6 +402,7 @@ export function CyclistViewerView({ onBack }) {
         Object.assign(pelotonButton.style, chipStyles(settings.peloton));
         Object.assign(ghostButton.style, chipStyles(settings.ghost));
         Object.assign(playButton.style, chipStyles(settings.playing));
+        Object.assign(standButton.style, chipStyles(settings.standing));
         Object.assign(outlineButton.style, chipStyles(settings.outline));
         Object.assign(avatarButton.style, chipStyles(settings.avatar && isRiderAvatarReady()));
         avatarButton.textContent = isRiderAvatarReady() ? 'Avatar 3D' : 'Avatar 3D: falta rider.glb';
@@ -418,7 +426,7 @@ export function CyclistViewerView({ onBack }) {
         row('Jersey', ...swatches),
         row('Bici', ...bikeSwatches),
         row('Posición', ...positionButtons),
-        row('Escena', pelotonButton, ghostButton, playButton),
+        row('Escena', pelotonButton, ghostButton, standButton, playButton),
         row('Estilo', avatarButton, outlineButton, shadingButton),
         row('Cadencia', rpmSlider, rpmValue),
         createElement('span', {
@@ -458,7 +466,10 @@ export function CyclistViewerView({ onBack }) {
         const delta = Math.min(0.05, clock.getDelta());
         if (settings.playing && settings.rpm > 0) angle += delta * (settings.rpm / 60) * Math.PI * 2;
         const active = settings.playing && settings.rpm > 0;
-        entries.forEach(({ rider, phase }) => animateCyclist(rider, angle + phase, 8, 0.5, active));
+        entries.forEach(({ rider, phase }) => {
+            updateRiderStance(rider, { dt: delta, force: settings.standing });
+            animateCyclist(rider, angle + phase, 8, 0.5, active);
+        });
         controls.update();
         renderer.render(scene, camera);
     }
@@ -489,6 +500,10 @@ export function CyclistViewerView({ onBack }) {
             buildRiders();
             refreshChips();
         }
+    });
+    // La bici modelada (bike.glb) se descarga igual: al llegar se reconstruyen los ciclistas.
+    preloadBikeModel().then((ready) => {
+        if (ready && !disposed) buildRiders();
     });
 
     container.cleanup = () => {

@@ -7,16 +7,6 @@ import { colors, spacing, typography, baseStyles, borderRadius, transitions } fr
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { getAllSessions, getTotalStats } from '../storage/sessions.js';
 import { SessionDetailBottomSheet } from '../components/SessionDetailBottomSheet.js';
-import { getAllPresets } from '../workouts/presets.js';
-import { getCachedPlanWorkout } from '../workouts/planConverter.js';
-import { navigateTo } from '../app.js';
-
-/** Workout con el que se hizo una sesión (preset o entreno del plan en caché); null si ya no existe. */
-function findWorkoutForSession(session) {
-    if (!session?.workoutId) return null;
-    return [...getAllPresets(), getCachedPlanWorkout()].filter(Boolean)
-        .find((workout) => workout.id === session.workoutId) || null;
-}
 
 function formatDuration(seconds) {
     if (!seconds) return '0:00';
@@ -46,10 +36,9 @@ export async function HistoryView({ state, onBack }) {
         flex: 1,
     };
 
-    const container = div({ className: 'history-page', styles: containerStyles, attrs: { 'data-view': 'history' } });
+    const container = div({ styles: containerStyles, attrs: { 'data-view': 'history' } });
 
     const backRow = div({
-        className: 'history-back',
         styles: {
             display: 'flex',
             alignItems: 'center',
@@ -78,7 +67,6 @@ export async function HistoryView({ state, onBack }) {
 
     function buildStatsStrip(stats) {
         const strip = div({
-            className: 'history-stats',
             styles: {
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -99,7 +87,6 @@ export async function HistoryView({ state, onBack }) {
         ];
         items.forEach((item) => {
             const el = div({
-                className: 'history-stat',
                 styles: {
                     display: 'flex',
                     alignItems: 'center',
@@ -138,7 +125,6 @@ export async function HistoryView({ state, onBack }) {
         const month = date.toLocaleString('es', { month: 'short' });
         const time = date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
         const card = div({
-            className: 'history-card',
             styles: {
                 ...baseStyles.card,
                 padding: spacing.md,
@@ -216,7 +202,6 @@ export async function HistoryView({ state, onBack }) {
         fragment.appendChild(buildStatsStrip(totalStats));
         const sectionTitle = createElement('h2', {
             text: 'Sesiones',
-            className: 'history-heading',
             styles: {
                 fontSize: typography.sizes.lg,
                 fontWeight: typography.weights.semibold,
@@ -228,7 +213,6 @@ export async function HistoryView({ state, onBack }) {
 
         if (sessions.length === 0) {
             const empty = div({
-                className: 'history-empty',
                 styles: {
                     ...baseStyles.card,
                     padding: spacing.xxl,
@@ -250,21 +234,13 @@ export async function HistoryView({ state, onBack }) {
             fragment.appendChild(empty);
         } else {
             const list = div({
-                className: 'history-list',
                 styles: { display: 'flex', flexDirection: 'column', gap: spacing.md },
             });
             sessions.forEach((s) => {
                 list.appendChild(
                     buildSessionCard(s, (session) => {
-                        const workout = findWorkoutForSession(session);
                         const sheet = SessionDetailBottomSheet({
                             session,
-                            onRepeat: workout ? () => {
-                                state.selectedWorkout = workout;
-                                state.recoveredSession = null;
-                                state.prepareTarget = 'expedition';
-                                navigateTo('prepare');
-                            } : null,
                             onClose: () => {},
                             onDeleted: () => {
                                 refresh();

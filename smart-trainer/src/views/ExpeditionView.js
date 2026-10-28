@@ -8,14 +8,14 @@ import { clearActiveSession } from '../storage/sessions.js';
 import { getCoachingState, getHeartRateZone } from '../game/CoachingEngine.js';
 import { AudioCueService } from '../game/AudioCueService.js';
 import { getPersonalGhost, interpolateGhost } from '../game/GhostService.js';
-import { LapTracker, createLapToast, createRacePanel, createWorkoutStrip } from './expeditionHud.js';
+import { createWorkoutControls } from './workoutControls.js';
+import { LapTracker, createClimbProfile, createLapTable, createLapToast, createMiniMap, createRacePanel, createWorkoutStrip } from './expeditionHud.js';
+import { createAmbientAudio } from '../ride/AmbientAudio.js';
+import { getSoundPrefs, saveSoundPrefs } from '../storage/settings.js';
 import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
 import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSettings.js';
 import { summarizeIntensity } from '../session/intensitySummary.js';
 import { createSessionFeedbackPanel } from '../components/SessionFeedbackPanel.js';
-import './expedition-hud.css';
-import { createSessionResult } from '../components/SessionResult.js';
-import { createFitnessTestResultPanel } from '../components/FitnessTestResultPanel.js';
 
 export function ExpeditionView({
     state,
@@ -36,7 +36,8 @@ export function ExpeditionView({
         objective: 'Completa el entrenamiento', checkpoints: [], decisions: [],
     };
     const visualSettings = loadVisualSettings();
-    const totalDuration = Math.max(1, workout?.stats?.totalDuration || 1);
+    // Cambia si se salta o alarga un bloque (onPlanChange del controller).
+    let totalDuration = Math.max(1, workout?.stats?.totalDuration || 1);
     const recoveredElapsed = Number(recoveredSession?.elapsedTime || recoveredSession?.duration) || 0;
     const canResume = recoveredSession?.workoutId === workout?.id
         && recoveredElapsed > 1
@@ -95,146 +96,349 @@ export function ExpeditionView({
     });
     container.appendChild(loadingScene);
 
-    const hud = div({ className: 'xh', attrs: { 'data-hud': visualSettings.hud } });
+    const hud = div({
+        styles: {
+            position: 'absolute',
+            inset: 0,
+            pointerEvents: 'none',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: 'max(16px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom))',
+        },
+    });
     container.appendChild(hud);
 
-    const top = div({ className: 'xh-top' });
-    const blockLabel = createElement('div', { text: 'PREPARANDO RUTA', className: 'xh-pill xh-glass' });
+    const top = div({
+        styles: {
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
+            alignItems: 'start',
+            gap: spacing.md,
+        },
+    });
+    const blockLabel = createElement('div', {
+        text: 'PREPARANDO RUTA',
+        styles: {
+            justifySelf: 'start',
+            padding: '8px 12px',
+            borderRadius: '999px',
+            background: 'linear-gradient(135deg, rgba(7,14,18,.76), rgba(19,53,49,.62))',
+            border: '1px solid rgba(255,255,255,.12)',
+            fontSize: typography.sizes.xs,
+            fontWeight: 800,
+            letterSpacing: '1px',
+        },
+    });
     const timer = createElement('div', {
         text: formatTime(totalDuration),
-        className: 'xh-clock__time xh-glass',
         attrs: { 'aria-label': 'Tiempo restante' },
+        styles: {
+            padding: '10px 18px',
+            borderRadius: '16px',
+            background: 'rgba(7,9,14,.78)',
+            border: '1px solid rgba(255,255,255,.14)',
+            fontFamily: typography.fontMono,
+            fontSize: '24px',
+            fontWeight: 700,
+        },
     });
     const clockStack = div({
-        className: 'xh-clock',
-        children: [
-            div({ children: [createElement('span', { text: 'Tiempo restante', className: 'xh-eyebrow xh-clock__label' }), timer] }),
-        ],
+        styles: {
+            justifySelf: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '7px',
+        },
+        children: [timer],
     });
     const modeLabel = createElement('div', {
         text: isDemo ? 'MODO DEMO' : 'D100 · ERG',
-        className: 'xh-mode',
         styles: {
+            justifySelf: 'end',
+            padding: '9px 13px',
+            borderRadius: '999px',
             background: isDemo ? 'rgba(255,204,0,.16)' : 'rgba(0,212,170,.15)',
             color: isDemo ? colors.warning : colors.success,
+            fontSize: typography.sizes.xs,
+            fontWeight: 700,
         },
     });
+    top.append(blockLabel, clockStack, modeLabel);
+    hud.appendChild(top);
 
-    const stagePrompt = createElement('div', { text: 'Alcanza al guía y entra en ritmo', className: 'xh-prompt xh-glass' });
+    const stagePrompt = createElement('div', {
+        text: 'Alcanza al guía y entra en ritmo',
+        styles: {
+            position: 'absolute',
+            top: '102px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            padding: '8px 14px',
+            borderRadius: '12px',
+            color: 'rgba(255,255,255,.86)',
+            background: 'rgba(5,12,16,.76)',
+            fontSize: typography.sizes.sm,
+            fontWeight: 700,
+            letterSpacing: '.3px',
+            maxWidth: 'min(540px, 72vw)',
+            textAlign: 'center',
+            opacity: '0',
+            transition: 'opacity .28s ease, transform .28s ease',
+        },
+    });
+    hud.appendChild(stagePrompt);
 
-    const routeProgress = div({ styles: { display: 'none' } });
-    const routeProgressFill = div({});
+    const routeProgress = div({
+        styles: {
+            width: 'min(320px, 42vw)',
+            height: '3px',
+            borderRadius: '999px',
+            overflow: 'hidden',
+            background: 'rgba(5,12,16,.4)',
+        },
+    });
+    const routeProgressFill = div({
+        styles: {
+            width: '0%',
+            height: '100%',
+            borderRadius: '999px',
+            background: 'linear-gradient(90deg, #63e0b5, #ffd379)',
+            boxShadow: '0 0 16px rgba(99,224,181,.6)',
+            transition: 'width .5s ease',
+        },
+    });
     routeProgress.appendChild(routeProgressFill);
+    clockStack.appendChild(routeProgress);
 
-    const bottom = div({ className: 'xh-dock' });
-    const flowFill = div({
-        className: 'xh-gauge__fill',
-        styles: { background: `linear-gradient(90deg, ${colors.error}, ${colors.warning} 35%, ${colors.success} 50%, #5cc8ff 100%)` },
+    const bottom = div({
+        styles: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' },
     });
     const flowBar = div({
-        className: 'xh-gauge',
         attrs: {
             'aria-label': 'Potencia actual, escala hasta el doble del objetivo',
             title: 'Potencia · la marca indica el objetivo',
         },
+        styles: {
+            position: 'relative',
+            width: '100%',
+            height: '8px',
+            borderRadius: '999px',
+            overflow: 'hidden',
+            background: 'rgba(255,255,255,.1)',
+        },
     });
-    const targetMarker = div({ className: 'xh-gauge__target', attrs: { title: 'Potencia objetivo' } });
-    const targetBand = div({ className: 'xh-gauge__band', attrs: { title: 'Zona objetivo ±5%' } });
+    const flowFill = div({
+        styles: {
+            width: '0%',
+            height: '100%',
+            borderRadius: '999px',
+            background: `linear-gradient(90deg, ${colors.error}, ${colors.warning} 35%, ${colors.success} 50%, #5cc8ff 100%)`,
+            transition: 'width .3s ease',
+        },
+    });
+    const targetMarker = div({
+        attrs: { title: 'Potencia objetivo' },
+        styles: {
+            position: 'absolute',
+            zIndex: 1,
+            left: '50%',
+            top: '-3px',
+            width: '3px',
+            height: '14px',
+            borderRadius: '2px',
+            background: '#fff',
+            boxShadow: '0 0 8px rgba(255,255,255,.85)',
+        },
+    });
+    const targetBand = div({
+        attrs: { title: 'Zona objetivo ±5%' },
+        styles: { position: 'absolute', top: 0, bottom: 0, left: '50%', width: '0%', background: 'rgba(99,224,181,.45)' },
+    });
     flowBar.append(targetBand, flowFill, targetMarker);
-
-    const actualPower = createElement('strong', { text: '0', className: 'xh-power__value' });
-    const targetPower = createElement('span', { text: 'Objetivo -- W', className: 'xh-power__target' });
-    const powerFtp = createElement('span', { text: '0% FTP', className: 'xh-power__ftp' });
-    const actualHeartRate = createElement('strong', { text: '--', className: 'xh-stat__value xh-stat__value--hr' });
-    const actualCadence = createElement('strong', { text: '0', className: 'xh-stat__value' });
-    const targetCadence = createElement('span', { className: 'xh-stat__sub' });
-    const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary } });
-    const coach = createElement('div', {
+    // Panel inferior fino (consejo y barra de potencia): las cifras van arriba y el centro queda libre para la carretera.
+    const metrics = div({
+        attrs: { 'data-hud-mode': visualSettings.hud },
+        styles: {
+            width: 'min(440px, 86vw)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            padding: '8px 14px 9px',
+            borderRadius: '16px',
+            background: 'linear-gradient(145deg, rgba(6,13,17,.84), rgba(11,25,28,.7))',
+            border: '1px solid rgba(255,255,255,.11)',
+            boxShadow: '0 10px 30px rgba(0,0,0,.28)',
+        },
+    });
+    const actualPower = createElement('strong', {
+        text: '0',
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(28px, 5vw, 40px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color .25s ease' },
+    });
+    const targetPower = createElement('span', {
+        text: 'Objetivo -- W',
+        styles: { color: 'rgba(255,255,255,.62)', fontSize: '13px', fontWeight: 750 },
+    });
+    const actualHeartRate = createElement('strong', {
+        text: '--',
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(22px, 4vw, 30px)', lineHeight: 1, color: '#ff7893', fontVariantNumeric: 'tabular-nums' },
+    });
+    const actualCadence = createElement('strong', {
+        text: '0',
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(22px, 4vw, 30px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
+    });
+    const targetCadence = createElement('span', { text: '', styles: { color: 'rgba(255,255,255,.62)', fontSize: '12px', fontWeight: 750 } });
+    const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontSize: '11px', fontWeight: 800 } });
+    const coach = createElement('strong', {
         text: 'Adapta el ritmo',
-        className: 'xh-coach',
         attrs: { role: 'status', 'aria-live': 'polite' },
-        styles: { color: '#8ed9ff' },
+        styles: { fontSize: '14px', color: '#8ed9ff', letterSpacing: '.2px', textAlign: 'center' },
     });
-    const heartZone = createElement('span', { text: 'Sin pulso', className: 'xh-stat__sub' });
-    const ghostDelta = createElement('span', { styles: { color: '#8ed9ff' } });
-    const contextValues = div({ className: 'xh-context', children: [combo, ghostDelta] });
-
-    const powerCard = div({
-        className: 'xh-power xh-glass',
-        attrs: { 'data-state': 'free' },
+    const heartZone = createElement('span', { text: 'Sin pulso', styles: { color: 'rgba(255,255,255,.58)', fontSize: '12px', fontWeight: 750 } });
+    const ghostDelta = createElement('span', { text: '', styles: { color: '#8ed9ff', fontSize: '12px', fontWeight: 800 } });
+    const tile = (label, valueEl, subEl, flex) => div({
+        styles: { flex, minWidth: '72px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', textAlign: 'center' },
         children: [
-            div({ className: 'xh-power__head', children: [createElement('span', { text: 'Potencia', className: 'xh-eyebrow' }), targetPower] }),
-            div({
-                className: 'xh-power__row',
-                children: [actualPower, createElement('span', { text: 'W', className: 'xh-power__unit' }), powerFtp],
-            }),
-            flowBar,
-            coach,
-            contextValues,
-        ],
-    });
-    const heartIcon = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 2.7 5 6 5c2.2 0 3.6 1.2 4.6 2.7h2.8C14.4 6.2 15.8 5 18 5c3.3 0 5.1 3.4 3.6 6.8C19.5 16.4 12 21 12 21z"/></svg>';
-    const cadenceIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>';
-    const stat = (label, iconHtml, valueEl, subEl) => div({
-        className: 'xh-stat xh-glass',
-        children: [
-            createElement('span', { className: 'xh-eyebrow xh-stat__label', html: `${iconHtml}${label}` }),
+            createElement('span', { text: label, styles: { color: 'rgba(255,255,255,.45)', fontSize: '10px', fontWeight: 800, letterSpacing: '1.1px' } }),
             valueEl,
             subEl,
         ],
     });
-    const sideCard = div({
-        className: 'xh-side',
+    // Barra superior (como en Zwift): potencia, tiempo restante, pulso y cadencia de un vistazo.
+    Object.assign(timer.style, { background: 'transparent', border: 'none', alignSelf: 'center' });
+    const metricValues = div({
+        styles: {
+            display: 'flex',
+            gap: '18px',
+            alignItems: 'center',
+            padding: '8px 16px',
+            borderRadius: '18px',
+            background: 'linear-gradient(145deg, rgba(6,13,17,.84), rgba(11,25,28,.7))',
+            border: '1px solid rgba(255,255,255,.11)',
+            boxShadow: '0 10px 30px rgba(0,0,0,.28)',
+        },
         children: [
-            stat('FC · lpm', heartIcon, actualHeartRate, heartZone),
-            stat('Cadencia · rpm', cadenceIcon, actualCadence, targetCadence),
+            tile('POTENCIA · W', actualPower, targetPower, '0 0 auto'),
+            timer,
+            tile('FC · LPM', actualHeartRate, heartZone, '0 0 auto'),
+            tile('CADENCIA · RPM', actualCadence, targetCadence, '0 0 auto'),
         ],
     });
-    const metrics = div({ className: 'xh-metrics', children: [powerCard, sideCard] });
+    clockStack.prepend(metricValues);
+    const contextValues = div({
+        styles: { display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', color: 'rgba(255,255,255,.5)' },
+        children: [combo, ghostDelta],
+    });
+    metrics.append(coach, flowBar, contextValues);
     bottom.append(metrics);
-    hud.append(top, stagePrompt, bottom);
+    hud.appendChild(bottom);
 
     // Perfil del entrenamiento, vueltas/series y clasificación del pelotón.
-    const workoutStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration });
+    let workoutStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration });
     const lapTracker = new LapTracker();
     const lapToast = createLapToast();
     const racePanel = createRacePanel();
     racePanel.setEnabled(visualSettings.rivals !== false);
+    const miniMap = createMiniMap();
+    const climbProfile = createClimbProfile();
     bottom.prepend(workoutStrip.element);
-    hud.append(lapToast.element);
+    hud.append(lapToast.element, racePanel.element, miniMap.element, climbProfile.element);
+    routeProgress.style.display = 'none'; // el perfil del entrenamiento ya muestra el avance
     const applyHudExtras = () => {
         racePanel.setMode(visualSettings.hud);
+        miniMap.setMode(visualSettings.hud);
+        climbProfile.setMode(visualSettings.hud);
         workoutStrip.element.style.opacity = visualSettings.hud === 'hidden' ? '0' : '1';
     };
     applyHudExtras();
 
+    const controls = div({
+        styles: {
+            position: 'absolute',
+            right: '18px',
+            bottom: '18px',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            gap: spacing.sm,
+            maxWidth: 'calc(100vw - 36px)',
+            pointerEvents: 'auto',
+            zIndex: 5,
+        },
+    });
     const pauseButton = button({
         text: 'Pausar',
-        className: 'xh-btn',
         attrs: { 'aria-label': 'Pausar expedición', disabled: 'true' },
+        styles: compactButtonStyles(),
     });
     const finishButton = button({
         text: 'Finalizar',
-        className: 'xh-btn xh-btn--stop',
         attrs: { 'aria-label': 'Finalizar expedición', disabled: 'true' },
+        styles: { ...compactButtonStyles(), color: colors.error },
     });
     const cameraButton = button({
         text: `CAM · ${cameraLabel(visualSettings.camera)}`,
-        className: 'xh-toolbar__btn',
         attrs: { 'aria-label': 'Cambiar cámara' },
+        styles: toolbarButtonStyles(),
     });
     const hudButton = button({
         text: `HUD · ${hudLabel(visualSettings.hud)}`,
-        className: 'xh-toolbar__btn',
         attrs: { 'aria-label': 'Cambiar información visible' },
+        styles: toolbarButtonStyles(),
     });
-    const visualControls = div({ className: 'xh-toolbar xh-glass', children: [cameraButton, hudButton] });
-    const controls = div({ className: 'xh-actions', children: [pauseButton, finishButton] });
-    top.append(
-        div({ className: 'xh-top__left', children: [blockLabel, racePanel.element] }),
-        clockStack,
-        div({ className: 'xh-top__right', children: [modeLabel, visualControls, controls] }),
-    );
+    // Sonido ambiente (viento, rodadura, rueda libre, público); la preferencia se comparte con el modo ruta.
+    const ambient = createAmbientAudio();
+    const soundPrefs = getSoundPrefs();
+    ambient.setVolume(soundPrefs.volume);
+    ambient.setEnabled(soundPrefs.enabled);
+    const soundButton = button({
+        text: `SONIDO · ${soundPrefs.enabled ? 'Sí' : 'No'}`,
+        attrs: { 'aria-label': 'Activar o silenciar el sonido ambiente' },
+        styles: toolbarButtonStyles(),
+    });
+    const visualControls = div({
+        styles: {
+            position: 'absolute',
+            top: '72px',
+            right: '18px',
+            display: 'flex',
+            gap: '3px',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+            pointerEvents: 'auto',
+            padding: '4px',
+            borderRadius: '14px',
+            background: 'rgba(5,12,16,.8)',
+            border: '1px solid rgba(255,255,255,.1)',
+        },
+        children: [cameraButton, hudButton, soundButton],
+    });
+    // Controles del entrenamiento (intensidad, saltar/alargar bloque, ERG), encima de pausa y finalizar.
+    const workoutControls = createWorkoutControls({
+        onIntensityChange: (percent) => {
+            const applied = controller?.setIntensity(percent) ?? percent;
+            workoutControls.setIntensity(applied);
+            showStagePrompt(`Intensidad ${applied} %`);
+        },
+        onSkip: () => {
+            if (controller?.skipBlock()) showStagePrompt('Bloque saltado');
+        },
+        onExtend: (seconds) => {
+            if (controller?.extendBlock(seconds)) showStagePrompt(`Bloque alargado ${Math.round(seconds / 60)} min`);
+        },
+        onErgToggle: (enabled) => {
+            const applied = controller?.setErgEnabled(enabled) ?? enabled;
+            workoutControls.setErgEnabled(applied);
+            showStagePrompt(applied ? 'ERG activado · el rodillo marca la potencia' : 'ERG desactivado · cambia libremente');
+        },
+    });
+    workoutControls.setDisabled(true);
+    Object.assign(controls.style, { flexDirection: 'column', alignItems: 'flex-end' });
+    controls.append(workoutControls.element, div({
+        styles: { display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' },
+        children: [pauseButton, finishButton],
+    }));
 
     const pauseTitle = createElement('strong', {
         text: 'PAUSA',
@@ -258,6 +462,8 @@ export function ExpeditionView({
         children: [pauseTitle, pauseReason, resumeBig],
     });
     container.appendChild(pauseOverlay);
+    container.appendChild(visualControls);
+    container.appendChild(controls);
 
     const decisionOverlay = div({
         attrs: { role: 'dialog', 'aria-label': 'Elige una ruta' },
@@ -453,6 +659,7 @@ export function ExpeditionView({
     let connectionPausePromise = null;
     let demoInterval;
     let currentTarget = null;
+    let lastBlock = null;
     let lastFlow = 0;
     let hiddenAt = null;
     let promptTimeout = null;
@@ -475,21 +682,72 @@ export function ExpeditionView({
     const wakeLock = new WakeLockManager();
 
     const rendererReady = initializeRenderer();
-    let lastDockShare = -1;
     const applyResponsiveLayout = () => {
         const compact = window.innerWidth < 600;
-        // El dock ocupa un alto variable: en pantallas estrechas las acciones flotan justo encima.
-        hud.style.setProperty('--xh-dock-h', `${bottom.offsetHeight}px`);
-        // La escena se desplaza hacia arriba lo que ocupa el dock inferior (más panel = más desplazamiento).
-        const dockShare = visualSettings.hud === 'hidden' ? 0 : Math.min(0.3, (bottom.offsetHeight / Math.max(1, window.innerHeight)) * 0.5);
-        if (dockShare !== lastDockShare) {
-            lastDockShare = dockShare;
-            renderer?.setFrameOffset?.(dockShare);
-        }
+        // Si la barra superior de cifras llega hasta los botones (pantallas no muy anchas), estos y el minimapa bajan una fila.
+        visualControls.style.top = '72px';
+        const crowded = metricValues.getBoundingClientRect().right + 12 > visualControls.getBoundingClientRect().left;
+        blockLabel.style.maxWidth = compact ? '126px' : '';
+        blockLabel.style.fontSize = compact ? '10px' : typography.sizes.xs;
+        timer.style.fontSize = compact ? '18px' : '24px';
+        timer.style.padding = compact ? '0 2px' : '0 6px';
+        modeLabel.style.maxWidth = compact ? '76px' : '';
+        modeLabel.style.textAlign = compact ? 'center' : '';
+        routeProgress.style.width = compact ? '42vw' : 'min(320px, 42vw)';
+        visualControls.style.top = crowded ? '112px' : '72px';
+        visualControls.style.right = compact ? '12px' : '18px';
+        visualControls.style.justifyContent = 'flex-end';
+        stagePrompt.style.top = compact ? '142px' : '112px';
+        racePanel.setCompact(compact);
+        lapToast.setCompact(compact);
+        stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
+        controls.style.right = compact ? '12px' : '18px';
+        // Los controles (pausa y entrenamiento) suben por encima del panel inferior si se pisan con él.
+        controls.style.bottom = '18px';
+        const controlsRect = controls.getBoundingClientRect();
+        const panels = [workoutStrip.element, metrics].map((element) => element.getBoundingClientRect());
+        const overlaps = panels.some((rect) => rect.width > 0 && controlsRect.left < rect.right && controlsRect.top < rect.bottom);
+        controls.style.bottom = compact || overlaps ? `${bottom.offsetHeight + 26}px` : '18px';
+        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(440px, 86vw)';
+        metricValues.style.gap = compact ? '10px' : '18px';
+        metricValues.style.padding = compact ? '6px 10px' : '8px 16px';
+        miniMap.element.style.top = crowded ? '160px' : '124px';
+        miniMap.element.style.right = compact ? '12px' : '18px';
+        // En móvil el perfil comparte esquina con los botones de pausa: se oculta.
+        climbProfile.element.style.display = compact ? 'none' : 'flex';
         decisionButtons.style.gridTemplateColumns = compact ? '1fr' : 'repeat(3, 1fr)';
     };
     applyResponsiveLayout();
     window.addEventListener('resize', applyResponsiveLayout);
+
+    // Minimapa (~10 veces por segundo) y sonido ambiente (cada frame) siguen al renderer, no al tick del entrenamiento.
+    let lastCadence = 0;
+    let ambienceFrame = 0;
+    let lastMapDraw = 0;
+    const startAmbient = () => ambient.start();
+    // El navegador solo deja sonar audio tras un gesto: se intenta al entrar (venimos de un clic) y en el primer toque.
+    startAmbient();
+    container.addEventListener('pointerdown', startAmbient);
+    const ambienceLoop = (now) => {
+        const mapState = renderer?.getMapState?.();
+        if (mapState && now - lastMapDraw > 100) {
+            lastMapDraw = now;
+            miniMap.update(mapState);
+            climbProfile.update(renderer?.getProfileState?.());
+        }
+        const running = controller?.state !== SESSION_STATE.PAUSED;
+        // Público junto a la salida/meta del circuito y en el último minuto de la sesión.
+        const toLine = mapState ? Math.min(mapState.player, 1 - mapState.player) : 1;
+        const remaining = latestTick ? totalDuration - latestTick.totalElapsedTime : totalDuration;
+        const crowd = Math.max(toLine < 0.04 ? 1 - toLine / 0.04 : 0, remaining < 60 ? 0.6 : 0);
+        ambient.update({
+            speed: running ? renderer?.getPlayerSpeed?.() || 0 : 0,
+            cadence: running ? lastCadence : 0,
+            crowd: running ? crowd : 0,
+        });
+        ambienceFrame = requestAnimationFrame(ambienceLoop);
+    };
+    ambienceFrame = requestAnimationFrame(ambienceLoop);
     // El alto del panel inferior cambia con el contenido: los botones deben flotar siempre por encima.
     const bottomObserver = typeof window.ResizeObserver === 'function' ? new window.ResizeObserver(applyResponsiveLayout) : null;
     bottomObserver?.observe(bottom);
@@ -502,6 +760,7 @@ export function ExpeditionView({
                 quality: visualSettings.quality,
                 reducedMotion: visualSettings.reducedMotion,
                 mission,
+                riderWeight: Number(state.settings.weight) || 70,
                 onQualityAdapt: () => showStagePrompt('Calidad gráfica ajustada para mantener la fluidez'),
             });
         } catch (error) {
@@ -510,8 +769,6 @@ export function ExpeditionView({
             renderer = createExpeditionRenderer(canvas);
             loadingScene.querySelector('span').textContent = 'Modo visual compatible activado';
         } finally {
-            lastDockShare = -1;
-            applyResponsiveLayout();
             requestAnimationFrame(() => {
                 loadingScene.style.opacity = '0';
                 setTimeout(() => loadingScene.remove(), 550);
@@ -527,8 +784,16 @@ export function ExpeditionView({
         visualSettings.quality = qualitySelect.select.value;
         visualSettings.rivals = rivalsSelect.select.value !== 'off';
         saveVisualSettings(visualSettings);
-        applyHudMode(visualSettings.hud, hud);
-        applyResponsiveLayout();
+        applyHudMode(visualSettings.hud, {
+            top,
+            stagePrompt,
+            routeProgress,
+            flowBar,
+            metrics,
+            actualCadence,
+            combo,
+            contextValues,
+        });
         applyHudExtras();
         await rendererReady;
         renderer?.setCameraMode?.(visualSettings.camera);
@@ -557,6 +822,7 @@ export function ExpeditionView({
                     documentVisibility: document.visibilityState,
                 });
                 renderer?.update({ paused: sessionState !== SESSION_STATE.RUNNING });
+                workoutControls.setDisabled(sessionState !== SESSION_STATE.RUNNING && sessionState !== SESSION_STATE.PAUSED);
                 if (sessionState === SESSION_STATE.COMPLETED) {
                     showResult(session).catch((error) => {
                         logActiveSessionError('view.show_result.error', error);
@@ -571,7 +837,18 @@ export function ExpeditionView({
                 modeLabel.textContent = isDemo ? 'MODO DEMO' : result.mode.toUpperCase();
                 if (result.error) showStagePrompt(result.error);
             },
+            onPlanChange: ({ totalDuration: nextTotal, blocks }) => {
+                // Bloque saltado o alargado: nuevo total, y la barra del entrenamiento se redibuja con la duración real.
+                totalDuration = Math.max(1, nextTotal);
+                const nextStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration, blocks });
+                workoutStrip.element.replaceWith(nextStrip.element);
+                workoutStrip = nextStrip;
+                if (lastBlock) workoutStrip.setBlock(lastBlock, lastBlock.index ?? 0);
+                if (latestTick) workoutStrip.setProgress(latestTick.totalElapsedTime);
+                applyHudExtras();
+            },
             onBlockChange: (block) => {
+                lastBlock = block;
                 controller?.debug?.log('view.block.change', { block });
                 blockLabel.textContent = String(block.name || 'TRAMO').toUpperCase();
                 showStagePrompt(block.instructions || getStagePrompt(block.type));
@@ -592,6 +869,7 @@ export function ExpeditionView({
             },
             onTick: (tick) => {
                 latestTick = tick;
+                workoutControls.setSpiral(Boolean(tick.spiral));
                 timer.textContent = formatTime(Math.max(0, totalDuration - tick.totalElapsedTime));
                 workoutStrip.setBlockRemaining(tick.blockRemainingTime);
                 const progress = Math.max(0, Math.min(1, tick.totalElapsedTime / totalDuration));
@@ -636,8 +914,10 @@ export function ExpeditionView({
 
         if (isDemo) {
             demoInterval = setInterval(() => {
-                const target = currentTarget?.power || state.settings.ftp * 0.65;
-                const wave = Math.sin(Date.now() / 2600) * target * 0.07;
+                const ergOn = controller?.getAssistState?.().ergEnabled !== false;
+                // Con ERG apagado el demo simula pedalear libre: algo más fuerte y menos constante.
+                const target = (currentTarget?.power || state.settings.ftp * 0.65) * (ergOn ? 1 : 1.12);
+                const wave = Math.sin(Date.now() / 2600) * target * (ergOn ? 0.07 : 0.16);
                 ingest({ power: Math.round(target + wave), cadence: 88, speed: 28, heartRate: 135 });
             }, 250);
         } else {
@@ -680,6 +960,7 @@ export function ExpeditionView({
         const frame = flow.telemetry;
         const power = Math.max(0, frame.display.power || 0);
         const cadence = Math.max(0, frame.display.cadence || 0);
+        lastCadence = cadence;
         const hr = frame.display.heartRate;
         actualPower.textContent = String(Math.round(power));
         actualCadence.textContent = String(Math.round(cadence));
@@ -691,8 +972,7 @@ export function ExpeditionView({
         // El color de la potencia dice si estás en zona: verde ±5%, ámbar ±10%, rojo fuera.
         const settled = (latestTick?.blockElapsedTime || 0) > 8;
         const deviation = target > 0 && settled ? Math.abs(power - target) / target : null;
-        powerCard.setAttribute('data-state', deviation == null ? 'free' : deviation <= 0.05 ? 'good' : deviation <= 0.1 ? 'warn' : 'off');
-        powerFtp.textContent = `${Math.round((power / Math.max(1, state.settings.ftp)) * 100)}% FTP`;
+        actualPower.style.color = deviation == null ? '#fff' : deviation <= 0.05 ? '#63e0b5' : deviation <= 0.1 ? '#ffd379' : '#ff8a6b';
         const gaugeMaximum = Math.max(400, state.settings.ftp * 1.5, target * 1.5, power * 1.12);
         flowFill.style.width = `${Math.min(100, (power / gaugeMaximum) * 100)}%`;
         targetMarker.style.display = target > 0 ? 'block' : 'none';
@@ -800,25 +1080,99 @@ export function ExpeditionView({
         audio.cue(session.status === 'completed' ? 'finish' : 'lost');
         onProgress?.(progress);
         const completed = session.status === 'completed';
+        const blockResults = div({
+            styles: { display: 'grid', gap: '8px', width: '100%', marginBottom: spacing.lg },
+            children: (result.blocks || []).map((block) => div({
+                styles: {
+                    display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '12px', alignItems: 'center',
+                    padding: '10px 12px', borderRadius: '12px', background: 'rgba(255,255,255,.05)',
+                },
+                children: [
+                    createElement('strong', { text: block.name }),
+                    createElement('span', { text: `${Math.round((block.powerAdherence ?? block.adherence) * 100)}% potencia`, styles: { color: colors.textMuted, fontSize: '12px' } }),
+                    createElement('span', { text: `${block.stars} ★`, styles: { color: colors.warning, fontWeight: 800 } }),
+                ],
+            })),
+        });
         const scored = (session.activeDuration || session.duration || 0) >= 180;
         const intensity = summarizeIntensity(session.dataPoints, state.settings);
-        const race = visualSettings.rivals !== false && renderer?.getRaceStatus ? renderer.getRaceStatus() : null;
-        card.style.width = 'min(1040px, 94vw)';
-        card.replaceChildren(createSessionResult({
-            completed,
-            scored,
-            result,
-            intensity,
-            progress,
-            gainedXp,
-            peloton: race ? `${race.rank}º de ${race.total}` : null,
-            laps: lapTracker.laps,
+        const zoneColors = ['#92a4ad', '#5ca8ff', '#63e0b5', '#ffd166', '#ff6b7a'];
+        const zoneTotal = intensity.zoneSeconds.reduce((sum, value) => sum + value, 0) || 1;
+        const stat = (label, value) => div({
+            children: [
+                createElement('span', { text: label, styles: { display: 'block', color: 'rgba(255,255,255,.42)', fontSize: '10px', fontWeight: 800, letterSpacing: '1px' } }),
+                createElement('strong', { text: value, styles: { display: 'block', marginTop: '3px', fontSize: '20px' } }),
+            ],
+        });
+        const intensityPanel = div({
+            styles: { width: '100%', padding: '14px', marginBottom: spacing.lg, borderRadius: '14px', background: 'rgba(255,255,255,.05)', textAlign: 'left' },
+            children: [
+                createElement('div', { text: 'INTENSIDAD DE LA SESIÓN', styles: { color: '#75ebc1', fontSize: '11px', fontWeight: 800, letterSpacing: '1.4px', marginBottom: '10px' } }),
+                div({
+                    styles: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' },
+                    children: [
+                        stat('POTENCIA MEDIA', intensity.avgPower ? `${intensity.avgPower} W` : '—'),
+                        stat('FC MEDIA', intensity.hasHeartRate ? `${intensity.avgHeartRate} ppm` : '—'),
+                        stat('FC MÁXIMA', intensity.hasHeartRate ? `${intensity.maxHeartRate} ppm` : '—'),
+                    ],
+                }),
+                intensity.hasHeartRate
+                    ? div({
+                        styles: { marginTop: '12px' },
+                        children: [
+                            div({
+                                styles: { display: 'flex', height: '10px', borderRadius: '99px', overflow: 'hidden', background: 'rgba(255,255,255,.08)' },
+                                children: intensity.zoneSeconds.map((seconds, index) => div({
+                                    attrs: { title: `Z${index + 1}: ${formatTime(Math.round(seconds))}` },
+                                    styles: { width: `${(seconds / zoneTotal) * 100}%`, background: zoneColors[index] },
+                                })),
+                            }),
+                            createElement('p', {
+                                text: intensity.zoneSeconds.map((seconds, index) => `Z${index + 1} ${formatTime(Math.round(seconds))}`).join(' · '),
+                                styles: { margin: '8px 0 0', color: 'rgba(255,255,255,.55)', fontSize: '12px' },
+                            }),
+                        ],
+                    })
+                    : createElement('p', {
+                        text: 'Sin datos de pulso: conecta un pulsómetro en la pantalla de preparación para medir la intensidad.',
+                        styles: { margin: '10px 0 0', color: 'rgba(255,255,255,.55)', fontSize: '12px' },
+                    }),
+            ],
+        });
+        card.replaceChildren(
+            createElement('div', {
+                text: completed ? 'MISIÓN COMPLETADA' : 'EXPEDICIÓN FINALIZADA ANTES DE TIEMPO',
+                styles: { color: completed ? colors.success : colors.warning, fontWeight: 800, letterSpacing: '1.5px' },
+            }),
+            createElement('h1', {
+                text: scored ? `${result.totalStars || 0} ★` : 'Sesión muy corta',
+                styles: { margin: '12px 0 4px', fontSize: scored ? '52px' : '30px', color: colors.warning },
+            }),
+            createElement('p', {
+                text: scored ? `${Math.round((result.adherence || 0) * 100)}% de adherencia · ${result.score || 0} puntos` : 'Menos de 3 minutos: no puntúa ni da XP.',
+                styles: { color: colors.textMuted, marginBottom: spacing.lg },
+            }),
+            createElement('p', {
+                text: `${visualSettings.rivals !== false && renderer?.getRaceStatus ? `Pelotón: ${renderer.getRaceStatus().rank}º de ${renderer.getRaceStatus().total} · ` : ''}${gainedXp > 0 ? `+${gainedXp} XP · ` : ''}Nivel ${progress.level} · ${Math.round(progress.weekly.activeMinutes)}/${progress.weekly.goalMinutes} min esta semana`,
+                styles: { color: colors.primary, marginBottom: spacing.lg, fontWeight: 700 },
+            }),
+            intensityPanel,
+            createLapTable(lapTracker.laps) || div(),
+            blockResults,
             // Solo tiene sentido valorar una sesión que puntúa; las muy cortas se descartan.
-            feedback: scored ? createSessionFeedbackPanel(session) : null,
-            // Si la sesión era un test (FTP / CP), el resultado con el botón para aplicarlo.
-            testResult: createFitnessTestResultPanel({ workout, session, settings: state.settings }),
-            onHistory: () => onCompleted?.(session),
-        }));
+            scored ? createSessionFeedbackPanel(session) : div(),
+            createElement('p', {
+                text: result.adherence >= 0.9 ? 'Excelente precisión. Prueba una ruta técnica en la próxima expedición.'
+                    : result.adherence >= 0.75 ? 'Buen ritmo. Tu siguiente mejora está en mantener la potencia durante los cambios.'
+                        : 'Busca primero estabilidad: suaviza las transiciones y deja que el ERG se adapte.',
+                styles: { color: colors.textMuted, lineHeight: 1.5, margin: `0 0 ${spacing.md}` },
+            }),
+            button({
+                text: 'Ver historial',
+                styles: { ...compactButtonStyles(), width: '100%', minHeight: '52px', color: colors.success },
+                events: { click: () => onCompleted?.(session) },
+            }),
+        );
         briefing.style.display = 'flex';
     }
 
@@ -833,6 +1187,13 @@ export function ExpeditionView({
         saveVisualSettings(visualSettings);
     });
 
+    soundButton.addEventListener('click', () => {
+        const { enabled } = saveSoundPrefs({ enabled: !getSoundPrefs().enabled });
+        soundButton.textContent = `SONIDO · ${enabled ? 'Sí' : 'No'}`;
+        ambient.setEnabled(enabled);
+        ambient.start();
+    });
+
     hudButton.addEventListener('click', () => {
         visualSettings.hud = cycleValue(
             visualSettings.hud,
@@ -840,8 +1201,16 @@ export function ExpeditionView({
         );
         hudButton.textContent = `HUD · ${hudLabel(visualSettings.hud)}`;
         hudSelect.select.value = visualSettings.hud;
-        applyHudMode(visualSettings.hud, hud);
-        applyResponsiveLayout();
+        applyHudMode(visualSettings.hud, {
+            top,
+            stagePrompt,
+            routeProgress,
+            flowBar,
+            metrics,
+            actualCadence,
+            combo,
+            contextValues,
+        });
         applyHudExtras();
         saveVisualSettings(visualSettings);
     });
@@ -942,6 +1311,9 @@ export function ExpeditionView({
     }
 
     container.cleanup = () => {
+        cancelAnimationFrame(ambienceFrame);
+        container.removeEventListener('pointerdown', startAmbient);
+        ambient.stop();
         cleanupRuntime();
         controller?.destroy();
         renderer?.destroy();
@@ -1048,9 +1420,17 @@ function configSelect(label, options, selectedValue) {
     };
 }
 
-function applyHudMode(mode, hud) {
-    hud.setAttribute('data-hud', mode);
-    if (mode === 'hidden') hud.querySelector('.xh-prompt').style.opacity = '0';
+function applyHudMode(mode, elements) {
+    const hidden = mode === 'hidden';
+    const full = mode === 'full';
+    elements.top.style.opacity = hidden ? '0' : '1';
+    if (hidden) elements.stagePrompt.style.opacity = '0';
+    elements.routeProgress.style.opacity = hidden ? '0' : '1';
+    elements.flowBar.style.display = hidden ? 'none' : 'block';
+    elements.metrics.style.opacity = hidden ? '0' : '1';
+    elements.metrics.style.pointerEvents = 'none';
+    elements.contextValues.style.display = full && !hidden ? 'flex' : 'none';
+    elements.combo.style.display = full && !hidden ? 'inline' : 'none';
 }
 
 function getStagePrompt(blockType) {

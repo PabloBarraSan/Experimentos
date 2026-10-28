@@ -53,7 +53,7 @@ function doExport(session, format) {
  * @param {function} props.onClose - Al cerrar sin eliminar
  * @param {function} props.onDeleted - Tras eliminar (refrescar lista)
  */
-export function SessionDetailBottomSheet({ session, onClose, onDeleted, onRepeat = null }) {
+export function SessionDetailBottomSheet({ session, onClose, onDeleted }) {
     const date = new Date(session.date);
     const dateStr = date.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     const timeStr = date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
@@ -268,25 +268,6 @@ export function SessionDetailBottomSheet({ session, onClose, onDeleted, onRepeat
             gap: spacing.sm,
         },
         children: [
-            ...(onRepeat ? [button({
-                attrs: { type: 'button', 'data-action': 'repeat' },
-                styles: {
-                    ...baseStyles.button,
-                    ...baseStyles.buttonPrimary,
-                    padding: `${spacing.md} ${spacing.lg}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: spacing.sm,
-                },
-                children: [icon('play', 18, '#07100e'), createElement('span', { text: 'Repetir este entreno' })],
-                events: {
-                    click: () => {
-                        close(false);
-                        onRepeat();
-                    },
-                },
-            })] : []),
             button({
                 styles: {
                     ...baseStyles.button,

@@ -206,3 +206,25 @@ export function estimateTime(distance, power, grade, mass) {
     if (velocity <= 0) return Infinity;
     return distance / velocity; // segundos
 }
+
+/**
+ * Avanza la velocidad un paso de tiempo con inercia (sin estado propio: sirve para el jugador y para cada rival).
+ * Fuerzas: empuje de la potencia, gravedad en la pendiente, rodadura y aire; en bajada sin pedalear se acelera solo.
+ *
+ * @param {number} speed - Velocidad actual (m/s)
+ * @param {{ power: number, grade: number, mass: number, cda?: number, crr?: number, dt: number }} conditions
+ *   power en W, grade en % (positivo = subida), mass total en kg, dt en s
+ * @returns {number} Velocidad nueva (m/s)
+ */
+export function stepSpeed(speed, { power, grade, mass, cda = DEFAULT_CDA, crr = DEFAULT_CRR, dt }) {
+    const theta = Math.atan((grade || 0) / 100);
+    const v = Math.max(0, speed);
+    // Con la bici casi parada el empuje P/v se dispara: se limita a lo que transmite el neumático (~700 N).
+    const drive = power > 0 ? Math.min((power * 0.97) / Math.max(v, 0.5), 700) : 0;
+    const gravity = mass * GRAVITY * Math.sin(theta);
+    const rolling = v > 0.05 ? mass * GRAVITY * crr * Math.cos(theta) : 0;
+    const air = 0.5 * AIR_DENSITY * cda * v * v;
+    // Masa equivalente: la inercia de las ruedas suma ~1,5 kg.
+    const acceleration = (drive - gravity - rolling - air) / (mass + 1.5);
+    return Math.max(0, v + acceleration * Math.min(dt, 0.1));
+}

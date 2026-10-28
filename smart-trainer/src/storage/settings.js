@@ -10,9 +10,6 @@ const DEFAULT_SETTINGS = {
     // Datos del usuario
     ftp: 200,           // Functional Threshold Power
     ftpProfileApplied: null, // Último FTP del perfil de training-app aplicado aquí (para no pisar cambios del usuario)
-    fitness: {
-        lastTest: null,     // { kind, date, ftp, cp, wPrime } del último test aplicado
-    },
     weight: 70,         // Peso en kg
     maxHR: 190,         // Frecuencia cardíaca máxima
     restingHR: 60,      // Frecuencia cardíaca en reposo
@@ -46,6 +43,12 @@ const DEFAULT_SETTINGS = {
     rider: {
         position: 'hoods',
         bikeColor: 'blue',
+    },
+    
+    // Sonido ambiente (ride y expedición): activado y volumen general 0..1
+    sound: {
+        enabled: true,
+        volume: 0.7,
     },
     
     // HUD del ride: modo 'essential' | 'full' (null = automático según el tamaño de pantalla)
@@ -131,6 +134,26 @@ export function getRideHudPrefs() {
  */
 export function saveRideHudPrefs(prefs) {
     return updateSettings({ rideHud: prefs }).rideHud;
+}
+
+/**
+ * Preferencias de sonido ambiente ({ enabled, volume }), validadas
+ */
+export function getSoundPrefs() {
+    const saved = loadSettings().sound || {};
+    const volume = Number(saved.volume);
+    return {
+        enabled: saved.enabled !== false,
+        volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 0.7,
+    };
+}
+
+/**
+ * Guardar parcialmente las preferencias de sonido ambiente
+ */
+export function saveSoundPrefs(prefs) {
+    updateSettings({ sound: prefs });
+    return getSoundPrefs();
 }
 
 /**

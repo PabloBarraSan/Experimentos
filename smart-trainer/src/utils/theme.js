@@ -123,46 +123,43 @@ export const premiumConnectButtonStyles = {
 
 // Estilos base reutilizables
 export const baseStyles = {
-    // Mismo lenguaje visual que la portada: superficies translúcidas, bordes finos y degradado naranja→menta.
     card: {
-        background: 'linear-gradient(145deg, rgba(23, 39, 40, 0.72), rgba(10, 14, 14, 0.88))',
-        borderRadius: '18px',
+        backgroundColor: colors.surface,
+        borderRadius: borderRadius.lg,
         padding: spacing.lg,
-        border: '1px solid rgba(255, 255, 255, 0.09)',
+        border: `1px solid ${colors.border}`,
     },
-
+    
     button: {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: '44px',
         padding: `${spacing.sm} ${spacing.md}`,
-        borderRadius: '12px',
+        borderRadius: borderRadius.md,
         border: 'none',
         cursor: 'pointer',
         fontFamily: typography.fontFamily,
-        fontSize: typography.sizes.sm,
-        fontWeight: 800,
+        fontSize: typography.sizes.md,
+        fontWeight: typography.weights.medium,
         transition: transitions.fast,
     },
-
+    
     buttonPrimary: {
-        background: 'linear-gradient(110deg, #ff7b46, #79e2c3)',
-        color: '#07100e',
+        backgroundColor: colors.primary,
+        color: colors.background,
     },
-
+    
     buttonSecondary: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: colors.surfaceLight,
         color: colors.text,
-        border: '1px solid rgba(255, 255, 255, 0.12)',
+        border: `1px solid ${colors.border}`,
     },
-
+    
     input: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
-        borderRadius: '10px',
+        backgroundColor: colors.surfaceLight,
+        border: `1px solid ${colors.border}`,
+        borderRadius: borderRadius.md,
         padding: spacing.sm,
-        minHeight: '40px',
         color: colors.text,
         fontFamily: typography.fontFamily,
         fontSize: typography.sizes.md,

@@ -159,8 +159,8 @@ export const WORKOUT_PRESETS = {
                 type: BLOCK_TYPES.STEADY,
                 duration: 20 * 60,
                 name: '🔥 TEST 20min',
-                targetType: TARGET_TYPES.FREE,
-                instructions: 'Esfuerzo libre: da todo lo que puedas durante 20 minutos a un ritmo constante. No empieces demasiado fuerte.',
+                targetValue: 100,
+                instructions: '¡Da todo lo que puedas durante 20 minutos! Intenta mantener un ritmo constante.',
             }),
             createBlock({
                 type: BLOCK_TYPES.COOLDOWN,
@@ -184,18 +184,16 @@ export const WORKOUT_PRESETS = {
                 type: BLOCK_TYPES.WARMUP,
                 duration: 5 * 60,
                 name: 'Calentamiento',
-                targetType: TARGET_TYPES.POWER_ABSOLUTE,
-                targetValue: 100,
-                instructions: 'Pedalea suave: los escalones empiezan en 100 W, así que el calentamiento no depende de tu FTP.',
+                targetValue: 50,
             }),
-            // Rampa de 100 W a 400 W en escalones de 1 minuto (+15 W por minuto)
-            ...[100, 115, 130, 145, 160, 175, 190, 205, 220, 235, 250, 265, 280, 295, 310, 325, 340, 355, 370, 385, 400].map((watts, i) =>
+            // Rampa de 100W a 500W en escalones de 1 minuto
+            ...[100, 115, 130, 145, 160, 175, 190, 205, 220, 235, 250, 265, 280, 295, 310, 325, 340, 355, 370, 385, 400].map((percent, i) => 
                 createBlock({
                     type: BLOCK_TYPES.STEADY,
                     duration: 60,
                     name: `Escalón ${i + 1}`,
                     targetType: TARGET_TYPES.POWER_ABSOLUTE,
-                    targetValue: watts,
+                    targetValue: percent,
                     instructions: i > 15 ? '¡Aguanta todo lo que puedas!' : '',
                 })
             ),
@@ -203,45 +201,8 @@ export const WORKOUT_PRESETS = {
                 type: BLOCK_TYPES.COOLDOWN,
                 duration: 5 * 60,
                 name: 'Enfriamiento',
-                targetType: TARGET_TYPES.POWER_ABSOLUTE,
-                targetValue: 80,
+                targetValue: 40,
             }),
-        ],
-    }),
-
-    FTP_TEST_8: createWorkout({
-        name: 'FTP Test 2×8 minutos',
-        description: 'Dos esfuerzos máximos de 8 minutos con 10 de recuperación. Tu FTP será aproximadamente el 90% de la mejor media de los dos.',
-        author: 'Smart Trainer',
-        category: 'ftp_test',
-        difficulty: 'hard',
-        tags: ['test', 'ftp', '8min'],
-        blocks: [
-            createBlock({ type: BLOCK_TYPES.WARMUP, duration: 10 * 60, name: 'Calentamiento', targetValue: 50, targetValueEnd: 70, instructions: 'Pedalea suave y sube poco a poco.' }),
-            createBlock({ type: BLOCK_TYPES.INTERVAL, duration: 60, name: 'Activación', targetValue: 100, repeat: 3, restBetween: 60, restTargetValue: 45, instructions: 'Tres activaciones de un minuto a tu FTP actual.' }),
-            createBlock({ type: BLOCK_TYPES.REST, duration: 5 * 60, name: 'Recuperación', targetValue: 40 }),
-            createBlock({ type: BLOCK_TYPES.STEADY, duration: 8 * 60, name: '🔥 Esfuerzo 1 · 8 min', targetType: TARGET_TYPES.FREE, instructions: 'Esfuerzo libre, máximo sostenible durante 8 minutos.' }),
-            createBlock({ type: BLOCK_TYPES.REST, duration: 10 * 60, name: 'Recuperación completa', targetValue: 40 }),
-            createBlock({ type: BLOCK_TYPES.STEADY, duration: 8 * 60, name: '🔥 Esfuerzo 2 · 8 min', targetType: TARGET_TYPES.FREE, instructions: 'Repite el esfuerzo con el mismo ritmo que el primero.' }),
-            createBlock({ type: BLOCK_TYPES.COOLDOWN, duration: 5 * 60, name: 'Enfriamiento', targetValue: 40 }),
-        ],
-    }),
-
-    CP_TEST_3_12: createWorkout({
-        name: 'Potencia crítica 3 + 12',
-        description: 'Un esfuerzo máximo de 3 minutos y otro de 12 con 15 de recuperación. Con las dos potencias medias se calcula tu potencia crítica (CP) y tu reserva anaeróbica (W′).',
-        author: 'Smart Trainer',
-        category: 'ftp_test',
-        difficulty: 'extreme',
-        tags: ['test', 'cp', 'vo2max', '3-12'],
-        blocks: [
-            createBlock({ type: BLOCK_TYPES.WARMUP, duration: 10 * 60, name: 'Calentamiento', targetValue: 50, targetValueEnd: 70 }),
-            createBlock({ type: BLOCK_TYPES.INTERVAL, duration: 60, name: 'Activación', targetValue: 100, repeat: 2, restBetween: 60, restTargetValue: 45 }),
-            createBlock({ type: BLOCK_TYPES.REST, duration: 5 * 60, name: 'Recuperación', targetValue: 40 }),
-            createBlock({ type: BLOCK_TYPES.STEADY, duration: 3 * 60, name: '🔥 Esfuerzo 1 · 3 min', targetType: TARGET_TYPES.FREE, instructions: 'Todo lo que tengas durante 3 minutos. Reparte bien: no te quedes sin fuerzas en el minuto 2.' }),
-            createBlock({ type: BLOCK_TYPES.REST, duration: 15 * 60, name: 'Recuperación completa', targetValue: 40, instructions: 'Rueda muy suave. Necesitas llegar fresco al segundo esfuerzo.' }),
-            createBlock({ type: BLOCK_TYPES.STEADY, duration: 12 * 60, name: '🔥 Esfuerzo 2 · 12 min', targetType: TARGET_TYPES.FREE, instructions: 'Máximo sostenible durante 12 minutos, a ritmo constante.' }),
-            createBlock({ type: BLOCK_TYPES.COOLDOWN, duration: 5 * 60, name: 'Enfriamiento', targetValue: 40 }),
         ],
     }),
     

@@ -595,10 +595,6 @@ export function exportToTCX(rawSession) {
               <Watts>${p.power || 0}</Watts>
               <Speed>${(p.speed || 0) / 3.6}</Speed>
             </TPX>
-            <ST xmlns="https://smart-trainer.local/tcx/v1">
-              <TargetWatts>${p.targetPower ?? ''}</TargetWatts>
-              <Resistance>${p.resistance ?? 0}</Resistance>
-            </ST>
           </Extensions>
         </Trackpoint>`
     ).join('\n');

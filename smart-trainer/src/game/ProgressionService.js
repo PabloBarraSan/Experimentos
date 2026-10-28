@@ -25,20 +25,12 @@ const DEFAULT_PROGRESS = {
     streak: { activeWeeks: 0, lastWeek: '' },
 };
 
-export function migrateProgress(progress = {}, now = new Date()) {
-    const weekly = { ...DEFAULT_PROGRESS.weekly, ...(progress.weekly || {}) };
-    // Los minutos de una semana anterior no cuentan en esta: sin esto la portada mostraba el
-    // progreso de hace semanas como «esta semana» hasta que se guardaba otra sesión.
-    const currentWeek = getWeekKey(now);
-    if (weekly.week !== currentWeek) {
-        weekly.week = currentWeek;
-        weekly.activeMinutes = 0;
-    }
+export function migrateProgress(progress = {}) {
     const migrated = {
         ...DEFAULT_PROGRESS,
         ...progress,
         schemaVersion: 2,
-        weekly,
+        weekly: { ...DEFAULT_PROGRESS.weekly, ...(progress.weekly || {}) },
         bestResults: { ...(progress.bestResults || {}) },
         cosmetics: {
             ...DEFAULT_PROGRESS.cosmetics,
