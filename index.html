@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0a0a">
+    <meta name="description" content="Controlador para rodillo de entrenamiento Decathlon D100">
+    <title>Smart Trainer Controller</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="manifest" href="./assets/manifest-B_BapiDK.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚴</text></svg>">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #0a0a0a;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        
+        #app {
+            width: 100%;
+            min-height: 100%;
+            height: 100%;
+        }
+        
+        /* Vista Home: fondo estable y compacto */
+        .home-view-bg {
+            position: relative;
+            width: 100%;
+            min-height: 100%;
+            background:
+                radial-gradient(circle at 85% 0%, rgba(0, 212, 170, .08), transparent 32rem),
+                linear-gradient(180deg, #0b0d0d 0%, #080808 70%);
+        }
+        .home-shell {
+            width: min(1040px, 100%);
+            min-height: 100%;
+            margin: 0 auto;
+            padding: clamp(18px, 3vw, 32px);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .home-topbar, .home-brand, .home-top-actions, .home-status-row,
+        .home-sensors, .home-secondary-nav, .home-hero-actions {
+            display: flex;
+            align-items: center;
+        }
+        .home-topbar { justify-content: space-between; min-height: 38px; }
+        .home-brand { gap: 10px; }
+        .home-brand-mark {
+            width: 34px; height: 34px; border-radius: 11px;
+            display: grid; place-items: center;
+            background: linear-gradient(135deg, #ff7b46, #00d4aa);
+        }
+        .home-brand strong, .home-brand span { display: block; }
+        .home-brand strong { font-family: 'Barlow', sans-serif; font-size: 14px; letter-spacing: 1.8px; }
+        .home-brand span { margin-top: 1px; color: rgba(255,255,255,.34); font-size: 8px; font-weight: 800; letter-spacing: 2px; }
+        .home-top-actions { gap: 8px; }
+        .home-level {
+            padding: 7px 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px;
+            color: rgba(255,255,255,.48); font-size: 11px; font-weight: 750;
+        }
+        .home-more { position: relative; }
+        .home-more summary {
+            list-style: none; display: flex; align-items: center; gap: 5px; cursor: pointer;
+            padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.09);
+            color: rgba(255,255,255,.68); font-size: 12px; font-weight: 750;
+        }
+        .home-more summary::-webkit-details-marker { display: none; }
+        .home-menu-panel {
+            position: absolute; z-index: 20; top: calc(100% + 8px); right: 0;
+            width: min(310px, calc(100vw - 32px)); padding: 7px;
+            background: rgba(17,19,19,.98); border: 1px solid rgba(255,255,255,.11);
+            border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.55);
+        }
+        .home-menu-item {
+            width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px;
+            border: 0; border-radius: 11px; background: transparent; font-family: inherit;
+        }
+        .home-menu-item:hover:not(:disabled) { background: rgba(255,255,255,.055); }
+        .home-menu-icon { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: rgba(255,107,53,.1); flex-shrink: 0; }
+        .home-hero {
+            position: relative; min-height: 0; overflow: hidden;
+            display: flex; flex-direction: column; justify-content: flex-end; gap: 22px; padding: clamp(22px, 4vw, 40px);
+            border: 1px solid rgba(255,255,255,.1); border-radius: clamp(22px, 4vw, 32px);
+            background: linear-gradient(145deg, #172728 0%, #0d1718 54%, #0a0d0d 100%);
+            box-shadow: 0 24px 80px rgba(0,0,0,.32);
+        }
+        .home-hero-glow { position: absolute; width: 340px; height: 340px; border-radius: 50%; right: -60px; top: -120px; background: rgba(0,212,170,.16); filter: blur(52px); }
+        .home-landscape { position: absolute; pointer-events: none; transform: rotate(-5deg); transform-origin: center; }
+        .home-landscape-far { width: 72%; height: 72%; right: -8%; bottom: -45%; border-radius: 50% 42% 0 0; background: #193536; opacity: .74; }
+        .home-landscape-near { width: 80%; height: 60%; right: -28%; bottom: -37%; border-radius: 48% 50% 0 0; background: #102525; box-shadow: -20px -10px 80px rgba(0,212,170,.08); }
+        .home-hero-copy { position: relative; z-index: 2; max-width: 610px; }
+        .home-eyebrow { color: #70e6c6; font-size: 10px; font-weight: 850; letter-spacing: 2px; }
+        .home-hero h1 { margin: 9px 0 9px; font-family: 'Barlow', sans-serif; font-size: clamp(38px, 7vw, 68px); line-height: .95; letter-spacing: -1.8px; }
+        .home-hero p { max-width: 530px; margin: 0; color: rgba(255,255,255,.58); font-size: clamp(13px, 2vw, 15px); line-height: 1.55; }
+        .home-hero-actions { gap: 7px; margin-top: 22px; }
+        .home-primary-action {
+            min-height: 46px; padding: 0 18px; display: inline-flex; align-items: center; gap: 9px;
+            border: 0; border-radius: 13px; background: linear-gradient(110deg, #ff7b46, #79e2c3);
+            color: #07100e; font-family: inherit; font-size: 13px; font-weight: 850; cursor: pointer;
+            box-shadow: 0 10px 28px rgba(0,212,170,.16);
+        }
+        .home-mission-meta { display: block; margin-top: 12px; color: rgba(255,255,255,.5); font-size: 11px; font-weight: 750; letter-spacing: .4px; }
+        .home-cta-row { position: relative; z-index: 2; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+        .home-cta-row .home-primary-action { min-height: 52px; padding: 0 26px; font-size: 15px; }
+        .home-primary-action[data-state="waiting"] { background: rgba(255,255,255,.1); color: rgba(255,255,255,.75); box-shadow: none; }
+        .home-primary-action[data-state="waiting"] svg { display: none; }
+        .home-cta-hint { flex-basis: 100%; margin: 0; color: rgba(255,255,255,.45); font-size: 12px; }
+        .home-demo-link { text-decoration: underline; text-underline-offset: 3px; }
+        .home-weekly { padding: 2px 4px; }
+        .home-weekly > div:first-child { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+        .home-weekly span { color: rgba(255,255,255,.34); font-size: 9px; font-weight: 800; letter-spacing: 1px; }
+        .home-weekly strong { color: rgba(255,255,255,.72); font-size: 11px; white-space: nowrap; }
+        .home-progress-track { height: 4px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.07); }
+        .home-progress-track > div { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff7b46, #70e6c6); }
+        .home-secondary-nav { gap: 8px; }
+        .home-nav-item {
+            min-width: 0; flex: 1; min-height: 58px; padding: 10px 13px; display: flex; align-items: center; gap: 10px;
+            border: 1px solid rgba(255,255,255,.075); border-radius: 14px; background: rgba(255,255,255,.025);
+            font-family: inherit; cursor: pointer;
+        }
+        .home-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+        .home-chip { padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.04); color: rgba(255,255,255,.5); font-size: 11px; font-weight: 700; }
+        .home-chip.is-on { color: var(--chip, #70e6c6); border-color: var(--chip, #70e6c6); background: rgba(255,255,255,.05); }
+        .prep-link { padding: 8px 4px; border: 0; background: transparent; color: rgba(255,255,255,.7); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .prep-shell { width: min(720px, 100%); gap: 14px; padding-bottom: 40px; }
+        .prep-topbar { display: flex; align-items: center; justify-content: space-between; min-height: 38px; }
+        .prep-back { display: inline-flex; align-items: center; gap: 4px; padding: 8px 12px 8px 8px; border: 1px solid rgba(255,255,255,.1); border-radius: 11px; background: rgba(255,255,255,.04); color: rgba(255,255,255,.78); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .prep-card { padding: 18px; border: 1px solid rgba(255,255,255,.09); border-radius: 20px; background: linear-gradient(145deg, rgba(23,39,40,.8), rgba(10,14,14,.9)); }
+        .prep-summary h1 { margin: 8px 0 14px; font-family: 'Barlow', sans-serif; font-size: clamp(30px, 6vw, 44px); line-height: 1; letter-spacing: -1px; }
+        .prep-summary p { margin: 0 0 8px; color: rgba(255,255,255,.58); font-size: 14px; }
+        .prep-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+        .prep-facts > div { padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.05); }
+        .prep-facts span, .prep-stat span, .prep-field > span { display: block; color: rgba(255,255,255,.42); font-size: 10px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+        .prep-facts strong { display: block; margin-top: 4px; color: #fff; font-size: 13px; }
+        .prep-heading { margin: 8px 2px 0; color: rgba(255,255,255,.5); font-size: 11px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; }
+        .prep-device.is-connected { border-color: rgba(112,230,198,.35); }
+        .prep-device-head { display: flex; align-items: center; gap: 12px; }
+        .prep-device-icon { width: 42px; height: 42px; flex-shrink: 0; display: grid; place-items: center; border-radius: 13px; background: rgba(255,255,255,.06); }
+        .prep-device-title { flex: 1; min-width: 0; }
+        .prep-device-title strong { display: block; color: #fff; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .prep-status { display: block; margin-top: 3px; color: rgba(255,255,255,.5); font-size: 12px; }
+        .prep-status[data-quality="fresh"] { color: #75e5c5; }
+        .prep-status[data-quality="stale"] { color: #f6b94b; }
+        .prep-btn { flex-shrink: 0; min-height: 38px; padding: 0 16px; border-radius: 11px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); color: rgba(255,255,255,.85); font-family: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+        .prep-btn.is-primary { border: 0; background: #ff7b46; color: #1a0c05; }
+        .prep-wide { width: 100%; min-height: 52px; color: #75e5c5; border-color: rgba(112,230,198,.38); }
+        .prep-stats { display: flex; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.07); }
+        .prep-stat { flex: 1; }
+        .prep-stat strong { display: block; margin-top: 4px; color: #fff; font-size: 24px; font-family: 'Barlow', sans-serif; font-variant-numeric: tabular-nums; }
+        .prep-settings summary { cursor: pointer; color: rgba(255,255,255,.65); font-size: 13px; font-weight: 700; }
+        .prep-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+        .prep-field select { width: 100%; min-height: 42px; margin-top: 6px; padding: 0 10px; border-radius: 11px; border: 1px solid rgba(255,255,255,.12); background: rgba(5,12,16,.82); color: #fff; font-family: inherit; font-weight: 700; }
+        .prep-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; margin-top: 6px; }
+        .prep-actions .prep-cta { width: 100%; min-height: 56px; justify-content: center; font-size: 16px; }
+        .prep-actions .prep-cta:disabled { cursor: not-allowed; }
+        .prep-actions .home-cta-hint { text-align: center; }
+        .prep-actions .prep-link { align-self: center; }
+        .home-nav-item:focus-visible, .prep-btn:focus-visible, .prep-back:focus-visible,.home-primary-action:focus-visible, .home-step-action:focus-visible { outline: 2px solid #70e6c6; outline-offset: 2px; }
+        .home-nav-item:hover { border-color: rgba(255,255,255,.15); background: rgba(255,255,255,.045); }
+        @media (max-width: 680px) {
+            .home-shell { gap: 12px; padding: 14px; }
+            .home-level { display: none; }
+            .home-hero { padding: 20px 16px; gap: 18px; }
+            .home-hero h1 { max-width: 320px; }
+            .home-cta-row { flex-direction: column; align-items: stretch; }
+            .home-cta-row .home-primary-action { justify-content: center; }
+            .home-cta-row .home-demo-link { align-self: center; }
+            .home-cta-hint { text-align: center; }
+            .home-secondary-nav { display: grid !important; grid-template-columns: 1fr 1fr; gap: 6px; }
+            .home-nav-item { padding: 10px 11px; }
+        }
+        @media (max-width: 420px) {
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(0, 212, 170, 0.4); opacity: 1; }
+            50% { box-shadow: 0 0 35px rgba(0, 212, 170, 0.6); opacity: 0.9; }
+        }
+        /* Cards: overlay de rejilla técnica */
+        .card-grid-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.08;
+            background-image: linear-gradient(rgba(0, 212, 170, 0.15) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 212, 170, 0.15) 1px, transparent 1px);
+            background-size: 20px 20px;
+            border-radius: inherit;
+        }
+        /* Cards desbloqueadas: "encendidas" */
+        .card-unlocked {
+            animation: cardUnlockedGlow 0.6s ease-out forwards;
+            box-shadow: 0 0 28px rgba(0, 212, 170, 0.35), 0 8px 32px rgba(0, 0, 0, 0.4);
+            border-color: rgba(0, 212, 170, 0.5) !important;
+        }
+        @keyframes cardUnlockedGlow {
+            from { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); }
+            to { box-shadow: 0 0 28px rgba(0, 212, 170, 0.35), 0 8px 32px rgba(0, 0, 0, 0.4); }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes connectButtonShine {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        .connect-btn-pro {
+            background: linear-gradient(90deg, #00d4aa 0%, #00f2fe 25%, #00d4aa 50%, #00f2fe 75%, #00d4aa 100%) !important;
+            background-size: 200% 100% !important;
+            animation: connectButtonShine 5s ease-in-out infinite;
+        }
+        
+        /* Swiper de modos en portada: scroll horizontal sin barra visible */
+        .home-mode-swiper::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* Scrollbar personalizado */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        /* Home hero: logo animado + título gradiente */
+        .logo-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: #00d4aa;
+            border-right-color: #3b82f6;
+            animation: logoRingSpin 3s linear infinite;
+            box-shadow: 0 0 20px rgba(0, 212, 170, 0.25);
+        }
+        @keyframes logoRingSpin {
+            to { transform: rotate(360deg); }
+        }
+        .hero-title-gradient {
+            background: linear-gradient(to right, #fff, #a5f3fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Settings: responsive */
+        .settings-view {
+            padding: clamp(12px, 4vw, 24px) !important;
+        }
+        .settings-zones-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-top: 8px;
+        }
+        .settings-zones-wrap table {
+            min-width: 280px;
+        }
+        @media (max-width: 600px) {
+            .settings-view .settings-field-group {
+                grid-template-columns: 1fr !important;
+            }
+            .settings-view .settings-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .settings-view .settings-actions button {
+                width: 100%;
+                justify-content: center;
+            }
+            .settings-view .settings-zwift-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .settings-view .settings-zwift-row .settings-zwift-btn {
+                width: 100%;
+                justify-content: center;
+                min-height: 44px;
+            }
+            .settings-view .settings-zwift-row .settings-zwift-connect {
+                order: -1;
+            }
+        }
+    </style>
+  <script type="module" crossorigin src="./assets/index-YLEab5CQ.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/three-Bq2T38Z6.js">
+  <link rel="stylesheet" crossorigin href="./assets/index-BZNyl4pz.css">
+</head>
+<body>
+    <div id="app"></div>
+    <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // Sistema de Actualización PWA - Smart Trainer
+        // ═══════════════════════════════════════════════════════════════════
+        
+        const UpdateManager = {
+            registration: null,
+            waitingWorker: null,
+            updateToastVisible: false,
+            isRefreshing: false, // Evitar múltiples recargas
+            userRequestedUpdate: false, // Solo recargar si el usuario pidió la actualización
+            
+            /**
+             * Inicializar el Service Worker y sistema de actualizaciones
+             */
+            async init() {
+                if (!('serviceWorker' in navigator)) {
+                    console.log('⚠️ Service Worker no soportado');
+                    return;
+                }
+                
+                try {
+                    // Registrar SW
+                    this.registration = await navigator.serviceWorker.register('./sw.js', {
+                        scope: './'
+                    });
+                    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                        console.log('SW:', this.registration.scope);
+                    }
+                    
+                    // Detectar actualizaciones al registrar
+                    this.checkForWaitingWorker();
+                    
+                    // Escuchar nuevas instalaciones
+                    this.registration.addEventListener('updatefound', () => {
+                        this.onUpdateFound();
+                    });
+                    
+                    // Escuchar cuando el SW controlador cambia (después de skipWaiting)
+                    // SOLO recargar si el usuario solicitó la actualización explícitamente
+                    navigator.serviceWorker.addEventListener('controllerchange', () => {
+                        if (this.isRefreshing) return; // Evitar loop
+                        if (!this.userRequestedUpdate) return;
+                        this.isRefreshing = true;
+                        window.location.reload();
+                    });
+                    
+                    // Comprobar actualizaciones al arrancar (solo una vez)
+                    setTimeout(() => this.checkForUpdates(), 1000);
+                    
+                    // Comprobar actualizaciones periódicamente (cada 30 min)
+                    setInterval(() => this.checkForUpdates(), 30 * 60 * 1000);
+                    
+                    // También al volver de segundo plano
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            this.checkForUpdates();
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error('⚠️ Error registrando Service Worker:', error);
+                }
+            },
+            
+            /**
+             * Comprobar si hay un SW esperando cuando cargamos (solo guardar referencia, no mostrar toast).
+             * El toast solo se muestra cuando onUpdateFound detecta una nueva versión en esta sesión.
+             */
+            checkForWaitingWorker() {
+                if (this.registration?.waiting) {
+                    this.waitingWorker = this.registration.waiting;
+                }
+            },
+            
+            /**
+             * Se ha encontrado una actualización
+             */
+            onUpdateFound() {
+                const newWorker = this.registration.installing;
+                if (!newWorker) return;
+                
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed') {
+                        if (navigator.serviceWorker.controller) {
+                            // Hay una versión anterior - mostrar toast solo en esta sesión
+                            this.waitingWorker = newWorker;
+                            this.showUpdateToast();
+                        } else {
+                            // Primera instalación - no mostrar toast
+                        }
+                    }
+                });
+            },
+            
+            /**
+             * Forzar comprobación de actualizaciones
+             */
+            async checkForUpdates() {
+                if (!this.registration) return;
+                try {
+                    await this.registration.update();
+                } catch (error) {
+                    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+                        console.warn('Actualización SW:', error.message);
+                    }
+                }
+            },
+            
+            /**
+             * Mostrar toast de actualización disponible (solo cuando hay nueva versión en esta sesión)
+             */
+            showUpdateToast() {
+                if (this.updateToastVisible) return;
+                this.updateToastVisible = true;
+                
+                const toast = document.createElement('div');
+                toast.id = 'update-toast';
+                toast.innerHTML = `
+                    <style>
+                        #update-toast .update-toast-box {
+                            position: fixed;
+                            bottom: 16px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            background: rgba(26,26,26,0.95);
+                            border: 1px solid rgba(0,212,170,0.25);
+                            border-radius: 10px;
+                            padding: 10px 14px;
+                            display: flex;
+                            align-items: center;
+                            gap: 10px;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+                            z-index: 10000;
+                            animation: updateToastSlide 0.25s ease-out;
+                            max-width: min(360px, calc(100vw - 24px));
+                        }
+                        #update-toast .update-toast-msg { flex: 1; min-width: 0; font-size: 13px; color: #e5e5e5; font-weight: 500; }
+                        #update-toast .update-toast-btn { background: #00d4aa; color: #000; border: none; border-radius: 6px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+                        #update-toast .update-toast-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+                        #update-toast .update-toast-close { background: transparent; border: none; color: #888; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; }
+                        @media (max-width: 380px) {
+                            #update-toast .update-toast-box { flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
+                            #update-toast .update-toast-msg { flex: 1 1 100%; order: 1; }
+                            #update-toast .update-toast-btn { order: 2; }
+                            #update-toast .update-toast-close { order: 3; margin-left: auto; }
+                        }
+                        @keyframes updateToastSlide {
+                            from { transform: translateX(-50%) translateY(80px); opacity: 0; }
+                            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                        }
+                        @keyframes updateToastSlideOut {
+                            to { transform: translateX(-50%) translateY(80px); opacity: 0; }
+                        }
+                    </style>
+                    <div class="update-toast-box">
+                        <span class="update-toast-msg">Nueva versión disponible</span>
+                        <button type="button" class="update-toast-btn" data-action="apply">Actualizar</button>
+                        <button type="button" class="update-toast-close" data-action="dismiss" title="Cerrar" aria-label="Cerrar">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                `;
+                
+                const btnApply = toast.querySelector('[data-action="apply"]');
+                const btnDismiss = toast.querySelector('[data-action="dismiss"]');
+                btnApply.addEventListener('click', () => UpdateManager.applyUpdate());
+                btnDismiss.addEventListener('click', () => UpdateManager.dismissToast());
+                document.body.appendChild(toast);
+            },
+            
+            /**
+             * Aplicar la actualización
+             */
+            applyUpdate() {
+                if (!this.waitingWorker) {
+                    this.userRequestedUpdate = true;
+                    this.forceRefresh();
+                    return;
+                }
+                this.userRequestedUpdate = true;
+                const toast = document.getElementById('update-toast');
+                const btn = toast?.querySelector('[data-action="apply"]');
+                if (btn) {
+                    btn.textContent = 'Actualizando...';
+                    btn.disabled = true;
+                }
+                this.waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+            },
+            
+            /**
+             * Forzar recarga limpia (limpiar cache)
+             */
+            async forceRefresh() {
+                this.userRequestedUpdate = true;
+                this.isRefreshing = true;
+                if (this.registration?.active) {
+                    this.registration.active.postMessage({ type: 'FORCE_UPDATE' });
+                }
+                // Esperar un momento y recargar
+                setTimeout(() => window.location.reload(true), 500);
+            },
+            
+            /**
+             * Cerrar el toast (sin actualizar)
+             */
+            dismissToast() {
+                const toast = document.getElementById('update-toast');
+                if (toast) {
+                    const box = toast.querySelector('.update-toast-box');
+                    if (box) box.style.animation = 'updateToastSlideOut 0.25s ease-out forwards';
+                    setTimeout(() => {
+                        toast.remove();
+                        this.updateToastVisible = false;
+                    }, 250);
+                }
+            }
+        };
+        
+        // Inicializar al cargar
+        window.addEventListener('load', () => UpdateManager.init());
+        
+        // =============================================
+        // PWA Install Management
+        // =============================================
+        const PWA_INSTALLED_KEY = 'smart-trainer-pwa-installed';
+        let deferredPrompt = null;
+
+        // Verificar si está en modo PWA (standalone, etc.)
+        const isRunningAsPWA = () => {
+            const displayModes = ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay'];
+            for (const mode of displayModes) {
+                if (window.matchMedia && window.matchMedia(`(display-mode: ${mode})`).matches) {
+                    return true;
+                }
+            }
+            if (window.navigator && window.navigator.standalone === true) return true;
+            return false;
+        };
+
+        // Verificar si ya está instalada
+        window.isPWAInstalled = function() {
+            if (isRunningAsPWA()) return true;
+            if (localStorage.getItem(PWA_INSTALLED_KEY) === 'true') return true;
+            return false;
+        };
+
+        // Saber si hay prompt pendiente
+        window.hasPWAInstallPrompt = function() {
+            return !!deferredPrompt;
+        };
+
+        // Capturar el evento beforeinstallprompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('[PWA] beforeinstallprompt received');
+            e.preventDefault();
+            
+            // Si ya está instalada, ignorar
+            if (window.isPWAInstalled()) {
+                console.log('[PWA] Already installed, ignoring prompt');
+                deferredPrompt = null;
+                return;
+            }
+            
+            deferredPrompt = e;
+            console.log('[PWA] Prompt saved, dispatching pwa-installable');
+            window.dispatchEvent(new CustomEvent('pwa-installable', { detail: true }));
+        });
+
+        // Función global para instalar la PWA
+        window.installPWA = async function() {
+            console.log('[PWA] installPWA called, deferredPrompt:', !!deferredPrompt);
+            
+            if (!deferredPrompt) {
+                console.log('[PWA] No deferred prompt available');
+                window.dispatchEvent(new CustomEvent('pwa-install-unavailable'));
+                return false;
+            }
+            
+            try {
+                console.log('[PWA] Calling prompt()...');
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('[PWA] User choice:', outcome);
+                deferredPrompt = null;
+                
+                if (outcome === 'accepted') {
+                    localStorage.setItem(PWA_INSTALLED_KEY, 'true');
+                    window.dispatchEvent(new CustomEvent('pwa-installed', { detail: outcome }));
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('[PWA] Error installing:', error);
+                deferredPrompt = null;
+                return false;
+            }
+        };
+
+        // Detectar cuando el sistema confirma que la app fue instalada
+        window.addEventListener('appinstalled', () => {
+            console.log('[PWA] appinstalled event received');
+            deferredPrompt = null;
+            localStorage.setItem(PWA_INSTALLED_KEY, 'true');
+            window.dispatchEvent(new CustomEvent('pwa-installed', { detail: 'installed' }));
+        });
+        
+        // Debug: mostrar estado inicial
+        console.log('[PWA] Initial state - isRunningAsPWA:', isRunningAsPWA(), 'isPWAInstalled:', window.isPWAInstalled());
+    </script>
+</body>
+</html>
