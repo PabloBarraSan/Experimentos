@@ -1,0 +1,14 @@
+# Smart Trainer en rodillo.kitraining.app (sitio estático).
+# El service worker y el HTML nunca se cachean para que cada despliegue llegue al instante;
+# los archivos de assets/ llevan hash en el nombre y se pueden cachear sin límite.
+AddType model/gltf-binary .glb
+AddType application/manifest+json .webmanifest
+
+<IfModule mod_headers.c>
+    <FilesMatch "^(index\.html|sw\.js|manifest\.json)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+    <FilesMatch "^assets/.*-[A-Za-z0-9_-]{8}\.(js|css)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>

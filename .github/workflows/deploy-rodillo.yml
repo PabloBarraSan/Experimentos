@@ -1,0 +1,73 @@
+name: Desplegar smart-trainer (rodillo.kitraining.app)
+
+# Con cada push a main que toque smart-trainer: pasa los tests, compila y publica solo el sitio
+# estático en la rama deploy-rodillo. Plesk (Git + webhook de GitHub) hace pull de esa rama.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-trainer/**'
+      - '.github/workflows/deploy-rodillo.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-rodillo
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: smart-trainer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: smart-trainer/package-lock.json
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Preparar sitio estático
+        run: |
+          rm -rf dist/server
+          find dist -name '*.map' -delete
+          cp deploy/rodillo.htaccess dist/.htaccess
+          echo "${GITHUB_SHA}" > dist/version.txt
+
+      - name: Publicar en deploy-rodillo
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin deploy-rodillo >/dev/null; then
+            git fetch --depth 1 origin deploy-rodillo
+            git worktree add ../site FETCH_HEAD
+            git -C ../site checkout -B deploy-rodillo
+          else
+            git worktree add --detach ../site
+            git -C ../site checkout --orphan deploy-rodillo
+          fi
+          find ../site -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a smart-trainer/dist/. ../site/
+          cd ../site
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Sin cambios que publicar."
+            exit 0
+          fi
+          git commit -m "deploy: smart-trainer ${GITHUB_SHA::7}"
+          git push origin deploy-rodillo
