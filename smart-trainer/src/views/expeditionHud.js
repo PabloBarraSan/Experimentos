@@ -97,32 +97,25 @@ export class LapTracker {
     }
 }
 
-const glass = {
-    background: 'linear-gradient(135deg, rgba(7,14,18,.86), rgba(15,36,38,.78))',
-    border: '1px solid rgba(255,255,255,.12)',
-};
-
 // Perfil del entrenamiento (estilo TrainerRoad/Zwift) + qué toca ahora y después.
 export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expandedBlocks = null }) {
     // `blocks` ya expandidos (p. ej. tras alargar un bloque); si no, se expanden los del workout.
     const blocks = expandedBlocks || expandBlocks(workout.blocks || []);
-    const strip = div({
-        styles: { position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '1px', height: '38px', width: '100%' },
-    });
+    const strip = div({ className: 'hud-strip' });
     const segments = blocks.map((block) => {
         const { start, end } = blockPercent(block);
         const top = Math.max(start, end);
         const height = Math.max(14, Math.min(100, (top / 130) * 100));
         const startHeight = Math.max(14, Math.min(100, (start / 130) * 100));
         const endHeight = Math.max(14, Math.min(100, (end / 130) * 100));
+        const color = zoneColor((start + end) / 2);
         const el = div({
+            className: 'hud-seg',
             styles: {
                 flex: `${block.duration} 0 0`,
                 height: `${height}%`,
-                background: zoneColor((start + end) / 2),
-                opacity: '.5',
-                borderRadius: '3px 3px 0 0',
-                transition: 'opacity .3s ease, filter .3s ease',
+                background: color,
+                color,
                 clipPath: start !== end
                     ? `polygon(0 ${100 - (startHeight / height) * 100}%, 100% ${100 - (endHeight / height) * 100}%, 100% 100%, 0 100%)`
                     : 'none',
@@ -131,30 +124,17 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
         strip.appendChild(el);
         return el;
     });
-    const cursor = div({
-        styles: {
-            position: 'absolute', top: '-3px', bottom: '0', width: '2px', left: '0%',
-            background: '#fff', boxShadow: '0 0 8px rgba(255,255,255,.9)', transition: 'left .6s linear',
-        },
-    });
+    const cursor = div({ className: 'hud-cursor', styles: { left: '0%' } });
     strip.appendChild(cursor);
 
-    const lapLabel = createElement('span', {
-        text: '',
-        styles: { fontWeight: 800, letterSpacing: '1px', color: colors.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    });
-    const lapAverage = createElement('span', {
-        text: '',
-        styles: { fontFamily: typography.fontMono, fontWeight: 800, color: 'rgba(255,255,255,.7)', whiteSpace: 'nowrap' },
-    });
-    const nextLabel = createElement('span', {
-        text: '',
-        styles: { color: 'rgba(255,255,255,.62)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    });
+    const lapLabel = createElement('span', { text: '', className: 'hud-title' });
+    const lapAverage = createElement('span', { text: '', className: 'hud-num', styles: { fontSize: '15px', whiteSpace: 'nowrap' } });
+    const nextLabel = createElement('span', { text: '', className: 'hud-sub' });
     const blockClock = createElement('span', {
         text: '--:--',
+        className: 'hud-num hud-num--lg',
         attrs: { 'aria-label': 'Tiempo restante del tramo' },
-        styles: { fontFamily: typography.fontMono, fontSize: '26px', fontWeight: 800, lineHeight: 1, color: '#fff', flex: '0 0 auto' },
+        styles: { flex: '0 0 auto' },
     });
     const info = div({
         styles: {
@@ -173,10 +153,8 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
         ],
     });
     const element = div({
-        styles: {
-            ...glass, borderRadius: '14px', padding: '9px 12px 8px', display: 'grid', gap: '6px',
-            width: 'min(520px, 90vw)', boxSizing: 'border-box',
-        },
+        className: 'hud-panel hud-workout',
+        styles: { width: 'min(460px, 90vw)', '--hud-delay': '0.15s' },
         children: [info, strip],
     });
 
@@ -186,10 +164,11 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
         setBlock(block, index) {
             activeIndex = index;
             segments.forEach((segment, position) => {
-                segment.style.opacity = position === index ? '1' : position < index ? '.28' : '.55';
-                segment.style.filter = position === index ? 'brightness(1.15) saturate(1.1)' : 'none';
+                segment.classList.toggle('is-active', position === index);
+                segment.classList.toggle('is-done', position < index);
             });
             lapLabel.textContent = describeLap(block);
+            element.style.setProperty('--hud-accent', zoneColor(blockPercent(block).mean));
             const next = blocks[index + 1];
             if (next) {
                 const watts = targetWatts(next, ftp);
@@ -201,7 +180,7 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
         },
         setBlockRemaining(seconds) {
             blockClock.textContent = formatTime(Math.max(0, seconds));
-            blockClock.style.color = seconds <= 10 ? '#ffd379' : '#fff';
+            blockClock.style.color = seconds <= 10 ? '#ffd379' : '';
         },
         setProgress(elapsed) {
             cursor.style.left = `${Math.max(0, Math.min(100, (elapsed / totalDuration) * 100))}%`;
@@ -222,13 +201,14 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
 // Aviso al cerrar una serie/vuelta con su media y tiempo en zona.
 export function createLapToast() {
     const title = createElement('div', { styles: { fontSize: '11px', letterSpacing: '1.2px', fontWeight: 800, color: 'rgba(255,255,255,.66)' } });
-    const main = createElement('div', { styles: { fontSize: '22px', fontWeight: 800, fontFamily: typography.fontMono } });
+    const main = createElement('div', { className: 'hud-num hud-num--lg', styles: { margin: '6px 0 4px' } });
     const detail = createElement('div', { styles: { fontSize: '12px', color: 'rgba(255,255,255,.72)' } });
     const element = div({
+        className: 'hud-panel hud-toast',
         styles: {
-            ...glass, position: 'absolute', left: '50%', top: '150px', transform: 'translate(-50%, -8px)',
-            padding: '10px 18px', borderRadius: '14px', textAlign: 'center', opacity: '0', pointerEvents: 'none',
-            transition: 'opacity .3s ease, transform .3s ease', minWidth: '210px',
+            position: 'absolute', left: '50%', top: '150px', transform: 'translate(-50%, -8px)', animation: 'none',
+            padding: '12px 20px', textAlign: 'center', opacity: '0', pointerEvents: 'none',
+            transition: 'opacity .3s ease, transform .3s ease', minWidth: '220px',
         },
         children: [title, main, detail],
     });
@@ -263,13 +243,14 @@ const ORDINAL = (n) => `${n}º`;
 
 // Clasificación del pelotón: chip compacto y lista completa en modo "Completa".
 export function createRacePanel() {
-    const rank = createElement('div', { styles: { fontSize: '26px', fontWeight: 900, lineHeight: 1 } });
-    const total = createElement('span', { styles: { fontSize: '12px', color: 'rgba(255,255,255,.55)', fontWeight: 700 } });
-    const rival = createElement('div', { styles: { fontSize: '11px', color: 'rgba(255,255,255,.72)', fontFamily: typography.fontMono } });
-    const list = div({ styles: { display: 'grid', gap: '3px', marginTop: '8px' } });
+    const rank = createElement('div', { className: 'hud-num hud-num--lg' });
+    const total = createElement('span', { className: 'hud-label' });
+    const rival = createElement('div', { className: 'hud-sub', styles: { marginTop: '5px', fontWeight: 700 } });
+    const list = div({ styles: { display: 'grid', gap: '4px', marginTop: '9px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,.08)' } });
     const element = div({
-        styles: { ...glass, position: 'absolute', left: '18px', top: '64px', padding: '9px 12px', borderRadius: '14px', minWidth: '132px' },
-        children: [div({ styles: { display: 'flex', alignItems: 'baseline', gap: '6px' }, children: [rank, total] }), rival, list],
+        className: 'hud-panel hud-race',
+        styles: { position: 'absolute', left: '18px', top: '64px', '--hud-delay': '0.25s' },
+        children: [div({ className: 'hud-race__rank', children: [rank, total] }), rival, list],
     });
     let showList = false;
     let lastKey = '';
@@ -304,17 +285,15 @@ export function createRacePanel() {
             rival.style.color = ahead ? '#ffd379' : '#63e0b5';
             if (!showList) return;
             list.replaceChildren(...status.entries.map((entry, position) => div({
-                styles: {
-                    display: 'grid', gridTemplateColumns: '14px 8px 1fr auto', gap: '6px', alignItems: 'center', fontSize: '11px',
-                    fontWeight: entry.isPlayer ? 800 : 600, color: entry.isPlayer ? '#63e0b5' : 'rgba(255,255,255,.8)',
-                },
+                className: `hud-race__row${entry.isPlayer ? ' is-you' : ''}`,
                 children: [
                     createElement('span', { text: String(position + 1), styles: { color: 'rgba(255,255,255,.45)' } }),
                     div({ styles: { width: '8px', height: '8px', borderRadius: '50%', background: `#${entry.color.toString(16).padStart(6, '0')}` } }),
                     createElement('span', { text: entry.name }),
                     createElement('span', {
                         text: entry.isPlayer ? '—' : `${entry.gap >= 0 ? '+' : '−'}${Math.abs(Math.round(entry.gap))} m`,
-                        styles: { fontFamily: typography.fontMono, color: 'rgba(255,255,255,.55)' },
+                        className: 'hud-num',
+                        styles: { fontSize: '13px', color: 'rgba(232,240,236,.56)' },
                     }),
                 ],
             })));
@@ -360,18 +339,9 @@ export function createMiniMap({ size = 132 } = {}) {
         styles: { width: `${size}px`, height: `${size}px`, display: 'block' },
     });
     const element = div({
+        className: 'hud-panel hud-map',
         attrs: { title: 'Mapa del circuito' },
-        styles: {
-            position: 'absolute',
-            right: '18px',
-            top: '124px',
-            padding: '8px',
-            borderRadius: '18px',
-            background: 'rgba(5,12,16,.62)',
-            border: '1px solid rgba(255,255,255,.1)',
-            backdropFilter: 'blur(6px)',
-            transition: 'opacity .25s ease',
-        },
+        styles: { position: 'absolute', right: '18px', top: '124px', transition: 'opacity .25s ease', '--hud-delay': '0.3s' },
         children: [canvas],
     });
     const ctx = canvas.getContext('2d');
@@ -453,36 +423,28 @@ export function createMiniMap({ size = 132 } = {}) {
  * Perfil del circuito (como el de Zwift): silueta de la vuelta con el puerto resaltado, tu posición, la pendiente
  * actual (coloreada por dureza), la velocidad y lo que falta hasta la cima.
  */
-export function createClimbProfile({ width = 260, height = 58 } = {}) {
+export function createClimbProfile({ width = 220, height = 54 } = {}) {
     const ratio = Math.min(2, window.devicePixelRatio || 1);
     const canvas = createElement('canvas', {
         attrs: { width: String(width * ratio), height: String(height * ratio), 'aria-hidden': 'true' },
         styles: { width: `${width}px`, height: `${height}px`, display: 'block' },
     });
-    const grade = createElement('strong', {
-        text: '0,0 %',
-        styles: { fontFamily: typography.fontDisplay, fontSize: '22px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
-    });
-    const speed = createElement('span', { text: '0 km/h', styles: { color: 'rgba(255,255,255,.75)', fontSize: '13px', fontWeight: 800, fontVariantNumeric: 'tabular-nums' } });
-    const summit = createElement('span', { text: '', styles: { color: '#ffd379', fontSize: '11px', fontWeight: 800, letterSpacing: '.4px' } });
+    const grade = createElement('strong', { text: '0,0', className: 'hud-num hud-num--md' });
+    const speed = createElement('span', { text: '0', className: 'hud-num', styles: { fontSize: '18px', color: 'rgba(242,246,243,.82)' } });
+    const summit = createElement('span', { text: '', className: 'hud-label', styles: { color: '#ffd379', marginLeft: 'auto' } });
     const element = div({
+        className: 'hud-panel hud-profile',
         attrs: { title: 'Perfil del circuito' },
         styles: {
-            position: 'absolute',
-            left: '18px',
-            bottom: '18px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            padding: '9px 11px',
-            borderRadius: '16px',
-            background: 'rgba(5,12,16,.66)',
-            border: '1px solid rgba(255,255,255,.1)',
-            backdropFilter: 'blur(6px)',
-            transition: 'opacity .25s ease',
+            position: 'absolute', left: '18px', bottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px',
+            transition: 'opacity .25s ease', '--hud-delay': '0.2s',
         },
         children: [
-            div({ styles: { display: 'flex', alignItems: 'baseline', gap: '10px' }, children: [grade, speed, summit] }),
+            div({
+                styles: { display: 'flex', alignItems: 'baseline', gap: '6px' },
+                children: [grade, createElement('span', { text: '%', className: 'hud-unit' }), div({ styles: { width: '10px' } }),
+                    speed, createElement('span', { text: 'km/h', className: 'hud-unit' }), summit],
+            }),
             canvas,
         ],
     });
@@ -549,10 +511,11 @@ export function createClimbProfile({ width = 260, height = 58 } = {}) {
             const text = `${profile.grade.toFixed(1)}|${Math.round(profile.speed * 3.6)}|${profile.toSummit === null ? '' : Math.round(profile.toSummit / 10)}`;
             if (text === lastText) return;
             lastText = text;
-            grade.textContent = `${profile.grade.toFixed(1).replace('.', ',')} %`;
+            grade.textContent = profile.grade.toFixed(1).replace('.', ',');
             grade.style.color = gradeColor(profile.grade);
-            speed.textContent = `${Math.round(profile.speed * 3.6)} km/h`;
-            summit.textContent = profile.toSummit === null ? '' : `CIMA ${Math.round(profile.toSummit / 10) * 10} m`;
+            element.style.setProperty('--grade', gradeColor(profile.grade));
+            speed.textContent = String(Math.round(profile.speed * 3.6));
+            summit.textContent = profile.toSummit === null ? '' : `Cima ${Math.round(profile.toSummit / 10) * 10} m`;
         },
         /** Visible salvo con el HUD oculto. */
         setMode(mode) {
