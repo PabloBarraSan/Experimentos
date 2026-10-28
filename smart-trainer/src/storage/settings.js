@@ -40,6 +40,8 @@ const DEFAULT_SETTINGS = {
         wheelCircumference: 2105, // mm (700x25c por defecto)
         spindownValue: null,      // Valor de calibración
         lastCalibration: null,    // Fecha última calibración
+        cadenceScale: 1,          // Factor de cadencia: el D100 la calcula desde el volante y cambia con la marcha
+        ergMode: 'auto',          // 'auto' | 'native' | 'resistance': ERG del rodillo o control por resistencia en lazo cerrado
     },
     
     // Ciclista 3D: posición sobre la bici ('hoods' | 'drops' | 'aero') y pintura de la bici (id de BIKE_PAINTS)

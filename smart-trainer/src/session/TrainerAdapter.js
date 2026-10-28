@@ -1,14 +1,36 @@
+import { ResistanceErgController } from './ResistanceErgController.js';
+
+// El control por resistencia en lazo cerrado es opcional: la prueba de resistencia del D100 mostró que su ERG
+// nativo cumple hasta el tope físico del rodillo y que la resistencia manual no llega más lejos.
+export const ERG_MODES = ['auto', 'native', 'resistance'];
+
 export class TrainerAdapter {
-    constructor(bluetoothManager = null, capabilities = null) {
+    constructor(bluetoothManager = null, capabilities = null, { ergMode = 'auto', deviceName = '' } = {}) {
         this.manager = bluetoothManager;
         this.capabilities = capabilities || {};
+        this.ergMode = ERG_MODES.includes(ergMode) ? ergMode : 'auto';
+        this.deviceName = deviceName || '';
+        this.ergController = null;
+        this.resistanceInFlight = false;
+        this.resistanceFailures = 0;
         this.controlMode = 'manual';
         this.lastTargetKey = null;
         this.commandLog = [];
     }
 
+    /** ¿El usuario ha elegido el ERG por resistencia? Solo con el ajuste explícito. */
+    usesResistanceErg() {
+        if (this.capabilities.resistanceTargetSupported === false) return false;
+        return this.ergMode === 'resistance';
+    }
+
     async applyTarget(target, { force = false } = {}) {
         if (!this.manager || !target) return { mode: 'manual', applied: false };
+
+        if (Number.isFinite(target.power) && this.usesResistanceErg()) {
+            return this.applyResistanceErg(target, { force });
+        }
+        this.ergController = null;
 
         const targetKey = `${target.power ?? ''}:${target.resistance ?? ''}`;
         if (!force && targetKey === this.lastTargetKey) {
@@ -32,6 +54,39 @@ export class TrainerAdapter {
         }
 
         return { mode: 'manual', applied: false, error: 'El rodillo no admite el objetivo de este bloque. Control manual requerido.' };
+    }
+
+    async applyResistanceErg(target, { force }) {
+        const targetKey = `erg-resistance:${target.power}`;
+        if (!force && targetKey === this.lastTargetKey) {
+            return { mode: this.controlMode, applied: true, deduplicated: true };
+        }
+        if (!this.ergController) this.ergController = new ResistanceErgController();
+        const level = this.ergController.setTarget(target.power);
+        if (level === null) return { mode: 'manual', applied: false, error: 'Objetivo de potencia no válido' };
+        const result = await this.runCommand('erg_resistance', level, () => this.manager.setResistance(level));
+        if (result.applied) this.lastTargetKey = targetKey;
+        return result;
+    }
+
+    /**
+     * Medida de potencia/cadencia para el lazo cerrado del ERG por resistencia.
+     * Llega con cada paquete del rodillo; el controlador limita el ritmo de comandos.
+     */
+    feedback({ power, cadence, timestamp = Date.now() }) {
+        if (!this.ergController || this.controlMode !== 'erg_resistance' || this.resistanceInFlight) return;
+        const level = this.ergController.update({ power, cadence, timestamp });
+        if (level === null) return;
+        this.resistanceInFlight = true;
+        Promise.resolve()
+            .then(() => this.manager.setResistance(level))
+            .then(() => { this.resistanceFailures = 0; })
+            .catch((error) => {
+                this.resistanceFailures++;
+                this.ergController.reset();
+                this.commandLog.push({ timestamp: Date.now(), mode: 'erg_resistance', value: level, success: false, error: error?.message || String(error) });
+            })
+            .finally(() => { this.resistanceInFlight = false; });
     }
 
     async runCommand(mode, value, command) {
@@ -72,6 +127,8 @@ export class TrainerAdapter {
     }
 
     async resume() {
+        this.ergController?.reset();
+        this.lastTargetKey = null;
         try {
             await this.manager?.startTraining?.();
         } catch {

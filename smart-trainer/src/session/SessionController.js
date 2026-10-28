@@ -30,6 +30,8 @@ export class SessionController {
         bluetoothManager = null,
         capabilities = null,
         ftp = 200,
+        ergMode = 'auto',
+        deviceName = '',
         onStateChange = () => {},
         onTick = () => {},
         onTargetChange = () => {},
@@ -53,7 +55,7 @@ export class SessionController {
         this.autosaveId = null;
         this.flowTracker = createFlowTracker();
         this.telemetry = createTelemetryPipeline();
-        this.trainer = new TrainerAdapter(bluetoothManager, capabilities);
+        this.trainer = new TrainerAdapter(bluetoothManager, capabilities, { ergMode, deviceName });
         this.callbacks = { onStateChange, onTick, onTargetChange, onBlockChange };
     }
 
@@ -203,6 +205,7 @@ export class SessionController {
         // Todos los paquetes del rodillo (unos 4 por segundo) alimentan el filtro de telemetría:
         // la potencia y la cadencia que se ven son así mucho más reactivas que con 1 muestra/s.
         const frame = this.telemetry.ingest(data, timestamp);
+        this.trainer.feedback({ power: frame.control.power, cadence: frame.control.cadence, timestamp });
         if (timestamp - this.lastSampleTimestamp < 1000) {
             // Entre muestras de 1 s solo se refresca lo que se ve en pantalla.
             return this.lastFlow ? { ...this.lastFlow, telemetry: frame, sampled: false } : null;

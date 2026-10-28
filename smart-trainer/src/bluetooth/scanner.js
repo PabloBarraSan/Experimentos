@@ -44,6 +44,7 @@ function debugRawBytes(dataView) {
 }
 import { CommandQueue } from './commands.js';
 import { logActiveSessionEvent } from '../diagnostics/SessionDebugLogger.js';
+import { loadSettings } from '../storage/settings.js';
 
 // Estados de conexión
 export const CONNECTION_STATE = {
@@ -659,7 +660,14 @@ export class BluetoothManager {
         appendBounded(this.diagnosticFrames.indoorBikeData, rawFrame);
 
         // Diagnosis receives each original notification before UI throttling/merging.
-        const diagnosticData = { ...parseIndoorBikeData(dataView), rawFtms: rawFrame };
+        const parsed = parseIndoorBikeData(dataView);
+        const diagnosticData = { ...parsed, rawFtms: rawFrame };
+        // El D100 no tiene sensor en la biela: su "cadencia" sale de la velocidad del volante y depende
+        // de la marcha. El factor del usuario (Ajustes / Prueba de resistencia) la lleva a la cadencia real.
+        if (Number.isFinite(parsed.cadence)) {
+            diagnosticData.cadenceRaw = parsed.cadence;
+            diagnosticData.cadence = Math.round(parsed.cadence * this.getCadenceScale());
+        }
         for (const observer of this.telemetryObservers) {
             try { observer(diagnosticData); }
             catch (error) { this.logger.warn('Error del observador de diagnóstico', error); }
@@ -720,6 +728,15 @@ export class BluetoothManager {
     /**
      * Manejar cambios de estado
      */
+    getCadenceScale() {
+        const now = Date.now();
+        if (!this.cadenceScaleCache || now - this.cadenceScaleCache.at > 2000) {
+            const scale = Number(loadSettings().trainer?.cadenceScale);
+            this.cadenceScaleCache = { at: now, value: scale > 0.2 && scale < 3 ? scale : 1 };
+        }
+        return this.cadenceScaleCache.value;
+    }
+
     subscribeTelemetry(observer) {
         this.telemetryObservers.add(observer);
         return () => this.telemetryObservers.delete(observer);

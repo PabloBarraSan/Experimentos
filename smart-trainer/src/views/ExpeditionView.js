@@ -549,6 +549,8 @@ export function ExpeditionView({
             bluetoothManager: isDemo ? null : state.bluetoothManager,
             capabilities: state.deviceCapabilities,
             ftp: state.settings.ftp,
+            ergMode: state.settings.trainer?.ergMode,
+            deviceName: state.deviceName,
             onStateChange: (sessionState, session) => {
                 controller?.debug?.log('view.state.change', {
                     state: sessionState,
@@ -794,6 +796,8 @@ export function ExpeditionView({
         cleanupRuntime();
         controls.style.display = 'none';
         pauseOverlay.style.display = 'none';
+        // El HUD de la ruta tapa la parte baja del resumen (y el botón «Ver historial»).
+        hud.style.display = 'none';
         await wakeLock.release();
         const result = session.gameResult || {};
         const { gainedXp, progress } = await recordMissionProgress(session);

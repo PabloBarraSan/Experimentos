@@ -18,6 +18,7 @@ import { SettingsView } from './views/SettingsView.js';
 import { WorkoutsView } from './views/WorkoutsView.js';
 import { ExpeditionView } from './views/ExpeditionView.js';
 import { TrainerDiagnosticsView } from './views/TrainerDiagnosticsView.js';
+import { ResistanceProbeView } from './views/ResistanceProbeView.js';
 import { CyclistViewerView } from './views/CyclistViewerView.js';
 import { preloadRiderAvatar } from './expedition/AvatarRider.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
@@ -279,6 +280,12 @@ function renderCurrentView() {
             if (rideView.cleanup) rideView.cleanup();
             rideView.remove();
         }
+        // Una prueba de resistencia en curso debe soltar el rodillo al salir de su pantalla.
+        const probeView = document.querySelector('[data-view="resistance-probe"]');
+        if (probeView) {
+            probeView.cleanup?.();
+            probeView.remove();
+        }
     };
     
     switch (AppState.currentView) {
@@ -417,6 +424,12 @@ function renderCurrentView() {
                 subscribeToState: subscribe,
                 onBack: () => navigateTo('home'),
             }));
+            break;
+        }
+
+        case 'probe': {
+            cleanupFullscreenViews();
+            container.appendChild(ResistanceProbeView({ state: AppState, subscribeToState: subscribe, onBack: () => navigateTo('home') }));
             break;
         }
 
@@ -605,7 +618,7 @@ async function init() {
             // Re-renderizar aquí destruye el SessionController de la expedición
             // justo cuando BLE entra en RECONNECTING. La vista de expedición
             // recibe el cambio mediante subscribe() y conserva el borrador.
-            if (!['expedition', 'diagnostics', 'cyclist'].includes(AppState.currentView)) renderApp();
+            if (!['expedition', 'diagnostics', 'probe', 'cyclist'].includes(AppState.currentView)) renderApp();
         },
         onDeviceConnected: (deviceName) => {
             logActiveSessionEvent('app.bluetooth.connected', { deviceName });
@@ -653,7 +666,7 @@ async function init() {
         onStateChange: (state) => {
             AppState.hrConnectionState = state;
             notify();
-            if (!['expedition', 'cyclist'].includes(AppState.currentView)) renderApp();
+            if (!['expedition', 'probe', 'cyclist'].includes(AppState.currentView)) renderApp();
         },
         onDeviceConnected: (deviceName, sensorLocation) => {
             AppState.hrDeviceName = deviceName;
@@ -683,7 +696,7 @@ async function init() {
     AppState.zwiftPlayManager.onStateChange = (state) => {
         AppState.zwiftPlayState = state;
         notify();
-        if (!['expedition', 'cyclist'].includes(AppState.currentView)) renderApp();
+        if (!['expedition', 'probe', 'cyclist'].includes(AppState.currentView)) renderApp();
     };
 
     // Cargar configuración guardada

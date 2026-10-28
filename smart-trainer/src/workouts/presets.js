@@ -718,6 +718,47 @@ export const WORKOUT_PRESETS = {
             }),
         ],
     }),
+
+    SWEET_SPOT_POST_CARRERA_52: createWorkout({
+        name: 'Sweet spot · 3×8 · 52 min',
+        description: 'Sesión para después de correr y antes de pierna: 3 × 8 min al 90 % FTP, justo por debajo del umbral.',
+        author: 'Smart Trainer',
+        category: 'endurance',
+        difficulty: 'medium',
+        tags: ['sweet spot', '52min', 'tempo'],
+        blocks: [
+            createBlock({
+                type: BLOCK_TYPES.RAMP,
+                duration: 10 * 60,
+                name: 'Calentamiento',
+                targetValue: 45,
+                targetValueEnd: 70,
+            }),
+            createBlock({
+                type: BLOCK_TYPES.INTERVAL,
+                duration: 8 * 60,
+                name: 'Sweet spot',
+                targetValue: 90,
+                cadenceMin: 85,
+                cadenceMax: 95,
+                repeat: 3,
+                restBetween: 4 * 60,
+                restTargetValue: 55,
+            }),
+            createBlock({
+                type: BLOCK_TYPES.STEADY,
+                duration: 5 * 60,
+                name: 'Rodaje',
+                targetValue: 65,
+            }),
+            createBlock({
+                type: BLOCK_TYPES.COOLDOWN,
+                duration: 5 * 60,
+                name: 'Vuelta a la calma',
+                targetValue: 45,
+            }),
+        ],
+    }),
 };
 
 // Los presets necesitan IDs deterministas para poder recuperar una misión tras

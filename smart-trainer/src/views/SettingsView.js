@@ -195,6 +195,18 @@ export function SettingsView({ state, onSave }) {
         ],
     });
     prefsFields.appendChild(unitsField);
+
+    // Cómo se cumplen los objetivos de potencia (ERG)
+    prefsFields.appendChild(createSelectField({
+        id: 'ergMode',
+        label: 'Control de potencia (ERG)',
+        value: settings.trainer?.ergMode || 'auto',
+        options: [
+            { value: 'auto', label: 'Automático (ERG nativo)' },
+            { value: 'resistance', label: 'Por resistencia (lazo cerrado)' },
+            { value: 'native', label: 'ERG nativo del rodillo' },
+        ],
+    }));
     
     // Sonido
     const soundField = createCheckboxField({
@@ -353,6 +365,17 @@ export function SettingsView({ state, onSave }) {
         step: 1,
     });
     trainerFields.appendChild(wheelField);
+
+    // Factor de cadencia (se calibra en Más → Prueba de resistencia)
+    trainerFields.appendChild(createNumberField({
+        id: 'cadenceScale',
+        label: 'Factor de cadencia (1 = sin corregir)',
+        value: settings.trainer.cadenceScale ?? 1,
+        unit: '×',
+        min: 0.2,
+        max: 3,
+        step: 0.01,
+    }));
     
     // Última calibración
     const calibrationInfo = div({
@@ -873,6 +896,8 @@ function collectFormData(container) {
     const vibrationEnabled = container.querySelector('#vibrationEnabled')?.checked;
     const soundVolume = Math.max(0, Math.min(1, (parseFloat(container.querySelector('#soundVolume')?.value) || 0) / 100));
     const wheelCircumference = container.querySelector('#wheelCircumference')?.value;
+    const ergMode = container.querySelector('#ergMode')?.value;
+    const cadenceScale = parseFloat(container.querySelector('#cadenceScale')?.value);
     
     return {
         ...settings,
@@ -887,6 +912,8 @@ function collectFormData(container) {
         trainer: {
             ...settings.trainer,
             wheelCircumference: wheelCircumference ? parseInt(wheelCircumference, 10) : settings.trainer.wheelCircumference,
+            ergMode: ergMode || settings.trainer.ergMode || 'auto',
+            cadenceScale: cadenceScale > 0.2 && cadenceScale < 3 ? cadenceScale : (settings.trainer.cadenceScale ?? 1),
         },
     };
 }

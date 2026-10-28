@@ -22,6 +22,7 @@ const ROUTES = {
     '/prepare': 'prepare',
     '/expedition': 'expedition',
     '/diagnostics': 'diagnostics',
+    '/probe': 'probe',
     '/cyclist': 'cyclist',
 };
 
@@ -37,6 +38,7 @@ const VIEW_TO_ROUTE = {
     'prepare': '/prepare',
     'expedition': '/expedition',
     'diagnostics': '/diagnostics',
+    'probe': '/probe',
     'cyclist': '/cyclist',
 };
 

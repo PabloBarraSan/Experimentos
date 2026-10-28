@@ -125,6 +125,7 @@ export function HomeView(state) {
                     menuItem({ iconName: 'game', title: 'Modo juego clásico', description: 'Experimento arcade', onClick: () => navigateToGame() }),
                     menuItem({ iconName: 'bike', title: 'Ciclismo virtual', description: isConnected ? 'Ruta y resistencia dinámica' : 'Requiere rodillo', disabled: !isConnected, onClick: () => navigateToRide() }),
                     menuItem({ iconName: 'gauge', title: 'Prueba del rodillo', description: 'Mini entreno guiado de 4 minutos', onClick: () => navigateTo('diagnostics') }),
+                    menuItem({ iconName: 'gauge', title: 'Prueba de resistencia', description: 'Comprueba hasta cuántos vatios llega el rodillo', onClick: () => navigateTo('probe') }),
                     menuItem({ iconName: 'bike', title: 'Visor del ciclista', description: 'Mira y gira el modelo en 3D', onClick: () => navigateTo('cyclist') }),
                     menuItem({ iconName: 'settings', title: 'Configuración', description: 'Cuenta, FTP y preferencias', onClick: () => navigateTo('settings') }),
                 ],
