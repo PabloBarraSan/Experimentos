@@ -3,382 +3,119 @@
  * Smart Trainer Controller
  */
 
-import { colors, spacing, typography, baseStyles, borderRadius, transitions } from '../utils/theme.js';
-import { createElement, div, button, icon } from '../utils/dom.js';
-import { expandBlocks, TARGET_TYPES } from '../workouts/model.js';
+import './home.css';
+import './workouts.css';
+import { createElement, div, button, icon, formatTime } from '../utils/dom.js';
 import { getAllPresets, getPresetsByCategory, CATEGORIES, DIFFICULTIES } from '../workouts/presets.js';
+import { createWorkoutProfile } from '../components/WorkoutProfile.js';
+import { loadSettings } from '../storage/settings.js';
 
-/**
- * Vista de biblioteca de entrenamientos
- */
-function intensityColor(percent) {
-    if (percent < 56) return '#6b7a86';
-    if (percent < 76) return '#3b8cff';
-    if (percent < 95) return '#f6c744';
-    if (percent < 106) return '#ff8a3d';
-    return '#ff4d5e';
-}
+const sortMissionsFirst = (workouts) => workouts
+    .sort((a, b) => Number(Boolean(b.mission)) - Number(Boolean(a.mission)));
 
-export function WorkoutsView({ state, onBack, onSelectWorkout }) {
-    const containerStyles = {
-        padding: spacing.lg,
-        maxWidth: '1200px',
-        margin: '0 auto',
-    };
-    
-    const headerStyles = {
-        marginBottom: spacing.xl,
-    };
-    
-    const titleStyles = {
-        fontSize: typography.sizes.xxl,
-        fontWeight: typography.weights.bold,
-        color: colors.text,
-        marginBottom: spacing.sm,
-    };
-    
-    const subtitleStyles = {
-        color: colors.textMuted,
-        fontSize: typography.sizes.md,
-    };
-    
-    // Estado local del filtro
+export function WorkoutsView({ onBack, onSelectWorkout }) {
     let selectedCategory = 'all';
-    
-    const container = div({ styles: containerStyles, attrs: { 'data-view': 'workouts-library' } });
-    
-    // Header
-    const header = div({
-        styles: headerStyles,
+
+    const wrapper = div({ attrs: { class: 'hp', 'data-view': 'workouts-library' } });
+    const shell = div({ attrs: { class: 'hp-shell' } });
+    wrapper.appendChild(shell);
+
+    shell.appendChild(div({
+        attrs: { class: 'wk-head' },
         children: [
-            button({
-                text: '← Volver',
-                styles: {
-                    ...baseStyles.button,
-                    padding: `${spacing.sm} ${spacing.md}`,
-                    marginBottom: spacing.md,
-                    backgroundColor: colors.surface,
-                    color: colors.text,
-                },
+            div({ children: [button({
+                attrs: { type: 'button', class: 'hp-btn hp-back', 'aria-label': 'Volver' },
+                children: [icon('chevronLeft', 16, 'rgba(238,243,239,.8)'), createElement('span', { text: 'Volver' })],
                 events: { click: onBack },
-            }),
-            createElement('h1', { text: 'Biblioteca de entrenamientos', styles: titleStyles }),
-            createElement('p', { 
+            })] }),
+            createElement('h1', { text: 'Rutas', attrs: { class: 'wk-title' } }),
+            createElement('p', {
                 text: 'Elige un plan estructurado. La expedición visual y el tiempo de sesión se configuran por separado.',
-                styles: subtitleStyles 
+                attrs: { class: 'wk-sub' },
             }),
         ],
-    });
-    container.appendChild(header);
-    
-    // Filtros por categoría
-    const filtersStyles = {
-        display: 'flex',
-        gap: spacing.sm,
-        marginBottom: spacing.xl,
-        flexWrap: 'wrap',
-    };
-    
-    const filterButtonStyles = (isActive) => ({
-        ...baseStyles.button,
-        padding: `${spacing.sm} ${spacing.md}`,
-        fontSize: typography.sizes.sm,
-        backgroundColor: isActive ? colors.primary : colors.surface,
-        color: isActive ? colors.background : colors.text,
-        border: `1px solid ${isActive ? colors.primary : colors.border}`,
-    });
-    
-    const filters = div({ styles: filtersStyles });
-    
-    // Botón "Todos"
-    const allBtn = button({
-        styles: filterButtonStyles(selectedCategory === 'all'),
-        text: '🏠 Todos',
-        events: {
-            click: () => renderWorkouts('all'),
-        },
-    });
-    filters.appendChild(allBtn);
-    
-    // Botones de categoría
-    CATEGORIES.forEach(cat => {
-        const btn = button({
-            styles: filterButtonStyles(selectedCategory === cat.id),
-            text: `${cat.icon} ${cat.name}`,
-            events: {
-                click: () => renderWorkouts(cat.id),
-            },
-        });
-        filters.appendChild(btn);
-    });
-    
-    container.appendChild(filters);
-    
-    // Grid de entrenamientos
-    const gridStyles = {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
-        gap: spacing.lg,
-    };
-    
-    const workoutsGrid = div({ styles: gridStyles, attrs: { id: 'workouts-grid' } });
-    
+    }));
+
+    // --- Filtros con recuento ---
+    const options = [{ id: 'all', name: 'Todos', count: getAllPresets().length }]
+        .concat(CATEGORIES.map((cat) => ({ id: cat.id, name: cat.name, count: getPresetsByCategory(cat.id).length })))
+        .filter((option) => option.id === 'all' || option.count > 0);
+    const filters = div({ attrs: { class: 'wk-filters', role: 'group', 'aria-label': 'Filtrar por tipo' } });
+    const chips = options.map((option) => button({
+        attrs: { type: 'button', class: 'wk-chip', 'aria-pressed': 'false', 'data-category': option.id },
+        children: [createElement('span', { text: option.name }), createElement('small', { text: String(option.count) })],
+        events: { click: () => renderWorkouts(option.id) },
+    }));
+    chips.forEach((chip) => filters.appendChild(chip));
+    shell.appendChild(filters);
+
+    const workoutsGrid = div({ attrs: { class: 'wk-grid', id: 'workouts-grid' } });
+
     function renderWorkouts(category) {
         selectedCategory = category;
-        workoutsGrid.innerHTML = '';
-        
-        const workouts = (category === 'all'
-            ? getAllPresets()
-            : getPresetsByCategory(category))
-            .sort((a, b) => Number(Boolean(b.mission)) - Number(Boolean(a.mission)));
-        
-        workouts.forEach(workout => {
-            const card = createWorkoutCard(workout, () => {
-                if (onSelectWorkout) {
-                    onSelectWorkout(workout);
-                }
-            });
-            workoutsGrid.appendChild(card);
+        chips.forEach((chip) => chip.setAttribute('aria-pressed', String(chip.dataset.category === selectedCategory)));
+        workoutsGrid.replaceChildren();
+
+        const workouts = sortMissionsFirst([...(category === 'all' ? getAllPresets() : getPresetsByCategory(category))]);
+        workouts.forEach((workout) => {
+            workoutsGrid.appendChild(createWorkoutCard(workout, () => onSelectWorkout?.(workout)));
         });
-        
-        if (workouts.length === 0) {
-            const empty = div({
-                styles: {
-                    gridColumn: '1 / -1',
-                    textAlign: 'center',
-                    padding: spacing.xxl,
-                    color: colors.textMuted,
-                },
-                text: 'No hay entrenamientos en esta categoría',
-            });
-            workoutsGrid.appendChild(empty);
+        if (!workouts.length) {
+            workoutsGrid.appendChild(createElement('p', { text: 'No hay entrenamientos en esta categoría.', attrs: { class: 'wk-empty' } }));
         }
     }
-    
-    // Renderizar entrenamientos iniciales
+
     renderWorkouts('all');
-    
-    container.appendChild(workoutsGrid);
-    
-    return container;
+    shell.appendChild(workoutsGrid);
+    return wrapper;
 }
 
-/**
- * Tarjeta de entrenamiento
- */
 function createWorkoutCard(workout, onClick) {
     const isMission = Boolean(workout.mission);
-    const cardStyles = {
-        ...baseStyles.card,
-        padding: '0',
-        overflow: 'hidden',
-        cursor: 'pointer',
-        transition: transitions.normal,
-        border: isMission ? '1px solid rgba(99,224,181,.32)' : baseStyles.card.border,
-        background: isMission
-            ? 'radial-gradient(circle at 90% 0%, rgba(99,224,181,.13), transparent 42%), linear-gradient(145deg, rgba(22,39,41,.98), rgba(12,18,22,.98))'
-            : baseStyles.card.background,
-    };
-    
-    const headerStyles = {
-        padding: spacing.md,
-        backgroundColor: isMission ? 'rgba(99,224,181,.045)' : colors.surfaceLight,
-        borderBottom: `1px solid ${colors.border}`,
-    };
-    
-    const titleRowStyles = {
-        ...baseStyles.flexBetween,
-        marginBottom: spacing.xs,
-    };
-    
-    const titleStyles = {
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold,
-        color: colors.text,
-    };
-    
-    const difficultyStyles = (difficulty) => {
-        const diff = DIFFICULTIES.find(d => d.id === difficulty) || DIFFICULTIES[1];
-        return {
-            padding: `2px ${spacing.sm}`,
-            borderRadius: borderRadius.sm,
-            backgroundColor: diff.color,
-            color: colors.background,
-            fontSize: typography.sizes.xs,
-            fontWeight: typography.weights.semibold,
-        };
-    };
-    
-    const descStyles = {
-        fontSize: typography.sizes.sm,
-        color: colors.textMuted,
-        marginTop: spacing.sm,
-        display: '-webkit-box',
-        WebkitLineClamp: '2',
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-    };
-    
-    const bodyStyles = {
-        padding: spacing.md,
-    };
-    
-    const statsRowStyles = {
-        display: 'flex',
-        gap: spacing.lg,
-        marginBottom: spacing.md,
-    };
-    
-    const statStyles = {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-    };
-    
-    const statValueStyles = {
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.bold,
-        color: colors.text,
-    };
-    
-    const statLabelStyles = {
-        fontSize: typography.sizes.xs,
-        color: colors.textMuted,
-    };
-    
-    // Timeline mini
-    const timelineStyles = {
-        display: 'flex',
-        height: '24px',
-        gap: '1px',
-        borderRadius: borderRadius.sm,
-        overflow: 'hidden',
-    };
-    
+    const difficulty = DIFFICULTIES.find((item) => item.id === workout.difficulty) || DIFFICULTIES[1];
+    const stat = (value, label) => div({ children: [createElement('strong', { text: value }), createElement('span', { text: label })] });
+
+    const level = createElement('span', {
+        attrs: { class: 'wk-level' },
+        children: [createElement('i'), createElement('span', { text: difficulty.name })],
+    });
+    level.firstChild.style.setProperty('--level', difficulty.color);
+
     const card = div({
-        styles: cardStyles,
         attrs: {
+            class: `wk-card${isMission ? ' is-mission' : ''}`,
             role: 'button',
             tabindex: '0',
             'aria-label': `Iniciar ${workout.name}`,
         },
-    });
-    
-    // Header
-    const header = div({
-        styles: headerStyles,
         children: [
             div({
-                styles: titleRowStyles,
+                attrs: { class: 'wk-card-top' },
                 children: [
-                    createElement('h3', { text: workout.name, styles: titleStyles }),
-                    createElement('span', { 
-                        text: DIFFICULTIES.find(d => d.id === workout.difficulty)?.name || 'Medio',
-                        styles: difficultyStyles(workout.difficulty),
-                    }),
+                    div({ children: [
+                        // La duración ya se muestra abajo: no se repite en el título.
+                        createElement('h3', { text: workout.name.replace(/\s·\s\d+\s?min$/, '') }),
+                        isMission ? createElement('span', { text: `${workout.mission.title} · versión ${workout.mission.version}`, attrs: { class: 'wk-kind' } }) : null,
+                    ] }),
+                    level,
                 ],
             }),
-            ...(isMission ? [createElement('span', { text: `${workout.mission.title.toUpperCase()} · V${workout.mission.version}`, styles: { color: colors.primary, fontSize: '10px', fontWeight: 800, letterSpacing: '1.3px' } })] : []),
-            createElement('p', { text: workout.description, styles: descStyles }),
+            createElement('p', { text: workout.description, attrs: { class: 'wk-desc' } }),
+            div({
+                attrs: { class: 'wk-stats' },
+                children: [
+                    stat(formatTime(workout.stats.totalDuration), 'Duración'),
+                    stat(String(workout.stats.tss), 'Carga'),
+                    stat(String(workout.stats.intensityFactor), 'Intensidad'),
+                ],
+            }),
+            createWorkoutProfile(workout, { height: 72, ftp: loadSettings().ftp }),
+            workout.tags?.length
+                ? createElement('p', { text: workout.tags.slice(0, 4).map((tag) => `#${tag}`).join('  '), attrs: { class: 'wk-tags' } })
+                : null,
         ],
     });
-    card.appendChild(header);
-    
-    // Body
-    const body = div({ styles: bodyStyles });
-    
-    // Stats
-    const statsRow = div({
-        styles: statsRowStyles,
-        children: [
-            div({
-                styles: statStyles,
-                children: [
-                    createElement('span', { text: workout.stats.totalDurationFormatted, styles: statValueStyles }),
-                    createElement('span', { text: 'Duración', styles: statLabelStyles }),
-                ],
-            }),
-            div({
-                styles: statStyles,
-                children: [
-                    createElement('span', { text: String(workout.stats.tss), styles: statValueStyles }),
-                    createElement('span', { text: 'TSS', styles: statLabelStyles }),
-                ],
-            }),
-            div({
-                styles: statStyles,
-                children: [
-                    createElement('span', { text: String(workout.stats.intensityFactor), styles: statValueStyles }),
-                    createElement('span', { text: 'IF', styles: statLabelStyles }),
-                ],
-            }),
-            div({
-                styles: statStyles,
-                children: [
-                    createElement('span', { text: `${workout.stats.totalWork}kJ`, styles: statValueStyles }),
-                    createElement('span', { text: 'Trabajo', styles: statLabelStyles }),
-                ],
-            }),
-        ],
-    });
-    body.appendChild(statsRow);
-    
-    // Perfil de intensidad: altura y color según el % del FTP; los descansos entre series se dibujan.
-    const totalDuration = workout.stats.totalDuration;
-    const timeline = div({
-        attrs: { 'aria-label': 'Perfil de intensidad del entrenamiento', role: 'img' },
-        styles: { display: 'flex', alignItems: 'flex-end', height: '44px', gap: '1px', overflow: 'hidden' },
-    });
-    expandBlocks(workout.blocks).forEach(block => {
-        const percent = block.targetType === TARGET_TYPES.POWER_FTP
-            ? ((block.targetValue + (block.targetValueEnd ?? block.targetValue)) / 2)
-            : 70;
-        timeline.appendChild(div({
-            attrs: { title: `${block.name} · ${Math.round(percent)}% FTP · ${Math.round(block.duration / 60)} min` },
-            styles: {
-                flex: `${(block.duration / totalDuration) * 100} 0 0`,
-                minWidth: '2px',
-                height: `${Math.max(12, Math.min(100, (percent / 120) * 100))}%`,
-                backgroundColor: intensityColor(percent),
-                borderRadius: '2px 2px 0 0',
-            },
-        }));
-    });
-    body.appendChild(timeline);
-    body.appendChild(createElement('span', {
-        text: 'Más alto y más rojo = más intenso (% del FTP)',
-        styles: { display: 'block', marginTop: '6px', color: colors.textMuted, fontSize: typography.sizes.xs },
-    }));
-    
-    // Tags
-    if (workout.tags && workout.tags.length > 0) {
-        const tagsStyles = {
-            display: 'flex',
-            gap: spacing.xs,
-            marginTop: spacing.md,
-            flexWrap: 'wrap',
-        };
-        
-        const tagStyles = {
-            padding: `2px ${spacing.sm}`,
-            borderRadius: borderRadius.sm,
-            backgroundColor: colors.surfaceLight,
-            color: colors.textMuted,
-            fontSize: typography.sizes.xs,
-        };
-        
-        const tags = div({
-            styles: tagsStyles,
-            children: workout.tags.slice(0, 4).map(tag => 
-                createElement('span', { text: `#${tag}`, styles: tagStyles })
-            ),
-        });
-        body.appendChild(tags);
-    }
-    
-    card.appendChild(body);
-    
-    // Eventos
+
     card.addEventListener('click', onClick);
     card.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -386,14 +123,5 @@ function createWorkoutCard(workout, onClick) {
             onClick();
         }
     });
-    card.addEventListener('mouseenter', () => {
-        card.style.transform = 'translateY(-4px)';
-        card.style.boxShadow = `0 8px 24px rgba(0, 212, 170, 0.2)`;
-    });
-    card.addEventListener('mouseleave', () => {
-        card.style.transform = 'translateY(0)';
-        card.style.boxShadow = 'none';
-    });
-    
     return card;
 }

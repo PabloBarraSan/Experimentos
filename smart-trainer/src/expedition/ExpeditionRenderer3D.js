@@ -5,7 +5,8 @@ import { createProfileRibbon, createAsphaltTextures, createGravelTexture, ASPHAL
 import { createStartGate, createSummitBeacon, createFence, createCabin, createRoadPosts } from './scene/props.js';
 import { createPostProcessing } from './scene/post.js';
 import { createPrecipitation } from './scene/weather.js';
-import { createCyclist, animateCyclist, updateRiderStance, RIDER_POSITIONS, DEFAULT_RIDER_POSITION } from './Cyclist.js';
+import { createCyclist, animateCyclist, updateRiderStance, RIDER_POSITIONS, DEFAULT_RIDER_POSITION, BIKE } from './Cyclist.js';
+import { placeOnRoad, createPlacement, ROAD_LIFT, ROAD_CROWN } from './roadPlacement.js';
 import { stepSpeed } from '../ride/RidePhysics.js';
 import { getRiderPrefs } from '../storage/settings.js';
 import { buildRouteCurve } from '../ride/RouteCurve.js';
@@ -85,6 +86,8 @@ const WEATHER = {
 
 // El ciclista se modela en metros reales y se amplía para leerse bien desde la cámara.
 const RIDER_SCALE = 1.4;
+const ROAD_SURFACE_Y = ROAD_LIFT + ROAD_CROWN;
+const _placement = createPlacement();
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const FORWARD_AXIS = new THREE.Vector3(0, 0, 1);
 
@@ -402,10 +405,10 @@ class ExpeditionRenderer3D {
         });
         const road = createProfileRibbon(this.routeCurve, {
             // Ligero bombeo central para que la luz revele el relieve.
-            profile: [[-half, 0], [0, 0.03], [half, 0]],
+            profile: [[-half, 0], [0, ROAD_CROWN], [half, 0]],
             material: this.roadMaterial,
             tileMeters: ASPHALT_WIDTH,
-            lift: 0.012,
+            lift: ROAD_LIFT,
             tRange,
             segmentLength: 1.4,
         });
@@ -631,6 +634,25 @@ class ExpeditionRenderer3D {
 
     // Cada rival avanza como avanzaría el jugador con su potencia: v = k·P. Así, con la
     // misma potencia que ellos os mantenéis juntos, y empujar más o menos os separa.
+    /** Apoya el ciclista en la carretera (ver roadPlacement.js) y suaviza su inclinación en curva. */
+    placeCyclist(cyclist, distance, lane, speed, delta) {
+        const group = cyclist.group;
+        // placeOnRoad trabaja en metros de arco de la curva; la ruta abierta convierte su distancia (con la salida
+        // prolongada por detrás) a esos metros.
+        const placement = placeOnRoad(this.routeCurve, {
+            distance: this.route.distanceToMeters(distance),
+            lane,
+            scale: group.scale.x,
+            speed,
+            wheelbase: [BIKE.rearHub.z, BIKE.frontHub.z],
+        }, _placement);
+        group.position.copy(placement.position);
+        group.rotation.order = 'YXZ';
+        group.rotation.set(placement.pitch, placement.yaw, 0);
+        const follow = Math.min(1, delta * 3.5);
+        cyclist.bank = (cyclist.bank || 0) + (placement.bank - (cyclist.bank || 0)) * follow;
+    }
+
     updateRivals(delta, playerSpeed, active) {
         const enabled = this.state.raceEnabled !== false;
         const target = Number(this.state.targetPower) || 0;
@@ -679,17 +701,11 @@ class ExpeditionRenderer3D {
             const labelWidth = THREE.MathUtils.clamp(this.camera.position.distanceTo(cyclist.group.position) * 0.06, 1.2, 2.6);
             label.sprite.scale.set(labelWidth, labelWidth * (80 / 384) * 1.15, 1);
 
-            const { point, tangent } = this.roadFrame(rival.distance);
-            const sideX = -tangent.z;
-            const sideZ = tangent.x;
-            const norm = Math.hypot(sideX, sideZ) || 1;
-            point.x += (sideX / norm) * config.lane;
-            point.z += (sideZ / norm) * config.lane;
-            point.y += 0.025;
-            orientAlongCurve(cyclist.group, point, tangent);
+            this.placeCyclist(cyclist, rival.distance, config.lane, speed, delta);
             const cadence = 84 + Math.sin(this.elapsed * 0.4 + config.phase * 9) * 5 + (surge && config.attacker ? 6 : 0);
             rival.crank += delta * (active ? cadence * Math.PI * 2 / 60 : 0);
-            animateCyclist(cyclist, rival.crank, speed, 0.5, active);
+            rival.wheel = (rival.wheel || 0) + wheelStep(delta, speed);
+            animateCyclist(cyclist, rival.crank, speed, 0.5, active, rival.wheel);
 
             rival.labelClock += delta;
             if (rival.labelClock > 0.3) {
@@ -936,8 +952,8 @@ class ExpeditionRenderer3D {
 
         const { point: position, tangent: routeTangent } = this.roadFrame(this.visualDistance);
         const tangent = flattenTangent(routeTangent);
-        const playerPosition = position.clone().add(new THREE.Vector3(0, 0.025, 0));
-        orientAlongCurve(this.player.group, playerPosition, routeTangent);
+        const playerPosition = position.clone().add(new THREE.Vector3(0, ROAD_SURFACE_Y, 0));
+        this.placeCyclist(this.player, this.visualDistance, 0, visualSpeed, delta);
 
         const cadence = active ? Math.max(0, Number(this.state.cadence) || 0) : 0;
         const crankSpeed = cadence > 0 ? cadence * Math.PI * 2 / 60 : visualSpeed * 0.9;
@@ -948,7 +964,9 @@ class ExpeditionRenderer3D {
             power: active ? Number(this.state.power) || 0 : 0,
             dt: delta,
         });
-        animateCyclist(this.player, this.player.crankAngle, visualSpeed, this.state.flow, active);
+        // La rueda gira con la velocidad real (la de la física).
+        this.player.wheelAngle = (this.player.wheelAngle || 0) + wheelStep(delta, visualSpeed);
+        animateCyclist(this.player, this.player.crankAngle, visualSpeed, this.state.flow, active, this.player.wheelAngle);
 
         this.ghost.group.visible = Boolean(this.state.ghostVisible);
         const ghostLead = 12 + (1 - this.state.ghostProgress) * 26;
@@ -956,11 +974,10 @@ class ExpeditionRenderer3D {
         this.ghostDistance = Number.isFinite(this.state.ghostRouteProgress)
             ? distanceAtTime(this.plan, THREE.MathUtils.clamp(this.state.ghostRouteProgress, 0, 1) * this.plan.duration)
             : this.visualDistance + ghostLead;
-        const { point: ghostPosition, tangent: ghostTangent } = this.roadFrame(this.ghostDistance);
-        ghostPosition.y += 0.025;
-        orientAlongCurve(this.ghost.group, ghostPosition, ghostTangent);
+        this.placeCyclist(this.ghost, this.ghostDistance, 0, visualSpeed, delta);
         this.ghost.crankAngle += delta * Math.max(4.8, crankSpeed * 0.96);
-        animateCyclist(this.ghost, this.ghost.crankAngle, visualSpeed, 0.5, active);
+        this.ghost.wheelAngle = (this.ghost.wheelAngle || 0) + wheelStep(delta, visualSpeed);
+        animateCyclist(this.ghost, this.ghost.crankAngle, visualSpeed, 0.5, active, this.ghost.wheelAngle);
 
         this.updateRivals(delta, visualSpeed, active);
         this.updateWeather(delta);
@@ -1098,7 +1115,23 @@ class ExpeditionRenderer3D {
         this.renderer.setSize(width, height, false);
         this.post?.setSize(width, height);
         this.camera.aspect = width / height;
+        this.applyFrameOffset(width, height);
         this.camera.updateProjectionMatrix();
+    }
+
+    /**
+     * Sube la escena una fracción del alto de la pantalla para que el ciclista quede por encima del panel inferior
+     * del HUD (solo hay panel ancho en escritorio). Desplaza el punto principal de la cámara: no cambia el encuadre.
+     */
+    setFrameOffset(fraction) {
+        this.frameOffset = THREE.MathUtils.clamp(Number(fraction) || 0, 0, 0.3);
+        this.resize();
+    }
+
+    applyFrameOffset(width, height) {
+        const offset = Math.round(height * (this.frameOffset || 0));
+        if (offset > 0) this.camera.setViewOffset(width, height, 0, offset, width, height);
+        else this.camera.clearViewOffset();
     }
 
     destroy() {
@@ -1172,10 +1205,9 @@ function getSoftDotTexture() {
     return softDotTexture;
 }
 
-function orientAlongCurve(object, position, tangent) {
-    object.position.copy(position);
-    const horizontal = Math.max(0.0001, Math.hypot(tangent.x, tangent.z));
-    object.rotation.set(-Math.atan2(tangent.y, horizontal), Math.atan2(tangent.x, tangent.z), 0);
+// Giro de la rueda en este frame: lo que avanza la bici dividido por el radio real (con la escala del ciclista).
+function wheelStep(delta, metersPerSecond) {
+    return (delta * metersPerSecond) / (BIKE.wheelRadius * RIDER_SCALE);
 }
 
 function flattenTangent(tangent) {

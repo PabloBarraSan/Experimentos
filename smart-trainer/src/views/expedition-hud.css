@@ -1,0 +1,394 @@
+/*
+ * HUD de la expedición · estilo «retransmisión de etapa»
+ *
+ * Paneles de cristal oscuro con una esquina cortada y un filo de color, cifras condensadas que se leen desde el
+ * rodillo y etiquetas pequeñas en versalitas. El color siempre significa algo: la zona de potencia tiñe el
+ * medidor de potencia (--zone), el menta es «tú» y el ámbar avisa.
+ */
+
+.exp-hud {
+    --hud-ink-top: rgba(22, 32, 38, 0.74);
+    --hud-ink-bottom: rgba(7, 12, 17, 0.8);
+    --hud-line: rgba(255, 255, 255, 0.09);
+    --hud-sheen: rgba(255, 255, 255, 0.08);
+    --hud-text: #f2f6f3;
+    --hud-dim: rgba(232, 240, 236, 0.56);
+    --hud-faint: rgba(232, 240, 236, 0.32);
+    --hud-you: #63e0b5;
+    --hud-warm: #ffd379;
+    --hud-alert: #ff8a6b;
+    --hud-cut: 11px;
+    --hud-num: 'Barlow Condensed', 'Barlow', sans-serif;
+    --hud-label: 'Barlow', 'Inter', sans-serif;
+    font-family: var(--hud-label);
+    color: var(--hud-text);
+}
+
+/* ---------- Panel base ---------- */
+
+.exp-hud .hud-panel {
+    position: relative;
+    box-sizing: border-box;
+    background: linear-gradient(180deg, var(--hud-ink-top), var(--hud-ink-bottom));
+    border: 1px solid var(--hud-line);
+    border-radius: 3px;
+    box-shadow: inset 0 1px 0 var(--hud-sheen);
+    backdrop-filter: blur(14px) saturate(1.35);
+    -webkit-backdrop-filter: blur(14px) saturate(1.35);
+    clip-path: polygon(
+        var(--hud-cut) 0, 100% 0, 100% calc(100% - var(--hud-cut)),
+        calc(100% - var(--hud-cut)) 100%, 0 100%, 0 var(--hud-cut)
+    );
+    animation: hud-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: var(--hud-delay, 0s);
+}
+
+/* Filo de color en la esquina cortada: el sello de la retransmisión. */
+.exp-hud .hud-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: var(--hud-cut);
+    width: 28px;
+    height: 2px;
+    background: var(--hud-accent, var(--hud-you));
+    box-shadow: 0 0 10px var(--hud-accent, var(--hud-you));
+    opacity: 0.9;
+}
+
+@keyframes hud-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+        filter: blur(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
+}
+
+/* ---------- Tipografía ---------- */
+
+.exp-hud .hud-label {
+    font-family: var(--hud-label);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--hud-faint);
+    white-space: nowrap;
+}
+
+.exp-hud .hud-num {
+    font-family: var(--hud-num);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.88;
+    letter-spacing: -0.01em;
+    transition: color 0.3s ease;
+}
+
+.exp-hud .hud-num--xl { font-size: clamp(38px, 4.6vw, 54px); }
+.exp-hud .hud-num--lg { font-size: clamp(28px, 3.2vw, 38px); }
+.exp-hud .hud-num--md { font-size: 24px; }
+
+.exp-hud .hud-unit {
+    margin-left: 3px;
+    font-family: var(--hud-label);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hud-dim);
+}
+
+.exp-hud .hud-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--hud-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.exp-hud .hud-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---------- Barra superior de cifras ---------- */
+
+.exp-hud .hud-topbar {
+    --hud-accent: var(--zone, var(--hud-you));
+    display: flex;
+    align-items: stretch;
+    padding: 10px 6px 11px;
+}
+
+.exp-hud .hud-stat {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    min-width: 84px;
+    padding: 0 16px;
+}
+
+.exp-hud .hud-stat + .hud-stat {
+    border-left: 1px solid var(--hud-line);
+}
+
+.exp-hud .hud-stat__value {
+    display: flex;
+    align-items: baseline;
+}
+
+.exp-hud .hud-stat--power {
+    min-width: 128px;
+}
+
+/* El reloj, en el centro, sin caja propia: la barra entera es el marcador. */
+.exp-hud .hud-clock {
+    font-family: var(--hud-num);
+    font-size: clamp(30px, 3.4vw, 40px);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    color: var(--hud-text);
+}
+
+/* Medidor de potencia: relleno del color de la zona, banda ±5 % y marca del objetivo. */
+.exp-hud .hud-gauge {
+    position: relative;
+    height: 4px;
+    margin-top: 2px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: visible;
+}
+
+.exp-hud .hud-gauge__fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 2px;
+    background: var(--zone, var(--hud-you));
+    box-shadow: 0 0 12px var(--zone, var(--hud-you));
+    transition: width 0.35s ease, background 0.4s ease;
+}
+
+.exp-hud .hud-gauge__band {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.exp-hud .hud-gauge__target {
+    position: absolute;
+    top: -4px;
+    width: 2px;
+    height: 12px;
+    margin-left: -1px;
+    border-radius: 1px;
+    background: #fff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+.exp-hud .hud-zone {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-family: var(--hud-num);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #071012;
+    background: var(--zone, var(--hud-you));
+    transform: translateY(-3px);
+}
+
+/* Corazón que late al ritmo real del pulso (la duración la pone el código). */
+.exp-hud .hud-heart {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 7px;
+    background: currentColor;
+    clip-path: path('M4.5 8.6 0.8 4.9A2.3 2.3 0 0 1 4.5 2a2.3 2.3 0 0 1 3.7 2.9Z');
+    animation: hud-beat 1s ease-in-out infinite;
+    transform-origin: center;
+    align-self: center;
+}
+
+@keyframes hud-beat {
+    0%, 60%, 100% { transform: scale(1); }
+    20% { transform: scale(1.35); }
+    40% { transform: scale(0.95); }
+}
+
+/* ---------- Panel del entrenamiento ---------- */
+
+.exp-hud .hud-workout {
+    display: grid;
+    gap: 8px;
+    padding: 11px 14px 10px;
+}
+
+.exp-hud .hud-strip {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 40px;
+    width: 100%;
+    padding-bottom: 1px;
+    border-bottom: 1px solid var(--hud-line);
+}
+
+.exp-hud .hud-seg {
+    border-radius: 2px 2px 0 0;
+    opacity: 0.5;
+    filter: saturate(0.75);
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+.exp-hud .hud-seg.is-done {
+    opacity: 0.22;
+    filter: saturate(0.3);
+}
+
+.exp-hud .hud-seg.is-active {
+    opacity: 1;
+    filter: saturate(1.15) brightness(1.12) drop-shadow(0 0 6px currentColor);
+}
+
+.exp-hud .hud-cursor {
+    position: absolute;
+    top: -6px;
+    bottom: -2px;
+    width: 2px;
+    margin-left: -1px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+    transition: left 0.6s linear;
+}
+
+.exp-hud .hud-cursor::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -4px;
+    border: 5px solid transparent;
+    border-top-color: #fff;
+}
+
+.exp-hud .hud-coach {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: #8ed9ff;
+}
+
+/* Barra de potencia bajo el consejo: fina y del color de la zona. */
+.exp-hud .hud-flow {
+    position: relative;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.09);
+    overflow: hidden;
+}
+
+/* ---------- Esquinas: carrera, minimapa y perfil ---------- */
+
+.exp-hud .hud-race {
+    --hud-accent: var(--hud-warm);
+    padding: 10px 13px 10px;
+    min-width: 138px;
+}
+
+.exp-hud .hud-race__rank {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.exp-hud .hud-race__row {
+    display: grid;
+    grid-template-columns: 14px 8px 1fr auto;
+    gap: 7px;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(232, 240, 236, 0.82);
+}
+
+.exp-hud .hud-race__row.is-you {
+    font-weight: 800;
+    color: var(--hud-you);
+}
+
+.exp-hud .hud-map {
+    --hud-accent: #8ed9ff;
+    padding: 9px;
+}
+
+.exp-hud .hud-profile {
+    --hud-accent: var(--grade, var(--hud-you));
+    padding: 10px 12px 10px;
+}
+
+.exp-hud .hud-toast {
+    --hud-accent: var(--hud-warm);
+}
+
+/* ---------- Controles (aparecen al mover el ratón) ---------- */
+
+.exp-hud .hud-toolbar {
+    --hud-accent: rgba(255, 255, 255, 0.5);
+    padding: 4px;
+}
+
+.exp-hud .hud-btn {
+    min-height: 34px;
+    padding: 7px 11px;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    color: rgba(242, 246, 243, 0.86);
+    font-family: var(--hud-label);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.exp-hud .hud-btn:hover,
+.exp-hud .hud-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    outline: none;
+}
+
+@media (max-width: 600px) {
+    .exp-hud .hud-stat { min-width: 64px; padding: 0 9px; }
+    .exp-hud .hud-stat--power { min-width: 96px; }
+    .exp-hud .hud-topbar { padding: 8px 2px 9px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .exp-hud .hud-panel,
+    .exp-hud .hud-heart { animation: none; }
+}

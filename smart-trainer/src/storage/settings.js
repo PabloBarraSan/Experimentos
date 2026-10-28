@@ -10,6 +10,9 @@ const DEFAULT_SETTINGS = {
     // Datos del usuario
     ftp: 200,           // Functional Threshold Power
     ftpProfileApplied: null, // Último FTP del perfil de training-app aplicado aquí (para no pisar cambios del usuario)
+    fitness: {
+        lastTest: null,     // { kind, date, ftp, cp, wPrime } del último test aplicado
+    },
     weight: 70,         // Peso en kg
     maxHR: 190,         // Frecuencia cardíaca máxima
     restingHR: 60,      // Frecuencia cardíaca en reposo

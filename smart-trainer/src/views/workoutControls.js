@@ -1,29 +1,17 @@
-import { colors, typography } from '../utils/theme.js';
+import { colors } from '../utils/theme.js';
 import { createElement } from '../utils/dom.js';
 
 const INTENSITY_STEP = 5;
 const INTENSITY_MIN = 50;
 const INTENSITY_MAX = 150;
 
-// Botón compacto con el estilo del HUD de la expedición.
+// Botón compacto con el estilo del HUD de la expedición (clase hud-btn de expedition-hud.css).
 function hudButton({ text, label, onClick, minWidth = '34px' }) {
     return createElement('button', {
         text,
+        className: 'hud-btn',
         attrs: { type: 'button', 'aria-label': label || text },
-        styles: {
-            minWidth,
-            height: '34px',
-            padding: '0 10px',
-            border: '1px solid rgba(255,255,255,.14)',
-            borderRadius: '10px',
-            background: 'rgba(255,255,255,.07)',
-            color: '#fff',
-            fontFamily: typography.fontFamily,
-            fontSize: '13px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-        },
+        styles: { minWidth, background: 'rgba(255,255,255,.06)', whiteSpace: 'nowrap' },
         events: { click: onClick },
     });
 }
@@ -37,16 +25,17 @@ export function createWorkoutControls({ onIntensityChange = () => {}, onSkip = (
     let ergEnabled = true;
     let disabled = false;
 
+    // Intensidad como una cifra más del HUD: etiqueta pequeña y porcentaje en grande.
+    const intensityValue = createElement('strong', { className: 'hud-num hud-num--md' });
     const intensityLabel = createElement('div', {
-        styles: {
-            flex: '1 1 auto',
-            textAlign: 'center',
-            fontFamily: typography.fontMono,
-            fontSize: '13px',
-            fontWeight: 800,
-            color: '#fff',
-            whiteSpace: 'nowrap',
-        },
+        styles: { flex: '1 1 auto', display: 'grid', justifyItems: 'center', gap: '3px' },
+        children: [
+            createElement('span', { text: 'Intensidad', className: 'hud-label' }),
+            createElement('div', {
+                styles: { display: 'flex', alignItems: 'baseline' },
+                children: [intensityValue, createElement('span', { text: '%', className: 'hud-unit' })],
+            }),
+        ],
     });
 
     const changeIntensity = (delta) => {
@@ -65,13 +54,8 @@ export function createWorkoutControls({ onIntensityChange = () => {}, onSkip = (
 
     const spiralNotice = createElement('div', {
         text: 'Cadencia baja · resistencia reducida',
-        styles: {
-            display: 'none',
-            fontSize: '11px',
-            fontWeight: 700,
-            color: colors.warning,
-            textAlign: 'center',
-        },
+        className: 'hud-label',
+        styles: { display: 'none', color: colors.warning, textAlign: 'center' },
     });
 
     const intensityRow = createElement('div', {
@@ -84,24 +68,21 @@ export function createWorkoutControls({ onIntensityChange = () => {}, onSkip = (
     });
 
     const element = createElement('div', {
+        className: 'hud-panel',
         styles: {
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            padding: '10px 12px',
-            background: 'rgba(5,12,16,.8)',
-            border: '1px solid rgba(255,255,255,.1)',
-            borderRadius: '14px',
-            color: '#fff',
-            fontFamily: typography.fontFamily,
+            gap: '9px',
+            padding: '11px 12px',
             pointerEvents: 'auto',
-            boxSizing: 'border-box',
+            '--hud-accent': colors.warning,
         },
         children: [intensityRow, actionsRow, spiralNotice],
     });
 
     function render() {
-        intensityLabel.textContent = `Intensidad ${intensity} %`;
+        intensityValue.textContent = String(intensity);
+        intensityValue.style.color = intensity === 100 ? '' : intensity > 100 ? '#ff9a3c' : '#5cc8ff';
         erg.textContent = `ERG: ${ergEnabled ? 'sí' : 'no'}`;
         erg.style.color = ergEnabled ? colors.success : 'rgba(255,255,255,.6)';
         for (const control of [minus, plus, skip, extend, erg]) {
