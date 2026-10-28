@@ -7,6 +7,7 @@ import { colors, spacing, typography, baseStyles, borderRadius, transitions } fr
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { loadSettings, saveSettings, resetSettings, calculatePowerZones } from '../storage/settings.js';
 import { ZWIFT_PLAY_STATE } from '../bluetooth/zwiftPlay.js';
+import { navigateTo } from '../app.js';
 import { downloadBackup, restoreBackupFromFile } from '../storage/backup.js';
 import { downloadDebugLog } from '../diagnostics/SessionDebugLogger.js';
 import {
@@ -80,14 +81,21 @@ export function SettingsView({ state, onSave }) {
     const container = div({ className: 'settings-view', styles: containerStyles });
     
     // Título
-    container.appendChild(createElement('h1', { text: '⚙️ Configuración', styles: titleStyles }));
+    container.appendChild(button({
+        text: '← Volver',
+        attrs: { type: 'button', class: 'prep-back', 'aria-label': 'Volver al inicio' },
+        styles: { marginBottom: spacing.md },
+        events: { click: () => navigateTo('home') },
+    }));
+    container.appendChild(createElement('h1', { text: 'Configuración', className: 'settings-title', styles: { ...titleStyles, fontFamily: typography.fontDisplay, letterSpacing: '-1px' } }));
     
     // === Sección: Datos del usuario ===
-    const userSection = div({ styles: sectionStyles });
+    const userSection = div({ className: 'settings-card', styles: sectionStyles });
     userSection.appendChild(div({
+        className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
-            icon('bike', 24, colors.primary),
+            icon('bike', 22, '#70e6c6'),
             createElement('span', { text: 'Datos del Ciclista' }),
         ],
     }));
@@ -146,8 +154,9 @@ export function SettingsView({ state, onSave }) {
     container.appendChild(userSection);
     
     // === Sección: Zonas de Potencia ===
-    const zonesSection = div({ styles: sectionStyles });
+    const zonesSection = div({ className: 'settings-card', styles: sectionStyles });
     zonesSection.appendChild(div({
+        className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
             icon('zap', 24, colors.warning),
@@ -163,8 +172,9 @@ export function SettingsView({ state, onSave }) {
     container.appendChild(zonesSection);
     
     // === Sección: Preferencias ===
-    const prefsSection = div({ styles: sectionStyles });
+    const prefsSection = div({ className: 'settings-card', styles: sectionStyles });
     prefsSection.appendChild(div({
+        className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
             icon('settings', 24, colors.secondary),
@@ -208,8 +218,9 @@ export function SettingsView({ state, onSave }) {
     prefsSection.appendChild(prefsFields);
     container.appendChild(prefsSection);
 
-    const syncSection = div({ styles: sectionStyles });
+    const syncSection = div({ className: 'settings-card', styles: sectionStyles });
     syncSection.appendChild(div({
+        className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
             createElement('span', { text: '🔗' }),
@@ -224,8 +235,9 @@ export function SettingsView({ state, onSave }) {
     renderTrainingAppSync(syncContent);
 
     // === Sección: Registro de depuración (fase alfa) ===
-    const debugSection = div({ styles: sectionStyles });
+    const debugSection = div({ className: 'settings-card', styles: sectionStyles });
     debugSection.appendChild(div({
+        className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
             createElement('span', { text: '🧪' }),
@@ -249,8 +261,9 @@ export function SettingsView({ state, onSave }) {
     container.appendChild(debugSection);
 
     // === Sección: Copia de seguridad local ===
-    const backupSection = div({ styles: sectionStyles });
+    const backupSection = div({ className: 'settings-card', styles: sectionStyles });
     backupSection.appendChild(div({
+        className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
             icon('download', 24, colors.accent),
@@ -317,8 +330,9 @@ export function SettingsView({ state, onSave }) {
     container.appendChild(backupSection);
 
     // === Sección: Rodillo ===
-    const trainerSection = div({ styles: sectionStyles });
+    const trainerSection = div({ className: 'settings-card', styles: sectionStyles });
     trainerSection.appendChild(div({
+        className: 'settings-card__title',
         styles: sectionTitleStyles,
         children: [
             icon('gauge', 24, colors.accent),
@@ -360,8 +374,9 @@ export function SettingsView({ state, onSave }) {
 
     // === Sección: Mando Zwift Play (para modo juego) ===
     if (state.zwiftPlayManager) {
-        const zwiftSection = div({ styles: sectionStyles });
+        const zwiftSection = div({ className: 'settings-card', styles: sectionStyles });
         zwiftSection.appendChild(div({
+            className: 'settings-card__title',
             styles: sectionTitleStyles,
             children: [
                 createElement('span', { text: '🎮 Mando Zwift Play / Zwift Click' }),

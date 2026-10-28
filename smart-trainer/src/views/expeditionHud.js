@@ -13,9 +13,12 @@ function zoneColor(percent) {
     return '#ff5a4d';
 }
 
-function blockPercent(block) {
-    const start = Number(block.targetValue) || 0;
-    const end = block.targetValueEnd != null && block.type === BLOCK_TYPES.RAMP ? Number(block.targetValueEnd) : start;
+// Intensidad del bloque en % del FTP: los objetivos en vatios absolutos se pasan a % y los libres (tests) cuentan como 100 %.
+function blockPercent(block, ftp = 0) {
+    const toPercent = (value) => (block.targetType === 'power_absolute' ? (ftp > 0 ? (Number(value) / ftp) * 100 : 70) : Number(value) || 0);
+    if (block.targetType === 'free') return { start: 100, end: 100, mean: 100 };
+    const start = toPercent(block.targetValue);
+    const end = block.targetValueEnd != null && block.type === BLOCK_TYPES.RAMP ? toPercent(block.targetValueEnd) : start;
     return { start, end, mean: (start + end) / 2 };
 }
 
@@ -23,7 +26,7 @@ function targetWatts(block, ftp) {
     if (block.targetType && block.targetType !== 'power_ftp') {
         return block.targetType === 'power_absolute' ? Math.round(block.targetValue) : null;
     }
-    return Math.round((blockPercent(block).mean / 100) * ftp);
+    return Math.round((blockPercent(block, ftp).mean / 100) * ftp);
 }
 
 export function describeLap(block) {
@@ -102,12 +105,14 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
     // `blocks` ya expandidos (p. ej. tras alargar un bloque); si no, se expanden los del workout.
     const blocks = expandedBlocks || expandBlocks(workout.blocks || []);
     const strip = div({ className: 'hud-strip' });
+    // Las alturas se escalan al bloque más duro (un test de FTP puede pasar del 130 %).
+    const maxPercent = Math.max(130, ...blocks.map((block) => blockPercent(block, ftp).mean));
     const segments = blocks.map((block) => {
-        const { start, end } = blockPercent(block);
+        const { start, end } = blockPercent(block, ftp);
         const top = Math.max(start, end);
-        const height = Math.max(14, Math.min(100, (top / 130) * 100));
-        const startHeight = Math.max(14, Math.min(100, (start / 130) * 100));
-        const endHeight = Math.max(14, Math.min(100, (end / 130) * 100));
+        const height = Math.max(14, Math.min(100, (top / maxPercent) * 100));
+        const startHeight = Math.max(14, Math.min(100, (start / maxPercent) * 100));
+        const endHeight = Math.max(14, Math.min(100, (end / maxPercent) * 100));
         const color = zoneColor((start + end) / 2);
         const el = div({
             className: 'hud-seg',
@@ -168,12 +173,12 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
                 segment.classList.toggle('is-done', position < index);
             });
             lapLabel.textContent = describeLap(block);
-            element.style.setProperty('--hud-accent', zoneColor(blockPercent(block).mean));
+            element.style.setProperty('--hud-accent', zoneColor(blockPercent(block, ftp).mean));
             const next = blocks[index + 1];
             if (next) {
                 const watts = targetWatts(next, ftp);
                 const kind = next.type === BLOCK_TYPES.REST ? 'Descanso' : next.type === BLOCK_TYPES.INTERVAL ? 'Esfuerzo' : next.type === BLOCK_TYPES.COOLDOWN ? 'Vuelta a la calma' : 'Ritmo';
-                nextLabel.textContent = `→ ${kind} ${formatTime(next.duration)}${watts ? ` · ${watts} W` : ''}`;
+                nextLabel.textContent = `Siguiente → ${kind} ${formatTime(next.duration)}${watts ? ` · ${watts} W` : ''}`;
             } else {
                 nextLabel.textContent = 'ÚLTIMO TRAMO';
             }
@@ -191,7 +196,7 @@ export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expand
                 return;
             }
             const ratio = average.power / average.target;
-            lapAverage.textContent = `${Math.round(average.power)} W · ${Math.round(ratio * 100)}%`;
+            lapAverage.textContent = `MEDIA ${Math.round(average.power)} W · ${Math.round(ratio * 100)}%`;
             lapAverage.style.color = Math.abs(ratio - 1) <= 0.05 ? '#63e0b5' : Math.abs(ratio - 1) <= 0.1 ? '#ffd379' : '#ff8a6b';
         },
         get activeIndex() { return activeIndex; },
