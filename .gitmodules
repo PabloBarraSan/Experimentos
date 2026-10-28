@@ -5,3 +5,6 @@
 [submodule "escocia-viaje"]
 	path = escocia-viaje
 	url = https://github.com/PabloBarraSan/escocia-viaje.git
+[submodule "mispapassecasan"]
+	path = mispapassecasan
+	url = https://github.com/PabloBarraSan/mispapassecasan.git
