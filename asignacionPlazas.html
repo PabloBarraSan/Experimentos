@@ -51,7 +51,7 @@
 
         <header class="mb-8 text-center">
             <h1 class="text-3xl md:text-4xl font-bold text-blue-700">Asignador de Plazas Aplec Vilareal</h1>
-            <p class="text-gray-600 mt-2">Carga tu archivo CSV de inscripciones para asignar las plazas automáticamente.</p>
+            <p class="text-gray-600 mt-2">Carga tu archivo CSV o TSV de inscripciones para asignar las plazas automáticamente.</p>
         </header>
 
         <div class="mb-6 border-b border-gray-200">
@@ -94,10 +94,10 @@
         </section>
 
         <section class="mb-8 p-6 bg-green-50 rounded-lg shadow">
-            <h2 class="text-2xl font-semibold text-green-600 mb-4">1. Cargar Archivo de Inscripciones (.csv) para <span class="currentTabNameDisplaySimple">APLEC</span></h2>
+            <h2 class="text-2xl font-semibold text-green-600 mb-4">1. Cargar Archivo de Inscripciones (.csv o .tsv) para <span class="currentTabNameDisplaySimple">APLEC</span></h2>
             <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-green-500 transition-colors">
-                <input type="file" id="csvFile" accept=".csv" class="hidden">
-                <p id="dropZoneText" class="text-gray-500">Arrastra y suelta tu archivo CSV aquí, o <span class="text-green-600 font-semibold">haz clic para seleccionar</span>.</p>
+                <input type="file" id="csvFile" accept=".csv,.tsv,text/csv,text/tab-separated-values" class="hidden">
+                <p id="dropZoneText" class="text-gray-500">Arrastra y suelta tu archivo CSV o TSV aquí, o <span class="text-green-600 font-semibold">haz clic para seleccionar</span>.</p>
                 <p id="fileName" class="mt-2 text-sm text-gray-700"></p>
             </div>
             <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -204,8 +204,8 @@
 
         const knownTurnoIds = { 
             aplec: [
-                "sarthou1", "sarthou2", "sarthou3",
-                "cervantes1", "cervantes2", "cervantes3", "cervantes4", "cervantes5"
+                "pn1", "pn2", "pn3",
+                "aa1", "aa2", "aa3", "aa4", "aa5"
             ],
             xicaes: [ 
                 "xicaes1", "xicaes2", "xicaes3", "xicaes4", "xicaes5" 
@@ -216,6 +216,7 @@
             ]
         };
         const idColumnNameCSV = "número"; 
+        const acceptedIdColumnNames = ["numero", "n", "id", "identificador"];
 
         const csvFileInput = document.getElementById('csvFile');
         const procesarBtn = document.getElementById('procesarBtn');
@@ -247,22 +248,22 @@
         function inicializarCapacidades(tabId) {
             if (tabId === 'aplec') {
                 return {
-                    "cervantes1": { nombre: "Cervantes - Turno 1", total: 110, asignadas: 0, solicitantes_asignados: [] },
-                    "cervantes2": { nombre: "Cervantes - Turno 2", total: 110, asignadas: 0, solicitantes_asignados: [] },
-                    "cervantes3": { nombre: "Cervantes - Turno 3", total: 90, asignadas: 0, solicitantes_asignados: [] },
-                    "cervantes4": { nombre: "Cervantes - Turno 4", total: 90, asignadas: 0, solicitantes_asignados: [] },
-                    "cervantes5": { nombre: "Cervantes - Turno 5", total: 90, asignadas: 0, solicitantes_asignados: [] },
-                    "sarthou1": { nombre: "Carles Sarthou - Turno 1", total: 110, asignadas: 0, solicitantes_asignados: [] },
-                    "sarthou2": { nombre: "Carles Sarthou - Turno 2", total: 110, asignadas: 0, solicitantes_asignados: [] },
-                    "sarthou3": { nombre: "Carles Sarthou - Turno 3", total: 90, asignadas: 0, solicitantes_asignados: [] },
+                    "pn1": { nombre: "Pascual Nácher - 1r torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "pn2": { nombre: "Pascual Nácher - 2n torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "pn3": { nombre: "Pascual Nácher - 3r torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "aa1": { nombre: "Angelina Abad - 1r torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "aa2": { nombre: "Angelina Abad - 2n torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "aa3": { nombre: "Angelina Abad - 3r torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "aa4": { nombre: "Angelina Abad - 4t torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "aa5": { nombre: "Angelina Abad - 5é torn", total: 120, asignadas: 0, solicitantes_asignados: [] },
                 };
             } else if (tabId === 'xicaes') {
                 return {
-                    "xicaes1": { nombre: "XICAES - Turno 1", total: 20, asignadas: 0, solicitantes_asignados: [] }, 
-                    "xicaes2": { nombre: "XICAES - Turno 2", total: 20, asignadas: 0, solicitantes_asignados: [] }, 
-                    "xicaes3": { nombre: "XICAES - Turno 3", total: 20, asignadas: 0, solicitantes_asignados: [] }, 
-                    "xicaes4": { nombre: "XICAES - Turno 4", total: 15, asignadas: 0, solicitantes_asignados: [] }, 
-                    "xicaes5": { nombre: "XICAES - Turno 5", total: 15, asignadas: 0, solicitantes_asignados: [] }, 
+                    "xicaes1": { nombre: "1r torn - Angelina Abad (C/Michalovce, 14) + Pascual Nácher (C/ Consolació S/N)", total: 240, asignadas: 0, solicitantes_asignados: [] },
+                    "xicaes2": { nombre: "2n torn - Angelina Abad (C/Michalovce, 14) + Pascual Nácher (C/ Consolació S/N)", total: 240, asignadas: 0, solicitantes_asignados: [] },
+                    "xicaes3": { nombre: "3r torn - Angelina Abad (C/Michalovce, 14) + Pascual Nácher (C/ Consolació S/N)", total: 240, asignadas: 0, solicitantes_asignados: [] },
+                    "xicaes4": { nombre: "4t torn - Angelina Abad (C/Michalovce, 14)", total: 120, asignadas: 0, solicitantes_asignados: [] },
+                    "xicaes5": { nombre: "5é torn - Angelina Abad (C/Michalovce, 14)", total: 120, asignadas: 0, solicitantes_asignados: [] },
                 };
             } else if (tabId === 'pasqua') {
                 return {
@@ -277,6 +278,130 @@
             if (line.includes(';')) return ';';
             if (line.includes('\t')) return '\t';
             return ',';
+        }
+
+        function normalizeHeaderName(value) {
+            return String(value || "")
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '');
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function parseDelimitedLine(line, delimiter) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                    continue;
+                }
+
+                if (char === delimiter && !inQuotes) {
+                    values.push(current);
+                    current = '';
+                    continue;
+                }
+
+                current += char;
+            }
+
+            values.push(current);
+            return values.map(value => value.trim());
+        }
+
+        function findIdColumnIndex(headers) {
+            const normalizedHeaders = headers.map(normalizeHeaderName);
+            return normalizedHeaders.findIndex(header => acceptedIdColumnNames.includes(header));
+        }
+
+        function getTurnoHeaderAliases(tabId, turnoId) {
+            const aliases = {
+                pn1: ["PN1", "1r torn", "1r turno", "turno 1", "torn 1"],
+                pn2: ["PN2", "2n torn", "2n turno", "turno 2", "torn 2"],
+                pn3: ["PN3", "3r torn", "3r turno", "turno 3", "torn 3"],
+                aa1: ["AA1", "angelina1", "angelina 1"],
+                aa2: ["AA2", "angelina2", "angelina 2"],
+                aa3: ["AA3", "angelina3", "angelina 3"],
+                aa4: ["AA4", "angelina4", "angelina 4", "4t torn", "4t turno", "turno 4", "torn 4"],
+                aa5: ["AA5", "angelina5", "angelina 5", "5e torn", "5é torn", "5e turno", "5é turno", "turno 5", "torn 5"],
+                xicaes1: ["1r torn", "1r turno", "turno 1", "torn 1"],
+                xicaes2: ["2n torn", "2n turno", "turno 2", "torn 2"],
+                xicaes3: ["3r torn", "3r turno", "turno 3", "torn 3"],
+                xicaes4: ["4t torn", "4t turno", "turno 4", "torn 4"],
+                xicaes5: ["5e torn", "5é torn", "5e turno", "5é turno", "turno 5", "torn 5"]
+            };
+
+            return [turnoId, ...(aliases[turnoId] || [])].map(normalizeHeaderName);
+        }
+
+        function renderDropZoneMessage(message, highlightedFileName = "", suffix = "") {
+            dropZoneText.textContent = "";
+            dropZoneText.append(document.createTextNode(message));
+            if (highlightedFileName) {
+                const span = document.createElement('span');
+                span.className = 'text-green-600 font-semibold';
+                span.textContent = highlightedFileName;
+                dropZoneText.appendChild(span);
+            }
+            if (suffix) {
+                dropZoneText.append(document.createTextNode(suffix));
+            }
+        }
+
+        function isAcceptedDataFile(file) {
+            const name = (file?.name || "").toLowerCase();
+            const type = (file?.type || "").toLowerCase();
+            return (
+                name.endsWith('.csv') ||
+                name.endsWith('.tsv') ||
+                type === 'text/csv' ||
+                type === 'text/tab-separated-values' ||
+                type === 'application/vnd.ms-excel'
+            );
+        }
+
+        function crearCelda(tagName, className, text) {
+            const cell = document.createElement(tagName);
+            cell.className = className;
+            cell.textContent = text;
+            return cell;
+        }
+
+        function getTurnoSlot(turnoId) {
+            const match = String(turnoId || "").match(/(\d+)$/);
+            return match ? match[1] : String(turnoId || "");
+        }
+
+        function obtenerCapacidadesInicialesParaProceso(tabId) {
+            if (tabId === 'pasqua') {
+                const currentCaps = tabState.pasqua.capacidades;
+                const baseCaps = inicializarCapacidades('pasqua');
+                baseCaps[ANGELINA].total = currentCaps?.[ANGELINA]?.total ?? baseCaps[ANGELINA].total;
+                baseCaps[PASCUAL].total = currentCaps?.[PASCUAL]?.total ?? baseCaps[PASCUAL].total;
+                return baseCaps;
+            }
+
+            return inicializarCapacidades(tabId);
         }
         
         function parseCSV(csvText, tabId) {
@@ -294,24 +419,24 @@
             let rawHeaders;
             let detectedDelimiter = ','; 
 
-            rawHeaders = headerLine.split(',');
+            rawHeaders = parseDelimitedLine(headerLine, ',');
             if (rawHeaders.length === 1 && headerLine.includes(';')) {
-                rawHeaders = headerLine.split(';');
+                rawHeaders = parseDelimitedLine(headerLine, ';');
                 detectedDelimiter = ';';
             } else if (rawHeaders.length <= 1 && headerLine.includes('\t')) { 
-                rawHeaders = headerLine.split('\t');
+                rawHeaders = parseDelimitedLine(headerLine, '\t');
                 detectedDelimiter = '\t';
             }
             // console.log(`[${tabId.toUpperCase()}] Delimitador detectado: '${detectedDelimiter}'`);
             // console.log(`[${tabId.toUpperCase()}] Encabezados crudos (antes de trim/lowercase):`, rawHeaders);
 
 
-            tabState[tabId].encabezadosOriginalesCSV = rawHeaders.map(h => h.trim().replace(/^"|"$/g, ''));
-            const encabezadoNormalizado = tabState[tabId].encabezadosOriginalesCSV.map(h => h.toLowerCase());
+            tabState[tabId].encabezadosOriginalesCSV = rawHeaders.map(h => h.trim());
+            const encabezadoNormalizado = tabState[tabId].encabezadosOriginalesCSV.map(normalizeHeaderName);
             // console.log(`[${tabId.toUpperCase()}] Encabezados originales guardados:`, tabState[tabId].encabezadosOriginalesCSV);
             // console.log(`[${tabId.toUpperCase()}] Encabezados normalizados (para búsqueda):`, encabezadoNormalizado);
             
-            let idColIdx = encabezadoNormalizado.indexOf(idColumnNameCSV);
+            let idColIdx = findIdColumnIndex(tabState[tabId].encabezadosOriginalesCSV);
 
             if (idColIdx === -1) {
                 mostrarMensaje(`Error: No se encontró la columna de ID requerida ("${idColumnNameCSV}") en el encabezado del CSV para ${tabId.toUpperCase()}. Encabezados encontrados: ${tabState[tabId].encabezadosOriginalesCSV.join(', ')}`, "error");
@@ -326,7 +451,8 @@
             let foundPreferenceHeadersCount = 0;
 
             currentKnownTurnoIdsForTab.forEach(turnoCsvHeader => {
-                const csvHeaderIndex = encabezadoNormalizado.indexOf(turnoCsvHeader.toLowerCase());
+                const aliases = getTurnoHeaderAliases(tabId, turnoCsvHeader);
+                const csvHeaderIndex = encabezadoNormalizado.findIndex(header => aliases.includes(header));
                 if (csvHeaderIndex !== -1) {
                     turnoHeaderIndices[turnoCsvHeader] = csvHeaderIndex; 
                     foundPreferenceHeadersCount++;
@@ -349,7 +475,7 @@
                 const fila = filaOriginal.trim();
                 if (!fila) continue;
 
-                const columnas = fila.split(detectedDelimiter).map(col => col.trim().replace(/^"|"$/g, ''));
+                const columnas = parseDelimitedLine(filaOriginal, detectedDelimiter);
                 
                 if (columnas.length <= idColIdx) {
                     console.warn(`[${tabId.toUpperCase()}] Fila ${i+1} (ID: ${columnas[0] || 'DESCONOCIDO'}) omitida: no tiene suficientes columnas para el ID. Necesita ${idColIdx + 1}, tiene ${columnas.length}. Fila: ${filaOriginal}`);
@@ -410,8 +536,8 @@
             
             // console.log(`[${tabId.toUpperCase()}] Fin parseCSV. Total inscripciones procesadas: ${inscripciones.length}`);
             mostrarMensaje(`(${tabId.toUpperCase()}) Se han procesado ${inscripciones.length} inscripciones.
-                            <br>ID: columna "${idColumnNameCSV}". Preferencias desde: ${currentKnownTurnoIdsForTab.join(', ')} (se encontraron ${foundPreferenceHeadersCount}).
-                            <br>Revisa la consola (F12) para más detalles.`, "info");
+ID: columna "${idColumnNameCSV}". Preferencias desde: ${currentKnownTurnoIdsForTab.join(', ')} (se encontraron ${foundPreferenceHeadersCount}).
+Revisa la consola (F12) para más detalles.`, "info");
             return inscripciones;
         }
 
@@ -425,7 +551,7 @@
             }
 
             const detectedDelimiter = detectDelimiter(lineas[0]);
-            const firstRow = lineas[0].split(detectedDelimiter).map(col => col.trim().replace(/^"|"$/g, ''));
+            const firstRow = parseDelimitedLine(lineas[0], detectedDelimiter);
             const isHeader = firstRow.some(v => /[a-zA-Z]/.test(v));
 
             tabState.pasqua.encabezadosOriginalesCSV = isHeader
@@ -438,7 +564,7 @@
                 const fila = filaOriginal.trim();
                 if (!fila) continue;
 
-                const columnas = fila.split(detectedDelimiter).map(col => col.trim().replace(/^"|"$/g, ''));
+                const columnas = parseDelimitedLine(filaOriginal, detectedDelimiter);
                 const idRaw = columnas[0] || `Solicitante_Fila${i + 1}`;
                 const idNumeric = parseInt(idRaw, 10);
 
@@ -502,7 +628,11 @@
                 const turno = capacidades[turnoId];
                 const div = document.createElement('div');
                 div.className = 'p-3 bg-white rounded shadow-sm border border-blue-200';
-                div.innerHTML = `<span class="font-medium text-blue-700">${turno.nombre}:</span> ${turno.total} plazas`;
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'font-medium text-blue-700';
+                nameSpan.textContent = `${turno.nombre}:`;
+                div.appendChild(nameSpan);
+                div.appendChild(document.createTextNode(` ${turno.total} plazas`));
                 listaCapacidadesDiv.appendChild(div);
             }
         }
@@ -535,6 +665,14 @@
                             continue; 
                         }
 
+                        const slotPreferido = getTurnoSlot(turno_preferido);
+                        const tieneMismoSlotAsignado = solicitante.turnos_asignados.some(
+                            turnoAsignado => getTurnoSlot(turnoAsignado) === slotPreferido
+                        );
+                        if (tieneMismoSlotAsignado) {
+                            continue;
+                        }
+
                         if (capacidades[turno_preferido]) {
                             // console.log(`      [${tabId.toUpperCase()}] Info Turno '${turno_preferido}': Asignadas=${capacidades[turno_preferido].asignadas}, Total=${capacidades[turno_preferido].total}`);
                             if (capacidades[turno_preferido].asignadas < capacidades[turno_preferido].total) {
@@ -564,8 +702,7 @@
             } while (seHizoUnaAsignacionGlobalEnEstaRonda); 
 
             if (advertenciasTurnoInvalido.size > 0) {
-                const mensajePrevio = mensajeEstado.innerHTML; 
-                mostrarMensaje(`${mensajePrevio} <br>(${tabId.toUpperCase()}) Hubo ${advertenciasTurnoInvalido.size} tipos de turnos preferidos que no coincidieron con las capacidades definidas. Revisa la consola (F12).`, "error");
+                mostrarMensaje(`(${tabId.toUpperCase()}) Hubo ${advertenciasTurnoInvalido.size} tipos de turnos preferidos que no coincidieron con las capacidades definidas. Revisa la consola (F12).`, "error");
             }
             console.log(`[${tabId.toUpperCase()}] FIN TODAS LAS RONDAS DE ASIGNACIÓN (${ronda} rondas). Estado final de capacidades:`, capacidades);
             return { capacidades_actualizadas: capacidades, solicitantesProcesadosConAsignacion: listaSolicitantes };
@@ -641,12 +778,10 @@
                     const turno = state.capacidades[turnoId];
                     const tr = document.createElement('tr');
                     tr.className = turno.asignadas === turno.total ? 'bg-red-50' : (turno.asignadas > 0 ? 'bg-green-50' : '');
-                    tr.innerHTML = `
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.nombre}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.asignadas}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.total}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${turno.total - turno.asignadas}</td>
-                    `;
+                    tr.appendChild(crearCelda('td', 'px-4 py-3 whitespace-nowrap text-sm text-gray-700', turno.nombre));
+                    tr.appendChild(crearCelda('td', 'px-4 py-3 whitespace-nowrap text-sm text-gray-700', String(turno.asignadas)));
+                    tr.appendChild(crearCelda('td', 'px-4 py-3 whitespace-nowrap text-sm text-gray-700', String(turno.total)));
+                    tr.appendChild(crearCelda('td', 'px-4 py-3 whitespace-nowrap text-sm text-gray-700', String(turno.total - turno.asignadas)));
                     tbodyOcupacion.appendChild(tr);
                 }
             } else {
@@ -661,12 +796,16 @@
                 tablaDetalle.className = 'min-w-full divide-y divide-gray-200 border border-gray-300 rounded-lg table-fixed-layout';
                 const theadDetalle = document.createElement('thead');
                 theadDetalle.className = 'bg-gray-100';
-                let headerRowHtml = '<tr>';
+                const headerRow = document.createElement('tr');
                 state.encabezadosOriginalesCSV.forEach(header => {
-                     headerRowHtml += `<th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">${header}</th>`;
+                    headerRow.appendChild(
+                        crearCelda('th', 'px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider', header)
+                    );
                 });
-                headerRowHtml += `<th scope="col" class="px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Plazas Asignadas</th></tr>`;
-                theadDetalle.innerHTML = headerRowHtml;
+                headerRow.appendChild(
+                    crearCelda('th', 'px-2 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider', 'Plazas Asignadas')
+                );
+                theadDetalle.appendChild(headerRow);
                 tablaDetalle.appendChild(theadDetalle);
 
                 const tbodyDetalle = document.createElement('tbody');
@@ -681,15 +820,21 @@
 
                 solicitantesParaTablaDetalle.forEach(sol => {
                     const tr = document.createElement('tr');
-                    let rowHtml = '';
                     state.encabezadosOriginalesCSV.forEach(header => {
-                        rowHtml += `<td class="px-2 py-2 whitespace-nowrap text-sm text-gray-700">${sol.rawData[header] || ''}</td>`;
+                        tr.appendChild(
+                            crearCelda('td', 'px-2 py-2 whitespace-nowrap text-sm text-gray-700', sol.rawData[header] || '')
+                        );
                     });
                     const turnosAsignadosNombres = sol.turnos_asignados && sol.turnos_asignados.length > 0 
                         ? sol.turnos_asignados.map(t_id => state.capacidades[t_id]?.nombre || t_id).join('; ') 
                         : 'No asignado';
-                    rowHtml += `<td class="px-2 py-2 whitespace-nowrap text-sm font-semibold ${sol.turnos_asignados && sol.turnos_asignados.length > 0 ? 'text-green-700' : 'text-red-700'}">${turnosAsignadosNombres}</td>`;
-                    tr.innerHTML = rowHtml;
+                    tr.appendChild(
+                        crearCelda(
+                            'td',
+                            `px-2 py-2 whitespace-nowrap text-sm font-semibold ${sol.turnos_asignados && sol.turnos_asignados.length > 0 ? 'text-green-700' : 'text-red-700'}`,
+                            turnosAsignadosNombres
+                        )
+                    );
                     tbodyDetalle.appendChild(tr);
                 });
                 tablaDetalle.appendChild(tbodyDetalle);
@@ -701,7 +846,7 @@
         }
 
         function mostrarMensaje(texto, tipo = "info") {
-            mensajeEstado.innerHTML = texto.replace(/\n/g, '<br>'); 
+            mensajeEstado.innerHTML = escapeHtml(texto).replace(/\n/g, '<br>'); 
             mensajeEstado.className = 'my-4 p-4 rounded-lg text-center text-sm'; 
             switch (tipo) {
                 case "success":
@@ -725,10 +870,11 @@
 
             procesarBtn.disabled = true;
             exportCsvBtn.disabled = true;
-            mostrarMensaje(`Procesando archivo CSV para ${currentTabId.toUpperCase()}...`, "info"); 
+            state.todosLosSolicitantesProcesados = [];
+            state.capacidades = obtenerCapacidadesInicialesParaProceso(currentTabId);
+            mostrarMensaje(`Procesando archivo de inscripciones para ${currentTabId.toUpperCase()}...`, "info"); 
 
             try {
-                state.todosLosSolicitantesProcesados = [];
                 let inscripcionesOriginales = currentTabId === 'pasqua'
                     ? parseCSVPasqua(csvText)
                     : parseCSV(csvText, currentTabId);
@@ -738,10 +884,6 @@
                         inscripcionesOriginales,
                         state.sorteoInicio
                     );
-                    
-                    if (!state.capacidades || Object.keys(state.capacidades).length === 0) {
-                        state.capacidades = inicializarCapacidades(currentTabId);
-                    }
 
                     const { capacidades_actualizadas, solicitantesProcesadosConAsignacion } = asignarPlazas(inscripcionesOrdenadasParaAsignar, state.capacidades, currentTabId);
                     
@@ -775,9 +917,11 @@
         function procesarInscripciones() {
             const currentTabId = activeTab;
             const state = tabState[currentTabId];
+            const val = parseInt(sorteoInicioInput.value, 10);
+            state.sorteoInicio = isNaN(val) || val < 1 ? 1 : val;
 
             if (!state.archivoCargado) {
-                mostrarMensaje(`Por favor, selecciona un archivo CSV primero para ${currentTabId.toUpperCase()}.`, "error");
+                mostrarMensaje(`Por favor, selecciona un archivo CSV o TSV primero para ${currentTabId.toUpperCase()}.`, "error");
                 return;
             }
 
@@ -799,30 +943,23 @@
                 return;
             }
 
-            const asignacionesIndividuales = [];
-            state.todosLosSolicitantesProcesados.forEach(sol => {
-                if (sol.turnos_asignados && sol.turnos_asignados.length > 0) {
-                    sol.turnos_asignados.forEach(turno_codigo => {
-                        asignacionesIndividuales.push({
-                            idRaw: sol.idRaw,
-                            turno_asignado_codigo: turno_codigo,
-                        });
-                    });
-                }
-            });
+            const solicitantesAsignados = state.todosLosSolicitantesProcesados.filter(
+                sol => sol.turnos_asignados && sol.turnos_asignados.length > 0
+            );
 
-
-            if (asignacionesIndividuales.length === 0) {
-                mostrarMensaje(`No hay asignaciones individuales para exportar para ${activeTab.toUpperCase()}.`, "info");
+            if (solicitantesAsignados.length === 0) {
+                mostrarMensaje(`No hay asignaciones para exportar para ${activeTab.toUpperCase()}.`, "info");
                 return;
             }
 
-            let csvContent = "ID Solicitante,Turno Asignado Código,Turno Asignado Nombre\n";
-            asignacionesIndividuales.forEach(asig => {
-                const id = asig.idRaw.includes(',') || asig.idRaw.includes(';') ? `"${asig.idRaw}"` : asig.idRaw;
-                const turnoCodigo = asig.turno_asignado_codigo;
-                const turnoNombre = state.capacidades[turnoCodigo]?.nombre || turnoCodigo;
-                csvContent += `${id},${turnoCodigo},"${turnoNombre}"\n`;
+            let csvContent = "ID Solicitante,Turnos Asignados Codigo,Turnos Asignados Nombre\n";
+            solicitantesAsignados.forEach(sol => {
+                const id = `"${String(sol.idRaw).replace(/"/g, '""')}"`;
+                const turnosCodigo = sol.turnos_asignados.join('; ');
+                const turnosNombre = sol.turnos_asignados
+                    .map(turnoCodigo => state.capacidades[turnoCodigo]?.nombre || turnoCodigo)
+                    .join('; ');
+                csvContent += `${id},"${turnosCodigo.replace(/"/g, '""')}","${turnosNombre.replace(/"/g, '""')}"\n`;
             });
 
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -879,9 +1016,9 @@
                 exportCsvBtn.disabled = true;
             }
             if (!state.archivoCargado) {
-                dropZoneText.innerHTML = `Arrastra y suelta tu archivo CSV aquí, o <span class="text-green-600 font-semibold">haz clic para seleccionar</span>.`;
+                renderDropZoneMessage('Arrastra y suelta tu archivo CSV o TSV aquí, o haz clic para seleccionar.');
             } else {
-                dropZoneText.innerHTML = `Archivo <span class="font-semibold text-green-600">${state.fileName}</span> cargado. Puedes procesar o cargar uno nuevo.`;
+                renderDropZoneMessage('Archivo ', state.fileName, ' cargado. Puedes procesar o cargar uno nuevo.');
             }
              mostrarMensaje(`Pestaña ${tabNameUpper} activa. Carga un archivo o procesa si ya hay uno.`, "info");
         }
@@ -889,7 +1026,7 @@
         tabButtonAplec.addEventListener('click', () => switchTab('aplec'));
         tabButtonXicaes.addEventListener('click', () => switchTab('xicaes'));
         tabButtonPasqua.addEventListener('click', () => switchTab('pasqua'));
-        sorteoInicioInput.addEventListener('change', () => {
+        sorteoInicioInput.addEventListener('input', () => {
             const val = parseInt(sorteoInicioInput.value, 10);
             tabState[activeTab].sorteoInicio = isNaN(val) || val < 1 ? 1 : val;
         });
@@ -907,16 +1044,16 @@
             const files = event.dataTransfer.files;
             if (files.length > 0) {
                 const file = files[0];
-                if (file.type === "text/csv" || file.name.endsWith(".csv") || file.type === "application/vnd.ms-excel") { 
+                if (isAcceptedDataFile(file)) { 
                     tabState[activeTab].archivoCargado = file;
                     tabState[activeTab].fileName = file.name;
                     fileNameDisplay.textContent = `Archivo seleccionado: ${file.name}`;
-                    dropZoneText.innerHTML = `Archivo <span class="font-semibold text-green-600">${file.name}</span> listo para ${activeTab.toUpperCase()}.`;
+                    renderDropZoneMessage('Archivo ', file.name, ` listo para ${activeTab.toUpperCase()}.`);
                     procesarBtn.disabled = false;
                     exportCsvBtn.disabled = true; 
-                    mostrarMensaje(`Archivo CSV cargado para ${activeTab.toUpperCase()}. Haz clic en 'Procesar Inscripciones'.`, "info");
+                    mostrarMensaje(`Archivo cargado para ${activeTab.toUpperCase()}. Haz clic en 'Procesar Inscripciones'.`, "info");
                 } else {
-                    mostrarMensaje(`Archivo no válido (${file.name}). Por favor, selecciona un archivo con formato .csv`, "error");
+                    mostrarMensaje(`Archivo no válido (${file.name}). Por favor, selecciona un archivo con formato .csv o .tsv`, "error");
                     fileNameDisplay.textContent = "";
                     tabState[activeTab].archivoCargado = null;
                     tabState[activeTab].fileName = "";
@@ -933,16 +1070,16 @@
         csvFileInput.addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (file) {
-                 if (file.type === "text/csv" || file.name.endsWith(".csv") || file.type === "application/vnd.ms-excel") {
+                 if (isAcceptedDataFile(file)) {
                     tabState[activeTab].archivoCargado = file;
                     tabState[activeTab].fileName = file.name;
                     fileNameDisplay.textContent = `Archivo seleccionado: ${file.name}`;
-                    dropZoneText.innerHTML = `Archivo <span class="font-semibold text-green-600">${file.name}</span> cargado para ${activeTab.toUpperCase()}.`;
+                    renderDropZoneMessage('Archivo ', file.name, ` cargado para ${activeTab.toUpperCase()}.`);
                     procesarBtn.disabled = false;
                     exportCsvBtn.disabled = true;
-                    mostrarMensaje(`Archivo CSV cargado para ${activeTab.toUpperCase()}. Haz clic en 'Procesar Inscripciones'.`, "info");
+                    mostrarMensaje(`Archivo cargado para ${activeTab.toUpperCase()}. Haz clic en 'Procesar Inscripciones'.`, "info");
                 } else {
-                    mostrarMensaje(`Archivo no válido (${file.name}). Por favor, selecciona un archivo con formato .csv`, "error");
+                    mostrarMensaje(`Archivo no válido (${file.name}). Por favor, selecciona un archivo con formato .csv o .tsv`, "error");
                     fileNameDisplay.textContent = "";
                     csvFileInput.value = ""; 
                     tabState[activeTab].archivoCargado = null;

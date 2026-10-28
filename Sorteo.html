@@ -257,7 +257,6 @@
     </header>
 
     <main class="main-content">
-        <p id="numeroAleatoriText">Aplec de Pasqüa</p>
         <div class="wheels-container">
             <div class="wheel-column">
                 <p class="wheel-label">Centenes</p>
@@ -306,11 +305,8 @@
         const numeroComplert = document.getElementById('numeroComplert');
 
         const MIN_NUM = 1;
-        const MAX_NUM = 217;
+        const MAX_NUM = 579;
         const NUM_SEGMENTS = 10; // Per als dígits 0-9
-        // Radi visual per posicionar els números. Ajustar segons la mida de .wheel-rotator
-        // Si .wheel-rotator és 160px de diàmetre, el seu radi real és 80px.
-        const WHEEL_NUMBER_RADIUS = 60; // px, augmentat per a rodes més grans
 
         function padZero(num) {
             return num < 10 ? '0' + num : num;
@@ -358,14 +354,25 @@
         function animarRoda(rotatorElement, centerDisplayElement, digitFinal, animationDuration) {
             const numSpins = 4; // Nombre de girs complets per efecte, augmentat
             const degreesPerSegment = 360 / NUM_SEGMENTS;
-            const targetRotation = -(digitFinal * degreesPerSegment) + (numSpins * 360);
+            const currentRotation = Number(rotatorElement.dataset.currentRotation || 0);
+            const normalizedRotation = ((currentRotation % 360) + 360) % 360;
+            const targetDigitRotation = ((-digitFinal * degreesPerSegment) % 360 + 360) % 360;
+            const extraRotation = (360 - normalizedRotation + targetDigitRotation) % 360;
+            const targetRotation = currentRotation + (numSpins * 360) + extraRotation;
             
             rotatorElement.style.transition = `transform ${animationDuration / 1000}s cubic-bezier(0.25, 1, 0.5, 1)`; // Easing ajustat
             rotatorElement.style.transform = `rotate(${targetRotation}deg)`;
+            rotatorElement.dataset.currentRotation = targetRotation;
 
             setTimeout(() => {
                 centerDisplayElement.textContent = digitFinal;
             }, animationDuration);
+        }
+
+        function actualizarRodes() {
+            createWheelNumbers(rotatorCentenes);
+            createWheelNumbers(rotatorDesenes);
+            createWheelNumbers(rotatorUnitats);
         }
 
         generarBtn.addEventListener('click', () => {
@@ -396,7 +403,7 @@
 
             const totalAnimationTime = Math.max(delayCentenes, delayDesenes, delayUnitats) + spinDuration;
             setTimeout(() => {
-                numeroComplert.textContent = `Número guanyador: ${numeroFormatejat}`;
+                numeroComplert.textContent = `Número seleccionat: ${numeroFormatejat}`;
                 generarBtn.disabled = false;
             }, totalAnimationTime + 300); // Marge addicional
         });
@@ -406,12 +413,8 @@
         numeroComplert.textContent = '';
         setInterval(actualizarDataHora, 1000);
 
-        // Crida createWheelNumbers després que el DOM estigui completament carregat i les mides siguin calculables
-        // O assegurar-se que les mides CSS són fixes i no depenen de càlculs posteriors per a WHEEL_NUMBER_RADIUS
-        // Per a més seguretat, es podria cridar dins de window.onload o amb un petit setTimeout si hi ha problemes de càlcul de mides.
-        createWheelNumbers(rotatorCentenes);
-        createWheelNumbers(rotatorDesenes);
-        createWheelNumbers(rotatorUnitats);
+        actualizarRodes();
+        window.addEventListener('resize', actualizarRodes);
         
         // Podem deixar '?' per defecte en els displays centrals si es prefereix
         // centerDisplayCentenes.textContent = '0'; 

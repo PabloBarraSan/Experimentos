@@ -1,0 +1,398 @@
+{
+    "sections": [
+        {
+            "id": "contenido",
+            "title": "Contenido",
+            "blocks": [
+                {
+                    "name": "title",
+                    "label": {
+                        "es": "Título",
+                        "va": "Títol"
+                    },
+                    "description": "Título del nodo",
+                    "data": {
+                        "type": "Data",
+                        "format": "localized"
+                    }
+                },
+                {
+                    "name": "subtitle",
+                    "label": {
+                        "es": "Subtítulo",
+                        "va": "Subtïtul"
+                    },
+                    "description": "Subtítulo del nodo",
+                    "data": {
+                        "type": "Data",
+                        "format": "localized"
+                    }
+                },
+                {
+                    "name": "lead",
+                    "label": {
+                        "es": "Entradilla",
+                        "va": "Entradeta"
+                    },
+                    "description": "Entradilla del nodo",
+                    "data": {
+                        "type": "Data",
+                        "format": "localized"
+                    }
+                },
+                {
+                    "name": "body",
+                    "label": {
+                        "es": "Cuerpo",
+                        "va": "Cos"
+                    },
+                    "description": "Cuerpo del nodo",
+                    "data": {
+                        "type": "Data",
+                        "format": "localized"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "multimedia",
+            "title": "Multimedia",
+            "blocks": [
+                {
+                    "name": "headerImage",
+                    "label": {
+                        "es": "Imagen Principal",
+                        "va": "Imatge Principal"
+                    },
+                    "description": "Imagen principal del nodo",
+                    "data": {
+                        "type": "File",
+                        "format": "image",
+                        "multiple": false
+                    }
+                },
+                {
+                    "name": "images",
+                    "label": {
+                        "es": "Galería de Imágenes",
+                        "va": "Galeria d'Imatges"
+                    },
+                    "description": "Conjunto de imágenes que se muestran en modo galería",
+                    "data": {
+                        "type": "File",
+                        "format": "image",
+                        "multiple": true
+                    }
+                },
+                {
+                    "name": "videos",
+                    "label": {
+                        "es": "Vídeos",
+                        "va": "Vídeos"
+                    },
+                    "description": "Conjunto de vídeos que se muestran",
+                    "data": {
+                        "type": "File",
+                        "format": "video",
+                        "multiple": true
+                    }
+                },
+                {
+                    "name": "audios",
+                    "label": {
+                        "es": "Audios",
+                        "va": "Àudios"
+                    },
+                    "description": "Conjunto de audios que se muestran",
+                    "data": {
+                        "type": "File",
+                        "format": "audio",
+                        "multiple": true
+                    }
+                }
+            ]
+        },
+        {
+            "id": "relaciones",
+            "title": "Relaciones",
+            "blocks": [
+                {
+                    "name": "filesGroup",
+                    "label": {
+                        "es": "Grupo de ficheros",
+                        "va": "Grup de fitxers"
+                    },
+                    "description": "Grupo de ficheros",
+                    "data": {
+                        "type": "Group",
+                        "format": "document",
+                        "childName": "files"
+                    }
+                },
+                {
+                    "name": "files",
+                    "label": {
+                        "es": "Ficheros",
+                        "va": "Fitxers"
+                    },
+                    "description": "Conjunto de ficheros",
+                    "data": {
+                        "type": "File",
+                        "format": "document",
+                        "multiple": true
+                    }
+                },
+                {
+                    "name": "linksGroup",
+                    "label": {
+                        "es": "Grupo de enlaces",
+                        "va": "Grup d'enllaços"
+                    },
+                    "description": "Grupo de enlaces",
+                    "data": {
+                        "type": "Group",
+                        "childType": "ResourceLink",
+                        "childName": "links"
+                    }
+                },
+                {
+                    "name": "webLinks",
+                    "label": {
+                        "es": "Enlaces",
+                        "va": "Enllaços"
+                    },
+                    "description": "Conjunto de enlaces a webs",
+                    "data": {
+                        "type": "ResourceLink",
+                        "format": ""
+                    }
+                },
+                {
+                    "name": "socialShare",
+                    "label": {
+                        "es": "Redes Sociales",
+                        "va": "Xarxes Socials"
+                    },
+                    "description": "Redes sociales a mostrar",
+                    "data": {
+                        "type": "ResourceLink",
+                        "format": "rrss"
+                    }
+                },
+                {
+                    "name": "entitiesGroup",
+                    "label": {
+                        "es": "Grupo de entidades",
+                        "va": "Grup d'entitats"
+                    },
+                    "description": "Grupo de entidades",
+                    "data": {
+                        "type": "Group",
+                        "childName": "entities",
+                        "collection": "entidades"
+                    }
+                },
+                {
+                    "name": "nodesGroup",
+                    "label": {
+                        "es": "Grupo de artículos",
+                        "va": "Grup d'articles"
+                    },
+                    "description": "Grupo de artículos",
+                    "data": {
+                        "type": "Group",
+                        "childName": "nodes",
+                        "collection": "articulos"
+                    }
+                }
+            ]
+        },
+        {
+            "id": "avanzado",
+            "title": "Avanzado",
+            "blocks": [
+                {
+                    "name": "nodeTypes",
+                    "label": {
+                        "es": "Tipo del Nodo",
+                        "va": "Tipus del Node"
+                    },
+                    "description": "Tipo del nodo",
+                    "data": {
+                        "type": "Vocabulary",
+                        "format": "fixed",
+                        "vocabularyName": "NodeTypes"
+                    }
+                },
+                {
+                    "name": "categories",
+                    "label": {
+                        "es": "Categorías del Nodo",
+                        "va": "Categories del Node"
+                    },
+                    "description": "Categorías del Nodo",
+                    "data": {
+                        "type": "Vocabulary",
+                        "format": "",
+                        "vocabularyName": "categories"
+                    }
+                },
+                {
+                    "name": "tags",
+                    "label": {
+                        "es": "Etiquetas del Nodo",
+                        "va": "Etiquetes del Node"
+                    },
+                    "description": "Etiquetas del Nodo",
+                    "data": {
+                        "type": "Vocabulary",
+                        "format": "",
+                        "vocabularyName": "tags"
+                    }
+                },
+                {
+                    "name": "dateRanges",
+                    "label": {
+                        "es": "Fechas de evento",
+                        "va": "Dates d'esdeveniment"
+                    },
+                    "description": "Fechas para indicar las diferentes fases del nodo",
+                    "data": {
+                        "type": "DateRange"
+                    }
+                },
+                {
+                    "name": "coordinates",
+                    "label": {
+                        "es": "Coordenadas",
+                        "va": "Coordenades"
+                    },
+                    "description": "Información de coordenadas",
+                    "data": {
+                        "type": "Coordinates"
+                    }
+                },
+                {
+                    "name": "telephones",
+                    "label": {
+                        "es": "Teléfonos",
+                        "va": "Telèfons"
+                    },
+                    "description": "Información de teléfonos",
+                    "data": {
+                        "type": "Custom",
+                        "multiple": true,
+                        "schema": [
+                            {
+                                "name": "value",
+                                "label": "Valor",
+                                "type": "tel"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "emails",
+                    "label": {
+                        "es": "Emails",
+                        "va": "Emails"
+                    },
+                    "description": "Información de emails",
+                    "data": {
+                        "type": "Custom",
+                        "multiple": true,
+                        "schema": [
+                            {
+                                "name": "uri",
+                                "label": "Valor"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "address",
+                    "label": {
+                        "es": "Dirección",
+                        "va": "Direcció"
+                    },
+                    "description": "Información de la dirección",
+                    "data": {
+                        "type": "Custom",
+                        "multiple": false,
+                        "schema": [
+                            {
+                                "name": "street",
+                                "label": {
+                                    "es": "Calle",
+                                    "va": "Carrer"
+                                },
+                                "required": true
+                            },
+                            {
+                                "name": "city",
+                                "label": {
+                                    "es": "Población",
+                                    "va": "Població"
+                                },
+                                "required": true
+                            },
+                            {
+                                "name": "zipCode",
+                                "label": {
+                                    "es": "Código Postal",
+                                    "va": "Codi Postal"
+                                }
+                            },
+                            {
+                                "name": "country",
+                                "label": {
+                                    "es": "País",
+                                    "va": "País"
+                                }
+                            },
+                            {
+                                "name": "province",
+                                "label": {
+                                    "es": "Provincia",
+                                    "va": "Província"
+                                }
+                            },
+                            {
+                                "name": "aditional",
+                                "label": {
+                                    "es": "Adicional",
+                                    "va": "Addicional"
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "tablesGroup",
+                    "label": {
+                        "es": "Grupo de tablas",
+                        "va": "Grup de taules"
+                    },
+                    "description": "Grupo de tablas",
+                    "data": {
+                        "type": "Group",
+                        "childType": "Table",
+                        "childName": "tables"
+                    }
+                },
+                {
+                    "name": "tables",
+                    "label": {
+                        "es": "Tablas",
+                        "va": "Taules"
+                    },
+                    "description": "Conjunto de tablas",
+                    "data": {
+                        "type": "Table",
+                        "multiple": true
+                    }
+                }
+            ]
+        }
+    ]
+}
