@@ -103,8 +103,9 @@ const glass = {
 };
 
 // Perfil del entrenamiento (estilo TrainerRoad/Zwift) + qué toca ahora y después.
-export function createWorkoutStrip({ workout, ftp, totalDuration }) {
-    const blocks = expandBlocks(workout.blocks || []);
+export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expandedBlocks = null }) {
+    // `blocks` ya expandidos (p. ej. tras alargar un bloque); si no, se expanden los del workout.
+    const blocks = expandedBlocks || expandBlocks(workout.blocks || []);
     const strip = div({
         styles: { position: 'relative', display: 'flex', alignItems: 'flex-end', gap: '1px', height: '38px', width: '100%' },
     });
@@ -346,4 +347,217 @@ export function createLapTable(laps) {
             })),
         ],
     });
+}
+
+/**
+ * Minimapa del circuito: contorno de la ruta visto desde arriba con un punto por ciclista (tú, rivales y fantasma).
+ * El contorno se escala para caber en el lienzo; los puntos se recolocan en cada update(mapState).
+ */
+export function createMiniMap({ size = 132 } = {}) {
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const canvas = createElement('canvas', {
+        attrs: { width: String(size * ratio), height: String(size * ratio), 'aria-hidden': 'true' },
+        styles: { width: `${size}px`, height: `${size}px`, display: 'block' },
+    });
+    const element = div({
+        attrs: { title: 'Mapa del circuito' },
+        styles: {
+            position: 'absolute',
+            right: '18px',
+            top: '124px',
+            padding: '8px',
+            borderRadius: '18px',
+            background: 'rgba(5,12,16,.62)',
+            border: '1px solid rgba(255,255,255,.1)',
+            backdropFilter: 'blur(6px)',
+            transition: 'opacity .25s ease',
+        },
+        children: [canvas],
+    });
+    const ctx = canvas.getContext('2d');
+    let frame = null;
+    let enabled = true;
+    const hex = (color) => `#${color.toString(16).padStart(6, '0')}`;
+
+    // Escala y centro para que el contorno quepa con margen (se calcula una vez por contorno).
+    function fit(outline) {
+        const xs = outline.map((p) => p.x);
+        const zs = outline.map((p) => p.z);
+        const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+        const scale = (size * ratio * 0.84) / Math.max(maxX - minX, maxZ - minZ, 1);
+        const cx = (minX + maxX) / 2;
+        const cz = (minZ + maxZ) / 2;
+        // Vista desde arriba con +z hacia arriba de la pantalla.
+        return { outline, at: ({ x, z }) => [size * ratio / 2 + (x - cx) * scale, size * ratio / 2 - (z - cz) * scale] };
+    }
+
+    function pointAt(t) {
+        const { outline } = frame;
+        const position = (((t % 1) + 1) % 1) * outline.length;
+        const index = Math.floor(position);
+        const next = outline[(index + 1) % outline.length];
+        const current = outline[index % outline.length];
+        const u = position - index;
+        return frame.at({ x: current.x + (next.x - current.x) * u, z: current.z + (next.z - current.z) * u });
+    }
+
+    function dot([x, y], radius, fill, stroke) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius * ratio, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) {
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = stroke;
+            ctx.stroke();
+        }
+    }
+
+    return {
+        element,
+        update(mapState) {
+            if (!enabled || !mapState?.outline?.length) return;
+            if (!frame || frame.outline !== mapState.outline) frame = fit(mapState.outline);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            mapState.outline.forEach((point, index) => {
+                const [x, y] = frame.at(point);
+                if (index === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.closePath();
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = 6 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.14)';
+            ctx.stroke();
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.5)';
+            ctx.stroke();
+            // Salida/meta del circuito.
+            const [sx, sy] = pointAt(0);
+            ctx.fillStyle = '#ffd379';
+            ctx.fillRect(sx - 4 * ratio, sy - 1.5 * ratio, 8 * ratio, 3 * ratio);
+            mapState.rivals.forEach(({ t, color }) => dot(pointAt(t), 3.2, hex(color)));
+            if (mapState.ghost !== null && mapState.ghost !== undefined) dot(pointAt(mapState.ghost), 3.2, 'rgba(142,217,255,.75)');
+            dot(pointAt(mapState.player), 5, colors.primary, '#ffffff');
+        },
+        /** Visible salvo con el HUD oculto. */
+        setMode(mode) {
+            enabled = mode !== 'hidden';
+            element.style.opacity = enabled ? '1' : '0';
+        },
+    };
+}
+
+/**
+ * Perfil del circuito (como el de Zwift): silueta de la vuelta con el puerto resaltado, tu posición, la pendiente
+ * actual (coloreada por dureza), la velocidad y lo que falta hasta la cima.
+ */
+export function createClimbProfile({ width = 260, height = 58 } = {}) {
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const canvas = createElement('canvas', {
+        attrs: { width: String(width * ratio), height: String(height * ratio), 'aria-hidden': 'true' },
+        styles: { width: `${width}px`, height: `${height}px`, display: 'block' },
+    });
+    const grade = createElement('strong', {
+        text: '0,0 %',
+        styles: { fontFamily: typography.fontDisplay, fontSize: '22px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
+    });
+    const speed = createElement('span', { text: '0 km/h', styles: { color: 'rgba(255,255,255,.75)', fontSize: '13px', fontWeight: 800, fontVariantNumeric: 'tabular-nums' } });
+    const summit = createElement('span', { text: '', styles: { color: '#ffd379', fontSize: '11px', fontWeight: 800, letterSpacing: '.4px' } });
+    const element = div({
+        attrs: { title: 'Perfil del circuito' },
+        styles: {
+            position: 'absolute',
+            left: '18px',
+            bottom: '18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+            padding: '9px 11px',
+            borderRadius: '16px',
+            background: 'rgba(5,12,16,.66)',
+            border: '1px solid rgba(255,255,255,.1)',
+            backdropFilter: 'blur(6px)',
+            transition: 'opacity .25s ease',
+        },
+        children: [
+            div({ styles: { display: 'flex', alignItems: 'baseline', gap: '10px' }, children: [grade, speed, summit] }),
+            canvas,
+        ],
+    });
+    const ctx = canvas.getContext('2d');
+    let enabled = true;
+    let lastText = '';
+
+    // Color por dureza: verde en llano, amarillo, naranja y rojo en rampas; azul en bajada.
+    const gradeColor = (value) => {
+        if (value <= -2) return '#5cc8ff';
+        if (value < 3) return '#63e0b5';
+        if (value < 6) return '#ffd379';
+        if (value < 9) return '#ff9a4d';
+        return '#ff5a6e';
+    };
+
+    return {
+        element,
+        update(profile) {
+            if (!enabled || !profile?.samples) return;
+            const { samples, position } = profile;
+            const min = Math.min(...samples);
+            const max = Math.max(...samples);
+            const w = canvas.width;
+            const h = canvas.height;
+            const pad = 4 * ratio;
+            const x = (index) => (index / (samples.length - 1)) * w;
+            const y = (value) => h - pad - ((value - min) / Math.max(max - min, 1)) * (h - pad * 2);
+            ctx.clearRect(0, 0, w, h);
+            // Silueta rellena, con cada tramo coloreado según su pendiente.
+            for (let index = 0; index < samples.length - 1; index += 1) {
+                const rise = ((samples[index + 1] - samples[index]) / (profile.length / (samples.length - 1))) * 100;
+                ctx.beginPath();
+                ctx.moveTo(x(index), h);
+                ctx.lineTo(x(index), y(samples[index]));
+                ctx.lineTo(x(index + 1), y(samples[index + 1]));
+                ctx.lineTo(x(index + 1), h);
+                ctx.closePath();
+                ctx.fillStyle = `${gradeColor(rise)}55`;
+                ctx.fill();
+            }
+            ctx.beginPath();
+            samples.forEach((value, index) => (index ? ctx.lineTo(x(index), y(value)) : ctx.moveTo(x(index), y(value))));
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.7)';
+            ctx.stroke();
+            // Tu posición en la vuelta.
+            const px = position * w;
+            const sample = samples[Math.min(samples.length - 1, Math.round(position * (samples.length - 1)))];
+            ctx.beginPath();
+            ctx.moveTo(px, 0);
+            ctx.lineTo(px, h);
+            ctx.lineWidth = 1.5 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.35)';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(px, y(sample), 4.5 * ratio, 0, Math.PI * 2);
+            ctx.fillStyle = colors.primary;
+            ctx.fill();
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+
+            const text = `${profile.grade.toFixed(1)}|${Math.round(profile.speed * 3.6)}|${profile.toSummit === null ? '' : Math.round(profile.toSummit / 10)}`;
+            if (text === lastText) return;
+            lastText = text;
+            grade.textContent = `${profile.grade.toFixed(1).replace('.', ',')} %`;
+            grade.style.color = gradeColor(profile.grade);
+            speed.textContent = `${Math.round(profile.speed * 3.6)} km/h`;
+            summit.textContent = profile.toSummit === null ? '' : `CIMA ${Math.round(profile.toSummit / 10) * 10} m`;
+        },
+        /** Visible salvo con el HUD oculto. */
+        setMode(mode) {
+            enabled = mode !== 'hidden';
+            element.style.opacity = enabled ? '1' : '0';
+        },
+    };
 }

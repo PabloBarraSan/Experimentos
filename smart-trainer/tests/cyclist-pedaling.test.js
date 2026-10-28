@@ -4,7 +4,7 @@ import { animateCyclist, BIKE } from '../src/expedition/Cyclist.js';
 
 function fakeLeg() {
   const part = () => new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-  return { short: part(), thigh: part(), calf: part(), sock: part(), knee: part(), shoe: part(), stripe: part(), pedal: part() };
+  return { short: part(), cuff: part(), thigh: part(), calf: part(), sock: part(), knee: part(), shoe: part(), stripe: part(), pedal: part() };
 }
 
 function fakeCyclist() {
@@ -13,6 +13,8 @@ function fakeCyclist() {
     group: new THREE.Group(),
     rearWheel: new THREE.Group(),
     frontWheel: new THREE.Group(),
+    hips: new THREE.Group(),
+    torso: new THREE.Group(),
     leftLeg: fakeLeg(),
     rightLeg: fakeLeg(),
     leftCrank: part(),

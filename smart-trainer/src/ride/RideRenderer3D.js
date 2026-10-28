@@ -5,8 +5,9 @@
  */
 
 import * as THREE from 'three';
-import { createCyclist, animateCyclist, disposeCyclist, getCyclistStyle, BIKE, BIKE_PAINTS, DEFAULT_RIDER_POSITION } from '../expedition/Cyclist.js';
+import { createCyclist, animateCyclist, updateRiderStance, disposeCyclist, getCyclistStyle, BIKE, BIKE_PAINTS, DEFAULT_RIDER_POSITION } from '../expedition/Cyclist.js';
 import { preloadRiderAvatar, isRiderAvatarReady } from '../expedition/AvatarRider.js';
+import { preloadBikeModel, isBikeModelReady } from '../expedition/BikeModel.js';
 import { createProfileRibbon, createAsphaltTextures, createGravelTexture } from '../expedition/scene/road.js';
 import { createSky } from '../expedition/scene/sky.js';
 import { RideTerrain } from './scenery/RideTerrain.js';
@@ -258,10 +259,23 @@ export class RideRenderer3D {
                 if (ready && this.scene && getCyclistStyle().avatar) this.upgradeRidersToAvatar();
             });
         }
+        // La bici modelada (bike.glb) también se sustituye de golpe cuando llega.
+        if (!isBikeModelReady()) {
+            preloadBikeModel().then((ready) => {
+                if (ready && this.scene) this.upgradeRidersToAvatar();
+            });
+        }
 
         this.applyWorldConfig(DEFAULT_WORLD);
 
         window.addEventListener('resize', this._boundOnResize);
+    }
+
+    // Un ciclista se reconstruye si ya hay avatar o bici modelada disponibles y aún no los lleva.
+    needsUpgrade(rider) {
+        const avatarMissing = isRiderAvatarReady() && getCyclistStyle().avatar && !rider.avatar;
+        const bikeMissing = isBikeModelReady() && !rider.hasBikeModel;
+        return avatarMissing || bikeMissing;
     }
 
     /**
@@ -281,10 +295,10 @@ export class RideRenderer3D {
             disposeCyclist(old);
             return next;
         };
-        if (this.player && !this.player.avatar) {
+        if (this.player && this.needsUpgrade(this.player)) {
             this.player = rebuild(this.player, () => createCyclist({ accent: PLAYER_JERSEY, ghost: false, ...this.riderOptions }));
         }
-        if (this.ghostRider && !this.ghostRider.avatar) {
+        if (this.ghostRider && this.needsUpgrade(this.ghostRider)) {
             this.ghostRider = rebuild(this.ghostRider, () => createCyclist({ accent: GHOST_JERSEY, ghost: true, position: this.riderOptions.position }));
         }
     }
@@ -724,6 +738,12 @@ export class RideRenderer3D {
             // Cadencia del rodillo (si no hay sensor pero hay potencia, pedaleo estimado) y velocidad calculada
             const bikeData = state.bikeData || {};
             const cadence = bikeData.cadence > 0 ? bikeData.cadence : (bikeData.power > 0 ? 70 : 0);
+            updateRiderStance(this.player, {
+                grade: currentGrade,
+                cadence: bikeData.cadence || 0,
+                power: bikeData.power || 0,
+                dt: this.frameDelta,
+            });
             this.pedalRider(this.player, cadence, state.position?.speed || 0);
         }
 

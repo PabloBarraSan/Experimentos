@@ -45,6 +45,12 @@ const DEFAULT_SETTINGS = {
         bikeColor: 'blue',
     },
     
+    // Sonido ambiente (ride y expedición): activado y volumen general 0..1
+    sound: {
+        enabled: true,
+        volume: 0.7,
+    },
+    
     // HUD del ride: modo 'essential' | 'full' (null = automático según el tamaño de pantalla)
     rideHud: {
         mode: null,
@@ -128,6 +134,26 @@ export function getRideHudPrefs() {
  */
 export function saveRideHudPrefs(prefs) {
     return updateSettings({ rideHud: prefs }).rideHud;
+}
+
+/**
+ * Preferencias de sonido ambiente ({ enabled, volume }), validadas
+ */
+export function getSoundPrefs() {
+    const saved = loadSettings().sound || {};
+    const volume = Number(saved.volume);
+    return {
+        enabled: saved.enabled !== false,
+        volume: Number.isFinite(volume) ? Math.min(1, Math.max(0, volume)) : 0.7,
+    };
+}
+
+/**
+ * Guardar parcialmente las preferencias de sonido ambiente
+ */
+export function saveSoundPrefs(prefs) {
+    updateSettings({ sound: prefs });
+    return getSoundPrefs();
 }
 
 /**

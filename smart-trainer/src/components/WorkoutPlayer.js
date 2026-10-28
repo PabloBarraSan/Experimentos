@@ -164,6 +164,41 @@ export function createWorkoutPlayer(options = {}) {
     }
     
     /**
+     * Terminar el bloque actual y pasar al siguiente (o completar si era el último).
+     * Solo actúa con el reproductor en marcha. Devuelve true si se aplicó.
+     */
+    function skipCurrentBlock() {
+        if (state !== PLAYER_STATE.PLAYING) return false;
+        const block = getCurrentBlock();
+        if (!block) return false;
+        if (currentBlockIndex >= expandedBlocks.length - 1) {
+            // El último bloque se da por cumplido: el siguiente tick completa el entrenamiento.
+            blockElapsedTime = block.duration;
+            return true;
+        }
+        skipToBlock(currentBlockIndex + 1);
+        return true;
+    }
+
+    /**
+     * Alargar el bloque actual. Devuelve true si se aplicó.
+     */
+    function extendCurrentBlock(seconds = 60) {
+        const block = getCurrentBlock();
+        const extra = Math.round(Number(seconds));
+        if (!block || !Number.isFinite(extra) || extra <= 0) return false;
+        expandedBlocks[currentBlockIndex] = { ...block, duration: block.duration + extra };
+        return true;
+    }
+
+    /**
+     * Copia de los bloques expandidos con su duración actual.
+     */
+    function getBlocks() {
+        return expandedBlocks.map((block) => ({ ...block }));
+    }
+
+    /**
      * Saltar al siguiente bloque
      */
     function nextBlock() {
@@ -262,6 +297,9 @@ export function createWorkoutPlayer(options = {}) {
         seekToTime,
         nextBlock,
         previousBlock,
+        skipCurrentBlock,
+        extendCurrentBlock,
+        getBlocks,
         getState,
         getCurrentTarget,
         getCurrentBlock,

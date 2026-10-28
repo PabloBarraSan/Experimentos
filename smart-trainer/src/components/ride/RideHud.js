@@ -8,7 +8,7 @@
 
 import '../../views/ride-hud.css';
 import { colors, typography } from '../../utils/theme.js';
-import { calculatePowerZones, getRideHudPrefs, saveRideHudPrefs } from '../../storage/settings.js';
+import { calculatePowerZones, getRideHudPrefs, saveRideHudPrefs, getSoundPrefs, saveSoundPrefs } from '../../storage/settings.js';
 import { createLiveMetrics } from '../../ride/liveMetrics.js';
 import { calculateVAM } from '../../ride/RidePhysics.js';
 import { RIDE_STATUS } from '../../ride/RideState.js';
@@ -144,9 +144,10 @@ const ARROW_SVG = '<svg viewBox="0 0 24 24" width="100%" height="100%" fill="non
  *
  * @param {Object} options
  * @param {Function} [options.onModeChange] - Se llama con 'essential' | 'full' al alternar
+ * @param {Function} [options.onSoundChange] - Se llama con true/false al alternar el sonido
  * @returns {{ element, start, update, setVisible, destroy }}
  */
-export function createRideHud({ onModeChange } = {}) {
+export function createRideHud({ onModeChange, onSoundChange } = {}) {
     // ---- Estado interno ----
     let zones = [];
     let ftp = 200;
@@ -179,7 +180,27 @@ export function createRideHud({ onModeChange } = {}) {
     modeBtn.type = 'button';
     const setModeLabel = textSetter(modeBtn);
     modeBtn.addEventListener('click', () => applyMode(mode === MODES.full ? MODES.essential : MODES.full, true));
-    top.appendChild(modeBtn);
+
+    // Botón de sonido (misma clase que el de modo); el estado persiste en settings
+    const soundBtn = el('button', 'ride-hud__mode');
+    soundBtn.type = 'button';
+    let soundEnabled = getSoundPrefs().enabled;
+    const renderSound = () => {
+        soundBtn.textContent = soundEnabled ? 'Sonido: sí' : 'Sonido: no';
+        soundBtn.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
+    };
+    soundBtn.addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        saveSoundPrefs({ enabled: soundEnabled });
+        renderSound();
+        if (onSoundChange) onSoundChange(soundEnabled);
+    });
+    renderSound();
+
+    const modeGroup = el('div', 'ride-hud__mode-group');
+    modeGroup.style.cssText = 'display:flex;flex-direction:column;gap:4px;justify-self:start;align-items:flex-start';
+    modeGroup.append(modeBtn, soundBtn);
+    top.appendChild(modeGroup);
 
     const trip = el('div', 'ride-hud__trip');
     const tripRow = el('div', 'ride-hud__trip-row');

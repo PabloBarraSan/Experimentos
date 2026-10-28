@@ -8,7 +8,10 @@ import { clearActiveSession } from '../storage/sessions.js';
 import { getCoachingState, getHeartRateZone } from '../game/CoachingEngine.js';
 import { AudioCueService } from '../game/AudioCueService.js';
 import { getPersonalGhost, interpolateGhost } from '../game/GhostService.js';
-import { LapTracker, createLapTable, createLapToast, createRacePanel, createWorkoutStrip } from './expeditionHud.js';
+import { createWorkoutControls } from './workoutControls.js';
+import { LapTracker, createClimbProfile, createLapTable, createLapToast, createMiniMap, createRacePanel, createWorkoutStrip } from './expeditionHud.js';
+import { createAmbientAudio } from '../ride/AmbientAudio.js';
+import { getSoundPrefs, saveSoundPrefs } from '../storage/settings.js';
 import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
 import { loadVisualSettings, saveVisualSettings } from '../expedition/visualSettings.js';
 import { summarizeIntensity } from '../session/intensitySummary.js';
@@ -33,7 +36,8 @@ export function ExpeditionView({
         objective: 'Completa el entrenamiento', checkpoints: [], decisions: [],
     };
     const visualSettings = loadVisualSettings();
-    const totalDuration = Math.max(1, workout?.stats?.totalDuration || 1);
+    // Cambia si se salta o alarga un bloque (onPlanChange del controller).
+    let totalDuration = Math.max(1, workout?.stats?.totalDuration || 1);
     const recoveredElapsed = Number(recoveredSession?.elapsedTime || recoveredSession?.duration) || 0;
     const canResume = recoveredSession?.workoutId === workout?.id
         && recoveredElapsed > 1
@@ -253,14 +257,15 @@ export function ExpeditionView({
         styles: { position: 'absolute', top: 0, bottom: 0, left: '50%', width: '0%', background: 'rgba(99,224,181,.45)' },
     });
     flowBar.append(targetBand, flowFill, targetMarker);
+    // Panel inferior fino (consejo y barra de potencia): las cifras van arriba y el centro queda libre para la carretera.
     const metrics = div({
         attrs: { 'data-hud-mode': visualSettings.hud },
         styles: {
-            width: 'min(520px, 90vw)',
+            width: 'min(440px, 86vw)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
-            padding: '10px 14px 11px',
+            gap: '6px',
+            padding: '8px 14px 9px',
             borderRadius: '16px',
             background: 'linear-gradient(145deg, rgba(6,13,17,.84), rgba(11,25,28,.7))',
             border: '1px solid rgba(255,255,255,.11)',
@@ -269,7 +274,7 @@ export function ExpeditionView({
     });
     const actualPower = createElement('strong', {
         text: '0',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(38px, 9vw, 52px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color .25s ease' },
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(28px, 5vw, 40px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color .25s ease' },
     });
     const targetPower = createElement('span', {
         text: 'Objetivo -- W',
@@ -277,56 +282,73 @@ export function ExpeditionView({
     });
     const actualHeartRate = createElement('strong', {
         text: '--',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, 7vw, 40px)', lineHeight: 1, color: '#ff7893', fontVariantNumeric: 'tabular-nums' },
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(22px, 4vw, 30px)', lineHeight: 1, color: '#ff7893', fontVariantNumeric: 'tabular-nums' },
     });
     const actualCadence = createElement('strong', {
         text: '0',
-        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(30px, 7vw, 40px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
+        styles: { fontFamily: typography.fontDisplay, fontSize: 'clamp(22px, 4vw, 30px)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' },
     });
     const targetCadence = createElement('span', { text: '', styles: { color: 'rgba(255,255,255,.62)', fontSize: '12px', fontWeight: 750 } });
     const combo = createElement('span', { text: 'FLOW 0%', styles: { color: colors.primary, fontSize: '11px', fontWeight: 800 } });
     const coach = createElement('strong', {
         text: 'Adapta el ritmo',
         attrs: { role: 'status', 'aria-live': 'polite' },
-        styles: { fontSize: '16px', color: '#8ed9ff', letterSpacing: '.2px', textAlign: 'center' },
+        styles: { fontSize: '14px', color: '#8ed9ff', letterSpacing: '.2px', textAlign: 'center' },
     });
     const heartZone = createElement('span', { text: 'Sin pulso', styles: { color: 'rgba(255,255,255,.58)', fontSize: '12px', fontWeight: 750 } });
     const ghostDelta = createElement('span', { text: '', styles: { color: '#8ed9ff', fontSize: '12px', fontWeight: 800 } });
     const tile = (label, valueEl, subEl, flex) => div({
-        styles: { flex, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' },
+        styles: { flex, minWidth: '72px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', textAlign: 'center' },
         children: [
             createElement('span', { text: label, styles: { color: 'rgba(255,255,255,.45)', fontSize: '10px', fontWeight: 800, letterSpacing: '1.1px' } }),
             valueEl,
             subEl,
         ],
     });
+    // Barra superior (como en Zwift): potencia, tiempo restante, pulso y cadencia de un vistazo.
+    Object.assign(timer.style, { background: 'transparent', border: 'none', alignSelf: 'center' });
     const metricValues = div({
-        styles: { display: 'flex', gap: '18px', alignItems: 'flex-start' },
+        styles: {
+            display: 'flex',
+            gap: '18px',
+            alignItems: 'center',
+            padding: '8px 16px',
+            borderRadius: '18px',
+            background: 'linear-gradient(145deg, rgba(6,13,17,.84), rgba(11,25,28,.7))',
+            border: '1px solid rgba(255,255,255,.11)',
+            boxShadow: '0 10px 30px rgba(0,0,0,.28)',
+        },
         children: [
-            tile('POTENCIA · W', actualPower, targetPower, '1.5 1 0'),
-            tile('FC · LPM', actualHeartRate, heartZone, '1 1 0'),
-            tile('CADENCIA · RPM', actualCadence, targetCadence, '1 1 0'),
+            tile('POTENCIA · W', actualPower, targetPower, '0 0 auto'),
+            timer,
+            tile('FC · LPM', actualHeartRate, heartZone, '0 0 auto'),
+            tile('CADENCIA · RPM', actualCadence, targetCadence, '0 0 auto'),
         ],
     });
+    clockStack.prepend(metricValues);
     const contextValues = div({
         styles: { display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap', color: 'rgba(255,255,255,.5)' },
         children: [combo, ghostDelta],
     });
-    metrics.append(coach, flowBar, metricValues, contextValues);
+    metrics.append(coach, flowBar, contextValues);
     bottom.append(metrics);
     hud.appendChild(bottom);
 
     // Perfil del entrenamiento, vueltas/series y clasificación del pelotón.
-    const workoutStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration });
+    let workoutStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration });
     const lapTracker = new LapTracker();
     const lapToast = createLapToast();
     const racePanel = createRacePanel();
     racePanel.setEnabled(visualSettings.rivals !== false);
+    const miniMap = createMiniMap();
+    const climbProfile = createClimbProfile();
     bottom.prepend(workoutStrip.element);
-    hud.append(lapToast.element, racePanel.element);
+    hud.append(lapToast.element, racePanel.element, miniMap.element, climbProfile.element);
     routeProgress.style.display = 'none'; // el perfil del entrenamiento ya muestra el avance
     const applyHudExtras = () => {
         racePanel.setMode(visualSettings.hud);
+        miniMap.setMode(visualSettings.hud);
+        climbProfile.setMode(visualSettings.hud);
         workoutStrip.element.style.opacity = visualSettings.hud === 'hidden' ? '0' : '1';
     };
     applyHudExtras();
@@ -365,6 +387,16 @@ export function ExpeditionView({
         attrs: { 'aria-label': 'Cambiar información visible' },
         styles: toolbarButtonStyles(),
     });
+    // Sonido ambiente (viento, rodadura, rueda libre, público); la preferencia se comparte con el modo ruta.
+    const ambient = createAmbientAudio();
+    const soundPrefs = getSoundPrefs();
+    ambient.setVolume(soundPrefs.volume);
+    ambient.setEnabled(soundPrefs.enabled);
+    const soundButton = button({
+        text: `SONIDO · ${soundPrefs.enabled ? 'Sí' : 'No'}`,
+        attrs: { 'aria-label': 'Activar o silenciar el sonido ambiente' },
+        styles: toolbarButtonStyles(),
+    });
     const visualControls = div({
         styles: {
             position: 'absolute',
@@ -380,9 +412,33 @@ export function ExpeditionView({
             background: 'rgba(5,12,16,.8)',
             border: '1px solid rgba(255,255,255,.1)',
         },
-        children: [cameraButton, hudButton],
+        children: [cameraButton, hudButton, soundButton],
     });
-    controls.append(pauseButton, finishButton);
+    // Controles del entrenamiento (intensidad, saltar/alargar bloque, ERG), encima de pausa y finalizar.
+    const workoutControls = createWorkoutControls({
+        onIntensityChange: (percent) => {
+            const applied = controller?.setIntensity(percent) ?? percent;
+            workoutControls.setIntensity(applied);
+            showStagePrompt(`Intensidad ${applied} %`);
+        },
+        onSkip: () => {
+            if (controller?.skipBlock()) showStagePrompt('Bloque saltado');
+        },
+        onExtend: (seconds) => {
+            if (controller?.extendBlock(seconds)) showStagePrompt(`Bloque alargado ${Math.round(seconds / 60)} min`);
+        },
+        onErgToggle: (enabled) => {
+            const applied = controller?.setErgEnabled(enabled) ?? enabled;
+            workoutControls.setErgEnabled(applied);
+            showStagePrompt(applied ? 'ERG activado · el rodillo marca la potencia' : 'ERG desactivado · cambia libremente');
+        },
+    });
+    workoutControls.setDisabled(true);
+    Object.assign(controls.style, { flexDirection: 'column', alignItems: 'flex-end' });
+    controls.append(workoutControls.element, div({
+        styles: { display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' },
+        children: [pauseButton, finishButton],
+    }));
 
     const pauseTitle = createElement('strong', {
         text: 'PAUSA',
@@ -603,6 +659,7 @@ export function ExpeditionView({
     let connectionPausePromise = null;
     let demoInterval;
     let currentTarget = null;
+    let lastBlock = null;
     let lastFlow = 0;
     let hiddenAt = null;
     let promptTimeout = null;
@@ -627,28 +684,70 @@ export function ExpeditionView({
     const rendererReady = initializeRenderer();
     const applyResponsiveLayout = () => {
         const compact = window.innerWidth < 600;
+        // Si la barra superior de cifras llega hasta los botones (pantallas no muy anchas), estos y el minimapa bajan una fila.
+        visualControls.style.top = '72px';
+        const crowded = metricValues.getBoundingClientRect().right + 12 > visualControls.getBoundingClientRect().left;
         blockLabel.style.maxWidth = compact ? '126px' : '';
         blockLabel.style.fontSize = compact ? '10px' : typography.sizes.xs;
-        timer.style.fontSize = compact ? '20px' : '24px';
-        timer.style.padding = compact ? '9px 13px' : '10px 18px';
+        timer.style.fontSize = compact ? '18px' : '24px';
+        timer.style.padding = compact ? '0 2px' : '0 6px';
         modeLabel.style.maxWidth = compact ? '76px' : '';
         modeLabel.style.textAlign = compact ? 'center' : '';
         routeProgress.style.width = compact ? '42vw' : 'min(320px, 42vw)';
-        visualControls.style.top = compact ? '64px' : '72px';
+        visualControls.style.top = crowded ? '112px' : '72px';
         visualControls.style.right = compact ? '12px' : '18px';
         visualControls.style.justifyContent = 'flex-end';
-        stagePrompt.style.top = compact ? '142px' : '102px';
+        stagePrompt.style.top = compact ? '142px' : '112px';
         racePanel.setCompact(compact);
         lapToast.setCompact(compact);
         stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
         controls.style.right = compact ? '12px' : '18px';
-        controls.style.bottom = compact ? `${bottom.offsetHeight + 26}px` : '18px';
-        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(520px, 90vw)';
-        metricValues.style.gap = compact ? '11px' : '18px';
+        // Los controles (pausa y entrenamiento) suben por encima del panel inferior si se pisan con él.
+        controls.style.bottom = '18px';
+        const controlsRect = controls.getBoundingClientRect();
+        const panels = [workoutStrip.element, metrics].map((element) => element.getBoundingClientRect());
+        const overlaps = panels.some((rect) => rect.width > 0 && controlsRect.left < rect.right && controlsRect.top < rect.bottom);
+        controls.style.bottom = compact || overlaps ? `${bottom.offsetHeight + 26}px` : '18px';
+        metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(440px, 86vw)';
+        metricValues.style.gap = compact ? '10px' : '18px';
+        metricValues.style.padding = compact ? '6px 10px' : '8px 16px';
+        miniMap.element.style.top = crowded ? '160px' : '124px';
+        miniMap.element.style.right = compact ? '12px' : '18px';
+        // En móvil el perfil comparte esquina con los botones de pausa: se oculta.
+        climbProfile.element.style.display = compact ? 'none' : 'flex';
         decisionButtons.style.gridTemplateColumns = compact ? '1fr' : 'repeat(3, 1fr)';
     };
     applyResponsiveLayout();
     window.addEventListener('resize', applyResponsiveLayout);
+
+    // Minimapa (~10 veces por segundo) y sonido ambiente (cada frame) siguen al renderer, no al tick del entrenamiento.
+    let lastCadence = 0;
+    let ambienceFrame = 0;
+    let lastMapDraw = 0;
+    const startAmbient = () => ambient.start();
+    // El navegador solo deja sonar audio tras un gesto: se intenta al entrar (venimos de un clic) y en el primer toque.
+    startAmbient();
+    container.addEventListener('pointerdown', startAmbient);
+    const ambienceLoop = (now) => {
+        const mapState = renderer?.getMapState?.();
+        if (mapState && now - lastMapDraw > 100) {
+            lastMapDraw = now;
+            miniMap.update(mapState);
+            climbProfile.update(renderer?.getProfileState?.());
+        }
+        const running = controller?.state !== SESSION_STATE.PAUSED;
+        // Público junto a la salida/meta del circuito y en el último minuto de la sesión.
+        const toLine = mapState ? Math.min(mapState.player, 1 - mapState.player) : 1;
+        const remaining = latestTick ? totalDuration - latestTick.totalElapsedTime : totalDuration;
+        const crowd = Math.max(toLine < 0.04 ? 1 - toLine / 0.04 : 0, remaining < 60 ? 0.6 : 0);
+        ambient.update({
+            speed: running ? renderer?.getPlayerSpeed?.() || 0 : 0,
+            cadence: running ? lastCadence : 0,
+            crowd: running ? crowd : 0,
+        });
+        ambienceFrame = requestAnimationFrame(ambienceLoop);
+    };
+    ambienceFrame = requestAnimationFrame(ambienceLoop);
     // El alto del panel inferior cambia con el contenido: los botones deben flotar siempre por encima.
     const bottomObserver = typeof window.ResizeObserver === 'function' ? new window.ResizeObserver(applyResponsiveLayout) : null;
     bottomObserver?.observe(bottom);
@@ -661,6 +760,7 @@ export function ExpeditionView({
                 quality: visualSettings.quality,
                 reducedMotion: visualSettings.reducedMotion,
                 mission,
+                riderWeight: Number(state.settings.weight) || 70,
                 onQualityAdapt: () => showStagePrompt('Calidad gráfica ajustada para mantener la fluidez'),
             });
         } catch (error) {
@@ -722,6 +822,7 @@ export function ExpeditionView({
                     documentVisibility: document.visibilityState,
                 });
                 renderer?.update({ paused: sessionState !== SESSION_STATE.RUNNING });
+                workoutControls.setDisabled(sessionState !== SESSION_STATE.RUNNING && sessionState !== SESSION_STATE.PAUSED);
                 if (sessionState === SESSION_STATE.COMPLETED) {
                     showResult(session).catch((error) => {
                         logActiveSessionError('view.show_result.error', error);
@@ -736,7 +837,18 @@ export function ExpeditionView({
                 modeLabel.textContent = isDemo ? 'MODO DEMO' : result.mode.toUpperCase();
                 if (result.error) showStagePrompt(result.error);
             },
+            onPlanChange: ({ totalDuration: nextTotal, blocks }) => {
+                // Bloque saltado o alargado: nuevo total, y la barra del entrenamiento se redibuja con la duración real.
+                totalDuration = Math.max(1, nextTotal);
+                const nextStrip = createWorkoutStrip({ workout, ftp: state.settings.ftp, totalDuration, blocks });
+                workoutStrip.element.replaceWith(nextStrip.element);
+                workoutStrip = nextStrip;
+                if (lastBlock) workoutStrip.setBlock(lastBlock, lastBlock.index ?? 0);
+                if (latestTick) workoutStrip.setProgress(latestTick.totalElapsedTime);
+                applyHudExtras();
+            },
             onBlockChange: (block) => {
+                lastBlock = block;
                 controller?.debug?.log('view.block.change', { block });
                 blockLabel.textContent = String(block.name || 'TRAMO').toUpperCase();
                 showStagePrompt(block.instructions || getStagePrompt(block.type));
@@ -757,6 +869,7 @@ export function ExpeditionView({
             },
             onTick: (tick) => {
                 latestTick = tick;
+                workoutControls.setSpiral(Boolean(tick.spiral));
                 timer.textContent = formatTime(Math.max(0, totalDuration - tick.totalElapsedTime));
                 workoutStrip.setBlockRemaining(tick.blockRemainingTime);
                 const progress = Math.max(0, Math.min(1, tick.totalElapsedTime / totalDuration));
@@ -801,8 +914,10 @@ export function ExpeditionView({
 
         if (isDemo) {
             demoInterval = setInterval(() => {
-                const target = currentTarget?.power || state.settings.ftp * 0.65;
-                const wave = Math.sin(Date.now() / 2600) * target * 0.07;
+                const ergOn = controller?.getAssistState?.().ergEnabled !== false;
+                // Con ERG apagado el demo simula pedalear libre: algo más fuerte y menos constante.
+                const target = (currentTarget?.power || state.settings.ftp * 0.65) * (ergOn ? 1 : 1.12);
+                const wave = Math.sin(Date.now() / 2600) * target * (ergOn ? 0.07 : 0.16);
                 ingest({ power: Math.round(target + wave), cadence: 88, speed: 28, heartRate: 135 });
             }, 250);
         } else {
@@ -845,6 +960,7 @@ export function ExpeditionView({
         const frame = flow.telemetry;
         const power = Math.max(0, frame.display.power || 0);
         const cadence = Math.max(0, frame.display.cadence || 0);
+        lastCadence = cadence;
         const hr = frame.display.heartRate;
         actualPower.textContent = String(Math.round(power));
         actualCadence.textContent = String(Math.round(cadence));
@@ -1071,6 +1187,13 @@ export function ExpeditionView({
         saveVisualSettings(visualSettings);
     });
 
+    soundButton.addEventListener('click', () => {
+        const { enabled } = saveSoundPrefs({ enabled: !getSoundPrefs().enabled });
+        soundButton.textContent = `SONIDO · ${enabled ? 'Sí' : 'No'}`;
+        ambient.setEnabled(enabled);
+        ambient.start();
+    });
+
     hudButton.addEventListener('click', () => {
         visualSettings.hud = cycleValue(
             visualSettings.hud,
@@ -1188,6 +1311,9 @@ export function ExpeditionView({
     }
 
     container.cleanup = () => {
+        cancelAnimationFrame(ambienceFrame);
+        container.removeEventListener('pointerdown', startAmbient);
+        ambient.stop();
         cleanupRuntime();
         controller?.destroy();
         renderer?.destroy();
