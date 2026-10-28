@@ -33,3 +33,6 @@ smart-trainer/3d/referencias/*.fbx
 # Avatar anterior, de origen sin documentar: se guarda solo en local
 smart-trainer/3d/ciclista-base.blend
 smart-trainer/3d/legado/
+
+# Plantillas de email de clientes (datos de terceros): no se publican
+plantillas-email/
