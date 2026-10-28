@@ -280,10 +280,16 @@ export class RideTerrain {
     /**
      * Cambia la ruta sobre la que se construye el terreno
      * @param {Array<THREE.Vector3>} points - Puntos de la carretera (elevación absoluta)
+     * @param {{ incremental?: boolean }} [options] - incremental: la ruta nueva solo difiere por delante del ciclista
+     *   (replanificación en directo); las capas se recalculan repartidas entre frames en vez de todas de golpe
      */
-    setRoute(points) {
+    setRoute(points, { incremental = false } = {}) {
         this.route = points && points.length >= 2 ? new RouteIndex(points) : null;
-        this.dirty = true;
+        if (!incremental || !this.fine.applied || !this.coarse.applied) {
+            this.dirty = true;
+            return;
+        }
+        for (const layer of [this.fine, this.coarse]) layer.start(layer.applied);
     }
 
     /** Relieve (m) respecto a la cota de la ruta, sin atenuar por distancia */

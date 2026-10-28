@@ -350,8 +350,9 @@ export function createLapTable(laps) {
 }
 
 /**
- * Minimapa del circuito: contorno de la ruta visto desde arriba con un punto por ciclista (tú, rivales y fantasma).
- * El contorno se escala para caber en el lienzo; los puntos se recolocan en cada update(mapState).
+ * Minimapa de la ruta: contorno visto desde arriba con un punto por ciclista (tú, rivales y fantasma).
+ * El contorno se escala para caber en el lienzo; los puntos se recolocan en cada update(mapState). La ruta puede ser
+ * un circuito (`closed`) o abierta, con salida y meta.
  */
 export function createMiniMap({ size = 132 } = {}) {
     const ratio = Math.min(2, window.devicePixelRatio || 1);
@@ -360,7 +361,7 @@ export function createMiniMap({ size = 132 } = {}) {
         styles: { width: `${size}px`, height: `${size}px`, display: 'block' },
     });
     const element = div({
-        attrs: { title: 'Mapa del circuito' },
+        attrs: { title: 'Mapa de la ruta' },
         styles: {
             position: 'absolute',
             right: '18px',
@@ -391,12 +392,13 @@ export function createMiniMap({ size = 132 } = {}) {
         return { outline, at: ({ x, z }) => [size * ratio / 2 + (x - cx) * scale, size * ratio / 2 - (z - cz) * scale] };
     }
 
-    function pointAt(t) {
+    function pointAt(t, closed) {
         const { outline } = frame;
-        const position = (((t % 1) + 1) % 1) * outline.length;
-        const index = Math.floor(position);
-        const next = outline[(index + 1) % outline.length];
-        const current = outline[index % outline.length];
+        // En un circuito t da la vuelta; en una ruta abierta va de la salida (0) a la meta (1).
+        const position = closed ? (((t % 1) + 1) % 1) * outline.length : Math.min(1, Math.max(0, t)) * (outline.length - 1);
+        const index = Math.min(Math.floor(position), outline.length - 1);
+        const next = outline[closed ? (index + 1) % outline.length : Math.min(index + 1, outline.length - 1)];
+        const current = outline[index];
         const u = position - index;
         return frame.at({ x: current.x + (next.x - current.x) * u, z: current.z + (next.z - current.z) * u });
     }
@@ -418,6 +420,7 @@ export function createMiniMap({ size = 132 } = {}) {
         update(mapState) {
             if (!enabled || !mapState?.outline?.length) return;
             if (!frame || frame.outline !== mapState.outline) frame = fit(mapState.outline);
+            const closed = mapState.closed !== false;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.beginPath();
             mapState.outline.forEach((point, index) => {
@@ -425,21 +428,27 @@ export function createMiniMap({ size = 132 } = {}) {
                 if (index === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             });
-            ctx.closePath();
+            if (closed) ctx.closePath();
             ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
             ctx.lineWidth = 6 * ratio;
             ctx.strokeStyle = 'rgba(255,255,255,.14)';
             ctx.stroke();
             ctx.lineWidth = 2 * ratio;
             ctx.strokeStyle = 'rgba(255,255,255,.5)';
             ctx.stroke();
-            // Salida/meta del circuito.
-            const [sx, sy] = pointAt(0);
+            // Salida/meta (y en una ruta abierta, la meta en su extremo).
+            const [sx, sy] = pointAt(0, closed);
             ctx.fillStyle = '#ffd379';
             ctx.fillRect(sx - 4 * ratio, sy - 1.5 * ratio, 8 * ratio, 3 * ratio);
-            mapState.rivals.forEach(({ t, color }) => dot(pointAt(t), 3.2, hex(color)));
-            if (mapState.ghost !== null && mapState.ghost !== undefined) dot(pointAt(mapState.ghost), 3.2, 'rgba(142,217,255,.75)');
-            dot(pointAt(mapState.player), 5, colors.primary, '#ffffff');
+            if (!closed) {
+                const [fx, fy] = pointAt(1, closed);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(fx - 4 * ratio, fy - 1.5 * ratio, 8 * ratio, 3 * ratio);
+            }
+            mapState.rivals.forEach(({ t, color }) => dot(pointAt(t, closed), 3.2, hex(color)));
+            if (mapState.ghost !== null && mapState.ghost !== undefined) dot(pointAt(mapState.ghost, closed), 3.2, 'rgba(142,217,255,.75)');
+            dot(pointAt(mapState.player, closed), 5, colors.primary, '#ffffff');
         },
         /** Visible salvo con el HUD oculto. */
         setMode(mode) {
@@ -450,8 +459,8 @@ export function createMiniMap({ size = 132 } = {}) {
 }
 
 /**
- * Perfil del circuito (como el de Zwift): silueta de la vuelta con el puerto resaltado, tu posición, la pendiente
- * actual (coloreada por dureza), la velocidad y lo que falta hasta la cima.
+ * Perfil de la ruta (como el de Zwift): silueta coloreada por pendiente, tu posición, la pendiente actual (coloreada
+ * por dureza), la velocidad y lo que falta hasta la cima. En la expedición la ruta es el entrenamiento completo.
  */
 export function createClimbProfile({ width = 260, height = 58 } = {}) {
     const ratio = Math.min(2, window.devicePixelRatio || 1);
@@ -466,7 +475,7 @@ export function createClimbProfile({ width = 260, height = 58 } = {}) {
     const speed = createElement('span', { text: '0 km/h', styles: { color: 'rgba(255,255,255,.75)', fontSize: '13px', fontWeight: 800, fontVariantNumeric: 'tabular-nums' } });
     const summit = createElement('span', { text: '', styles: { color: '#ffd379', fontSize: '11px', fontWeight: 800, letterSpacing: '.4px' } });
     const element = div({
-        attrs: { title: 'Perfil del circuito' },
+        attrs: { title: 'Perfil de la ruta' },
         styles: {
             position: 'absolute',
             left: '18px',

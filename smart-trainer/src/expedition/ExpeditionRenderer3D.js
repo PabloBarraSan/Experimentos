@@ -1,9 +1,6 @@
 import * as THREE from 'three';
 import { seeded } from './scene/noise.js';
-import { createTerrain } from './scene/terrain.js';
 import { createSky, SUN_DIRECTION } from './scene/sky.js';
-import { createWater } from './scene/water.js';
-import { createVegetation } from './scene/vegetation.js';
 import { createProfileRibbon, createAsphaltTextures, createGravelTexture, ASPHALT_WIDTH } from './scene/road.js';
 import { createStartGate, createSummitBeacon, createFence, createCabin, createRoadPosts } from './scene/props.js';
 import { createPostProcessing } from './scene/post.js';
@@ -11,22 +8,34 @@ import { createPrecipitation } from './scene/weather.js';
 import { createCyclist, animateCyclist, updateRiderStance, RIDER_POSITIONS, DEFAULT_RIDER_POSITION } from './Cyclist.js';
 import { stepSpeed } from '../ride/RidePhysics.js';
 import { getRiderPrefs } from '../storage/settings.js';
+import { buildRouteCurve } from '../ride/RouteCurve.js';
+import { RideTerrain } from '../ride/scenery/RideTerrain.js';
+import { RideDecor } from '../ride/scenery/RideDecor.js';
+import { expandBlocks, BLOCK_TYPES } from '../workouts/model.js';
+import { planWorkoutTerrain, extendPlan, elevationAt, gradeAt, distanceAtTime, headingAt } from './workoutTerrain.js';
 
-// Puerto del circuito (fracciones de vuelta): pie, cima y final del descenso, y desnivel en metros.
-// ~260 m de subida al 4,5 % de media (rampas de ~7,5 %) y un descenso igual de largo.
-const LOOP_CLIMB = { start: 0.4, top: 0.68, end: 0.96, height: 12 };
 const BIKE_MASS = 8; // kg
 const RIVAL_MASS = 76; // kg (ciclista + bici)
 
-// Altura de la carretera en cada punto de la vuelta (0..1): llano ondulado con un puerto.
-function loopElevation(u) {
-    const ease = (x) => x * x * (3 - 2 * x);
-    const { start, top, end, height } = LOOP_CLIMB;
-    let climb = 0;
-    if (u >= start && u <= top) climb = height * ease((u - start) / (top - start));
-    else if (u > top && u <= end) climb = height * (1 - ease((u - top) / (end - top)));
-    return 4.5 + Math.sin(u * Math.PI * 6) * 1.1 + climb;
-}
+// La ruta es abierta y sale del entrenamiento (ver workoutTerrain.js): la carretera se construye por tramos de
+// ruta que entran y salen de una ventana alrededor del ciclista; terreno y decorado son los del modo ruta.
+const CHUNK_LENGTH = 250;      // m de curva por tramo de carretera
+const CHUNKS_BEHIND = 1;
+const CHUNKS_AHEAD = 3;
+const TERRAIN_BUDGET_MS = 3;   // ms por frame para recalcular el terreno que sigue al ciclista
+const DRIFT_TOLERANCE = 15;    // m de desfase con el plan a partir de los que se replanifica al cambiar de bloque
+const REPLAN_MARGIN = 12;      // m por delante del ciclista que no cambian al replanificar (la rueda delantera)
+const TAIL_MARGIN = 400;       // m antes del final de la ruta en los que se alarga con llano
+const TAIL_EXTENSION = 1500;   // m que se añaden cada vez
+// Plan por defecto si la expedición no trae entrenamiento: rodaje de 30 min.
+const DEFAULT_BLOCKS = [{ type: BLOCK_TYPES.STEADY, duration: 1800, targetType: 'power_ftp', targetValue: 65, targetValueEnd: null, repeat: 1 }];
+
+// Decorado por mundo (formato landscape del modo ruta): especies de árbol y densidad.
+const DECOR_LANDSCAPES = {
+    aurora: { objects: ['tree'], objectDensity: 0.62 },
+    mist: { objects: ['pine_tree'], objectDensity: 0.72 },
+    north: { objects: ['pine_tree'], objectDensity: 0.5 },
+};
 
 const CAMERA_PRESETS = {
     close: { distance: 5.9, height: 2.6, lookHeight: 1.15, lookAhead: 5.2, fov: 46 },
@@ -91,11 +100,20 @@ class ExpeditionRenderer3D {
         mission = null,
         onQualityAdapt = null,
         riderWeight = 70,
+        workout = null,
+        ftp = 200,
     } = {}) {
         this.canvas = canvas;
         // Física de la velocidad: masa total y CdA de la posición elegida para el ciclista.
         this.riderMass = riderWeight + BIKE_MASS;
         this.riderCda = (RIDER_POSITIONS[getRiderPrefs().position] || RIDER_POSITIONS[DEFAULT_RIDER_POSITION]).cda;
+        // Ruta del entrenamiento: subidas en las series, bajadas en las recuperaciones y llano en el calentamiento.
+        this.ftp = Number(ftp) || 200;
+        this.powerScale = 1;
+        const blocks = expandBlocks(workout?.blocks || []);
+        this.workoutBlocks = blocks.length ? blocks : DEFAULT_BLOCKS;
+        this.routeSeed = hashString(`${mission?.id || workout?.id || ''}|${mission?.world || 'aurora'}`);
+        this.plan = this.planRoute();
         this.playerSpeed = 0;
         this.onQualityAdapt = onQualityAdapt;
         this.frameAverageMs = 16.7;
@@ -235,75 +253,114 @@ class ExpeditionRenderer3D {
     }
 
     buildWorld() {
-        const routePoints = [];
-        const pointCount = 32;
-        for (let index = 0; index < pointCount; index += 1) {
-            const angle = (index / pointCount) * Math.PI * 2;
-            const radiusX = 115 + Math.sin(angle * 3) * 20;
-            const radiusZ = 155 + Math.cos(angle * 2) * 24;
-            routePoints.push(new THREE.Vector3(
-                Math.sin(angle) * radiusX,
-                loopElevation(index / pointCount),
-                Math.cos(angle) * radiusZ,
-            ));
-        }
-        this.routeCurve = new THREE.CatmullRomCurve3(routePoints, true, 'catmullrom', 0.42);
-        this.routeLength = this.routeCurve.getLength();
-
         this.world = new THREE.Group();
         this.scene.add(this.world);
         this.worldDisposers = [];
 
-        this.terrain = createTerrain({ routeCurve: this.routeCurve, worldStyle: this.worldStyle, quality: this.quality });
-        this.world.add(this.terrain.mesh);
-        this.worldDisposers.push(() => this.terrain.dispose());
-
-        this.water = createWater({ terrain: this.terrain, zenith: this.zenithColor, horizon: this.horizonColor });
-        this.world.add(this.water);
+        // Terreno y decorado del modo ruta: siguen al ciclista por tramos y se apoyan en la ruta del plan.
+        this.terrain = new RideTerrain(this.world);
+        this.terrain.setStyle({ ground: this.worldStyle.ground, shoulder: this.worldStyle.shoulder, reliefScale: 0.85 });
+        this.decor = new RideDecor(this.world, this.terrain);
+        this.decor.setWorld({ landscape: { ...(DECOR_LANDSCAPES[this.mission.world] || DECOR_LANDSCAPES.aurora), groundColor: `#${new THREE.Color(this.worldStyle.ground).getHexString()}` } });
         this.worldDisposers.push(() => {
-            this.water.geometry.dispose();
-            this.water.material.dispose();
+            this.decor.dispose();
+            this.terrain.dispose();
         });
 
-        this.buildRoad();
+        this.buildRoadMaterials();
+        this.roadChunks = new Map();
+        this.worldDisposers.push(() => this.disposeRoadChunks());
 
-        this.vegetation = createVegetation({
-            terrain: this.terrain,
-            routeCurve: this.routeCurve,
-            worldStyle: this.worldStyle,
-            quality: this.quality,
-        });
-        this.world.add(this.vegetation.group);
-        this.worldDisposers.push(() => this.vegetation.dispose());
-
-        const addProp = (prop) => {
-            this.world.add(prop.object);
-            this.worldDisposers.push(prop.dispose);
-            return prop;
-        };
-        addProp(createRoadPosts({ curve: this.routeCurve }));
-        addProp(createStartGate({
-            curve: this.routeCurve,
-            t: 0.055,
-            title: this.mission.title || 'Expedición',
-            accentHex: 0x63e0b5,
-        }));
-        this.beacon = addProp(createSummitBeacon({
-            curve: this.routeCurve,
-            terrain: this.terrain,
-            t: this.summitT(),
-            lateral: 9,
+        // Una sola baliza que se construye en el origen y espera en la cima de la próxima subida (updateBeacon).
+        this.beacon = createSummitBeacon({
+            curve: new THREE.LineCurve3(new THREE.Vector3(), new THREE.Vector3(0, 0, 1)),
+            terrain: { heightAt: () => 0 },
+            t: 0,
+            lateral: 0,
             accentHex: 0xffa64d,
-        }));
-        addProp(createFence({ curve: this.routeCurve, terrain: this.terrain, tStart: 0.07, tEnd: 0.16, lateral: -10.2, quality: this.quality }));
-        addProp(createCabin({ curve: this.routeCurve, terrain: this.terrain, t: 0.235, lateral: 26 }));
+        });
+        this.world.add(this.beacon.object);
+        this.worldDisposers.push(() => this.beacon.dispose());
+        this.startProps = [];
+        this.worldDisposers.push(() => this.disposeStartProps());
+
+        this.applyRoute();
     }
 
-    buildRoad() {
+    /** Plan de altimetría desde cero para los bloques actuales (física del jugador con un Flow medio). */
+    planRoute(from = null) {
+        return planWorkoutTerrain({
+            blocks: this.workoutBlocks,
+            ftp: this.ftp,
+            powerScale: this.powerScale,
+            mass: this.riderMass,
+            cda: this.riderCda * 0.94,
+            from,
+        });
+    }
+
+    /**
+     * Construye la curva de la ruta a partir del plan y se la pasa al terreno, al decorado y a la carretera.
+     * @param {number|null} changedFrom - Distancia desde la que la ruta ha cambiado (replanificación en directo): lo
+     *   anterior sigue igual y el escenario se actualiza sin reconstruirse de golpe. null: ruta nueva.
+     */
+    applyRoute(changedFrom = null) {
+        const { plan } = this;
+        const points = plan.elevations.map((elevation, index) => {
+            const distance = index * plan.step;
+            return {
+                distance,
+                elevation,
+                grade: gradeAt(plan, distance),
+                heading: headingAt(distance, this.routeSeed),
+            };
+        });
+        this.route = buildRouteCurve(points, plan.length);
+        this.routeCurve = this.route.curve;
+        this.routeLength = plan.length;
+        this.mapOutline = null;
+        this.profileSamples = null;
+        this.beaconTarget = undefined;
+
+        const incremental = changedFrom !== null;
+        this.terrain.setRoute(this.route.threePoints, { incremental });
+        if (incremental) {
+            this.decor.updateCurve({ curve: this.routeCurve, length: this.route.curveLength }, this.route.distanceToMeters(changedFrom));
+        } else {
+            this.decor.setRoute({ curve: this.routeCurve, length: this.route.curveLength, seed: this.routeSeed });
+            this.snapCamera = true;
+        }
+        this.disposeRoadChunks();
+        this.roadChunksNeedFull = true;
+        // Pórtico, valla y cabaña están en los primeros metros: solo se recolocan si la ruta cambia ahí.
+        if (!incremental || changedFrom < 320) this.buildStartProps();
+    }
+
+    buildStartProps() {
+        this.disposeStartProps();
+        const curve = this.routeCurve;
+        const at = (distance) => this.route.distanceToU(distance);
+        const add = (prop) => {
+            this.world.add(prop.object);
+            this.startProps.push(prop);
+        };
+        add(createStartGate({ curve, t: at(14), title: this.mission.title || 'Expedición', accentHex: 0x63e0b5 }));
+        add(createFence({ curve, terrain: this.terrain, tStart: at(40), tEnd: at(125), lateral: -10.2, quality: this.quality }));
+        add(createCabin({ curve, terrain: this.terrain, t: at(230), lateral: 26 }));
+    }
+
+    disposeStartProps() {
+        this.startProps?.forEach((prop) => {
+            prop.object.removeFromParent();
+            prop.dispose();
+        });
+        this.startProps = [];
+    }
+
+    buildRoadMaterials() {
         const asphalt = createAsphaltTextures();
         const gravel = createGravelTexture();
-        const half = ASPHALT_WIDTH / 2;
-        const roadMaterial = new THREE.MeshStandardMaterial({
+        this.roadMaterial = new THREE.MeshStandardMaterial({
             color: 0xffffff,
             map: asphalt.map,
             bumpMap: asphalt.bumpMap,
@@ -311,36 +368,170 @@ class ExpeditionRenderer3D {
             roughness: 0.9,
             metalness: 0,
         });
-        this.roadMaterial = roadMaterial;
         // El talud baja del borde del asfalto hasta el suelo del corredor.
-        const shoulderMaterial = new THREE.MeshStandardMaterial({
+        this.shoulderMaterial = new THREE.MeshStandardMaterial({
             color: 0xb4aa94,
             map: gravel,
             roughness: 1,
         });
         gravel.repeat.set(1, 1);
+        this.worldDisposers.push(() => {
+            asphalt.map.dispose();
+            asphalt.bumpMap.dispose();
+            gravel.dispose();
+            this.roadMaterial.dispose();
+            this.shoulderMaterial.dispose();
+        });
+    }
+
+    /** Tramo `index` de la carretera (talud, asfalto e hitos), en metros de arco de la curva. */
+    buildRoadChunk(index) {
+        const length = this.route.curveLength;
+        const t0 = (index * CHUNK_LENGTH) / length;
+        const t1 = Math.min(1, ((index + 1) * CHUNK_LENGTH) / length);
+        if (!(t1 > t0)) return null;
+        const tRange = [t0, t1];
+        const half = ASPHALT_WIDTH / 2;
         const shoulder = createProfileRibbon(this.routeCurve, {
             profile: [[-6, -0.835], [-4.6, -0.5], [-half - 0.15, -0.09], [half + 0.15, -0.09], [4.6, -0.5], [6, -0.835]],
-            material: shoulderMaterial,
+            material: this.shoulderMaterial,
             tileMeters: 4,
             uSpan: 3.8,
+            tRange,
+            segmentLength: 2,
         });
         const road = createProfileRibbon(this.routeCurve, {
             // Ligero bombeo central para que la luz revele el relieve.
             profile: [[-half, 0], [0, 0.03], [half, 0]],
-            material: roadMaterial,
+            material: this.roadMaterial,
             tileMeters: ASPHALT_WIDTH,
             lift: 0.012,
+            tRange,
+            segmentLength: 1.4,
         });
-        this.world.add(shoulder, road);
-        this.worldDisposers.push(() => {
-            [shoulder, road].forEach((mesh) => mesh.geometry.dispose());
-            asphalt.map.dispose();
-            asphalt.bumpMap.dispose();
-            gravel.dispose();
-            roadMaterial.dispose();
-            shoulderMaterial.dispose();
+        const posts = createRoadPosts({ curve: this.routeCurve, tRange });
+        this.world.add(shoulder, road, posts.object);
+        return { meshes: [shoulder, road], posts };
+    }
+
+    disposeRoadChunks() {
+        for (const chunk of this.roadChunks?.values() || []) {
+            chunk.meshes.forEach((mesh) => {
+                mesh.removeFromParent();
+                mesh.geometry.dispose();
+            });
+            chunk.posts.object.removeFromParent();
+            chunk.posts.dispose();
+        }
+        this.roadChunks?.clear();
+    }
+
+    /** Mantiene la ventana de tramos alrededor del ciclista: uno nuevo por frame, o todos con `full`. */
+    updateRoadChunks(curveMeters, full) {
+        const lastChunk = Math.max(0, Math.ceil(this.route.curveLength / CHUNK_LENGTH) - 1);
+        const current = Math.min(lastChunk, Math.max(0, Math.floor(curveMeters / CHUNK_LENGTH)));
+        const from = Math.max(0, current - CHUNKS_BEHIND);
+        const to = Math.min(lastChunk, current + CHUNKS_AHEAD);
+        for (const [index, chunk] of this.roadChunks) {
+            if (index >= from && index <= to) continue;
+            chunk.meshes.forEach((mesh) => {
+                mesh.removeFromParent();
+                mesh.geometry.dispose();
+            });
+            chunk.posts.object.removeFromParent();
+            chunk.posts.dispose();
+            this.roadChunks.delete(index);
+        }
+        let budget = full ? Infinity : 1;
+        // Primero el tramo del ciclista y luego hacia delante.
+        for (let index = current; index <= to && budget > 0; index += 1) {
+            if (this.roadChunks.has(index)) continue;
+            const chunk = this.buildRoadChunk(index);
+            if (chunk) this.roadChunks.set(index, chunk);
+            budget -= 1;
+        }
+        for (let index = current - 1; index >= from && budget > 0; index -= 1) {
+            if (this.roadChunks.has(index)) continue;
+            const chunk = this.buildRoadChunk(index);
+            if (chunk) this.roadChunks.set(index, chunk);
+            budget -= 1;
+        }
+    }
+
+    /** Escenario alrededor del ciclista: carretera, terreno, decorado, baliza de la próxima cima y final de la ruta. */
+    updateScenery(position) {
+        if (this.visualDistance > this.plan.length - TAIL_MARGIN) {
+            // Se va por delante del plan (o la sesión sigue): la ruta se alarga con llano.
+            const previousLength = this.plan.length;
+            this.plan = extendPlan(this.plan, TAIL_EXTENSION);
+            this.applyRoute(previousLength - REPLAN_MARGIN);
+        }
+        const curveMeters = this.route.distanceToMeters(this.visualDistance);
+        this.updateRoadChunks(curveMeters, this.roadChunksNeedFull);
+        this.roadChunksNeedFull = false;
+        this.terrain.update(position.x, position.z, TERRAIN_BUDGET_MS);
+        this.decor.update(curveMeters);
+        this.updateBeacon();
+    }
+
+    /** La baliza espera en la cima de la próxima subida (oculta si ya no quedan). */
+    updateBeacon() {
+        const climb = this.plan.climbs.find((candidate) => candidate.top > this.visualDistance - 40) || null;
+        const target = climb ? climb.top : null;
+        if (target === this.beaconTarget) return;
+        this.beaconTarget = target;
+        this.beacon.object.visible = target !== null;
+        if (target === null) return;
+        const point = this.routeCurve.getPointAt(this.route.distanceToU(target));
+        const tangent = this.routeCurve.getTangentAt(this.route.distanceToU(target));
+        const norm = Math.hypot(tangent.x, tangent.z) || 1;
+        const x = point.x - (tangent.z / norm) * 9;
+        const z = point.z + (tangent.x / norm) * 9;
+        this.beacon.object.position.set(x, this.terrain.heightAt(x, z), z);
+    }
+
+    /** Punto y tangente de la carretera a una distancia de ruta (puede ser negativa o pasar de la meta). */
+    roadFrame(distance, point = new THREE.Vector3(), tangent = new THREE.Vector3()) {
+        const u = this.route.distanceToU(distance);
+        this.routeCurve.getPointAt(u, point);
+        this.routeCurve.getTangentAt(u, tangent).normalize();
+        return { point, tangent };
+    }
+
+    /**
+     * Ruta del entrenamiento al empezar (o reanudar): plan desde el principio con los bloques reales e intensidad,
+     * y el ciclista colocado donde el plan prevé estar en `elapsed` (el pelotón le acompaña).
+     */
+    setWorkout({ blocks, ftp = this.ftp, powerScale = this.powerScale, elapsed = 0 } = {}) {
+        if (blocks?.length) this.workoutBlocks = blocks;
+        this.ftp = Number(ftp) || this.ftp;
+        this.powerScale = powerScale;
+        this.plan = this.planRoute();
+        const previous = this.visualDistance;
+        this.visualDistance = distanceAtTime(this.plan, elapsed);
+        this.rivals?.forEach((rival) => { rival.distance += this.visualDistance - previous; });
+        this.applyRoute();
+    }
+
+    /**
+     * Mantiene la ruta sincronizada con el entrenamiento en directo. Con `force` (bloque alargado, intensidad) se
+     * replanifica siempre; si no (cambio de bloque, también al saltar uno), solo si el ciclista se ha desfasado del
+     * plan. Lo ya recorrido y los metros justo delante no cambian.
+     * @returns {boolean} true si la ruta ha cambiado
+     */
+    syncWorkout({ blocks = this.workoutBlocks, powerScale = this.powerScale, elapsed = 0, force = false } = {}) {
+        this.workoutBlocks = blocks?.length ? blocks : this.workoutBlocks;
+        this.powerScale = powerScale;
+        if (!force && Math.abs(distanceAtTime(this.plan, elapsed) - this.visualDistance) < DRIFT_TOLERANCE) return false;
+        const speed = Math.max(1, this.playerSpeed || 0);
+        this.plan = this.planRoute({
+            plan: this.plan,
+            distance: this.visualDistance + REPLAN_MARGIN,
+            time: elapsed + REPLAN_MARGIN / speed,
+            speed: this.playerSpeed || 0,
         });
+        this.applyRoute(this.visualDistance + REPLAN_MARGIN);
+        return true;
     }
 
     disposeWorld() {
@@ -442,7 +633,6 @@ class ExpeditionRenderer3D {
     // misma potencia que ellos os mantenéis juntos, y empujar más o menos os separa.
     updateRivals(delta, playerSpeed, active) {
         const enabled = this.state.raceEnabled !== false;
-        const length = this.routeLength;
         const target = Number(this.state.targetPower) || 0;
         const playerPower = Math.max(0, Number(this.state.power) || 0);
         this.referencePower += (playerPower - this.referencePower) * Math.min(1, delta * 0.15);
@@ -478,8 +668,7 @@ class ExpeditionRenderer3D {
             const speed = rival.speed;
             rival.distance += delta * speed;
 
-            const raw = rival.distance - this.visualDistance;
-            rival.gap = ((raw + length / 2) % length + length) % length - length / 2;
+            rival.gap = rival.distance - this.visualDistance;
             entries.push({ name: config.name, gap: rival.gap, color: config.color });
 
             const near = Math.abs(rival.gap) < 160;
@@ -490,9 +679,7 @@ class ExpeditionRenderer3D {
             const labelWidth = THREE.MathUtils.clamp(this.camera.position.distanceTo(cyclist.group.position) * 0.06, 1.2, 2.6);
             label.sprite.scale.set(labelWidth, labelWidth * (80 / 384) * 1.15, 1);
 
-            const t = (((rival.distance % length) + length) % length) / length;
-            const point = this.routeCurve.getPointAt(t);
-            const tangent = this.routeCurve.getTangentAt(t).normalize();
+            const { point, tangent } = this.roadFrame(rival.distance);
             const sideX = -tangent.z;
             const sideZ = tangent.x;
             const norm = Math.hypot(sideX, sideZ) || 1;
@@ -541,58 +728,57 @@ class ExpeditionRenderer3D {
     }
 
     /**
-     * Datos del minimapa: contorno del circuito (plano XZ, se calcula una vez) y la posición (0..1) del jugador,
-     * los rivales y el fantasma sobre él.
+     * Datos del minimapa: contorno de la ruta completa (plano XZ, se recalcula si cambia la ruta), longitud y la
+     * posición (0..1) del jugador, los rivales y el fantasma sobre ella. La ruta es abierta (salida y meta).
      */
     getMapState() {
-        if (!this.routeCurve) return null;
-        if (!this.mapOutline) {
-            this.mapOutline = this.routeCurve.getSpacedPoints(96).map(({ x, z }) => ({ x, z }));
-        }
+        if (!this.route) return null;
         const length = this.routeLength;
-        const along = (distance) => (((distance % length) + length) % length) / length;
+        if (!this.mapOutline) {
+            const point = new THREE.Vector3();
+            this.mapOutline = Array.from({ length: 161 }, (_, index) => {
+                this.routeCurve.getPointAt(this.route.distanceToU((index / 160) * length), point);
+                return { x: point.x, z: point.z };
+            });
+        }
+        const along = (distance) => THREE.MathUtils.clamp(distance / length, 0, 1);
         const enabled = this.state.raceEnabled !== false;
         return {
             outline: this.mapOutline,
+            closed: false,
+            length,
             player: along(this.visualDistance),
             rivals: enabled ? this.rivals.map(({ distance, config }) => ({ t: along(distance), color: config.color })) : [],
-            ghost: this.ghost?.group.visible ? this.ghostT ?? null : null,
+            ghost: this.ghost?.group.visible && Number.isFinite(this.ghostDistance) ? along(this.ghostDistance) : null,
         };
     }
 
-    // Pendiente (%) de la carretera a una distancia dada del circuito (diferencia de alturas a ±4 m).
+    // Pendiente (%) de la carretera a una distancia de la ruta (diferencia de cotas a ±4 m).
     gradeAt(distance) {
-        const length = this.routeLength;
-        const at = (d) => this.routeCurve.getPointAt((((d % length) + length) % length) / length).y;
-        return ((at(distance + 4) - at(distance - 4)) / 8) * 100;
-    }
-
-    // Fracción de vuelta en la cima del puerto (donde está la baliza).
-    summitT() {
-        return LOOP_CLIMB.top;
+        return gradeAt(this.plan, distance);
     }
 
     /**
-     * Perfil del circuito para el HUD: altura por tramo (se calcula una vez), longitud de la vuelta, posición del
-     * jugador en la vuelta, pendiente actual, velocidad y distancia a la cima (null si ya la pasó en esta vuelta).
+     * Perfil de la ruta del entrenamiento para el HUD: cota por tramo (se recalcula si cambia la ruta), longitud,
+     * posición del jugador, pendiente actual, velocidad, distancia a la próxima cima (null si queda lejos) y la subida
+     * en curso o siguiente (fracciones de la ruta).
      */
     getProfileState() {
-        if (!this.routeCurve) return null;
+        if (!this.plan) return null;
         const length = this.routeLength;
         if (!this.profileSamples) {
-            this.profileSamples = Array.from({ length: 121 }, (_, index) => this.routeCurve.getPointAt((index % 120) / 120).y);
+            this.profileSamples = Array.from({ length: 241 }, (_, index) => elevationAt(this.plan, (index / 240) * length));
         }
-        const lapDistance = ((this.visualDistance % length) + length) % length;
-        const summit = LOOP_CLIMB.top * length;
-        const climbStart = LOOP_CLIMB.start * length;
+        const distance = THREE.MathUtils.clamp(this.visualDistance, 0, length);
+        const climb = this.plan.climbs.find((candidate) => candidate.top > distance) || null;
         return {
             samples: this.profileSamples,
             length,
-            position: lapDistance / length,
+            position: distance / length,
             grade: this.playerGrade || 0,
             speed: this.playerSpeed || 0,
-            toSummit: lapDistance >= climbStart - 400 && lapDistance < summit ? summit - lapDistance : null,
-            climb: { start: LOOP_CLIMB.start, top: LOOP_CLIMB.top },
+            toSummit: climb && distance >= climb.start - 400 ? climb.top - distance : null,
+            climb: climb ? { start: climb.start / length, top: climb.top / length } : null,
         };
     }
 
@@ -748,9 +934,7 @@ class ExpeditionRenderer3D {
         const visualSpeed = this.playerSpeed;
         this.visualDistance += delta * visualSpeed;
 
-        const t = (this.visualDistance % this.routeLength) / this.routeLength;
-        const position = this.routeCurve.getPointAt(t);
-        const routeTangent = this.routeCurve.getTangentAt(t).normalize();
+        const { point: position, tangent: routeTangent } = this.roadFrame(this.visualDistance);
         const tangent = flattenTangent(routeTangent);
         const playerPosition = position.clone().add(new THREE.Vector3(0, 0.025, 0));
         orientAlongCurve(this.player.group, playerPosition, routeTangent);
@@ -768,12 +952,12 @@ class ExpeditionRenderer3D {
 
         this.ghost.group.visible = Boolean(this.state.ghostVisible);
         const ghostLead = 12 + (1 - this.state.ghostProgress) * 26;
-        const ghostT = Number.isFinite(this.state.ghostRouteProgress)
-            ? ((this.state.ghostRouteProgress % 1) + 1) % 1
-            : ((this.visualDistance + ghostLead) % this.routeLength) / this.routeLength;
-        this.ghostT = ghostT;
-        const ghostPosition = this.routeCurve.getPointAt(ghostT).add(new THREE.Vector3(0, 0.025, 0));
-        const ghostTangent = this.routeCurve.getTangentAt(ghostT).normalize();
+        // El fantasma va donde el plan prevé estar en su instante de la sesión (su progreso es fracción del tiempo).
+        this.ghostDistance = Number.isFinite(this.state.ghostRouteProgress)
+            ? distanceAtTime(this.plan, THREE.MathUtils.clamp(this.state.ghostRouteProgress, 0, 1) * this.plan.duration)
+            : this.visualDistance + ghostLead;
+        const { point: ghostPosition, tangent: ghostTangent } = this.roadFrame(this.ghostDistance);
+        ghostPosition.y += 0.025;
         orientAlongCurve(this.ghost.group, ghostPosition, ghostTangent);
         this.ghost.crankAngle += delta * Math.max(4.8, crankSpeed * 0.96);
         animateCyclist(this.ghost, this.ghost.crankAngle, visualSpeed, 0.5, active);
@@ -795,9 +979,8 @@ class ExpeditionRenderer3D {
         this.dustMotes.position.set(playerPosition.x, playerPosition.y, playerPosition.z);
         this.dustMotes.rotation.y = this.elapsed * 0.012;
 
+        this.updateScenery(position);
         this.beacon.update(this.elapsed, delta);
-        this.vegetation.update(this.elapsed);
-        this.water.material.uniforms.time.value = this.elapsed;
         this.skyDome.material.uniforms.time.value = this.elapsed;
         this.skyDome.position.copy(this.camera.position);
         this.updateAtmosphere(delta);
@@ -820,17 +1003,23 @@ class ExpeditionRenderer3D {
         const cameraTarget = playerPosition.clone()
             .add(tangent.clone().multiplyScalar(-preset.distance))
             .add(new THREE.Vector3(0, preset.height + breathing, 0));
+        // La cámara nunca queda bajo el terreno (crestas, bajadas fuertes).
+        cameraTarget.y = Math.max(cameraTarget.y, this.terrain.heightAt(cameraTarget.x, cameraTarget.z) + 1.2);
         const cameraDamping = 1 - Math.exp(-delta * (this.reducedMotion ? 10 : 6.8));
-        this.camera.position.lerp(cameraTarget, cameraDamping);
-        const aheadT = ((this.visualDistance + preset.lookAhead) % this.routeLength) / this.routeLength;
-        const lookAt = this.routeCurve.getPointAt(aheadT)
+        const lookAt = this.roadFrame(this.visualDistance + preset.lookAhead).point
             .add(new THREE.Vector3(0, preset.lookHeight, 0));
+        // Tras colocar al ciclista en otro punto de la ruta (reanudar) la cámara salta en vez de recorrer el camino.
+        if (this.snapCamera || this.camera.position.distanceToSquared(cameraTarget) > 60 * 60) {
+            this.snapCamera = false;
+            this.camera.position.copy(cameraTarget);
+            this.cameraLookTarget.copy(lookAt);
+        }
+        this.camera.position.lerp(cameraTarget, cameraDamping);
         this.cameraLookTarget.lerp(lookAt, 1 - Math.exp(-delta * 8.5));
         this.camera.lookAt(this.cameraLookTarget);
 
         // Inclinación lateral en las curvas (proporcional al giro del trazado).
-        const farT = ((this.visualDistance + 22) % this.routeLength) / this.routeLength;
-        const farTangent = flattenTangent(this.routeCurve.getTangentAt(farT));
+        const farTangent = flattenTangent(this.roadFrame(this.visualDistance + 22).tangent);
         const turn = tangent.x * farTangent.z - tangent.z * farTangent.x;
         const bankTarget = THREE.MathUtils.clamp(turn * 0.55, -0.05, 0.05) * motionScale;
         this.cameraBank += (bankTarget - this.cameraBank) * (1 - Math.exp(-delta * 2.2));
@@ -1001,4 +1190,14 @@ function resolveQuality(quality) {
     const cores = Number(navigator.hardwareConcurrency) || 4;
     if (memory <= 2 || cores <= 2) return 'low';
     return 'medium';
+}
+
+// Semilla estable (FNV-1a) para que la misma misión tenga siempre las mismas curvas.
+function hashString(text) {
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index += 1) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
 }

@@ -419,6 +419,9 @@ export function ExpeditionView({
         onIntensityChange: (percent) => {
             const applied = controller?.setIntensity(percent) ?? percent;
             workoutControls.setIntensity(applied);
+            if (routeSynced) {
+                renderer?.syncWorkout?.({ powerScale: applied / 100, elapsed: latestTick?.totalElapsedTime || 0, force: true });
+            }
             showStagePrompt(`Intensidad ${applied} %`);
         },
         onSkip: () => {
@@ -669,6 +672,8 @@ export function ExpeditionView({
     let activeDecision = null;
     let ghostSession = null;
     let latestTick = null;
+    // La ruta sigue al entrenamiento en directo (bloques saltados o alargados, intensidad) una vez colocada al empezar.
+    let routeSynced = false;
     let lastCountdownSecond = null;
     let previousCoachStatus = 'adapting';
     const reachedCheckpoints = new Set();
@@ -736,10 +741,16 @@ export function ExpeditionView({
             climbProfile.update(renderer?.getProfileState?.());
         }
         const running = controller?.state !== SESSION_STATE.PAUSED;
-        // Público junto a la salida/meta del circuito y en el último minuto de la sesión.
-        const toLine = mapState ? Math.min(mapState.player, 1 - mapState.player) : 1;
+        // Público en la salida y la meta, en los últimos metros de cada subida y en el último minuto de la sesión.
+        const length = mapState?.length || 0;
+        const toLine = mapState && length ? Math.min(mapState.player, 1 - mapState.player) * length : Infinity;
+        const toSummit = renderer?.getProfileState?.()?.toSummit ?? Infinity;
         const remaining = latestTick ? totalDuration - latestTick.totalElapsedTime : totalDuration;
-        const crowd = Math.max(toLine < 0.04 ? 1 - toLine / 0.04 : 0, remaining < 60 ? 0.6 : 0);
+        const crowd = Math.max(
+            toLine < 120 ? 1 - toLine / 120 : 0,
+            toSummit < 150 ? 0.8 * (1 - toSummit / 150) : 0,
+            remaining < 60 ? 0.6 : 0,
+        );
         ambient.update({
             speed: running ? renderer?.getPlayerSpeed?.() || 0 : 0,
             cadence: running ? lastCadence : 0,
@@ -761,6 +772,9 @@ export function ExpeditionView({
                 reducedMotion: visualSettings.reducedMotion,
                 mission,
                 riderWeight: Number(state.settings.weight) || 70,
+                // El terreno se planifica desde el entrenamiento: subidas en las series, bajadas en las recuperaciones.
+                workout,
+                ftp: state.settings.ftp,
                 onQualityAdapt: () => showStagePrompt('Calidad gráfica ajustada para mantener la fluidez'),
             });
         } catch (error) {
@@ -846,6 +860,8 @@ export function ExpeditionView({
                 if (lastBlock) workoutStrip.setBlock(lastBlock, lastBlock.index ?? 0);
                 if (latestTick) workoutStrip.setProgress(latestTick.totalElapsedTime);
                 applyHudExtras();
+                // La subida (o bajada) en curso se alarga en la ruta a partir de donde estás.
+                if (routeSynced) renderer?.syncWorkout?.({ blocks, elapsed: latestTick?.totalElapsedTime || 0, force: true });
             },
             onBlockChange: (block) => {
                 lastBlock = block;
@@ -853,6 +869,12 @@ export function ExpeditionView({
                 blockLabel.textContent = String(block.name || 'TRAMO').toUpperCase();
                 showStagePrompt(block.instructions || getStagePrompt(block.type));
                 renderer?.update({ blockType: block.type });
+                if (routeSynced) {
+                    // Al empezar cada bloque se corrige el desfase con el plan (también si se ha saltado el anterior).
+                    const blocks = controller?.getBlocks?.() || [];
+                    const blockStart = blocks.slice(0, block.index ?? 0).reduce((sum, item) => sum + item.duration, 0);
+                    renderer?.syncWorkout?.({ blocks, elapsed: blockStart });
+                }
                 const finishedLap = lapTracker.start(block, block.index ?? 0);
                 if (finishedLap?.work) lapToast.show(finishedLap);
                 workoutStrip.setBlock(block, block.index ?? 0);
@@ -910,6 +932,14 @@ export function ExpeditionView({
             recoveredSession: resume ? recoveredSession : null,
             startAtSeconds,
         });
+        // Ruta del entrenamiento completo, con el ciclista donde toca si se reanuda o se empieza más tarde.
+        renderer?.setWorkout?.({
+            blocks: controller.getBlocks(),
+            ftp: state.settings.ftp,
+            powerScale: (controller.getAssistState?.().intensity || 100) / 100,
+            elapsed: resume ? recoveredElapsed : startAtSeconds,
+        });
+        routeSynced = true;
         await wakeLock.acquire();
 
         if (isDemo) {

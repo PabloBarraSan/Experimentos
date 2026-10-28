@@ -82,6 +82,11 @@ export class SessionController {
 
     // ---- Controles de entrenamiento ----
 
+    /** Bloques expandidos con su duración actual (cambia al alargar un bloque). */
+    getBlocks() {
+        return this.player?.getBlocks?.() ?? [];
+    }
+
     getTotalDuration() {
         return this.player?.getTotalDuration?.() ?? this.workout?.stats?.totalDuration ?? 0;
     }
