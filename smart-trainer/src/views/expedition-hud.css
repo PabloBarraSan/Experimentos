@@ -1,926 +1,394 @@
 /*
- * HUD del entrenamiento (ExpeditionView). Clases BEM xh-*.
- * Escritorio (>= 900 px): cabecera con tramo/pelotón, reloj central y acciones;
- * dock inferior en tres tarjetas (tramo · potencia · pulso y cadencia).
- * Móvil / ventana estrecha: el dock se apila en una columna.
+ * HUD de la expedición · estilo «retransmisión de etapa»
+ *
+ * Paneles de cristal oscuro con una esquina cortada y un filo de color, cifras condensadas que se leen desde el
+ * rodillo y etiquetas pequeñas en versalitas. El color siempre significa algo: la zona de potencia tiñe el
+ * medidor de potencia (--zone), el menta es «tú» y el ámbar avisa.
  */
 
-.xh {
-    --xh-font: 'Barlow', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    --xh-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-    --xh-good: #63e0b5;
-    --xh-warn: #ffd379;
-    --xh-bad: #ff8a6b;
-    --xh-free: #8ed9ff;
-    --xh-ink-dim: rgba(255, 255, 255, 0.58);
-    --xh-ink-faint: rgba(255, 255, 255, 0.4);
-    --xh-line: rgba(255, 255, 255, 0.1);
-    --xh-dock-h: 220px;
+.exp-hud {
+    --hud-ink-top: rgba(22, 32, 38, 0.74);
+    --hud-ink-bottom: rgba(7, 12, 17, 0.8);
+    --hud-line: rgba(255, 255, 255, 0.09);
+    --hud-sheen: rgba(255, 255, 255, 0.08);
+    --hud-text: #f2f6f3;
+    --hud-dim: rgba(232, 240, 236, 0.56);
+    --hud-faint: rgba(232, 240, 236, 0.32);
+    --hud-you: #63e0b5;
+    --hud-warm: #ffd379;
+    --hud-alert: #ff8a6b;
+    --hud-cut: 11px;
+    --hud-num: 'Barlow Condensed', 'Barlow', sans-serif;
+    --hud-label: 'Barlow', 'Inter', sans-serif;
+    font-family: var(--hud-label);
+    color: var(--hud-text);
+}
 
-    position: absolute;
-    inset: 0;
-    z-index: 3;
+/* ---------- Panel base ---------- */
+
+.exp-hud .hud-panel {
+    position: relative;
     box-sizing: border-box;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
-    color: #fff;
-    font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
-    user-select: none;
-    -webkit-user-select: none;
+    background: linear-gradient(180deg, var(--hud-ink-top), var(--hud-ink-bottom));
+    border: 1px solid var(--hud-line);
+    border-radius: 3px;
+    box-shadow: inset 0 1px 0 var(--hud-sheen);
+    backdrop-filter: blur(14px) saturate(1.35);
+    -webkit-backdrop-filter: blur(14px) saturate(1.35);
+    clip-path: polygon(
+        var(--hud-cut) 0, 100% 0, 100% calc(100% - var(--hud-cut)),
+        calc(100% - var(--hud-cut)) 100%, 0 100%, 0 var(--hud-cut)
+    );
+    animation: hud-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: var(--hud-delay, 0s);
 }
 
-/* Velo suave arriba y abajo: los números se leen sobre cualquier escena */
-.xh::before {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background:
-        linear-gradient(to bottom, rgba(3, 7, 11, 0.5), transparent 20%),
-        linear-gradient(to top, rgba(3, 7, 11, 0.72), transparent 40%);
+/* Filo de color en la esquina cortada: el sello de la retransmisión. */
+.exp-hud .hud-panel::before {
     content: '';
-    pointer-events: none;
-    transition: opacity 0.35s ease;
+    position: absolute;
+    top: 0;
+    left: var(--hud-cut);
+    width: 28px;
+    height: 2px;
+    background: var(--hud-accent, var(--hud-you));
+    box-shadow: 0 0 10px var(--hud-accent, var(--hud-you));
+    opacity: 0.9;
 }
 
-.xh[data-hud='hidden']::before {
-    opacity: 0;
+@keyframes hud-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+        filter: blur(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
 }
 
-/* ---- Piezas de cristal ---- */
+/* ---------- Tipografía ---------- */
 
-.xh-glass {
-    background: linear-gradient(160deg, rgba(11, 19, 25, 0.8), rgba(7, 12, 17, 0.62));
-    border: 1px solid var(--xh-line);
-    border-radius: 18px;
-    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38), inset 0 1px rgba(255, 255, 255, 0.07);
-    -webkit-backdrop-filter: blur(18px) saturate(1.3);
-    backdrop-filter: blur(18px) saturate(1.3);
-}
-
-.xh-eyebrow {
-    color: var(--xh-ink-faint);
+.exp-hud .hud-label {
+    font-family: var(--hud-label);
     font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
+    color: var(--hud-faint);
     white-space: nowrap;
 }
 
-/* ---- Cabecera ---- */
-
-.xh-top {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    align-items: start;
-    gap: 16px;
+.exp-hud .hud-num {
+    font-family: var(--hud-num);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.88;
+    letter-spacing: -0.01em;
+    transition: color 0.3s ease;
 }
 
-.xh-top__left {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+.exp-hud .hud-num--xl { font-size: clamp(38px, 4.6vw, 54px); }
+.exp-hud .hud-num--lg { font-size: clamp(28px, 3.2vw, 38px); }
+.exp-hud .hud-num--md { font-size: 24px; }
+
+.exp-hud .hud-unit {
+    margin-left: 3px;
+    font-family: var(--hud-label);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hud-dim);
 }
 
-.xh-top__right {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-}
-
-.xh-pill {
-    display: inline-flex;
-    max-width: 100%;
-    align-items: center;
-    gap: 9px;
-    box-sizing: border-box;
-    padding: 9px 15px;
+.exp-hud .hud-sub {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--hud-dim);
+    white-space: nowrap;
     overflow: hidden;
-    border-radius: 999px;
+    text-overflow: ellipsis;
+}
+
+.exp-hud .hud-title {
     font-size: 12px;
     font-weight: 800;
-    letter-spacing: 0.08em;
-    text-overflow: ellipsis;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.xh-pill::before {
-    flex: 0 0 auto;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--xh-good);
-    box-shadow: 0 0 12px var(--xh-good);
-    content: '';
+/* ---------- Barra superior de cifras ---------- */
+
+.exp-hud .hud-topbar {
+    --hud-accent: var(--zone, var(--hud-you));
+    display: flex;
+    align-items: stretch;
+    padding: 10px 6px 11px;
 }
 
-.xh-mode {
-    padding: 7px 13px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-}
-
-.xh-clock {
+.exp-hud .hud-stat {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    justify-self: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 84px;
+    padding: 0 16px;
 }
 
-.xh-clock__time {
-    padding: 8px 24px 9px;
-    border-radius: 18px;
-    font-family: var(--xh-font);
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    line-height: 1;
-    text-align: center;
+.exp-hud .hud-stat + .hud-stat {
+    border-left: 1px solid var(--hud-line);
 }
 
-.xh-clock__label {
-    display: block;
-    margin-bottom: 3px;
-    text-align: center;
-}
-
-.xh-prompt {
-    position: absolute;
-    top: 96px;
-    left: 50%;
-    max-width: min(560px, 72vw);
-    box-sizing: border-box;
-    padding: 10px 18px;
-    border-radius: 14px;
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    text-align: center;
-    opacity: 0;
-    transform: translateX(-50%);
-    transition: opacity 0.28s ease, transform 0.28s ease;
-}
-
-/* ---- Acciones (cámara, HUD, pausar, finalizar) ---- */
-
-.xh-toolbar {
-    display: flex;
-    gap: 2px;
-    padding: 4px;
-    border-radius: 14px;
-    pointer-events: auto;
-}
-
-.xh-toolbar__btn {
-    min-height: 34px;
-    padding: 6px 12px;
-    border: 0;
-    border-radius: 10px;
-    background: transparent;
-    color: rgba(255, 255, 255, 0.82);
-    cursor: pointer;
-    font: 800 11px/1 Inter, sans-serif;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-
-.xh-toolbar__btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-}
-
-.xh-actions {
-    display: flex;
-    gap: 8px;
-    pointer-events: auto;
-}
-
-.xh-btn {
-    display: inline-flex;
-    min-height: 42px;
-    align-items: center;
-    gap: 8px;
-    padding: 0 18px;
-    border: 1px solid var(--xh-line);
-    border-radius: 13px;
-    background: linear-gradient(160deg, rgba(11, 19, 25, 0.86), rgba(7, 12, 17, 0.7));
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
-    color: #fff;
-    cursor: pointer;
-    font: 700 13px/1 Inter, sans-serif;
-    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-
-.xh-btn:hover:not(:disabled) {
-    border-color: rgba(255, 255, 255, 0.3);
-    transform: translateY(-1px);
-}
-
-.xh-btn:disabled {
-    cursor: default;
-    opacity: 0.45;
-}
-
-.xh-btn--stop {
-    color: #ff8f84;
-}
-
-.xh-btn--stop:hover:not(:disabled) {
-    border-color: rgba(255, 110, 100, 0.6);
-    background: linear-gradient(160deg, rgba(60, 20, 22, 0.9), rgba(32, 12, 14, 0.75));
-}
-
-.xh-btn:focus-visible,
-.xh-toolbar__btn:focus-visible {
-    outline: 2px solid #ff9a6f;
-    outline-offset: 2px;
-}
-
-/* ---- Pelotón ---- */
-
-.xh-race {
-    min-width: 168px;
-    box-sizing: border-box;
-    padding: 12px 15px;
-    transition: opacity 0.25s ease;
-}
-
-.xh-race__head {
+.exp-hud .hud-stat__value {
     display: flex;
     align-items: baseline;
-    gap: 7px;
 }
 
-.xh-race__rank {
-    font-family: var(--xh-font);
-    font-size: 40px;
-    font-weight: 800;
-    line-height: 0.9;
+.exp-hud .hud-stat--power {
+    min-width: 128px;
 }
 
-.xh-race__total {
-    color: var(--xh-ink-dim);
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.xh-race__rival {
-    margin-top: 6px;
-    font-family: var(--xh-mono);
-    font-size: 12px;
-    font-weight: 700;
-}
-
-.xh-race__list {
-    display: grid;
-    gap: 5px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--xh-line);
-}
-
-.xh-race__row {
-    display: grid;
-    grid-template-columns: 16px 9px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px;
-    color: rgba(255, 255, 255, 0.82);
-    font-size: 12px;
+/* El reloj, en el centro, sin caja propia: la barra entera es el marcador. */
+.exp-hud .hud-clock {
+    font-family: var(--hud-num);
+    font-size: clamp(30px, 3.4vw, 40px);
     font-weight: 600;
-}
-
-.xh-race__row.is-player {
-    color: var(--xh-good);
-    font-weight: 800;
-}
-
-.xh-race__pos {
-    color: var(--xh-ink-faint);
-}
-
-.xh-race__dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-}
-
-.xh-race__gap {
-    color: var(--xh-ink-dim);
-    font-family: var(--xh-mono);
-}
-
-/* ---- Aviso de vuelta ---- */
-
-.xh-toast {
-    position: absolute;
-    top: 150px;
-    left: 50%;
-    min-width: 230px;
-    box-sizing: border-box;
-    padding: 12px 22px;
-    border-radius: 16px;
-    opacity: 0;
-    pointer-events: none;
-    text-align: center;
-    transform: translate(-50%, -8px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.xh-toast.is-visible {
-    opacity: 1;
-    transform: translate(-50%, 0);
-}
-
-.xh-toast__main {
-    margin: 3px 0;
-    font-family: var(--xh-font);
-    font-size: 34px;
-    font-weight: 800;
-    line-height: 1.1;
-}
-
-.xh-toast__detail {
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 12px;
-}
-
-/* ---- Dock inferior ---- */
-
-.xh-dock {
-    display: grid;
-    align-self: end;
-    justify-self: center;
-    width: min(520px, 100%);
-    grid-template-columns: minmax(0, 1fr);
-    align-items: stretch;
-    gap: 10px;
-}
-
-.xh-metrics {
-    display: grid;
-    gap: 10px;
-    transition: opacity 0.3s ease;
-}
-
-/* Tramo: contador, media de la vuelta y perfil del entrenamiento */
-
-.xh-lap {
-    display: grid;
-    gap: 10px;
-    box-sizing: border-box;
-    padding: 14px 16px 13px;
-    transition: opacity 0.3s ease;
-}
-
-.xh-lap__head {
-    display: flex;
-    min-width: 0;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.xh-lap__titles {
-    display: grid;
-    min-width: 0;
-    gap: 4px;
-}
-
-.xh-lap__name {
-    overflow: hidden;
-    font-family: var(--xh-font);
-    font-size: 24px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    line-height: 1;
-    text-overflow: ellipsis;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
-.xh-lap__avg {
-    min-height: 15px;
-    font-family: var(--xh-mono);
-    font-size: 12px;
-    font-weight: 800;
-}
-
-.xh-lap__clock {
-    flex: 0 0 auto;
-    font-family: var(--xh-font);
-    font-size: 46px;
-    font-weight: 700;
+    font-variant-numeric: tabular-nums;
     line-height: 0.9;
-    text-align: right;
-    transition: color 0.2s ease;
+    letter-spacing: 0.02em;
+    color: var(--hud-text);
 }
 
-.xh-lap__clock-label {
-    display: block;
-    margin-bottom: 4px;
-    text-align: right;
-}
-
-.xh-strip {
+/* Medidor de potencia: relleno del color de la zona, banda ±5 % y marca del objetivo. */
+.exp-hud .hud-gauge {
     position: relative;
-    display: flex;
-    height: 56px;
-    align-items: flex-end;
-    gap: 2px;
+    height: 4px;
+    margin-top: 2px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: visible;
 }
 
-.xh-strip__seg {
-    min-width: 2px;
-    border-radius: 4px 4px 0 0;
-    opacity: 0.55;
-    transition: opacity 0.3s ease, filter 0.3s ease;
+.exp-hud .hud-gauge__fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 2px;
+    background: var(--zone, var(--hud-you));
+    box-shadow: 0 0 12px var(--zone, var(--hud-you));
+    transition: width 0.35s ease, background 0.4s ease;
 }
 
-.xh-strip__ftp {
+.exp-hud .hud-gauge__band {
     position: absolute;
-    right: 0;
-    left: 0;
-    border-top: 1px dashed rgba(255, 255, 255, 0.28);
-    pointer-events: none;
+    top: -2px;
+    bottom: -2px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.16);
 }
 
-.xh-strip__cursor {
+.exp-hud .hud-gauge__target {
     position: absolute;
     top: -4px;
-    bottom: 0;
-    left: 0;
     width: 2px;
-    border-radius: 2px;
+    height: 12px;
+    margin-left: -1px;
+    border-radius: 1px;
     background: #fff;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.95);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+.exp-hud .hud-zone {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-family: var(--hud-num);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #071012;
+    background: var(--zone, var(--hud-you));
+    transform: translateY(-3px);
+}
+
+/* Corazón que late al ritmo real del pulso (la duración la pone el código). */
+.exp-hud .hud-heart {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 7px;
+    background: currentColor;
+    clip-path: path('M4.5 8.6 0.8 4.9A2.3 2.3 0 0 1 4.5 2a2.3 2.3 0 0 1 3.7 2.9Z');
+    animation: hud-beat 1s ease-in-out infinite;
+    transform-origin: center;
+    align-self: center;
+}
+
+@keyframes hud-beat {
+    0%, 60%, 100% { transform: scale(1); }
+    20% { transform: scale(1.35); }
+    40% { transform: scale(0.95); }
+}
+
+/* ---------- Panel del entrenamiento ---------- */
+
+.exp-hud .hud-workout {
+    display: grid;
+    gap: 8px;
+    padding: 11px 14px 10px;
+}
+
+.exp-hud .hud-strip {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    height: 40px;
+    width: 100%;
+    padding-bottom: 1px;
+    border-bottom: 1px solid var(--hud-line);
+}
+
+.exp-hud .hud-seg {
+    border-radius: 2px 2px 0 0;
+    opacity: 0.5;
+    filter: saturate(0.75);
+    transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+.exp-hud .hud-seg.is-done {
+    opacity: 0.22;
+    filter: saturate(0.3);
+}
+
+.exp-hud .hud-seg.is-active {
+    opacity: 1;
+    filter: saturate(1.15) brightness(1.12) drop-shadow(0 0 6px currentColor);
+}
+
+.exp-hud .hud-cursor {
+    position: absolute;
+    top: -6px;
+    bottom: -2px;
+    width: 2px;
+    margin-left: -1px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
     transition: left 0.6s linear;
 }
 
-.xh-lap__next {
-    overflow: hidden;
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 12px;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* Potencia */
-
-.xh-power {
-    --xh-accent: #fff;
-    position: relative;
-    display: grid;
-    gap: 10px;
-    box-sizing: border-box;
-    padding: 14px 18px 14px;
-    overflow: hidden;
-}
-
-.xh-power::before {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 18% 0%, color-mix(in srgb, var(--xh-accent) 22%, transparent), transparent 62%);
+.exp-hud .hud-cursor::before {
     content: '';
-    opacity: 0.8;
-    pointer-events: none;
-    transition: background 0.4s ease;
+    position: absolute;
+    top: -1px;
+    left: -4px;
+    border: 5px solid transparent;
+    border-top-color: #fff;
 }
 
-.xh-power[data-state='good'] { --xh-accent: var(--xh-good); }
-.xh-power[data-state='warn'] { --xh-accent: var(--xh-warn); }
-.xh-power[data-state='off'] { --xh-accent: var(--xh-bad); }
-
-.xh-power > * {
-    position: relative;
-}
-
-.xh-power__head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.xh-power__target {
-    color: rgba(255, 255, 255, 0.78);
+.exp-hud .hud-coach {
     font-size: 13px;
-    font-weight: 800;
-}
-
-.xh-power__row {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-}
-
-.xh-power__value {
-    color: var(--xh-accent);
-    font-family: var(--xh-font);
-    font-size: clamp(64px, 6.2vw, 112px);
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 0.88;
-    text-shadow: 0 0 34px color-mix(in srgb, var(--xh-accent) 45%, transparent), 0 3px 12px rgba(0, 0, 0, 0.5);
-    transition: color 0.25s ease;
-}
-
-.xh-power__unit {
-    color: var(--xh-ink-dim);
-    font-family: var(--xh-font);
-    font-size: 26px;
     font-weight: 700;
-}
-
-.xh-power__ftp {
-    margin-left: auto;
-    padding: 5px 10px;
-    border: 1px solid var(--xh-line);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.82);
-    font-size: 12px;
-    font-weight: 800;
-    white-space: nowrap;
-}
-
-.xh-gauge {
-    position: relative;
-    height: 12px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.1);
-    overflow: hidden;
-}
-
-.xh-gauge__fill {
-    width: 0;
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.3s ease;
-}
-
-.xh-gauge__band {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 0;
-    background: rgba(99, 224, 181, 0.5);
-}
-
-.xh-gauge__target {
-    position: absolute;
-    z-index: 1;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 3px;
-    border-radius: 2px;
-    background: #fff;
-    box-shadow: 0 0 9px rgba(255, 255, 255, 0.9);
-}
-
-.xh-coach {
-    min-height: 20px;
-    font-size: 16px;
-    font-weight: 800;
     letter-spacing: 0.02em;
     text-align: center;
+    color: #8ed9ff;
 }
 
-.xh-context {
-    display: flex;
-    justify-content: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    font-size: 11px;
-    font-weight: 800;
-}
-
-/* Pulso y cadencia */
-
-.xh-side {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.xh-stat {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 5px;
-    box-sizing: border-box;
-    padding: 13px 16px 14px;
-}
-
-.xh-stat__label {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-}
-
-.xh-stat__label svg {
-    width: 13px;
-    height: 13px;
-    flex: 0 0 auto;
-}
-
-.xh-stat__value {
-    font-family: var(--xh-font);
-    font-size: clamp(40px, 3.6vw, 60px);
-    font-weight: 800;
-    line-height: 0.95;
-}
-
-.xh-stat__value--hr {
-    color: #ff7893;
-}
-
-.xh-stat__sub {
-    min-height: 15px;
+/* Barra de potencia bajo el consejo: fina y del color de la zona. */
+.exp-hud .hud-flow {
+    position: relative;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.09);
     overflow: hidden;
-    color: var(--xh-ink-dim);
-    font-size: 12px;
+}
+
+/* ---------- Esquinas: carrera, minimapa y perfil ---------- */
+
+.exp-hud .hud-race {
+    --hud-accent: var(--hud-warm);
+    padding: 10px 13px 10px;
+    min-width: 138px;
+}
+
+.exp-hud .hud-race__rank {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.exp-hud .hud-race__row {
+    display: grid;
+    grid-template-columns: 14px 8px 1fr auto;
+    gap: 7px;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(232, 240, 236, 0.82);
+}
+
+.exp-hud .hud-race__row.is-you {
+    font-weight: 800;
+    color: var(--hud-you);
+}
+
+.exp-hud .hud-map {
+    --hud-accent: #8ed9ff;
+    padding: 9px;
+}
+
+.exp-hud .hud-profile {
+    --hud-accent: var(--grade, var(--hud-you));
+    padding: 10px 12px 10px;
+}
+
+.exp-hud .hud-toast {
+    --hud-accent: var(--hud-warm);
+}
+
+/* ---------- Controles (aparecen al mover el ratón) ---------- */
+
+.exp-hud .hud-toolbar {
+    --hud-accent: rgba(255, 255, 255, 0.5);
+    padding: 4px;
+}
+
+.exp-hud .hud-btn {
+    min-height: 34px;
+    padding: 7px 11px;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    color: rgba(242, 246, 243, 0.86);
+    font-family: var(--hud-label);
+    font-size: 11px;
     font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
 }
 
-/* ---- Modos del HUD ---- */
-
-.xh[data-hud='essential'] .xh-context {
-    display: none;
+.exp-hud .hud-btn:hover,
+.exp-hud .hud-btn:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    outline: none;
 }
 
-.xh[data-hud='hidden'] .xh-top__left,
-.xh[data-hud='hidden'] .xh-clock,
-.xh[data-hud='hidden'] .xh-mode,
-.xh[data-hud='hidden'] .xh-lap,
-.xh[data-hud='hidden'] .xh-metrics {
-    opacity: 0;
-}
-
-.xh[data-hud='hidden'] .xh-gauge {
-    display: none;
-}
-
-/* ---- Escritorio ---- */
-
-@media (min-width: 900px) {
-    .xh {
-        padding: max(20px, env(safe-area-inset-top)) max(30px, env(safe-area-inset-right)) max(26px, env(safe-area-inset-bottom)) max(30px, env(safe-area-inset-left));
-    }
-
-    .xh-dock {
-        width: min(1520px, 100%);
-        grid-template-columns: minmax(300px, 1fr) minmax(430px, 1.4fr) minmax(300px, 1fr);
-        gap: 16px;
-    }
-
-    .xh-metrics {
-        display: contents;
-    }
-
-    .xh-dock {
-        align-items: stretch;
-    }
-
-    .xh-lap {
-        grid-template-rows: auto 1fr auto;
-        padding: 18px 20px 16px;
-    }
-
-    .xh-strip {
-        height: 100%;
-        min-height: 56px;
-    }
-
-    .xh-lap__name {
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        white-space: normal;
-        font-size: 22px;
-        line-height: 1.02;
-    }
-
-    .xh-lap__clock {
-        font-size: 50px;
-    }
-
-    .xh-power {
-        align-content: space-between;
-        padding: 18px 24px 20px;
-        border-radius: 22px;
-    }
-
-    .xh-side {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: 1fr 1fr;
-    }
-
-    .xh-stat {
-        padding: 14px 20px 15px;
-    }
-
-    .xh-stat__value {
-        font-size: clamp(44px, 3.6vw, 64px);
-    }
-
-    .xh-side .xh-stat {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: end;
-        column-gap: 14px;
-    }
-
-    .xh-side .xh-stat__label,
-    .xh-side .xh-stat__sub {
-        grid-column: 1;
-    }
-
-    .xh-side .xh-stat__value {
-        grid-column: 2;
-        grid-row: 1 / span 2;
-        align-self: center;
-    }
-
-    .xh[data-hud='hidden'] .xh-side {
-        opacity: 0;
-    }
-
-    .xh-prompt {
-        top: 108px;
-    }
-
-    .xh-gauge {
-        height: 14px;
-    }
-}
-
-@media (min-width: 1500px) {
-    .xh-clock__time {
-        font-size: 46px;
-    }
-
-    .xh-power__value {
-        font-size: 124px;
-    }
-}
-
-/* ---- Ventana baja en escritorio: dock más compacto ---- */
-
-@media (min-width: 900px) and (max-height: 760px) {
-    .xh-lap__name { font-size: 20px; }
-    .xh-lap__clock { font-size: 46px; }
-    .xh-strip { height: 42px; }
-    .xh-power { gap: 8px; padding: 14px 20px 15px; }
-    .xh-power__value { font-size: clamp(60px, 7.5vh, 96px); }
-    .xh-stat { padding: 10px 18px 11px; }
-    .xh-stat__value { font-size: clamp(34px, 5vh, 50px); }
-}
-
-/* ---- Móvil / estrecho ---- */
-
-@media (max-width: 899px) {
-    .xh-actions {
-        position: absolute;
-        right: max(12px, env(safe-area-inset-right));
-        bottom: calc(var(--xh-dock-h) + 24px);
-    }
-
-    .xh-clock__time {
-        font-size: 28px;
-        padding: 7px 16px 8px;
-    }
-
-    .xh-clock__label {
-        display: none;
-    }
-
-    .xh-prompt {
-        top: 142px;
-        max-width: 82vw;
-    }
-
-    .xh-toast {
-        top: 216px;
-    }
-}
-
-@media (max-width: 599px) {
-    .xh-pill {
-        max-width: 132px;
-        padding: 8px 11px;
-        font-size: 10px;
-    }
-
-    .xh-mode {
-        max-width: 80px;
-        text-align: center;
-        white-space: normal;
-    }
-
-    .xh-clock__time {
-        font-size: 24px;
-    }
-
-    .xh-race {
-        min-width: 132px;
-        padding: 9px 11px;
-    }
-
-    .xh-race__rank {
-        font-size: 28px;
-    }
-
-    .xh-dock {
-        width: 100%;
-        gap: 6px;
-    }
-
-    .xh-race__list {
-        display: none !important;
-    }
-
-    .xh-lap {
-        gap: 7px;
-        padding: 10px 13px 9px;
-        border-radius: 15px;
-    }
-
-    .xh-lap__clock {
-        font-size: 32px;
-    }
-
-    .xh-lap__clock-label {
-        display: none;
-    }
-
-    .xh-lap__name {
-        font-size: 17px;
-    }
-
-    .xh-strip {
-        height: 28px;
-    }
-
-    .xh-lap__next {
-        font-size: 11px;
-    }
-
-    .xh-power {
-        gap: 6px;
-        padding: 10px 14px 11px;
-        border-radius: 15px;
-    }
-
-    .xh-power__value {
-        font-size: clamp(44px, 14vw, 58px);
-    }
-
-    .xh-power__unit {
-        font-size: 18px;
-    }
-
-    .xh-coach {
-        min-height: 0;
-        font-size: 14px;
-    }
-
-    .xh-side {
-        gap: 6px;
-    }
-
-    .xh-stat {
-        gap: 3px;
-        padding: 8px 13px 9px;
-        border-radius: 15px;
-    }
-
-    .xh-stat__value {
-        font-size: 30px;
-    }
+@media (max-width: 600px) {
+    .exp-hud .hud-stat { min-width: 64px; padding: 0 9px; }
+    .exp-hud .hud-stat--power { min-width: 96px; }
+    .exp-hud .hud-topbar { padding: 8px 2px 9px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .xh *,
-    .xh *::before {
-        transition: none !important;
-    }
+    .exp-hud .hud-panel,
+    .exp-hud .hud-heart { animation: none; }
 }

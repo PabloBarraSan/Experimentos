@@ -4,6 +4,9 @@ import { ResistanceErgController } from './ResistanceErgController.js';
 // nativo cumple hasta el tope físico del rodillo y que la resistencia manual no llega más lejos.
 export const ERG_MODES = ['auto', 'native', 'resistance'];
 
+// Resistencia (%) usada como equivalente a una simulación llana si no hay simulación.
+const FLAT_RESISTANCE_PERCENT = 20;
+
 export class TrainerAdapter {
     constructor(bluetoothManager = null, capabilities = null, { ergMode = 'auto', deviceName = '' } = {}) {
         this.manager = bluetoothManager;
@@ -87,6 +90,37 @@ export class TrainerAdapter {
                 this.commandLog.push({ timestamp: Date.now(), mode: 'erg_resistance', value: level, success: false, error: error?.message || String(error) });
             })
             .finally(() => { this.resistanceInFlight = false; });
+    }
+
+    /**
+     * Pone el rodillo en simulación llana (sin ERG) para que el usuario use los cambios libremente.
+     * Usa la simulación indoor bike si existe y, si no, una resistencia baja equivalente.
+     */
+    async applyFlatSimulation({ force = false } = {}) {
+        if (!this.manager) return { mode: 'manual', applied: false };
+        if (!force && this.lastTargetKey === 'sim') {
+            return { mode: this.controlMode, applied: true, deduplicated: true };
+        }
+        const simulate = this.manager.setIndoorBikeSimulation
+            ? (...args) => this.manager.setIndoorBikeSimulation(...args)
+            : this.manager.commandQueue?.setIndoorBikeSimulation
+                ? (...args) => this.manager.commandQueue.setIndoorBikeSimulation(...args)
+                : null;
+        if (simulate) {
+            const result = await this.runCommand('sim', 0, () => simulate(0, 0, 0.004, 0.51));
+            if (result.applied) {
+                this.lastTargetKey = 'sim';
+                return result;
+            }
+        }
+        if (typeof this.manager.setResistance === 'function') {
+            const result = await this.runCommand('resistance', FLAT_RESISTANCE_PERCENT, () => this.manager.setResistance(FLAT_RESISTANCE_PERCENT));
+            if (result.applied) {
+                this.lastTargetKey = 'sim';
+                return result;
+            }
+        }
+        return { mode: 'manual', applied: false, error: 'El rodillo no admite el modo libre. Control manual requerido.' };
     }
 
     async runCommand(mode, value, command) {

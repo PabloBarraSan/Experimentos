@@ -2,14 +2,15 @@
  * AvatarRider - Ciclista con malla real (GLB con esqueleto estilo Mixamo)
  *
  * Carga un avatar una sola vez, lo clona para cada ciclista y mueve sus huesos hacia los
- * puntos que calcula la expedición (pedales, manillar, curva de la espalda). Sirve cualquier
- * avatar con el esqueleto estándar de Mixamo ("mixamorig:Hips", "LeftUpLeg", ...), así que
- * para cambiar de modelo basta con sustituir public/models/rider.glb.
+ * puntos que calcula la expedición (pedales, manillar, curva de la espalda). El GLB se genera
+ * con 3d/scripts/build_rider.py (cuerpo CC0 de MakeHuman con el kit ya modelado) y trae un
+ * material por pieza: aquí solo se recolorea el maillot ("TopMain" y su ribete "TopTrim").
  */
 
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { getCyclistEnvMap } from './environmentMap.js';
 
 const BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || './';
 const MODEL_URL = `${BASE}models/rider.glb`;
@@ -22,46 +23,129 @@ const LEG_REACH = 0.86;
 const PELVIS = new THREE.Vector3(0, 1.01, -0.215);
 // Por posición: inclinación de cada tramo de la espalda respecto a la vertical (rad, se va tumbando hacia el manillar),
 // del cuello y de la cabeza (la cabeza sigue mirando al frente); wrist = desfase de la muñeca respecto al centro del
-// agarre (el agarre es la mano, la muñeca queda detrás); fingers = cabeceo de la mano; pole = hacia dónde se dobla el codo.
+// agarre (el agarre es la mano, la muñeca queda detrás); fingers = cabeceo de la mano; pole = hacia dónde se dobla el codo;
+// knuckles = dirección de los nudillos del índice al meñique (x hacia fuera, y arriba, z adelante): palma hacia abajo sobre
+// las manetas (los dedos abrazan la maneta), más de canto en las caídas y plana en el acople.
 const AVATAR_POSES = {
     hoods: {
-        spine: [0.62, 0.74, 0.86, 0.98], neck: 1.05, head: 0.3,
-        wrist: [0, 0.02, -0.06], fingers: 0.2, pole: [0.9, -0.25, -0.2],
+        spine: [0.62, 0.74, 0.86, 0.98], neck: 1.05, head: 0.2,
+        wrist: [0, -0.012, -0.055], fingers: 0.35, pole: [0.9, -0.25, -0.2], knuckles: [1, -0.45, 0],
     },
     drops: {
-        spine: [0.78, 0.9, 1.02, 1.14], neck: 1.2, head: 0.4,
-        wrist: [0, 0.055, -0.035], fingers: 0.75, pole: [0.9, -0.25, -0.2],
+        spine: [0.78, 0.9, 1.02, 1.14], neck: 1.2, head: 0.3,
+        wrist: [0, 0.03, -0.035], fingers: 0.75, pole: [0.9, -0.25, -0.2], knuckles: [0.5, -1, 0],
     },
     aero: {
-        spine: [0.95, 1.05, 1.15, 1.25], neck: 1.3, head: 0.45,
-        wrist: [0, 0.012, -0.07], fingers: 0, pole: [0.3, -1, -0.2],
+        spine: [0.95, 1.05, 1.15, 1.25], neck: 1.3, head: 0.35,
+        wrist: [0, 0.012, -0.07], fingers: 0, pole: [0.3, -1, -0.2], knuckles: [1, -0.2, 0],
     },
 };
 const DEFAULT_POSE = 'hoods';
+// Fracción del camino hacia la nueva posición que se recorre en cada frame (cambio de manetas a aero sin saltos).
+const POSE_BLEND = 0.1;
+// De pie sobre los pedales: pelvis más alta y adelantada (sobre la punta del sillín) y espalda más erguida.
+const STAND_POSE = { pelvis: new THREE.Vector3(0, 1.06, 0.0), spine: [0.5, 0.66, 0.82, 0.98], neck: 1.0, head: 0.2 };
+// Vaivén con la pedalada (rad de alabeo de hombros; m de desplazamiento lateral de la cadera de pie).
+const SWAY = { seated: 0.015, standing: 0.11, hips: 0.035 };
 
-// Kit de ciclista sobre la ropa casual del modelo (se edita al clonar, el GLB no se toca).
-const SHORTS_COLOR = 0x15191c;
-const SHOE_COLOR = 0xeeeeea;
+// Acabado de cada material del GLB (por nombre): rugosidad, metalizado, intensidad de reflejos, tejido y barniz.
+const FINISH = {
+    Skin: { rough: 0.5, env: 0.2 },
+    TopMain: { rough: 0.55, env: 0.35, fabric: true },
+    TopTrim: { rough: 0.55, env: 0.35, fabric: true },
+    Bib: { rough: 0.38, env: 0.55, fabric: true },
+    BibBand: { rough: 0.45, env: 0.4 },
+    Sock: { rough: 0.8, env: 0.15, fabric: true },
+    Glove: { rough: 0.5, env: 0.3 },
+    Shoe: { rough: 0.3, env: 0.7 },
+    ShoeSole: { rough: 0.7, env: 0.2 },
+    HelmetShell: { rough: 0.25, env: 0.9, coat: true },
+    HelmetDark: { rough: 0.6, env: 0.2 },
+    Lens: { rough: 0.05, metal: 0.7, env: 1.4 },
+    GlassesFrame: { rough: 0.3, env: 0.6 },
+    Strap: { rough: 0.6, env: 0.1 },
+    Buzz: { rough: 0.8, env: 0.1 },
+    Eye: { rough: 0.1, env: 0.8 },
+};
+// Punto de punto del tejido: repeticiones sobre el mapa UV del cuerpo (~1 cm por celda) y relieve.
+const FABRIC_REPEAT = 140;
+const FABRIC_STRENGTH = 0.35;
+
 const GHOST_OPACITY = 0.45;
-const HELMET_WHITE_MIX = 0.82;
+const HELMET_WHITE_MIX = 0.3;
 // Ajuste del casco y las gafas sobre la cabeza del modelo: centro (fracción del alto de la cabeza sobre el hueso Head) y escala.
-const GEAR_CENTER = { y: 0.34, z: 0.02 };
-const GEAR_SCALE = 0.8;
+const GEAR_CENTER = { y: 0.38, z: 0.06 };
+const GEAR_SCALE = 0.98;
 
-const FINGER_BONES = ['Left', 'Right'].flatMap((side) => [
-    ...['Index', 'Middle', 'Ring', 'Pinky'].flatMap((finger) => [1, 2, 3].map((joint) => `${side}Hand${finger}${joint}`)),
-    `${side}HandThumb2`, `${side}HandThumb3`,
-]);
 const POSED = [
     'Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head',
     'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand',
     'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand',
     'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase',
     'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase',
-    ...FINGER_BONES,
 ];
 
 let template = null;
+let fabricNormal = null;
+
+// Mapa de normales del punto de lycra (columnas de bucles), generado una vez sin archivos.
+function getFabricNormal() {
+    if (fabricNormal) return fabricNormal;
+    const size = 64;
+    const height = (x, y) => {
+        const column = (x / size) * 8;
+        const row = (y / size) * 8 + (Math.floor(column) % 2) * 0.5;
+        return Math.abs(Math.cos(Math.PI * column)) * (0.6 + 0.4 * Math.abs(Math.sin(Math.PI * row)));
+    };
+    const data = new Uint8Array(size * size * 4);
+    for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+            const dx = height((x + 1) % size, y) - height((x + size - 1) % size, y);
+            const dy = height(x, (y + 1) % size) - height(x, (y + size - 1) % size);
+            const normal = new THREE.Vector3(-dx * 2, -dy * 2, 1).normalize();
+            const index = (y * size + x) * 4;
+            data[index] = (normal.x * 0.5 + 0.5) * 255;
+            data[index + 1] = (normal.y * 0.5 + 0.5) * 255;
+            data[index + 2] = (normal.z * 0.5 + 0.5) * 255;
+            data[index + 3] = 255;
+        }
+    }
+    fabricNormal = new THREE.DataTexture(data, size, size);
+    fabricNormal.wrapS = fabricNormal.wrapT = THREE.RepeatWrapping;
+    fabricNormal.repeat.set(FABRIC_REPEAT, FABRIC_REPEAT);
+    fabricNormal.magFilter = THREE.LinearFilter;
+    fabricNormal.minFilter = THREE.LinearMipmapLinearFilter;
+    fabricNormal.generateMipmaps = true;
+    fabricNormal.needsUpdate = true;
+    return fabricNormal;
+}
+
+// Da a los materiales de la plantilla su acabado (reflejos, tejido, barniz). Los clones los comparten.
+function finishTemplateMaterials() {
+    const envMap = getCyclistEnvMap();
+    template.traverse((object) => {
+        if (!object.isMesh || !object.material) return;
+        const name = object.material.name.replace(/\.\d+$/, '');
+        const finish = FINISH[name];
+        if (!finish) return;
+        let material = object.material;
+        if (finish.coat) {
+            material = new THREE.MeshPhysicalMaterial({ name: material.name, color: material.color, clearcoat: 1, clearcoatRoughness: 0.06 });
+            object.material = material;
+        }
+        material.roughness = finish.rough;
+        material.metalness = finish.metal ?? 0;
+        if (envMap) {
+            material.envMap = envMap;
+            material.envMapIntensity = finish.env;
+        }
+        if (finish.fabric) {
+            material.normalMap = getFabricNormal();
+            material.normalScale.set(FABRIC_STRENGTH, FABRIC_STRENGTH);
+        }
+        material.needsUpdate = true;
+    });
+}
 let loading = null;
 
 export function isRiderAvatarReady() {
@@ -116,18 +200,6 @@ const _des = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _pq = new THREE.Quaternion();
 const _delta = new THREE.Quaternion();
-const _axisQ = new THREE.Quaternion();
-const FINGER_CURL = [-0.95, -1.05, -0.7];
-
-// Gira un hueso un ángulo sobre un eje del mundo (dedos que se cierran).
-function curl(bone, axisWorld, angle) {
-    if (!bone) return;
-    _axisQ.setFromAxisAngle(axisWorld, angle);
-    bone.getWorldQuaternion(_q).premultiply(_axisQ);
-    bone.parent.getWorldQuaternion(_pq);
-    bone.quaternion.copy(_pq.invert().multiply(_q));
-    bone.updateMatrixWorld(true);
-}
 
 // Gira el hueso (en mundo) para que su hijo quede en la dirección del objetivo. Sirve con cualquier
 // orientación de reposo, por eso funciona con avatares distintos.
@@ -142,6 +214,48 @@ function aim(bone, child, targetWorld) {
     bone.parent.getWorldQuaternion(_pq);
     bone.quaternion.copy(_pq.invert().multiply(_q));
     bone.updateMatrixWorld(true);
+}
+
+const _axis = new THREE.Vector3();
+const _from = new THREE.Vector3();
+const _to = new THREE.Vector3();
+
+// Gira el hueso sobre su propio eje (en mundo) para que `across` (vector del mundo que el hueso arrastra al girar)
+// apunte lo más posible hacia `desired`. Controla el giro que aim() deja libre, p. ej. la palma de la mano.
+function twist(bone, axisWorld, across, desired) {
+    _axis.copy(axisWorld).normalize();
+    _from.copy(across).addScaledVector(_axis, -across.dot(_axis));
+    _to.copy(desired).addScaledVector(_axis, -desired.dot(_axis));
+    if (_from.lengthSq() < 1e-12 || _to.lengthSq() < 1e-12) return;
+    _from.normalize();
+    _to.normalize();
+    const angle = Math.atan2(_axis.dot(_from.clone().cross(_to)), _from.dot(_to));
+    _delta.setFromAxisAngle(_axis, angle);
+    bone.getWorldQuaternion(_q).premultiply(_delta);
+    bone.parent.getWorldQuaternion(_pq);
+    bone.quaternion.copy(_pq.invert().multiply(_q));
+    bone.updateMatrixWorld(true);
+}
+
+// Gira el hueso un ángulo alrededor de un eje del mundo (alabeo de hombros, etc.).
+function rotateWorld(bone, axisWorld, angle) {
+    if (!angle) return;
+    _delta.setFromAxisAngle(_axis.copy(axisWorld).normalize(), angle);
+    bone.getWorldQuaternion(_q).premultiply(_delta);
+    bone.parent.getWorldQuaternion(_pq);
+    bone.quaternion.copy(_pq.invert().multiply(_q));
+    bone.updateMatrixWorld(true);
+}
+
+// Acerca cada número (o lista de números) de `current` a `target` una fracción `amount`.
+function blendPose(current, target, amount) {
+    for (const key of Object.keys(target)) {
+        if (Array.isArray(target[key])) {
+            target[key].forEach((value, index) => { current[key][index] += (value - current[key][index]) * amount; });
+        } else if (typeof target[key] === 'number') {
+            current[key] += (target[key] - current[key]) * amount;
+        }
+    }
 }
 
 // Cinemática inversa de dos huesos: devuelve la articulación intermedia (rodilla/codo).
@@ -172,217 +286,21 @@ function avatarScale() {
 
 function meshKind(object) {
     const name = `${object.name || ''} ${object.material?.name || ''}`.toLowerCase();
-    if (name.includes('eyelash')) return 'eyelashes';
+    if (name.includes('helmetshell')) return 'helmet';
+    if (name.includes('toptrim')) return 'jerseyTrim';
+    if (name.includes('topmain')) return 'jersey';
     if (name.includes('eye')) return 'eyes';
-    if (name.includes('hair') || name.includes('headwear')) return 'hair';
-    if (name.includes('top')) return 'tops';
-    if (name.includes('bottom')) return 'bottoms';
-    if (name.includes('shoe') || name.includes('footwear')) return 'shoes';
-    return 'body';
+    return 'kit';
 }
 
 let shared = null;
 
-// ---- Kit de ciclista pintado sobre la ropa del avatar ----
-// La ropa original (chaqueta, pantalón...) se convierte en maillot de manga corta y culotte: en el vertex shader se
-// ciñe a la silueta de un cuerpo atlético (radio objetivo a lo largo de cada hueso) y en el fragment shader se pinta
-// por zonas (maillot, puños, culotte, piel, calcetín) y se recorta lo que sobra (faldones bajo la cintura).
-// Todo se calcula en el espacio de reposo de la malla, así que vale para cualquier avatar con esqueleto de Mixamo.
-
-const SKIN_COLOR = 0xc98f6b;
-const GLOVE_COLOR = 0x1a1f24;
-const SOCK_COLOR = 0xf3f3ef;
-
-const KIT_COMMON = /* glsl */`
-uniform vec3 uLegA[2]; uniform vec3 uLegB[2]; uniform vec3 uLegC[2];
-uniform vec3 uArmA[2]; uniform vec3 uArmB[2]; uniform vec3 uArmC[2];
-uniform vec3 uSpineA; uniform vec3 uSpineB;
-// Posición a lo largo de una cadena de dos huesos (0 = raíz, 1 = final; negativo = por encima de la raíz).
-float kitChain(vec3 p, vec3 a, vec3 b, vec3 c, out vec3 axisPoint) {
-    vec3 ab = b - a; vec3 bc = c - b;
-    float lab = length(ab); float lbc = length(bc);
-    float s1 = dot(p - a, ab) / (lab * lab);
-    if (s1 < 1.0) { axisPoint = a + ab * clamp(s1, 0.0, 1.0); return s1 * lab / (lab + lbc); }
-    float s2 = dot(p - b, bc) / (lbc * lbc);
-    axisPoint = b + bc * clamp(s2, 0.0, 1.0);
-    return (lab + s2 * lbc) / (lab + lbc);
-}
-float kitLength(vec3 a, vec3 b, vec3 c) { return length(b - a) + length(c - b); }
-// Radio de la pierna (fracción de su largo): muslo potente, rodilla, gemelo y tobillo fino.
-float kitLegRadius(float t) {
-    if (t < 0.5) return mix(0.098, 0.06, smoothstep(0.0, 0.5, t));
-    if (t < 0.66) return mix(0.06, 0.068, smoothstep(0.5, 0.66, t));
-    return mix(0.068, 0.04, smoothstep(0.66, 1.0, t));
-}
-// Radio del brazo: hombro y bíceps, codo, antebrazo y muñeca.
-float kitArmRadius(float t) {
-    if (t < 0.48) return mix(0.092, 0.07, smoothstep(0.1, 0.48, t));
-    if (t < 0.62) return mix(0.07, 0.076, smoothstep(0.48, 0.62, t));
-    return mix(0.076, 0.052, smoothstep(0.62, 1.0, t));
-}
-vec3 kitFit(vec3 p, vec3 axisPoint, float radius, float amount) {
-    vec3 offset = p - axisPoint;
-    float d = length(offset);
-    if (d < 1e-5) return p;
-    // Mínimo suave y monótono: lo que ya cabe no se toca y las capas de ropa conservan su orden (sin z-fighting).
-    float target = d / pow(1.0 + pow(d / radius, 6.0), 1.0 / 6.0);
-    return axisPoint + offset * mix(1.0, target / d, amount);
-}
-`;
-
-function kitShaderUniforms(uniforms) {
-    return Object.fromEntries(Object.entries(uniforms).map(([key, value]) => [key, { value }]));
-}
-
-/**
- * Material de kit sobre la ropa del avatar.
- * kind: 'tops' (maillot), 'bottoms' (culotte y piernas), 'body' (manos con guante, cuello, tobillos).
- */
-function createKitMaterial(kind, source, colors, uniforms) {
-    const material = new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        roughness: kind === 'body' ? 0.6 : 0.55,
-        metalness: 0,
-        sheen: kind === 'tops' ? 0.6 : 0.25,
-        sheenRoughness: 0.5,
-        sheenColor: new THREE.Color(0xffffff),
-        // Las manos y el cuello conservan la textura de piel del modelo; la ropa se pinta entera.
-        map: kind === 'body' ? source.map : null,
-    });
-    const shaderUniforms = {
-        ...kitShaderUniforms(uniforms),
-        uJersey: { value: new THREE.Color(colors.jersey) },
-        uSecondary: { value: new THREE.Color(colors.secondary) },
-        uShorts: { value: new THREE.Color(colors.shorts) },
-        uSkin: { value: new THREE.Color(SKIN_COLOR) },
-        uGlove: { value: new THREE.Color(GLOVE_COLOR) },
-        uSock: { value: new THREE.Color(SOCK_COLOR) },
-    };
-    material.userData.kitUniforms = shaderUniforms;
-    material.onBeforeCompile = (shader) => {
-        Object.assign(shader.uniforms, shaderUniforms);
-        shader.vertexShader = `${KIT_COMMON}\nvarying vec3 vRest;\nvarying float vT;\nvarying float vS;\nvarying float vZone;\n${shader.vertexShader}`
-            .replace('#include <begin_vertex>', `#include <begin_vertex>
-            vRest = position;
-            vT = 0.0;
-            vS = 0.0;
-            vZone = 0.0;
-            int side = position.x > 0.0 ? 1 : 0;
-            vec3 axisPoint;
-            ${kind === 'tops' ? `
-            float armT = kitChain(position, uArmA[side], uArmB[side], uArmC[side], axisPoint);
-            float armLen = kitLength(uArmA[side], uArmB[side], uArmC[side]);
-            vT = armT; // a lo largo del brazo, para todos los vértices: el color no salta en la costura del hombro
-            {
-                vec3 sp = uSpineB - uSpineA;
-                vS = clamp(dot(position - uSpineA, sp) / dot(sp, sp), 0.0, 1.0);
-            }
-            // Solo es brazo lo que queda cerca de su eje (el costado bajo la axila sigue siendo tronco).
-            if (armT > 0.03 && length(position - axisPoint) < armLen * 0.16) {
-                // Manga y brazo: se ciñen al radio del brazo.
-                transformed = kitFit(transformed, axisPoint, kitArmRadius(armT) * armLen, smoothstep(0.03, 0.14, armT));
-                vZone = 1.0;
-            } else {
-                // Tronco: ceñido alrededor de la columna (la chaqueta holgada pasa a maillot ajustado).
-                vec3 spine = uSpineB - uSpineA;
-                float L = length(spine);
-                float s = clamp(dot(position - uSpineA, spine) / dot(spine, spine), 0.0, 1.0);
-                vec3 center = uSpineA + spine * s;
-                vec3 offset = transformed - center;
-                // Sección del tronco (elipse) a esa altura: cintura, pecho, hombros y cuello.
-                float rx = s < 0.7 ? mix(0.27, 0.34, smoothstep(0.1, 0.7, s)) : mix(0.34, 0.14, smoothstep(0.76, 1.0, s));
-                float rz = s < 0.7 ? mix(0.2, 0.24, smoothstep(0.1, 0.7, s)) : mix(0.22, 0.14, smoothstep(0.86, 1.0, s));
-                float e = length(vec2(offset.x / (rx * L), offset.z / (rz * L)));
-                float fitted = e / pow(1.0 + pow(e, 6.0), 1.0 / 6.0);
-                if (e > 1e-4) offset.xz *= fitted / e;
-                transformed = center + offset;
-            }` : ''}
-            ${kind === 'bottoms' ? `
-            float legT = kitChain(position, uLegA[side], uLegB[side], uLegC[side], axisPoint);
-            float len = kitLength(uLegA[side], uLegB[side], uLegC[side]);
-            transformed = kitFit(transformed, axisPoint, kitLegRadius(max(legT, 0.0)) * len, smoothstep(0.02, 0.14, legT));
-            vT = legT;` : ''}
-            ${kind === 'body' ? `
-            float handT = kitChain(position, uArmA[side], uArmB[side], uArmC[side], axisPoint);
-            vT = handT;
-            vZone = handT > 0.97 && length(position - uArmC[side]) < 0.16 ? 1.0 : 0.0;
-            if (handT < 0.5 && position.y > uSpineA.y) {
-                // Cuello y escote: se ciñen igual que el maillot (un poco más) para no asomar a través de él.
-                vec3 spine = uSpineB - uSpineA;
-                float L = length(spine);
-                float s = clamp(dot(position - uSpineA, spine) / dot(spine, spine), 0.0, 1.0);
-                vec3 center = uSpineA + spine * s;
-                vec3 offset = transformed - center;
-                float rx = (s < 0.7 ? mix(0.27, 0.34, smoothstep(0.1, 0.7, s)) : mix(0.36, 0.15, smoothstep(0.86, 1.0, s))) * 0.94;
-                float rz = (s < 0.7 ? mix(0.2, 0.24, smoothstep(0.1, 0.7, s)) : mix(0.22, 0.14, smoothstep(0.86, 1.0, s))) * 0.94;
-                float e = length(vec2(offset.x / (rx * L), offset.z / (rz * L)));
-                float fitted = e / pow(1.0 + pow(e, 6.0), 1.0 / 6.0);
-                if (e > 1e-4) offset.xz *= fitted / e;
-                transformed = center + offset;
-            }` : ''}
-            `);
-        shader.fragmentShader = `uniform vec3 uJersey; uniform vec3 uSecondary; uniform vec3 uShorts; uniform vec3 uSkin;
-uniform vec3 uGlove; uniform vec3 uSock; uniform vec3 uSpineA; uniform vec3 uSpineB; uniform vec3 uLegC[2];
-varying vec3 vRest; varying float vT; varying float vS; varying float vZone;\n${shader.fragmentShader}`
-            .replace('#include <color_fragment>', `#include <color_fragment>
-            ${kind === 'tops' ? `
-            float spineLen = length(uSpineB - uSpineA);
-            if (vZone < 0.5 && vRest.y < uSpineA.y + spineLen * 0.06) discard; // faldones bajo la cintura
-            // Brazo: manga con puño y piel; tronco: maillot con franja y filete. Se mezclan por zona (sin costuras).
-            vec3 arm = vT < 0.35 ? uJersey : uSkin;
-            if (vT > 0.305 && vT < 0.35) arm = uSecondary;
-            float h = vS;
-            vec3 torso = uJersey;
-            if (h < 0.13) torso = uSecondary;   // bajo del maillot
-            diffuseColor.rgb = mix(torso, arm, smoothstep(0.3, 0.7, vZone));` : ''}
-            ${kind === 'bottoms' ? `
-            vec3 kit = uShorts;
-            if (vT > 0.4) kit = uSkin;
-            if (vT > 0.37 && vT <= 0.4) kit = uJersey;               // banda de la pernera
-            if (vT > 0.9) kit = uSock;                               // calcetín
-            diffuseColor.rgb = kit;` : ''}
-            ${kind === 'body' ? `
-            int s = vRest.x > 0.0 ? 1 : 0;
-            // Del cuerpo solo se ven manos, cuello y tobillos: el resto (escote, hombros) queda bajo el maillot.
-            if (vZone < 0.5 && vRest.y > uLegC[s].y + 0.12 && vRest.y < uSpineB.y - 0.015) discard;
-            if (vZone > 0.5) diffuseColor.rgb = uGlove;              // guante
-            else if (vRest.y < uLegC[s].y + 0.14) diffuseColor.rgb = uSock;
-            else diffuseColor.rgb *= uSkin * 1.25;` : ''}
-            `);
-    };
-    material.customProgramCacheKey = () => `rider-kit-${kind}`;
-    return material;
-}
-
 function getShared() {
     if (shared) return shared;
     template.updateMatrixWorld(true);
+    finishTemplateMaterials();
     const bones = findBones(template);
     const scale = avatarScale();
-
-    // Puntos del esqueleto en reposo, en el espacio de la malla (índice 0: lado x<0, 1: lado x>0).
-    let meshInverse = null;
-    template.traverse((object) => {
-        if (!meshInverse && object.isSkinnedMesh) meshInverse = object.matrixWorld.clone().invert();
-    });
-    meshInverse ||= new THREE.Matrix4();
-    const at = (bone) => bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(meshInverse);
-    const chain = (names) => {
-        const out = [[new THREE.Vector3(), new THREE.Vector3()], [new THREE.Vector3(), new THREE.Vector3()], [new THREE.Vector3(), new THREE.Vector3()]];
-        for (const prefix of ['Left', 'Right']) {
-            const points = names.map((name) => at(bones[`${prefix}${name}`]));
-            const index = points[0].x > 0 ? 1 : 0;
-            points.forEach((point, k) => { out[k][index] = point; });
-        }
-        return out;
-    };
-    const [legA, legB, legC] = chain(['UpLeg', 'Leg', 'Foot']);
-    const [armA, armB, armC] = chain(['Arm', 'ForeArm', 'Hand']);
-    const kitUniforms = {
-        uLegA: legA, uLegB: legB, uLegC: legC,
-        uArmA: armA, uArmB: armB, uArmC: armC,
-        uSpineA: at(bones.Hips), uSpineB: at(bones.Neck),
-    };
 
     // Casco y gafas: matriz local al hueso Head que los centra en la cabeza, con la escala del avatar deshecha.
     const head = bones.Head.getWorldPosition(new THREE.Vector3());
@@ -394,7 +312,7 @@ function getShared() {
     );
     const gearLocal = bones.Head.matrixWorld.clone().invert().multiply(gearWorld);
 
-    const shoes = new THREE.MeshPhysicalMaterial({ color: SHOE_COLOR, roughness: 0.35, metalness: 0.05, clearcoat: 0.6 });
+    // Material del ghost, compartido por todos los avatares (no se libera con cada ciclista).
     const ghostMaterial = new THREE.MeshStandardMaterial({
         color: GHOST_COLOR,
         emissive: GHOST_COLOR,
@@ -405,25 +323,22 @@ function getShared() {
         opacity: GHOST_OPACITY,
         depthWrite: false,
     });
-    [shoes, ghostMaterial].forEach((material) => { material.userData.shared = true; });
+    ghostMaterial.userData.shared = true;
 
-    shared = { scale, gearLocal, kitUniforms, shoes, ghostMaterial, headMaterials: new Map() };
+    // Si el GLB trae su propio casco (y gafas), no se añaden los de Cyclist.js.
+    let ownHelmet = false;
+    template.traverse((object) => {
+        if (object.isMesh && meshKind(object) === 'helmet') ownHelmet = true;
+    });
+
+    shared = { scale, gearLocal, ghostMaterial, ownHelmet };
     return shared;
 }
 
-function headMaterial(source, info) {
-    if (info.headMaterials.has(source)) return info.headMaterials.get(source);
+// Maillot: color del ciclista sobre el material del GLB (conserva su rugosidad y mapas).
+function createJerseyMaterial(source, color) {
     const material = source.clone();
-    const neckY = info.kitUniforms.uSpineB.y;
-    material.onBeforeCompile = (shader) => {
-        shader.vertexShader = `varying float vRestY;\n${shader.vertexShader}`
-            .replace('#include <begin_vertex>', '#include <begin_vertex>\n vRestY = position.y;');
-        shader.fragmentShader = `varying float vRestY;\n${shader.fragmentShader}`
-            .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n if (vRestY < ${(neckY + 0.012).toFixed(4)}) discard;`);
-    };
-    material.customProgramCacheKey = () => 'rider-head';
-    material.userData.shared = true;
-    info.headMaterials.set(source, material);
+    material.color.set(color);
     return material;
 }
 
@@ -434,18 +349,17 @@ function secondaryTone(accent) {
     return luminance > 0.62 ? 0x1f2a36 : 0xf2f4f5;
 }
 
-// Asigna a cada malla su material de kit. La cabeza y los ojos comparten el material de la plantilla.
+// Asigna a cada malla su material de kit. El cuerpo y los ojos comparten el material de la plantilla.
 function prepareAvatarMaterials(root, { accent, ghost }, info) {
     const own = [];
-    const colors = { jersey: accent, secondary: secondaryTone(accent), shorts: SHORTS_COLOR };
     root.traverse((object) => {
         if (!object.isMesh) return;
         object.frustumCulled = false;
         object.castShadow = !ghost;
         object.receiveShadow = !ghost;
         const kind = meshKind(object);
-        // Pelo y sombreros siempre ocultos (lleva casco); en el ghost también pestañas y ojos.
-        if (kind === 'hair' || (ghost && (kind === 'eyes' || kind === 'eyelashes'))) {
+        // En el ghost los ojos solo ensucian la silueta.
+        if (ghost && kind === 'eyes') {
             object.visible = false;
             return;
         }
@@ -453,17 +367,15 @@ function prepareAvatarMaterials(root, { accent, ghost }, info) {
             object.material = info.ghostMaterial;
             return;
         }
-        const isBodySkin = kind === 'body' && /body/i.test(`${object.name} ${object.material?.name || ''}`) && !/head/i.test(object.name);
-        if (kind === 'tops' || kind === 'bottoms' || isBodySkin) {
-            object.material = createKitMaterial(isBodySkin ? 'body' : kind, object.material, colors, info.kitUniforms);
+        if (kind === 'jersey' || kind === 'jerseyTrim') {
+            object.material = createJerseyMaterial(object.material, kind === 'jersey' ? accent : secondaryTone(accent));
             own.push(object.material);
-        } else if (kind === 'shoes') {
-            object.material = info.shoes;
-        } else if (/head/i.test(object.name)) {
-            // La cabeza trae la parte alta del cuello y los hombros: lo que queda bajo el cuello del maillot se recorta.
-            object.material = headMaterial(object.material, info);
+        } else if (kind === 'helmet') {
+            // El casco hace juego con el maillot, aclarado.
+            object.material = createJerseyMaterial(object.material, new THREE.Color(accent).lerp(new THREE.Color(0xffffff), HELMET_WHITE_MIX));
+            own.push(object.material);
         } else {
-            // Cabeza y ojos: el material de la plantilla se comparte entre clones.
+            // Piel, culotte, zapatillas...: el material de la plantilla se comparte entre clones.
             object.material.userData.shared = true;
         }
     });
@@ -481,12 +393,10 @@ function createHeadGear(headGear, accent, ghost, info) {
     let helmetMaterial = info.ghostMaterial;
     if (!ghost) {
         // El casco hace juego con el maillot.
-        helmetMaterial = new THREE.MeshPhysicalMaterial({
+        helmetMaterial = new THREE.MeshStandardMaterial({
             color: new THREE.Color(accent).lerp(new THREE.Color(0xffffff), HELMET_WHITE_MIX),
-            roughness: 0.3,
+            roughness: 0.45,
             metalness: 0.02,
-            clearcoat: 0.9,
-            clearcoatRoughness: 0.12,
         });
         ownMaterials.push(helmetMaterial);
     }
@@ -519,16 +429,15 @@ export function createAvatarRig({ accent, ghost, headGear }) {
     holder.add(root);
     holder.scale.setScalar(info.scale);
     const ownMaterials = prepareAvatarMaterials(root, { accent, ghost }, info);
-    const gear = createHeadGear(headGear, accent, ghost, info);
+    const gear = info.ownHelmet ? { group: null, ownMaterials: [] } : createHeadGear(headGear, accent, ghost, info);
     if (gear.group) bones.Head.add(gear.group);
     ownMaterials.push(...gear.ownMaterials);
 
-    // Lado del cuerpo (x en el espacio de la bici) en el que está el lado izquierdo del avatar: en los modelos que
-    // miran a +Z el izquierdo queda en x > 0. Así cada mano y cada pie van a su lado sin cruzarse.
+    // Lado de la bici (x < 0: -1, x > 0: 1) en el que queda la mitad «Left» del avatar: depende de hacia dónde mira el
+    // modelo, así que se mide en lugar de suponerlo (si no, cada pierna busca el pedal contrario y se cruzan).
     root.updateMatrixWorld(true);
-    const leftSide = Math.sign(
-        bones.LeftUpLeg.getWorldPosition(new THREE.Vector3()).x - bones.RightUpLeg.getWorldPosition(new THREE.Vector3()).x,
-    ) || 1;
+    const leftSide = bones.LeftUpLeg.getWorldPosition(new THREE.Vector3()).x > bones.Hips.getWorldPosition(new THREE.Vector3()).x ? 1 : -1;
+    const prefixFor = (side) => (side === leftSide ? 'Left' : 'Right');
 
     const rest = new Map(POSED.filter((name) => bones[name]).map((name) => [
         name,
@@ -536,8 +445,11 @@ export function createAvatarRig({ accent, ghost, headGear }) {
     ]));
 
     // Posición sobre la bici: objetivo de las manos (centro del agarre, en el espacio de la bici) y postura.
-    let pose = AVATAR_POSES[DEFAULT_POSE];
-    let grip = new THREE.Vector3(0.207, 0.99, 0.62);
+    // Posición actual (se acerca poco a poco a la elegida) y agarre de las manos.
+    let target = AVATAR_POSES[DEFAULT_POSE];
+    const pose = JSON.parse(JSON.stringify(target));
+    const gripTarget = new THREE.Vector3(0.207, 0.99, 0.62);
+    const grip = gripTarget.clone();
 
     const worldPoint = (group, point) => group.localToWorld(point.clone());
     const worldDirection = (group, direction) => {
@@ -547,12 +459,26 @@ export function createAvatarRig({ accent, ghost, headGear }) {
 
     /** @param {{ id: string, hand: THREE.Vector3 }} next - id de posición y centro del agarre del lado derecho */
     function setPose(next) {
-        pose = AVATAR_POSES[next.id] || AVATAR_POSES[DEFAULT_POSE];
-        if (next.hand) grip = next.hand.clone();
+        target = AVATAR_POSES[next.id] || AVATAR_POSES[DEFAULT_POSE];
+        if (next.hand) gripTarget.copy(next.hand);
     }
 
-    function update(group, pedalLeft, pedalRight) {
+    /**
+     * @param {{ angle?: number, standing?: number }} motion - ángulo de biela (para el vaivén) y cuánto va de pie (0..1)
+     */
+    function update(group, pedalLeft, pedalRight, motion = {}) {
         group.updateWorldMatrix(true, false);
+        const angle = motion.angle ?? 0;
+        const standing = motion.standing ?? 0;
+        blendPose(pose, target, POSE_BLEND);
+        grip.lerp(gripTarget, POSE_BLEND);
+        // De pie: la postura se mezcla con la de pie y la cadera se mece hacia el pie que empuja.
+        const lerp = THREE.MathUtils.lerp;
+        const spine = pose.spine.map((value, index) => lerp(value, STAND_POSE.spine[index], standing));
+        const neck = lerp(pose.neck, STAND_POSE.neck, standing);
+        const headPitch = lerp(pose.head, STAND_POSE.head, standing);
+        const pelvis = PELVIS.clone().lerp(STAND_POSE.pelvis, standing);
+        pelvis.x -= Math.sin(angle) * SWAY.hips * standing;
 
         // 1) Pose de reposo y pelvis sobre el sillín.
         rest.forEach(({ position, quaternion }, name) => {
@@ -561,36 +487,47 @@ export function createAvatarRig({ accent, ghost, headGear }) {
         });
         const hips = bones.Hips;
         holder.updateMatrixWorld(true);
-        const pelvisWorld = worldPoint(group, PELVIS);
+        const pelvisWorld = worldPoint(group, pelvis);
         hips.position.copy(hips.parent.worldToLocal(pelvisWorld.clone()));
         hips.updateMatrixWorld(true);
 
         // 2) Espalda: cada tramo se inclina un poco más hacia delante, hasta el cuello.
         const chain = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck'];
         const groupScale = group.getWorldScale(_p).x;
-        const points = [PELVIS.clone()];
-        for (let index = 0; index < pose.spine.length; index += 1) {
+        const points = [pelvis.clone()];
+        for (let index = 0; index < spine.length; index += 1) {
             const length = distanceBetween(bones[chain[index]], bones[chain[index + 1]]) / groupScale;
-            const lean = pose.spine[index];
+            const lean = spine[index];
             points.push(points[index].clone().add(new THREE.Vector3(0, Math.cos(lean), Math.sin(lean)).multiplyScalar(length)));
         }
-        for (let index = 0; index < pose.spine.length; index += 1) {
+        for (let index = 0; index < spine.length; index += 1) {
             aim(bones[chain[index]], bones[chain[index + 1]], worldPoint(group, points[index + 1]));
         }
+        // Sin control del giro sobre su eje, la espalda doblada queda retorcida: cadera y hombros se nivelan con la bici.
+        const lateral = worldDirection(group, new THREE.Vector3(-leftSide, 0, 0)); // de la mitad «Left» a la «Right»
+        const across = (left, right) => bones[right].getWorldPosition(new THREE.Vector3()).sub(bones[left].getWorldPosition(_c));
+        const boneAxis = (bone, child) => bones[child].getWorldPosition(new THREE.Vector3()).sub(bones[bone].getWorldPosition(_c));
+        twist(hips, boneAxis('Hips', 'Spine'), across('LeftUpLeg', 'RightUpLeg'), lateral);
+        for (let index = 1; index < chain.length - 1; index += 1) {
+            twist(bones[chain[index]], boneAxis(chain[index], chain[index + 1]), across('LeftArm', 'RightArm'), lateral);
+        }
+        // Los hombros se mecen con cada pedalada (apenas sentado, mucho de pie); las manos siguen en el manillar.
+        rotateWorld(bones.Spine1, worldDirection(group, new THREE.Vector3(0, 0, 1)), Math.sin(angle) * (SWAY.seated + SWAY.standing * standing));
+
         // Cabeza mirando al frente, más agachada cuanto más aerodinámica es la posición.
         const neckLength = distanceBetween(bones.Neck, bones.Head) / group.getWorldScale(_p).x;
-        const headPoint = points[points.length - 1].clone().add(new THREE.Vector3(0, Math.cos(pose.neck), Math.sin(pose.neck)).multiplyScalar(neckLength));
+        const headPoint = points[points.length - 1].clone().add(new THREE.Vector3(0, Math.cos(neck), Math.sin(neck)).multiplyScalar(neckLength));
         aim(bones.Neck, bones.Head, worldPoint(group, headPoint));
         const headTop = bones.HeadTop_End;
         if (headTop) {
             bones.Head.getWorldPosition(_p);
-            const lookTarget = _p.clone().add(worldDirection(group, new THREE.Vector3(0, Math.cos(pose.head), Math.sin(pose.head))));
+            const lookTarget = _p.clone().add(worldDirection(group, new THREE.Vector3(0, Math.cos(headPitch), Math.sin(headPitch))));
             aim(bones.Head, headTop, lookTarget);
         }
 
         // 3) Brazos hacia el agarre (maneta, caída o extensión); la muñeca queda detrás de la mano.
         for (const side of [-1, 1]) {
-            const prefix = side === leftSide ? 'Left' : 'Right';
+            const prefix = prefixFor(side);
             const arm = bones[`${prefix}Arm`];
             const foreArm = bones[`${prefix}ForeArm`];
             const hand = bones[`${prefix}Hand`];
@@ -613,25 +550,21 @@ export function createAvatarRig({ accent, ghost, headGear }) {
             if (knuckle) {
                 const fingerDirection = worldDirection(group, new THREE.Vector3(0, -Math.sin(pose.fingers), Math.cos(pose.fingers)));
                 aim(hand, knuckle, handTarget.clone().add(fingerDirection));
+                // Giro de la mano: la línea de nudillos (índice -> meñique) se orienta según el agarre.
+                const index = bones[`${prefix}HandIndex1`];
+                const pinky = bones[`${prefix}HandPinky1`];
+                if (index && pinky) {
+                    const across = pinky.getWorldPosition(new THREE.Vector3()).sub(index.getWorldPosition(_c));
+                    const axis = knuckle.getWorldPosition(new THREE.Vector3()).sub(hand.getWorldPosition(_p));
+                    const [out, up, forward] = pose.knuckles;
+                    twist(hand, axis, across, worldDirection(group, new THREE.Vector3(side * out, up, forward)));
+                }
             }
-        }
-
-        // Dedos cerrados alrededor del manillar: cada falange gira sobre el eje de los nudillos.
-        for (const prefix of ['Left', 'Right']) {
-            const index = bones[`${prefix}HandIndex1`];
-            const pinky = bones[`${prefix}HandPinky1`];
-            if (!index || !pinky) continue;
-            const knuckleAxis = pinky.getWorldPosition(_p).sub(index.getWorldPosition(_c)).normalize();
-            if (prefix === 'Left') knuckleAxis.negate();
-            for (const finger of ['Index', 'Middle', 'Ring', 'Pinky']) {
-                for (let joint = 1; joint <= 3; joint += 1) curl(bones[`${prefix}Hand${finger}${joint}`], knuckleAxis, FINGER_CURL[joint - 1]);
-            }
-            for (let joint = 2; joint <= 3; joint += 1) curl(bones[`${prefix}HandThumb${joint}`], knuckleAxis, -0.35);
         }
 
         // 4) Piernas hacia los pedales.
         for (const [side, pedal] of [[-1, pedalLeft], [1, pedalRight]]) {
-            const prefix = side === leftSide ? 'Left' : 'Right';
+            const prefix = prefixFor(side);
             const upLeg = bones[`${prefix}UpLeg`];
             const leg = bones[`${prefix}Leg`];
             const foot = bones[`${prefix}Foot`];

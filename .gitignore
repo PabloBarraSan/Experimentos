@@ -22,3 +22,17 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Copias de seguridad automáticas de Blender
+*.blend1
+
+# Assets 3D que no se publican (el repo es público)
+# Referencias de terceros: se descargan según smart-trainer/3d/referencias/ATRIBUCION.md
+smart-trainer/3d/referencias/*.blend
+smart-trainer/3d/referencias/*.fbx
+# Avatar anterior, de origen sin documentar: se guarda solo en local
+smart-trainer/3d/ciclista-base.blend
+smart-trainer/3d/legado/
+
+# Plantillas de email de clientes (datos de terceros): no se publican
+plantillas-email/

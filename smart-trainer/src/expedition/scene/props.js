@@ -270,16 +270,18 @@ export function createCabin({ curve, terrain, t, lateral }) {
     return { object: group, dispose: () => disposeTree(group) };
 }
 
-export function createRoadPosts({ curve }) {
-    const length = curve.getLength();
-    const count = Math.floor(length / 16);
+// Hitos con reflectante alternos a cada lado; `tRange` limita los hitos a un tramo [t0, t1] de la curva.
+export function createRoadPosts({ curve, tRange = [0, 1] }) {
+    const [t0, t1] = tRange;
+    const length = curve.getLength() * (t1 - t0);
+    const count = Math.max(1, Math.floor(length / 16));
     const material = new THREE.MeshStandardMaterial({ color: 0xece7d6, roughness: 0.6 });
     const reflectorMaterial = new THREE.MeshBasicMaterial({ color: 0xff7a3d });
     const posts = new THREE.InstancedMesh(new THREE.BoxGeometry(0.13, 1, 0.13), material, count);
     const reflectors = new THREE.InstancedMesh(new THREE.BoxGeometry(0.135, 0.14, 0.135), reflectorMaterial, count);
     const dummy = new THREE.Object3D();
     for (let index = 0; index < count; index += 1) {
-        const t = index / count;
+        const t = t0 + ((t1 - t0) * index) / count;
         const point = curve.getPointAt(t);
         const tangent = curve.getTangentAt(t);
         const side = index % 2 === 0 ? 1 : -1;

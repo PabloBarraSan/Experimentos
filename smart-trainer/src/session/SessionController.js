@@ -15,6 +15,16 @@ import { summarizeSessionHealth } from '../diagnostics/sessionHealth.js';
 
 const MIN_SAVED_SECONDS = 60;
 
+// Límites y parámetros de los controles de entrenamiento (estilo Zwift/MyWhoosh).
+export const INTENSITY_MIN = 50;
+export const INTENSITY_MAX = 150;
+const SPIRAL_LOW_CADENCE = 55;
+const SPIRAL_RECOVER_CADENCE = 75;
+const SPIRAL_HOLD_MS = 2000;
+const SPIRAL_REDUCED_FACTOR = 0.5;
+const SPIRAL_RAMP_MS = 5000;
+const SPIRAL_RESEND_MS = 1000;
+
 export const SESSION_STATE = {
     IDLE: 'idle',
     READY: 'ready',
@@ -36,6 +46,7 @@ export class SessionController {
         onTick = () => {},
         onTargetChange = () => {},
         onBlockChange = () => {},
+        onPlanChange = () => {},
     } = {}) {
         this.ftp = ftp;
         this.state = SESSION_STATE.IDLE;
@@ -56,7 +67,183 @@ export class SessionController {
         this.flowTracker = createFlowTracker();
         this.telemetry = createTelemetryPipeline();
         this.trainer = new TrainerAdapter(bluetoothManager, capabilities, { ergMode, deviceName });
-        this.callbacks = { onStateChange, onTick, onTargetChange, onBlockChange };
+        this.callbacks = { onStateChange, onTick, onTargetChange, onBlockChange, onPlanChange };
+
+        // Controles de entrenamiento: intensidad, ERG y protección anti-espiral.
+        this.intensity = 100;
+        this.ergEnabled = true;
+        this.rawTarget = null;
+        this.sendChain = Promise.resolve();
+        this.spiral = false;
+        this.lowCadenceSince = null;
+        this.highCadenceSince = null;
+        this.rampStartedAt = null;
+        this.lastSpiralSendAt = 0;
+        this.lastSentFactor = 1;
+    }
+
+    // ---- Controles de entrenamiento ----
+
+    /** Bloques expandidos con su duración actual (cambia al alargar un bloque). */
+    getBlocks() {
+        return this.player?.getBlocks?.() ?? [];
+    }
+
+    getTotalDuration() {
+        return this.player?.getTotalDuration?.() ?? this.workout?.stats?.totalDuration ?? 0;
+    }
+
+    getAssistState() {
+        return { intensity: this.intensity, ergEnabled: this.ergEnabled, spiral: this.spiral };
+    }
+
+    /** Escala un objetivo con la intensidad actual (el objetivo "oficial" que ve el usuario). */
+    scaleTarget(target) {
+        if (!target || !Number.isFinite(target.power)) return target;
+        return { ...target, power: Math.round((target.power * this.intensity) / 100) };
+    }
+
+    /** Factor aplicado al objetivo enviado por la protección anti-espiral (1 = sin reducción). */
+    getSpiralFactor(now = Date.now()) {
+        if (this.spiral) return SPIRAL_REDUCED_FACTOR;
+        if (this.rampStartedAt == null) return 1;
+        const progress = (now - this.rampStartedAt) / SPIRAL_RAMP_MS;
+        if (progress >= 1) {
+            this.rampStartedAt = null;
+            return 1;
+        }
+        return SPIRAL_REDUCED_FACTOR + (1 - SPIRAL_REDUCED_FACTOR) * progress;
+    }
+
+    setIntensity(percent) {
+        const value = Math.round(Number(percent));
+        if (!Number.isFinite(value)) return this.intensity;
+        const next = Math.max(INTENSITY_MIN, Math.min(INTENSITY_MAX, value));
+        if (next === this.intensity) return this.intensity;
+        this.intensity = next;
+        this.debug?.log('control.intensity', { intensity: next });
+        this.dispatchTarget({ notify: true }).catch((error) => this.debug?.log('intensity.error', { error }));
+        return this.intensity;
+    }
+
+    setErgEnabled(enabled) {
+        const next = Boolean(enabled);
+        if (next === this.ergEnabled) return this.ergEnabled;
+        this.ergEnabled = next;
+        this.resetSpiral();
+        this.debug?.log('control.erg', { ergEnabled: next });
+        // Al activarlo se reenvía el objetivo actual aunque coincida con el último.
+        this.dispatchTarget({ notify: true, force: true }).catch((error) => this.debug?.log('erg.error', { error }));
+        return this.ergEnabled;
+    }
+
+    skipBlock() {
+        if (this.state !== SESSION_STATE.RUNNING || !this.player) return false;
+        const done = this.player.skipCurrentBlock();
+        if (done) this.debug?.log('control.skip', { blockIndex: this.currentBlock?.index });
+        return done;
+    }
+
+    extendBlock(seconds = 60) {
+        if (this.state !== SESSION_STATE.RUNNING && this.state !== SESSION_STATE.PAUSED) return false;
+        if (!this.player?.extendCurrentBlock(seconds)) return false;
+        const block = this.player.getCurrentBlock();
+        if (this.currentBlock && block) this.currentBlock = { ...this.currentBlock, duration: block.duration };
+        this.debug?.log('control.extend', { seconds, blockIndex: this.currentBlock?.index, totalDuration: this.getTotalDuration() });
+        this.callbacks.onPlanChange({ totalDuration: this.getTotalDuration(), blocks: this.player.getBlocks() });
+        return true;
+    }
+
+    resetSpiral() {
+        this.spiral = false;
+        this.lowCadenceSince = null;
+        this.highCadenceSince = null;
+        this.rampStartedAt = null;
+    }
+
+    /** Detecta la espiral de la muerte (cadencia baja sostenida) y reduce/recupera el objetivo enviado. */
+    updateSpiral(cadence, timestamp) {
+        const target = this.rawTarget;
+        const active = this.ergEnabled && Number.isFinite(target?.power) && target.power > 0;
+        if (!active) {
+            if (this.spiral || this.rampStartedAt != null) {
+                this.resetSpiral();
+                this.dispatchTarget({ notify: false }).catch(() => {});
+            }
+            return;
+        }
+        if (!Number.isFinite(cadence)) return;
+        let changed = false;
+        if (!this.spiral) {
+            if (cadence < SPIRAL_LOW_CADENCE) {
+                this.lowCadenceSince ??= timestamp;
+                if (timestamp - this.lowCadenceSince >= SPIRAL_HOLD_MS) {
+                    this.spiral = true;
+                    this.lowCadenceSince = null;
+                    this.rampStartedAt = null;
+                    changed = true;
+                    this.debug?.log('control.spiral.start', { cadence });
+                }
+            } else {
+                this.lowCadenceSince = null;
+            }
+        } else if (cadence > SPIRAL_RECOVER_CADENCE) {
+            this.highCadenceSince ??= timestamp;
+            if (timestamp - this.highCadenceSince >= SPIRAL_HOLD_MS) {
+                this.spiral = false;
+                this.highCadenceSince = null;
+                this.rampStartedAt = timestamp;
+                changed = true;
+                this.debug?.log('control.spiral.end', { cadence });
+            }
+        } else {
+            this.highCadenceSince = null;
+        }
+        // Durante la rampa de recuperación se reenvía como mucho una vez por segundo.
+        const ramping = this.rampStartedAt != null;
+        if (changed || (ramping && timestamp - this.lastSpiralSendAt >= SPIRAL_RESEND_MS)) {
+            this.lastSpiralSendAt = timestamp;
+            this.dispatchTarget({ notify: false }).catch((error) => this.debug?.log('spiral.error', { error }));
+        }
+    }
+
+    /**
+     * Envía al rodillo el objetivo vigente (intensidad, ERG y anti-espiral aplicados).
+     * Las órdenes se encadenan para que lleguen siempre en orden.
+     */
+    dispatchTarget({ notify = true, force = false } = {}) {
+        const run = async () => {
+            const raw = this.rawTarget;
+            if (!raw) return null;
+            const reported = this.scaleTarget(raw);
+            this.currentTarget = reported;
+            let result;
+            if (!this.ergEnabled && Number.isFinite(raw.power)) {
+                result = await this.trainer.applyFlatSimulation({ force });
+            } else {
+                const factor = this.getSpiralFactor();
+                this.lastSentFactor = factor;
+                const sent = Number.isFinite(reported.power) && factor < 1
+                    ? { ...reported, power: Math.round(reported.power * factor) }
+                    : reported;
+                result = await this.trainer.applyTarget(sent, { force });
+            }
+            this.session.controlMode = result.mode;
+            this.debug?.log('target.change.result', {
+                target: reported,
+                mode: result.mode,
+                applied: result.applied,
+                error: result.error,
+                intensity: this.intensity,
+                ergEnabled: this.ergEnabled,
+                spiral: this.spiral,
+            });
+            if (notify) this.callbacks.onTargetChange(reported, result);
+            return result;
+        };
+        const next = this.sendChain.then(run, run);
+        this.sendChain = next.catch(() => {});
+        return next;
     }
 
     async start({ workout, mission = null, experienceMode = 'expedition', recoveredSession = null, startAtSeconds = 0 }) {
@@ -88,22 +275,15 @@ export class SessionController {
             workout,
             ftp: this.ftp,
             onTargetChange: async (target) => {
-                this.currentTarget = target;
+                this.rawTarget = target;
+                this.currentTarget = this.scaleTarget(target);
                 this.debug.log('target.change.request', {
-                    target,
+                    target: this.currentTarget,
                     blockIndex: this.currentBlock?.index,
                     elapsedSeconds: this.currentTick?.totalElapsedTime || 0,
                 });
                 try {
-                    const result = await this.trainer.applyTarget(target);
-                    this.session.controlMode = result.mode;
-                    this.debug.log('target.change.result', {
-                        target,
-                        mode: result.mode,
-                        applied: result.applied,
-                        error: result.error,
-                    });
-                    this.callbacks.onTargetChange(target, result);
+                    await this.dispatchTarget({ notify: true });
                 } catch (error) {
                     this.debug.log('target.change.error', { target, error });
                     logActiveSessionError('target.change.unhandled', error, { target });
@@ -142,7 +322,11 @@ export class SessionController {
                         heartRate: last?.heartRate || null,
                     });
                 }
-                this.callbacks.onTick(tick);
+                this.callbacks.onTick({
+                    ...tick,
+                    currentTarget: this.scaleTarget(tick.currentTarget),
+                    ...this.getAssistState(),
+                });
             },
             onComplete: () => {
                 this.debug.log('player.complete', {
@@ -206,6 +390,7 @@ export class SessionController {
         // la potencia y la cadencia que se ven son así mucho más reactivas que con 1 muestra/s.
         const frame = this.telemetry.ingest(data, timestamp);
         this.trainer.feedback({ power: frame.control.power, cadence: frame.control.cadence, timestamp });
+        this.updateSpiral(frame.control?.cadence, timestamp);
         if (timestamp - this.lastSampleTimestamp < 1000) {
             // Entre muestras de 1 s solo se refresca lo que se ve en pantalla.
             return this.lastFlow ? { ...this.lastFlow, telemetry: frame, sampled: false } : null;
@@ -294,6 +479,9 @@ export class SessionController {
         }
         this.session.status = 'active';
         this.state = SESSION_STATE.RUNNING;
+        if (!this.ergEnabled) {
+            this.dispatchTarget({ notify: false, force: true }).catch((error) => this.debug?.log('resume.sim.error', { error }));
+        }
         this.player?.resume();
         this.emitState();
         this.debug?.log('controller.running', { reason: 'resume', player: this.player?.getState() });

@@ -14,8 +14,9 @@
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createAvatarRig, isRiderAvatarReady } from './AvatarRider.js';
+import { getBikeParts, isBikeModelReady } from './BikeModel.js';
+import { getCyclistEnvMap } from './environmentMap.js';
 import { getRiderPrefs } from '../storage/settings.js';
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -175,17 +176,8 @@ function getOutlineMaterial(thickness) {
 
 // Entorno de estudio (solo lo usan los materiales del ciclista): da reflejos suaves al barniz de la bici, el casco y
 // las gafas. Hay que prepararlo con un renderer antes de crear ciclistas.
-let cyclistEnvironment = null;
-export function setCyclistEnvironment(renderer) {
-    if (cyclistEnvironment || !renderer) return;
-    const generator = new THREE.PMREMGenerator(renderer);
-    const room = new RoomEnvironment();
-    cyclistEnvironment = generator.fromScene(room, 0.04).texture;
-    room.dispose?.();
-    generator.dispose();
-}
-
 const STYLE_KEY = 'smartTrainer_cyclistStyle';
+// El avatar 3D (public/models/rider.glb) es la opción inicial; el ciclista procedural queda como respaldo y en el visor.
 const DEFAULT_STYLE = { outline: false, shading: 'soft', avatar: true };
 
 export function getCyclistStyle() {
@@ -194,7 +186,7 @@ export function getCyclistStyle() {
         return {
             outline: typeof saved?.outline === 'boolean' ? saved.outline : DEFAULT_STYLE.outline,
             shading: saved?.shading === 'toon' ? 'toon' : DEFAULT_STYLE.shading,
-            avatar: saved?.avatar === false ? false : DEFAULT_STYLE.avatar,
+            avatar: typeof saved?.avatar === 'boolean' ? saved.avatar : DEFAULT_STYLE.avatar,
         };
     } catch {
         return { ...DEFAULT_STYLE };
@@ -299,6 +291,16 @@ class Baker {
         return this.push(slot, geometry);
     }
 
+    // Perfil elíptico para los tubos de carbono, estrecho de frente y profundo de lado.
+    aeroTube(slot, start, end, width, depth) {
+        const geometry = new THREE.CylinderGeometry(1, 1, 1, 16, 1);
+        const direction = end.clone().sub(start);
+        geometry.scale(width / 2, direction.length(), depth / 2);
+        geometry.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(Y_AXIS, direction.normalize()));
+        geometry.translate(...start.clone().add(end).multiplyScalar(0.5).toArray());
+        return this.push(slot, geometry);
+    }
+
     blob(slot, center, radii, rotation = null) {
         const geometry = new THREE.SphereGeometry(1, 18, 12);
         geometry.scale(...radii);
@@ -346,13 +348,12 @@ function buildBikeStatic() {
     const b = new Baker();
     const { bottomBracket: bb, rearHub, frontHub, seatCluster, saddle, headTop, headBottom } = BIKE;
 
-    // Triángulo principal con tubos finos.
-    // Tubos de perfil aerodinámico: gruesos vistos de lado y estrechos de frente.
-    b.tube('paint', bb, seatCluster, 0.034, 0.03, 14, 0.78);
-    b.tube('paint', seatCluster, headTop, 0.03, 0.034, 14, 0.78);
-    b.tube('paint', bb, headBottom, 0.05, 0.044, 14, 0.78);
-    b.tube('paint', headBottom, headTop, 0.04, 0.036, 14, 0.7);
-    b.tube('accent', bb.clone().lerp(headBottom, 0.3), bb.clone().lerp(headBottom, 0.68), 0.054, 0.054, 14, 0.8);
+    // Cuadro de carretera moderno con perfiles aerodinámicos y un detalle de color discreto.
+    b.aeroTube('paint', bb, seatCluster, 0.038, 0.055);
+    b.aeroTube('paint', seatCluster, headTop, 0.038, 0.047);
+    b.aeroTube('paint', bb, headBottom, 0.052, 0.073);
+    b.aeroTube('paint', headBottom, headTop, 0.048, 0.06);
+    b.aeroTube('accent', bb.clone().lerp(headBottom, 0.3), bb.clone().lerp(headBottom, 0.68), 0.055, 0.076);
     b.tube('metal', seatCluster, v(0, 0.935, -0.198), 0.0125);
     for (const side of [-1, 1]) {
         b.tube('paint', v(side * 0.004, seatCluster.y, seatCluster.z), v(side * 0.055, rearHub.y, rearHub.z), 0.017, 0.013, 12, 0.55);
@@ -628,15 +629,10 @@ function buildTorsoParts() {
     b.loft('strap', loftSections(torsoRings(0.372, 0.386, 2, 0.009), jerseyArch), 28);
     for (const x of [-0.085, 0, 0.085]) b.push('jersey', createPocketPatch(x, 0.17, 0.25, 0.031));
     b.tube('zip', v(0, 0.3, 0.1), v(0, 0.55, 0.073), 0.004);
-    // Tirantes del culotte asomando por el cuello del maillot.
-    for (const side of [-1, 1]) {
-        b.tube('strap', v(side * 0.05, 0.585, 0.04), v(side * 0.075, 0.51, 0.085), 0.008);
-        b.tube('strap', v(side * 0.05, 0.585, -0.03), v(side * 0.07, 0.52, -0.08), 0.008);
-    }
     return b.finish();
 }
 
-// Culotte en la pelvis: dos glúteos y la banda de la cintura (se asienta sobre el sillín).
+// Culotte con una silueta continua sobre el sillín.
 function buildHipsParts() {
     const b = new Baker();
     // Cintura y cadera en un solo volumen suave + cabeza del muslo a cada lado.
@@ -655,12 +651,11 @@ function buildHipsParts() {
 function buildHeadParts() {
     const b = new Baker();
     b.blob('skin', [0, 0, 0], [0.072, 0.1, 0.088]);
-    b.blob('skin', [0, -0.06, 0.02], [0.052, 0.05, 0.06]);
-    b.blob('skin', [0, -0.012, 0.088], [0.012, 0.02, 0.016], [0.3, 0, 0]);
+    b.blob('skin', [0, -0.008, 0.083], [0.009, 0.014, 0.009], [0.3, 0, 0]);
     for (const side of [-1, 1]) b.blob('skin', [side * 0.073, -0.005, -0.012], [0.01, 0.02, 0.016]);
     // Pelo que asoma bajo el casco: nuca y patillas.
-    b.blob('hair', [0, -0.045, -0.055], [0.062, 0.04, 0.04]);
-    for (const side of [-1, 1]) b.blob('hair', [side * 0.068, -0.02, 0.0], [0.014, 0.035, 0.024]);
+    b.blob('hair', [0, -0.025, -0.067], [0.06, 0.033, 0.022]);
+    for (const side of [-1, 1]) b.blob('hair', [side * 0.068, -0.015, -0.02], [0.008, 0.022, 0.014]);
 
     // Gafas envolventes: dos lentes, puente y patillas.
     for (const side of [-1, 1]) {
@@ -677,8 +672,8 @@ function buildHeadParts() {
         { z: 0.05, y: 0.036, w: 0.28, h: 0.215 },
         { z: -0.06, y: 0.034, w: 0.268, h: 0.215 },
         { z: -0.17, y: 0.018, w: 0.21, h: 0.17 },
-        { z: -0.27, y: -0.004, w: 0.12, h: 0.1 },
-        { z: -0.34, y: -0.022, w: 0.04, h: 0.036 },
+        { z: -0.23, y: -0.004, w: 0.15, h: 0.11 },
+        { z: -0.27, y: -0.022, w: 0.06, h: 0.045 },
     ].map(({ z, y, w, h }) => ({ z: z * scale, y: y * scale, w: w * scale, h: h * scale }));
     const topY = (x, z) => {
         for (let index = 0; index < profile.length - 1; index += 1) {
@@ -745,17 +740,29 @@ export function createCyclist({
         ? { transparent: true, opacity: 0.4, depthWrite: false, emissive: GHOST_COLOR, emissiveIntensity: 0.5 }
         : {};
     // 'toon' = tres escalones de luz; 'soft' = sombreado suave, más cercano a un juego realista.
-    const makeMaterial = (color, { rough = 0.78, metal = 0.02, flatShading, ...extra } = {}) => (style.shading === 'toon'
-        ? new THREE.MeshToonMaterial({ color: tone(color), gradientMap: getToonGradient(), ...ghostProps, ...extra })
-        : new THREE.MeshPhysicalMaterial({
+    // Solo en 'soft' y sin ghost: reflejos con el mapa de entorno procedural (envIntensity). Barniz (coat) o brillo
+    // de tejido (sheen) piden el material físico.
+    const envMap = !ghost && style.shading !== 'toon' ? getCyclistEnvMap() : null;
+    const PHYSICAL_KEYS = ['clearcoat', 'clearcoatRoughness', 'sheen', 'sheenRoughness', 'sheenColor'];
+    const makeMaterial = (color, { rough = 0.78, metal = 0.02, flatShading, envIntensity = 0.45, coat, ...extra } = {}) => {
+        if (style.shading === 'toon') {
+            const toonExtra = Object.fromEntries(Object.entries(extra).filter(([key]) => !PHYSICAL_KEYS.includes(key)));
+            return new THREE.MeshToonMaterial({ color: tone(color), gradientMap: getToonGradient(), ...ghostProps, ...toonExtra });
+        }
+        const params = {
             color: tone(color),
             roughness: rough,
             metalness: metal,
-            ...(cyclistEnvironment && !ghost ? { envMap: cyclistEnvironment, envMapIntensity: 0.55 } : {}),
             ...(flatShading ? { flatShading } : {}),
+            ...(envMap ? { envMap, envMapIntensity: envIntensity } : {}),
             ...ghostProps,
             ...extra,
-        }));
+        };
+        const physical = !ghost && (coat || PHYSICAL_KEYS.some((key) => key in extra));
+        if (physical) return new THREE.MeshPhysicalMaterial({ ...params, ...coat });
+        PHYSICAL_KEYS.forEach((key) => delete params[key]);
+        return new THREE.MeshStandardMaterial(params);
+    };
     const neutral = (name, color, extra) => {
         const key = `${style.shading}|${ghost ? 1 : 0}|${name}`;
         if (!neutralMaterials.has(key)) {
@@ -779,9 +786,11 @@ export function createCyclist({
         jersey: makeMaterial(accent, { emissive: accent, emissiveIntensity: ghost ? 0.5 : 0.06, vertexColors: true, rough: 0.62, sheen: 0.7, sheenRoughness: 0.45, sheenColor: new THREE.Color(0xffffff) }),
         jerseyArm: makeMaterial(accent, { emissive: accent, emissiveIntensity: ghost ? 0.5 : 0.06, rough: 0.62, sheen: 0.7, sheenRoughness: 0.45, sheenColor: new THREE.Color(0xffffff) }),
         jerseySec: makeMaterial(secondaryColor, { ...(ghost ? {} : { emissive: secondaryColor, emissiveIntensity: 0.04 }), vertexColors: true }),
+        jerseyTrim: makeMaterial(secondaryColor),
         // Detalles de color (franja de las zapatillas, tubo diagonal): es el material que el renderer anima con el flow.
         accent: makeMaterial(accent, { emissive: accent, emissiveIntensity: ghost ? 0.9 : 0.35 }),
-        paint: makeMaterial(initialPaint, { rough: 0.32, metal: 0.55, clearcoat: 1, clearcoatRoughness: 0.12 }),
+        // Pintura metalizada barnizada; setBikeColor solo cambia su color.
+        paint: makeMaterial(initialPaint, { rough: 0.38, metal: 0.35, envIntensity: 0.9, coat: { clearcoat: 1, clearcoatRoughness: 0.08 } }),
         skin: neutral('skin', PALETTE.skin, { rough: 0.62, sheen: 0.4, sheenRoughness: 0.6, sheenColor: new THREE.Color(0xffc9a8) }),
         hair: neutral('hair', PALETTE.hair),
         glasses: neutral('glasses', 0x0f161c, { rough: 0.08, metal: 0.8, clearcoat: 1 }),
@@ -789,15 +798,16 @@ export function createCyclist({
         vent: neutral('vent', PALETTE.helmetVent, { flatShading: true }),
         strap: neutral('strap', 0x1b2227),
         shorts: neutral('shorts', PALETTE.shorts, { rough: 0.55, sheen: 0.5, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8a96a0) }),
+        shortCuff: neutral('shortCuff', 0x38444a),
         zip: neutral('zip', 0xe9ecec, { flatShading: true }),
         shoe: neutral('shoe', PALETTE.shoe),
         sock: neutral('sock', PALETTE.sock),
         glove: neutral('glove', PALETTE.glove),
-        rubber: neutral('rubber', PALETTE.rubber),
-        tape: neutral('tape', PALETTE.tape),
-        tire: neutral('tire', PALETTE.tire),
-        rim: neutral('rim', PALETTE.rim, { rough: 0.28, metal: 0.45, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
-        metal: neutral('metal', PALETTE.metal, { rough: 0.28, metal: 0.85 }),
+        rubber: neutral('rubber', PALETTE.rubber, { rough: 0.6 }),
+        tape: neutral('tape', PALETTE.tape, { rough: 0.6 }),
+        tire: neutral('tire', PALETTE.tire, { rough: 0.85 }),
+        rim: neutral('rim', PALETTE.rim, { rough: 0.28, metal: 0.45, envIntensity: 0.7, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
+        metal: neutral('metal', PALETTE.metal, { rough: 0.28, metal: 0.85, envIntensity: 1 }),
         bottle: neutral('bottle', PALETTE.bottle, { flatShading: true }),
     };
 
@@ -824,8 +834,21 @@ export function createCyclist({
 
     // ---- Ruedas: cubierta + llanta con perfil + radios; la cubierta apoya justo en el suelo ----
     const wheelParts = getBaked('wheels', buildWheelParts);
+    // Bici modelada en Blender (bike.glb): si está cargada sustituye a cuadro, ruedas, bielas y pedales procedurales.
+    const bikeModel = isBikeModelReady() ? getBikeParts() : null;
+    const addModelPart = (parent, list, outlineSlots = {}) => {
+        for (const { slot, geometry } of list) {
+            const mesh = new THREE.Mesh(geometry, M[slot] ?? M.metal);
+            parent.add(mesh);
+            if (outlineSlots[slot]) mark(mesh, outlineSlots[slot]);
+        }
+    };
     const buildWheel = (rear) => {
         const wheel = new THREE.Group();
+        if (bikeModel) {
+            addModelPart(wheel, rear ? bikeModel.wheelRear : bikeModel.wheelFront);
+            return wheel;
+        }
         const tire = mark(new THREE.Mesh(wheelParts.tire, M.tire), OUTLINE.thin);
         const rim = new THREE.Mesh(rear ? wheelParts.rimRear : wheelParts.rimFront, M.rim);
         wheel.add(tire, rim, new THREE.Mesh(wheelParts.decal, M.accent));
@@ -838,13 +861,23 @@ export function createCyclist({
     group.add(rearWheel, frontWheel);
 
     // ---- Cuadro, manillar, sillín: un mesh por material ----
-    addBaked(group, getBaked('bike', buildBikeStatic), { paint: OUTLINE.thin });
+    if (bikeModel) addModelPart(group, bikeModel.frame, { paint: OUTLINE.thin });
+    else addBaked(group, getBaked('bike', buildBikeStatic), { paint: OUTLINE.thin });
     const { bottomBracket: bb } = BIKE;
-    const chainring = new THREE.Mesh(getBaked('chainring', buildChainring), M.metal);
+    // Con el modelo, el plato y las dos bielas van en el Crankset (gira entero); las bielas procedurales se ocultan.
+    let chainring;
+    if (bikeModel) {
+        chainring = new THREE.Group();
+        addModelPart(chainring, bikeModel.crankset);
+    } else {
+        chainring = new THREE.Mesh(getBaked('chainring', buildChainring), M.metal);
+    }
     chainring.position.copy(bb);
     group.add(chainring);
     const leftCrank = new THREE.Mesh(tubeGeometry(0.011), M.metal);
     const rightCrank = new THREE.Mesh(tubeGeometry(0.011), M.metal);
+    leftCrank.visible = !bikeModel;
+    rightCrank.visible = !bikeModel;
     group.add(leftCrank, rightCrank);
 
     // Extensiones de triatlón y apoyos de antebrazo (fijos a la bici): solo en posición aero.
@@ -878,6 +911,7 @@ export function createCyclist({
     // Brazos finos: manga corta, brazo, antebrazo y guante; se recolocan al cambiar de posición.
     const makeArm = () => ({
         sleeve: mark(taperedMesh(0.066, 0.058, M.jerseyArm), OUTLINE.thin),
+        cuff: taperedMesh(0.059, 0.058, M.jerseyTrim),
         upper: mark(limbMesh('upper', M.skin), OUTLINE.thin),
         fore: mark(limbMesh('fore', M.skin), OUTLINE.thin),
         cap: mark(blobMesh(0.068, M.jerseyArm), OUTLINE.thin),
@@ -888,15 +922,22 @@ export function createCyclist({
     arms.forEach((arm) => torso.add(...Object.values(arm)));
 
     // ---- Piernas: culotte, muslo, gemelo, calcetín y zapatilla; se recolocan por frame con IK ----
+    const makePedal = () => {
+        if (!bikeModel) return new THREE.Mesh(sharedGeometry('pedal', () => new THREE.BoxGeometry(0.07, 0.014, 0.1)), M.rubber);
+        const pedal = new THREE.Group();
+        addModelPart(pedal, bikeModel.pedal);
+        return pedal;
+    };
     const makeLeg = () => ({
         short: mark(limbMesh('short', M.shorts), OUTLINE.thin),
+        cuff: taperedMesh(0.078, 0.076, M.shortCuff),
         thigh: mark(limbMesh('thigh', M.skin), OUTLINE.thin),
         calf: mark(limbMesh('calf', M.skin), OUTLINE.thin),
         sock: mark(limbMesh('sock', M.sock), OUTLINE.thin),
         knee: blobMesh(0.05, M.skin),
-        shoe: mark(blobMesh([0.04, 0.034, 0.115], M.shoe), OUTLINE.thin),
+        shoe: mark(blobMesh([0.039, 0.045, 0.105], M.shoe), OUTLINE.thin),
         stripe: blobMesh([0.03, 0.008, 0.06], M.accent),
-        pedal: new THREE.Mesh(sharedGeometry('pedal', () => new THREE.BoxGeometry(0.07, 0.014, 0.1)), M.rubber),
+        pedal: makePedal(),
     });
     const leftLeg = makeLeg();
     const rightLeg = makeLeg();
@@ -974,7 +1015,10 @@ export function createCyclist({
         accentMaterials: [M.accent],
         paintMaterial: M.paint,
         crankAngle: 0,
+        crankOffset: 0,
+        standing: 0,
         avatar,
+        hasBikeModel: Boolean(bikeModel),
         position: DEFAULT_RIDER_POSITION,
         bikeColor: initialPaint,
         cda: RIDER_POSITIONS[DEFAULT_RIDER_POSITION].cda,
@@ -1024,6 +1068,7 @@ export function createCyclist({
             }
             const sleeveEnd = shoulder.clone().lerp(elbow, 0.5);
             alignTube(arm.sleeve, shoulder, sleeveEnd);
+            alignTube(arm.cuff, shoulder.clone().lerp(elbow, 0.43), sleeveEnd);
             alignTube(arm.upper, sleeveEnd, elbow);
             alignTube(arm.fore, elbow, hand);
             arm.cap.position.copy(shoulder);
@@ -1057,11 +1102,55 @@ export function disposeCyclist(cyclist) {
     });
 }
 
-export function animateCyclist(cyclist, angle, speed, flow, active, wheelAngle) {
+// Pedales nivelados al rodar sin pedalear: ángulo de biela múltiplo de PI (un pedal delante y otro detrás).
+const COAST_SMOOTHING = 0.08;
+const STAND_SWAY = 0.12;
+
+/**
+ * Mantiene cyclist.standing (0..1) con histéresis: de pie si (pendiente >= 7 % y cadencia baja) o potencia alta
+ * de forma sostenida; vuelve a sentarse cuando deja de cumplirse. `force` (true/false) fija el estado (visor).
+ */
+export function updateRiderStance(cyclist, { grade = 0, cadence = 0, power = 0, dt = 1 / 60, force } = {}) {
+    const step = Math.max(0, dt) || 0;
+    const wants = (grade >= 7 && cadence > 0 && cadence < 82) || power >= 550;
+    if (typeof force === 'boolean') {
+        cyclist.standTarget = force;
+        cyclist.standHold = 0;
+    } else {
+        cyclist.standTarget = Boolean(cyclist.standTarget);
+        if (wants === cyclist.standTarget) {
+            cyclist.standHold = 0;
+        } else {
+            cyclist.standHold = (cyclist.standHold || 0) + step;
+            if (cyclist.standHold >= (wants ? 1.2 : 1.5)) {
+                cyclist.standTarget = wants;
+                cyclist.standHold = 0;
+            }
+        }
+    }
+    const goal = cyclist.standTarget ? 1 : 0;
+    const current = cyclist.standing || 0;
+    cyclist.standing = current + (goal - current) * (1 - Math.exp(-step / 0.35));
+    return cyclist.standing;
+}
+
+export function animateCyclist(cyclist, rawAngle, speed, flow, active, wheelAngle) {
     // Si el llamante conoce el giro real de la rueda (velocidad / radio) lo usa; si no, deriva de la biela.
-    const wheelRotation = wheelAngle ?? (active ? angle * 1.85 : angle);
+    const wheelRotation = wheelAngle ?? (active ? rawAngle * 1.85 : rawAngle);
     cyclist.rearWheel.rotation.x = wheelRotation;
     cyclist.frontWheel.rotation.x = wheelRotation;
+
+    // Rueda libre: las bielas se acercan al nivelado más próximo; al pedalear de nuevo el desfase decae sin salto.
+    let offset = cyclist.crankOffset || 0;
+    if (active) {
+        offset *= 1 - COAST_SMOOTHING;
+        if (Math.abs(offset) < 1e-4) offset = 0;
+    } else {
+        const shown = rawAngle + offset;
+        offset += (Math.round(shown / Math.PI) * Math.PI - shown) * COAST_SMOOTHING;
+    }
+    cyclist.crankOffset = offset;
+    const angle = rawAngle + offset;
 
     // Ligera oscilación de cadera y torso: sube y baja dos veces por vuelta de biela y se balancea de lado a lado.
     const bob = active ? Math.sin(angle * 2) * 0.003 : 0;
@@ -1079,10 +1168,13 @@ export function animateCyclist(cyclist, angle, speed, flow, active, wheelAngle) 
     alignTube(cyclist.leftCrank, _crankStart.copy(bb).add(_crankSide.set(-0.07, 0, 0)), _pedalLeft);
     alignTube(cyclist.rightCrank, _crankStart.copy(bb).add(_crankSide.set(0.07, 0, 0)), _pedalRight);
     cyclist.crankRing.rotation.x = angle;
-    cyclist.avatar?.update(cyclist.group, _pedalLeft, _pedalRight);
+    const standing = cyclist.standing || 0;
+    cyclist.avatar?.update(cyclist.group, _pedalLeft, _pedalRight, { angle, standing });
+    // De pie la bici se balancea más, hacia el lado contrario al pie que baja.
     const lean = Math.min(0.055, speed * 0.0018) + flow * 0.012;
-    // Inclinación de curva (la fija el renderer) + vaivén suave del pedaleo.
-    cyclist.group.rotation.z = (cyclist.bank || 0) + Math.sin(angle * 0.5) * lean * 0.08;
+    // Inclinación de curva (la fija el renderer) + vaivén del pedaleo, mayor de pie (opuesto al pie que baja).
+    const sway = active ? Math.sin(angle) * lean * 0.08 - Math.sin(angle) * STAND_SWAY * standing : 0;
+    cyclist.group.rotation.z = (cyclist.bank || 0) + sway;
 }
 
 // ---- Cinemática y geometría auxiliar ----
@@ -1106,14 +1198,15 @@ const _ankle = new THREE.Vector3();
 const _knee = new THREE.Vector3();
 const _pole = new THREE.Vector3();
 const _mid = new THREE.Vector3();
+const _cuffStart = new THREE.Vector3();
 const _sockStart = new THREE.Vector3();
 const _crankSide = new THREE.Vector3();
 const _crankStart = new THREE.Vector3();
 const _pedalLeft = new THREE.Vector3();
 const _pedalRight = new THREE.Vector3();
-const _shoeOffset = new THREE.Vector3(0, 0.03, 0.03);
+const _shoeOffset = new THREE.Vector3(0, 0.04, 0.015);
 const _stripeOffset = new THREE.Vector3(0, 0.03, 0.015);
-const _ankleOffset = new THREE.Vector3(0, 0.085, -0.08);
+const _ankleOffset = new THREE.Vector3(0, 0.075, -0.065);
 
 function poseLeg(leg, side, angle, hipY, pedalOut) {
     const { bottomBracket, crankLength } = BIKE;
@@ -1128,6 +1221,7 @@ function poseLeg(leg, side, angle, hipY, pedalOut) {
     _mid.copy(_hip).lerp(_knee, 0.68);
     _sockStart.copy(_knee).lerp(_ankle, 0.72);
     alignTube(leg.short, _hip, _mid);
+    alignTube(leg.cuff, _cuffStart.copy(_hip).lerp(_knee, 0.49), _mid);
     alignTube(leg.thigh, _mid, _knee);
     alignTube(leg.calf, _knee, _sockStart);
     alignTube(leg.sock, _sockStart, _ankle);

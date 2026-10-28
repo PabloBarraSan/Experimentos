@@ -21,6 +21,7 @@ import { TrainerDiagnosticsView } from './views/TrainerDiagnosticsView.js';
 import { ResistanceProbeView } from './views/ResistanceProbeView.js';
 import { CyclistViewerView } from './views/CyclistViewerView.js';
 import { preloadRiderAvatar } from './expedition/AvatarRider.js';
+import { preloadBikeModel } from './expedition/BikeModel.js';
 import { calculateKilojoules, calculateCalories } from './utils/calculations.js';
 import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './router.js';
 import { getActiveSession, getProgress, saveProgress } from './storage/sessions.js';
@@ -580,6 +581,7 @@ async function init() {
     startBackgroundSync();
     // El avatar del ciclista se descarga en segundo plano para que la expedición lo tenga listo.
     preloadRiderAvatar();
+    preloadBikeModel();
     AppState.progress = migrateProgress(await getProgress().catch(() => null) || {});
     await saveProgress(AppState.progress).catch(() => null);
     AppState.recoveredSession = await getActiveSession().catch(() => null);

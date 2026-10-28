@@ -74,6 +74,7 @@ export class RideDecor {
         this.length = 0;
         this.seed = 0;
         this.cache = new Map();     // índice de celda -> placements
+        this.stale = new Set();     // celdas que siguen dibujándose pero hay que recalcular (curva cambiada)
         this.firstCell = null;
         this.lastCell = null;
         this.needsFill = true;
@@ -130,6 +131,22 @@ export class RideDecor {
     }
 
     /**
+     * Sustituye la curva sin vaciar el decorado: la curva nueva coincide con la anterior hasta `fromMeters`
+     * (replanificación en directo). Las celdas siguientes se recalculan poco a poco y, mientras tanto, se sigue
+     * dibujando su versión anterior.
+     * @param {Object} route - { curve, length }
+     * @param {number} fromMeters - Metros de arco desde los que la curva ha cambiado
+     */
+    updateCurve({ curve, length }, fromMeters) {
+        this.curve = curve;
+        this.length = length;
+        const firstStale = Math.max(0, Math.floor(fromMeters / CELL));
+        for (const key of this.cache.keys()) {
+            if (key >= firstStale) this.stale.add(key);
+        }
+    }
+
+    /**
      * Densidad y especies según el mundo (landscape.objects / objectDensity)
      */
     setWorld(worldConfig) {
@@ -170,6 +187,7 @@ export class RideDecor {
 
     _reset() {
         this.cache.clear();
+        this.stale.clear();
         this.firstCell = null;
         this.lastCell = null;
         this.needsFill = true;
@@ -287,7 +305,10 @@ export class RideDecor {
             this.needsFill = true;
             // Libera las celdas que han quedado fuera de la ventana
             for (const key of this.cache.keys()) {
-                if (key < first - 2 || key > last + 2) this.cache.delete(key);
+                if (key < first - 2 || key > last + 2) {
+                    this.cache.delete(key);
+                    this.stale.delete(key);
+                }
             }
         }
 
@@ -295,12 +316,13 @@ export class RideDecor {
         let budget = this.needsFullWindow ? Infinity : CELLS_PER_FRAME;
         const missing = [];
         for (let k = first; k <= last; k++) {
-            if (!this.cache.has(k)) missing.push(k);
+            if (!this.cache.has(k) || this.stale.has(k)) missing.push(k);
         }
         missing.sort((a, b) => Math.abs(a - center) - Math.abs(b - center));
         for (const k of missing) {
             if (budget-- <= 0) break;
             this.cache.set(k, this.computeCell(k));
+            this.stale.delete(k);
             this.needsFill = true;
         }
         if (this.needsFullWindow) this.needsFullWindow = false;
@@ -372,6 +394,7 @@ export class RideDecor {
         }
         new Set(this.disposables).forEach((resource) => resource.dispose());
         this.cache.clear();
+        this.stale.clear();
         this.curve = null;
     }
 }

@@ -1,4 +1,4 @@
-import { typography } from '../utils/theme.js';
+import { colors, typography } from '../utils/theme.js';
 import { createElement, div, formatTime } from '../utils/dom.js';
 import { BLOCK_TYPES, expandBlocks } from '../workouts/model.js';
 
@@ -13,7 +13,7 @@ function zoneColor(percent) {
     return '#ff5a4d';
 }
 
-// Porcentaje del FTP que pide un bloque; los objetivos en vatios (p. ej. el ramp test) se convierten con el FTP.
+// Intensidad del bloque en % del FTP: los objetivos en vatios absolutos se pasan a % y los libres (tests) cuentan como 100 %.
 function blockPercent(block, ftp = 0) {
     const toPercent = (value) => (block.targetType === 'power_absolute' ? (ftp > 0 ? (Number(value) / ftp) * 100 : 70) : Number(value) || 0);
     if (block.targetType === 'free') return { start: 100, end: 100, mean: 100 };
@@ -101,10 +101,11 @@ export class LapTracker {
 }
 
 // Perfil del entrenamiento (estilo TrainerRoad/Zwift) + qué toca ahora y después.
-export function createWorkoutStrip({ workout, ftp, totalDuration }) {
-    const blocks = expandBlocks(workout.blocks || []);
-    const strip = div({ className: 'xh-strip' });
-    // Escala: 130 % del FTP, o más si el entreno (ramp test) pide más.
+export function createWorkoutStrip({ workout, ftp, totalDuration, blocks: expandedBlocks = null }) {
+    // `blocks` ya expandidos (p. ej. tras alargar un bloque); si no, se expanden los del workout.
+    const blocks = expandedBlocks || expandBlocks(workout.blocks || []);
+    const strip = div({ className: 'hud-strip' });
+    // Las alturas se escalan al bloque más duro (un test de FTP puede pasar del 130 %).
     const maxPercent = Math.max(130, ...blocks.map((block) => blockPercent(block, ftp).mean));
     const segments = blocks.map((block) => {
         const { start, end } = blockPercent(block, ftp);
@@ -112,12 +113,14 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
         const height = Math.max(14, Math.min(100, (top / maxPercent) * 100));
         const startHeight = Math.max(14, Math.min(100, (start / maxPercent) * 100));
         const endHeight = Math.max(14, Math.min(100, (end / maxPercent) * 100));
+        const color = zoneColor((start + end) / 2);
         const el = div({
-            className: 'xh-strip__seg',
+            className: 'hud-seg',
             styles: {
                 flex: `${block.duration} 0 0`,
                 height: `${height}%`,
-                background: zoneColor((start + end) / 2),
+                background: color,
+                color,
                 clipPath: start !== end
                     ? `polygon(0 ${100 - (startHeight / height) * 100}%, 100% ${100 - (endHeight / height) * 100}%, 100% 100%, 0 100%)`
                     : 'none',
@@ -126,39 +129,39 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
         strip.appendChild(el);
         return el;
     });
-    // Línea del 100 % del FTP: referencia para ver cuánto aprietan los tramos
-    strip.appendChild(div({ className: 'xh-strip__ftp', styles: { bottom: `${(100 / maxPercent) * 100}%` } }));
-    const cursor = div({ className: 'xh-strip__cursor' });
+    const cursor = div({ className: 'hud-cursor', styles: { left: '0%' } });
     strip.appendChild(cursor);
 
-    const lapLabel = createElement('span', { className: 'xh-lap__name' });
-    const lapAverage = createElement('span', { className: 'xh-lap__avg' });
-    const nextLabel = createElement('div', { className: 'xh-lap__next' });
+    const lapLabel = createElement('span', { text: '', className: 'hud-title' });
+    const lapAverage = createElement('span', { text: '', className: 'hud-num', styles: { fontSize: '15px', whiteSpace: 'nowrap' } });
+    const nextLabel = createElement('span', { text: '', className: 'hud-sub' });
     const blockClock = createElement('span', {
         text: '--:--',
-        className: 'xh-lap__clock',
+        className: 'hud-num hud-num--lg',
         attrs: { 'aria-label': 'Tiempo restante del tramo' },
+        styles: { flex: '0 0 auto' },
     });
     const info = div({
-        className: 'xh-lap__head',
+        styles: {
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+            fontSize: '11px', width: '100%',
+        },
         children: [
             div({
-                className: 'xh-lap__titles',
+                styles: { display: 'grid', gap: '3px', minWidth: 0, flex: '1 1 auto' },
                 children: [
-                    createElement('span', { text: 'Tramo actual', className: 'xh-eyebrow' }),
-                    lapLabel,
-                    lapAverage,
+                    div({ styles: { display: 'flex', gap: '9px', alignItems: 'baseline', minWidth: 0 }, children: [lapLabel, lapAverage] }),
+                    nextLabel,
                 ],
             }),
-            div({
-                children: [
-                    createElement('span', { text: 'Restante', className: 'xh-eyebrow xh-lap__clock-label' }),
-                    blockClock,
-                ],
-            }),
+            blockClock,
         ],
     });
-    const element = div({ className: 'xh-lap xh-glass', children: [info, strip, nextLabel] });
+    const element = div({
+        className: 'hud-panel hud-workout',
+        styles: { width: 'min(460px, 90vw)', '--hud-delay': '0.15s' },
+        children: [info, strip],
+    });
 
     let activeIndex = -1;
     return {
@@ -166,10 +169,11 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
         setBlock(block, index) {
             activeIndex = index;
             segments.forEach((segment, position) => {
-                segment.style.opacity = position === index ? '1' : position < index ? '.28' : '.55';
-                segment.style.filter = position === index ? 'brightness(1.15) saturate(1.1)' : 'none';
+                segment.classList.toggle('is-active', position === index);
+                segment.classList.toggle('is-done', position < index);
             });
             lapLabel.textContent = describeLap(block);
+            element.style.setProperty('--hud-accent', zoneColor(blockPercent(block, ftp).mean));
             const next = blocks[index + 1];
             if (next) {
                 const watts = targetWatts(next, ftp);
@@ -181,7 +185,7 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
         },
         setBlockRemaining(seconds) {
             blockClock.textContent = formatTime(Math.max(0, seconds));
-            blockClock.style.color = seconds <= 10 ? '#ffd379' : '#fff';
+            blockClock.style.color = seconds <= 10 ? '#ffd379' : '';
         },
         setProgress(elapsed) {
             cursor.style.left = `${Math.max(0, Math.min(100, (elapsed / totalDuration) * 100))}%`;
@@ -201,15 +205,24 @@ export function createWorkoutStrip({ workout, ftp, totalDuration }) {
 
 // Aviso al cerrar una serie/vuelta con su media y tiempo en zona.
 export function createLapToast() {
-    const title = createElement('div', { className: 'xh-eyebrow' });
-    const main = createElement('div', { className: 'xh-toast__main' });
-    const detail = createElement('div', { className: 'xh-toast__detail' });
-    const element = div({ className: 'xh-toast xh-glass', children: [title, main, detail] });
+    const title = createElement('div', { styles: { fontSize: '11px', letterSpacing: '1.2px', fontWeight: 800, color: 'rgba(255,255,255,.66)' } });
+    const main = createElement('div', { className: 'hud-num hud-num--lg', styles: { margin: '6px 0 4px' } });
+    const detail = createElement('div', { styles: { fontSize: '12px', color: 'rgba(255,255,255,.72)' } });
+    const element = div({
+        className: 'hud-panel hud-toast',
+        styles: {
+            position: 'absolute', left: '50%', top: '150px', transform: 'translate(-50%, -8px)', animation: 'none',
+            padding: '12px 20px', textAlign: 'center', opacity: '0', pointerEvents: 'none',
+            transition: 'opacity .3s ease, transform .3s ease', minWidth: '220px',
+        },
+        children: [title, main, detail],
+    });
     let timeout = null;
     return {
         element,
-        // El alto se resuelve en CSS (media queries); se mantiene por compatibilidad.
-        setCompact() {},
+        setCompact(compact) {
+            element.style.top = compact ? '216px' : '150px';
+        },
         show(summary) {
             title.textContent = `${summary.label} COMPLETADA`;
             main.textContent = `${summary.avgPower} W`;
@@ -219,9 +232,13 @@ export function createLapToast() {
             detail.textContent = parts.join(' · ');
             const good = summary.percent != null && Math.abs(summary.percent - 100) <= 5;
             main.style.color = good ? '#63e0b5' : Math.abs((summary.percent ?? 100) - 100) <= 10 ? '#ffd379' : '#ff8a6b';
-            element.classList.add('is-visible');
+            element.style.opacity = '1';
+            element.style.transform = 'translate(-50%, 0)';
             clearTimeout(timeout);
-            timeout = setTimeout(() => element.classList.remove('is-visible'), 6000);
+            timeout = setTimeout(() => {
+                element.style.opacity = '0';
+                element.style.transform = 'translate(-50%, -8px)';
+            }, 6000);
         },
         destroy() { clearTimeout(timeout); },
     };
@@ -231,13 +248,14 @@ const ORDINAL = (n) => `${n}º`;
 
 // Clasificación del pelotón: chip compacto y lista completa en modo "Completa".
 export function createRacePanel() {
-    const rank = createElement('div', { className: 'xh-race__rank' });
-    const total = createElement('span', { className: 'xh-race__total' });
-    const rival = createElement('div', { className: 'xh-race__rival' });
-    const list = div({ className: 'xh-race__list' });
+    const rank = createElement('div', { className: 'hud-num hud-num--lg' });
+    const total = createElement('span', { className: 'hud-label' });
+    const rival = createElement('div', { className: 'hud-sub', styles: { marginTop: '5px', fontWeight: 700 } });
+    const list = div({ styles: { display: 'grid', gap: '4px', marginTop: '9px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,.08)' } });
     const element = div({
-        className: 'xh-race xh-glass',
-        children: [div({ className: 'xh-race__head', children: [rank, total] }), rival, list],
+        className: 'hud-panel hud-race',
+        styles: { position: 'absolute', left: '18px', top: '64px', '--hud-delay': '0.25s' },
+        children: [div({ className: 'hud-race__rank', children: [rank, total] }), rival, list],
     });
     let showList = false;
     let lastKey = '';
@@ -249,7 +267,10 @@ export function createRacePanel() {
             element.style.opacity = mode === 'hidden' ? '0' : '1';
             lastKey = '';
         },
-        setCompact() {},
+        setCompact(compact) {
+            element.style.left = compact ? '12px' : '18px';
+            element.style.top = compact ? '60px' : '64px';
+        },
         setEnabled(enabled) {
             element.style.display = enabled ? 'block' : 'none';
         },
@@ -269,14 +290,15 @@ export function createRacePanel() {
             rival.style.color = ahead ? '#ffd379' : '#63e0b5';
             if (!showList) return;
             list.replaceChildren(...status.entries.map((entry, position) => div({
-                className: `xh-race__row${entry.isPlayer ? ' is-player' : ''}`,
+                className: `hud-race__row${entry.isPlayer ? ' is-you' : ''}`,
                 children: [
-                    createElement('span', { text: String(position + 1), className: 'xh-race__pos' }),
-                    div({ className: 'xh-race__dot', styles: { background: `#${entry.color.toString(16).padStart(6, '0')}` } }),
+                    createElement('span', { text: String(position + 1), styles: { color: 'rgba(255,255,255,.45)' } }),
+                    div({ styles: { width: '8px', height: '8px', borderRadius: '50%', background: `#${entry.color.toString(16).padStart(6, '0')}` } }),
                     createElement('span', { text: entry.name }),
                     createElement('span', {
                         text: entry.isPlayer ? '—' : `${entry.gap >= 0 ? '+' : '−'}${Math.abs(Math.round(entry.gap))} m`,
-                        className: 'xh-race__gap',
+                        className: 'hud-num',
+                        styles: { fontSize: '13px', color: 'rgba(232,240,236,.56)' },
                     }),
                 ],
             })));
@@ -309,4 +331,210 @@ export function createLapTable(laps) {
             })),
         ],
     });
+}
+
+/**
+ * Minimapa de la ruta: contorno visto desde arriba con un punto por ciclista (tú, rivales y fantasma).
+ * El contorno se escala para caber en el lienzo; los puntos se recolocan en cada update(mapState). La ruta puede ser
+ * un circuito (`closed`) o abierta, con salida y meta.
+ */
+export function createMiniMap({ size = 132 } = {}) {
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const canvas = createElement('canvas', {
+        attrs: { width: String(size * ratio), height: String(size * ratio), 'aria-hidden': 'true' },
+        styles: { width: `${size}px`, height: `${size}px`, display: 'block' },
+    });
+    const element = div({
+        className: 'hud-panel hud-map',
+        attrs: { title: 'Mapa de la ruta' },
+        styles: { position: 'absolute', right: '18px', top: '124px', transition: 'opacity .25s ease', '--hud-delay': '0.3s' },
+        children: [canvas],
+    });
+    const ctx = canvas.getContext('2d');
+    let frame = null;
+    let enabled = true;
+    const hex = (color) => `#${color.toString(16).padStart(6, '0')}`;
+
+    // Escala y centro para que el contorno quepa con margen (se calcula una vez por contorno).
+    function fit(outline) {
+        const xs = outline.map((p) => p.x);
+        const zs = outline.map((p) => p.z);
+        const [minX, maxX, minZ, maxZ] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+        const scale = (size * ratio * 0.84) / Math.max(maxX - minX, maxZ - minZ, 1);
+        const cx = (minX + maxX) / 2;
+        const cz = (minZ + maxZ) / 2;
+        // Vista desde arriba con +z hacia arriba de la pantalla.
+        return { outline, at: ({ x, z }) => [size * ratio / 2 + (x - cx) * scale, size * ratio / 2 - (z - cz) * scale] };
+    }
+
+    function pointAt(t, closed) {
+        const { outline } = frame;
+        // En un circuito t da la vuelta; en una ruta abierta va de la salida (0) a la meta (1).
+        const position = closed ? (((t % 1) + 1) % 1) * outline.length : Math.min(1, Math.max(0, t)) * (outline.length - 1);
+        const index = Math.min(Math.floor(position), outline.length - 1);
+        const next = outline[closed ? (index + 1) % outline.length : Math.min(index + 1, outline.length - 1)];
+        const current = outline[index];
+        const u = position - index;
+        return frame.at({ x: current.x + (next.x - current.x) * u, z: current.z + (next.z - current.z) * u });
+    }
+
+    function dot([x, y], radius, fill, stroke) {
+        ctx.beginPath();
+        ctx.arc(x, y, radius * ratio, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) {
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = stroke;
+            ctx.stroke();
+        }
+    }
+
+    return {
+        element,
+        update(mapState) {
+            if (!enabled || !mapState?.outline?.length) return;
+            if (!frame || frame.outline !== mapState.outline) frame = fit(mapState.outline);
+            const closed = mapState.closed !== false;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            mapState.outline.forEach((point, index) => {
+                const [x, y] = frame.at(point);
+                if (index === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            if (closed) ctx.closePath();
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 6 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.14)';
+            ctx.stroke();
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.5)';
+            ctx.stroke();
+            // Salida/meta (y en una ruta abierta, la meta en su extremo).
+            const [sx, sy] = pointAt(0, closed);
+            ctx.fillStyle = '#ffd379';
+            ctx.fillRect(sx - 4 * ratio, sy - 1.5 * ratio, 8 * ratio, 3 * ratio);
+            if (!closed) {
+                const [fx, fy] = pointAt(1, closed);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(fx - 4 * ratio, fy - 1.5 * ratio, 8 * ratio, 3 * ratio);
+            }
+            mapState.rivals.forEach(({ t, color }) => dot(pointAt(t, closed), 3.2, hex(color)));
+            if (mapState.ghost !== null && mapState.ghost !== undefined) dot(pointAt(mapState.ghost, closed), 3.2, 'rgba(142,217,255,.75)');
+            dot(pointAt(mapState.player, closed), 5, colors.primary, '#ffffff');
+        },
+        /** Visible salvo con el HUD oculto. */
+        setMode(mode) {
+            enabled = mode !== 'hidden';
+            element.style.opacity = enabled ? '1' : '0';
+        },
+    };
+}
+
+/**
+ * Perfil de la ruta (como el de Zwift): silueta coloreada por pendiente, tu posición, la pendiente actual (coloreada
+ * por dureza), la velocidad y lo que falta hasta la cima. En la expedición la ruta es el entrenamiento completo.
+ */
+export function createClimbProfile({ width = 220, height = 54 } = {}) {
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    const canvas = createElement('canvas', {
+        attrs: { width: String(width * ratio), height: String(height * ratio), 'aria-hidden': 'true' },
+        styles: { width: `${width}px`, height: `${height}px`, display: 'block' },
+    });
+    const grade = createElement('strong', { text: '0,0', className: 'hud-num hud-num--md' });
+    const speed = createElement('span', { text: '0', className: 'hud-num', styles: { fontSize: '18px', color: 'rgba(242,246,243,.82)' } });
+    const summit = createElement('span', { text: '', className: 'hud-label', styles: { color: '#ffd379', marginLeft: 'auto' } });
+    const element = div({
+        className: 'hud-panel hud-profile',
+        attrs: { title: 'Perfil de la ruta' },
+        styles: {
+            position: 'absolute', left: '18px', bottom: '18px', display: 'flex', flexDirection: 'column', gap: '8px',
+            transition: 'opacity .25s ease', '--hud-delay': '0.2s',
+        },
+        children: [
+            div({
+                styles: { display: 'flex', alignItems: 'baseline', gap: '6px' },
+                children: [grade, createElement('span', { text: '%', className: 'hud-unit' }), div({ styles: { width: '10px' } }),
+                    speed, createElement('span', { text: 'km/h', className: 'hud-unit' }), summit],
+            }),
+            canvas,
+        ],
+    });
+    const ctx = canvas.getContext('2d');
+    let enabled = true;
+    let lastText = '';
+
+    // Color por dureza: verde en llano, amarillo, naranja y rojo en rampas; azul en bajada.
+    const gradeColor = (value) => {
+        if (value <= -2) return '#5cc8ff';
+        if (value < 3) return '#63e0b5';
+        if (value < 6) return '#ffd379';
+        if (value < 9) return '#ff9a4d';
+        return '#ff5a6e';
+    };
+
+    return {
+        element,
+        update(profile) {
+            if (!enabled || !profile?.samples) return;
+            const { samples, position } = profile;
+            const min = Math.min(...samples);
+            const max = Math.max(...samples);
+            const w = canvas.width;
+            const h = canvas.height;
+            const pad = 4 * ratio;
+            const x = (index) => (index / (samples.length - 1)) * w;
+            const y = (value) => h - pad - ((value - min) / Math.max(max - min, 1)) * (h - pad * 2);
+            ctx.clearRect(0, 0, w, h);
+            // Silueta rellena, con cada tramo coloreado según su pendiente.
+            for (let index = 0; index < samples.length - 1; index += 1) {
+                const rise = ((samples[index + 1] - samples[index]) / (profile.length / (samples.length - 1))) * 100;
+                ctx.beginPath();
+                ctx.moveTo(x(index), h);
+                ctx.lineTo(x(index), y(samples[index]));
+                ctx.lineTo(x(index + 1), y(samples[index + 1]));
+                ctx.lineTo(x(index + 1), h);
+                ctx.closePath();
+                ctx.fillStyle = `${gradeColor(rise)}55`;
+                ctx.fill();
+            }
+            ctx.beginPath();
+            samples.forEach((value, index) => (index ? ctx.lineTo(x(index), y(value)) : ctx.moveTo(x(index), y(value))));
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.7)';
+            ctx.stroke();
+            // Tu posición en la vuelta.
+            const px = position * w;
+            const sample = samples[Math.min(samples.length - 1, Math.round(position * (samples.length - 1)))];
+            ctx.beginPath();
+            ctx.moveTo(px, 0);
+            ctx.lineTo(px, h);
+            ctx.lineWidth = 1.5 * ratio;
+            ctx.strokeStyle = 'rgba(255,255,255,.35)';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(px, y(sample), 4.5 * ratio, 0, Math.PI * 2);
+            ctx.fillStyle = colors.primary;
+            ctx.fill();
+            ctx.lineWidth = 2 * ratio;
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+
+            const text = `${profile.grade.toFixed(1)}|${Math.round(profile.speed * 3.6)}|${profile.toSummit === null ? '' : Math.round(profile.toSummit / 10)}`;
+            if (text === lastText) return;
+            lastText = text;
+            grade.textContent = profile.grade.toFixed(1).replace('.', ',');
+            grade.style.color = gradeColor(profile.grade);
+            element.style.setProperty('--grade', gradeColor(profile.grade));
+            speed.textContent = String(Math.round(profile.speed * 3.6));
+            summit.textContent = profile.toSummit === null ? '' : `Cima ${Math.round(profile.toSummit / 10) * 10} m`;
+        },
+        /** Visible salvo con el HUD oculto. */
+        setMode(mode) {
+            enabled = mode !== 'hidden';
+            element.style.opacity = enabled ? '1' : '0';
+        },
+    };
 }

@@ -225,7 +225,11 @@ export function getZoneName(power, ftp) {
  * Aplicar estilos a un elemento
  */
 export function applyStyles(element, styles) {
-    Object.assign(element.style, styles);
+    Object.entries(styles).forEach(([key, value]) => {
+        // Las variables CSS (--nombre) solo se pueden poner con setProperty.
+        if (key.startsWith('--')) element.style.setProperty(key, value);
+        else element.style[key] = value;
+    });
     return element;
 }
 

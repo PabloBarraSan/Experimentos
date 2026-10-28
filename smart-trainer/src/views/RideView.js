@@ -15,12 +15,31 @@ import { getSessionsByRoute, getSessionTrace } from '../storage/sessions.js';
 import { createGhost } from '../ride/GhostRider.js';
 import { createRideRecorder } from '../ride/RideRecorder.js';
 import { BIKE_PAINTS, RIDER_POSITIONS, DEFAULT_RIDER_POSITION } from '../expedition/Cyclist.js';
-import { getRiderPrefs, saveRiderPrefs } from '../storage/settings.js';
+import { getRiderPrefs, saveRiderPrefs, getSoundPrefs } from '../storage/settings.js';
 import { createRideHud } from '../components/ride/RideHud.js';
+import { createAmbientAudio } from '../ride/AmbientAudio.js';
 import { createProfileSvg } from '../components/ride/RouteProfile.js';
 
 // Tamaño máximo de GPX aceptado (se lee entero en memoria)
 const MAX_GPX_BYTES = 30 * 1024 * 1024;
+
+// Público: de 0 a 0.6 entre 5 % y 10 % de pendiente; 1 en los últimos metros de la ruta
+const CROWD_GRADE_MIN = 5;
+const CROWD_GRADE_MAX = 10;
+const CROWD_GRADE_LEVEL = 0.6;
+const CROWD_FINISH_METERS = 300;
+
+/**
+ * Intensidad del público (0..1) según la pendiente y la distancia a meta
+ */
+function computeCrowd(rideState) {
+    const length = rideState.route?.length || 0;
+    const distance = rideState.position?.distance || 0;
+    if (length > 0 && length - distance <= CROWD_FINISH_METERS) return 1;
+    const grade = Number.isFinite(rideState.currentGrade) ? rideState.currentGrade : 0;
+    if (grade <= CROWD_GRADE_MIN) return 0;
+    return Math.min(1, ((grade - CROWD_GRADE_MIN) / (CROWD_GRADE_MAX - CROWD_GRADE_MIN)) * CROWD_GRADE_LEVEL);
+}
 
 // Máximo de rides pasados que se ofrecen como fantasma
 const MAX_GHOST_OPTIONS = 5;
@@ -106,7 +125,12 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
     container.appendChild(canvas);
     
     // HUD (overlay sobre el canvas). Ignora el puntero salvo su botón de modo; ver components/ride/RideHud.js
-    const hud = createRideHud();
+    // Sonido ambiente: se arranca en el gesto que empieza la ruta (política de autoplay del navegador)
+    const audio = createAmbientAudio();
+    const soundPrefs = getSoundPrefs();
+    audio.setVolume(soundPrefs.volume);
+    audio.setEnabled(soundPrefs.enabled);
+    const hud = createRideHud({ onSoundChange: (enabled) => audio.setEnabled(enabled) });
     container.appendChild(hud.element);
     
     // Overlay para menús
@@ -923,6 +947,7 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
      */
     function startRide() {
         menuOverlay.style.display = 'none';
+        audio.start(); // Se llama desde el clic que lanza la ruta (o poco después)
         engine.start();
         hud.start(engine.getState());
         hud.setVisible(true);
@@ -1144,6 +1169,7 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
             renderer.destroy();
             renderer = null;
         }
+        audio.stop();
         hud.destroy();
     }
     
@@ -1174,6 +1200,15 @@ export function RideView({ state, onExit, onSimulationUpdate }) {
                 if (rideState.status === RIDE_STATUS.PLAYING || rideState.status === RIDE_STATUS.PAUSED) {
                     hud.update(rideState);
                 }
+                
+                // Sonido: velocidad virtual en m/s (el estado la guarda en km/h); en pausa, silencio de rodadura
+                const playing = rideState.status === RIDE_STATUS.PLAYING;
+                audio.update({
+                    speed: playing ? (rideState.position.virtualSpeed || 0) / 3.6 : 0,
+                    cadence: playing ? rideState.bikeData?.cadence || 0 : 0,
+                    surface: 'asphalt', // La carretera es siempre asfalto; la grava solo es el arcén
+                    crowd: playing ? computeCrowd(rideState) : 0,
+                });
                 
                 // Mostrar/ocultar HUD según estado
                 if (rideState.status === RIDE_STATUS.PLAYING || rideState.status === RIDE_STATUS.PAUSED) {
