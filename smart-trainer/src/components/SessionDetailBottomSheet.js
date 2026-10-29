@@ -8,6 +8,7 @@
 import { colors, spacing, typography, baseStyles, borderRadius, transitions, shadows } from '../utils/theme.js';
 import { createElement, div, button, icon } from '../utils/dom.js';
 import { deleteSession, exportToTCX, exportToCSV } from '../storage/sessions.js';
+import { forgetSession } from '../sync/TrainingAppSync.js';
 
 function formatDuration(seconds) {
     if (!seconds || seconds < 0) return '0:00';
@@ -330,6 +331,7 @@ export function SessionDetailBottomSheet({ session, onClose, onDeleted, onRepeat
                     click: () => {
                         if (!confirm('¿Eliminar esta sesión?')) return;
                         deleteSession(session.id)
+                            .then(() => forgetSession(session))
                             .then(() => {
                                 close(false);
                                 onDeleted?.();

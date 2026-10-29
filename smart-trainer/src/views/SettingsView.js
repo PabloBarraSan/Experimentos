@@ -16,6 +16,7 @@ import {
     getSyncConfig,
     isSyncConnected,
     syncAllSessions,
+    pullSessions,
 } from '../sync/TrainingAppSync.js';
 
 /**
@@ -602,6 +603,26 @@ function renderTrainingAppSync(container) {
                 },
             },
         });
+        const pullButton = button({
+            text: 'Descargar historial',
+            styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, alignSelf: 'flex-start' },
+            events: {
+                click: async () => {
+                    pullButton.disabled = true;
+                    status.textContent = 'Descargando…';
+                    try {
+                        const result = await pullSessions();
+                        status.textContent = result.pulled
+                            ? `Descargadas ${result.pulled} sesiones nuevas${result.failed ? ` (${result.failed} con error)` : ''}.`
+                            : 'Ya tienes todas las sesiones de training-app en este dispositivo.';
+                    } catch (error) {
+                        status.textContent = error.message;
+                        if (error.code === 'AUTH_EXPIRED') renderTrainingAppSync(container);
+                    }
+                    pullButton.disabled = false;
+                },
+            },
+        });
         const disconnect = button({
             text: 'Desconectar',
             styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, alignSelf: 'flex-start' },
@@ -614,7 +635,7 @@ function renderTrainingAppSync(container) {
         });
         container.append(status, div({
             styles: { display: 'flex', gap: spacing.sm, flexWrap: 'wrap' },
-            children: [syncButton, disconnect],
+            children: [syncButton, pullButton, disconnect],
         }));
         return;
     }
@@ -640,6 +661,9 @@ function renderTrainingAppSync(container) {
                 status.textContent = 'Conectando…';
                 try {
                     await connectTrainingApp({ baseUrl: baseUrl.value, email: email.value.trim(), password: password.value });
+                    // Dispositivo nuevo (p. ej. otro navegador): trae el historial que ya está en training-app.
+                    status.textContent = 'Conectado. Descargando historial…';
+                    await pullSessions().catch(() => null);
                     renderTrainingAppSync(container);
                 } catch (error) {
                     status.textContent = error.message;

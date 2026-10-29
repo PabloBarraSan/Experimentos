@@ -6,11 +6,13 @@
  * (el servidor hace upsert por clientSessionId, así que reenviar no duplica).
  */
 
-import { getAllSessions, getSession, getSyncJobs, removeSyncJob, withIntegratedDistance } from '../storage/sessions.js';
+import { enqueueSyncJob, getAllSessions, getSession, getSyncJobs, removeSyncJob, saveSession, withIntegratedDistance } from '../storage/sessions.js';
+import { sessionFromRemote } from './remote-session.js';
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
 import { loadSettings, updateSettings } from '../storage/settings.js';
 
 const STORAGE_KEY = 'smartTrainer_trainingApp';
+const DELETED_KEY = 'smartTrainer_deletedSessions';
 const SYNCABLE_STATUSES = new Set(['completed', 'abandoned']);
 
 let flushPromise = null;
@@ -62,6 +64,14 @@ export function disconnectTrainingApp() {
     localStorage.removeItem(STORAGE_KEY);
 }
 
+function expireAuth(config) {
+    // Token caducado: el usuario debe volver a conectar. Se conserva la URL y el email.
+    saveSyncConfig({ baseUrl: config.baseUrl, email: config.email });
+    const error = new Error('La sesión con training-app ha caducado. Vuelve a conectar.');
+    error.code = 'AUTH_EXPIRED';
+    return error;
+}
+
 async function postSession(config, session) {
     const response = await fetch(`${config.baseUrl}/api/smart-trainer/sessions`, {
         method: 'POST',
@@ -76,14 +86,81 @@ async function postSession(config, session) {
         plannedWorkoutId: session.plannedWorkoutId ?? null,
         status: response.status,
     });
-    if (response.status === 401) {
-        // Token caducado: el usuario debe volver a conectar. Se conserva la URL y el email.
-        saveSyncConfig({ baseUrl: config.baseUrl, email: config.email });
-        const error = new Error('La sesión con training-app ha caducado. Vuelve a conectar.');
-        error.code = 'AUTH_EXPIRED';
-        throw error;
-    }
+    if (response.status === 401) throw expireAuth(config);
     if (!response.ok) throw new Error(`training-app respondió ${response.status}`);
+}
+
+async function getJson(config, path) {
+    const response = await fetch(`${config.baseUrl}/api/smart-trainer${path}`, {
+        headers: { Authorization: `Bearer ${config.token}` },
+    });
+    if (response.status === 401) throw expireAuth(config);
+    if (!response.ok) throw new Error(`training-app respondió ${response.status}`);
+    return response.json();
+}
+
+async function deleteRemoteSession(config, clientSessionId) {
+    const response = await fetch(`${config.baseUrl}/api/smart-trainer/sessions/${encodeURIComponent(clientSessionId)}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${config.token}` },
+    });
+    if (response.status === 401) throw expireAuth(config);
+    if (!response.ok) throw new Error(`training-app respondió ${response.status}`);
+}
+
+function getDeletedIds() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(DELETED_KEY) || '[]');
+        return new Set(Array.isArray(saved) ? saved : []);
+    } catch {
+        return new Set();
+    }
+}
+
+/**
+ * Anota que el usuario borró una sesión aquí: no vuelve a bajarse y, con conexión, se borra también la copia remota
+ * (sin red, el borrado queda en la cola y se envía después).
+ */
+export async function forgetSession(session) {
+    const clientSessionId = session?.clientSessionId;
+    if (!clientSessionId) return;
+    try {
+        const deleted = getDeletedIds().add(clientSessionId);
+        localStorage.setItem(DELETED_KEY, JSON.stringify([...deleted]));
+    } catch {
+        // sin localStorage no hay lista de borrados: peor caso, la sesión se vuelve a descargar
+    }
+    if (!isSyncConnected()) return;
+    await enqueueSyncJob('delete_session', { clientSessionId }).catch(() => {});
+    flushSyncOutbox().catch(() => {});
+}
+
+/**
+ * Baja de training-app las sesiones que no están en este dispositivo (mismo clientSessionId = misma sesión).
+ * No toca las locales ni las que el usuario borró aquí.
+ */
+export async function pullSessions() {
+    if (!isSyncConnected()) throw new Error('Conecta primero con training-app.');
+    const config = getSyncConfig();
+    const known = new Set((await getAllSessions()).map((session) => session.clientSessionId));
+    const deleted = getDeletedIds();
+    const { sessions: remote = [] } = await getJson(config, '/sessions?limit=200');
+    const missing = remote.filter((item) => item.clientSessionId && !known.has(item.clientSessionId) && !deleted.has(item.clientSessionId));
+
+    let pulled = 0;
+    let failed = 0;
+    for (const item of missing) {
+        try {
+            const { session } = await getJson(config, `/sessions/${item._id}`);
+            await saveSession(sessionFromRemote(session));
+            pulled++;
+        } catch (error) {
+            if (error.code === 'AUTH_EXPIRED') throw error;
+            failed++;
+        }
+    }
+    logAppEvent('sync.pull', { remote: remote.length, missing: missing.length, pulled, failed });
+    return { remote: remote.length, pulled, failed };
 }
 
 /**
@@ -158,10 +235,16 @@ export function flushSyncOutbox() {
 
 async function runFlush() {
     const config = getSyncConfig();
-    const jobs = (await getSyncJobs()).filter((job) => job.type === 'complete_session');
+    const jobs = (await getSyncJobs()).filter((job) => job.type === 'complete_session' || job.type === 'delete_session');
     let synced = 0;
     for (const job of jobs) {
         try {
+            if (job.type === 'delete_session') {
+                await deleteRemoteSession(config, job.payload.clientSessionId);
+                await removeSyncJob(job.id);
+                synced++;
+                continue;
+            }
             // La cola guarda una copia del momento de terminar; el RPE se añade después, así que se envía la más reciente.
             const latest = job.payload.session.id ? await getSession(job.payload.session.id).catch(() => null) : null;
             await postSession(config, latest || job.payload.session);
@@ -200,7 +283,12 @@ export async function syncAllSessions() {
 }
 
 export function startBackgroundSync() {
-    const handleOnline = () => flushSyncOutbox().catch(() => {});
+    const handleOnline = () => {
+        // Primero lo pendiente (incluye borrados) y luego lo que falte aquí, para que un borrado no se descargue de vuelta.
+        flushSyncOutbox()
+            .then(() => (isSyncConnected() && navigator.onLine ? pullSessions() : null))
+            .catch(() => {});
+    };
     window.addEventListener('online', handleOnline);
     handleOnline();
     return () => window.removeEventListener('online', handleOnline);

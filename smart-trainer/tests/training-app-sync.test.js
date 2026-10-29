@@ -1,12 +1,14 @@
 import 'fake-indexeddb/auto';
 import { loadSettings, updateSettings } from '../src/storage/settings.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSession, enqueueSyncJob, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback } from '../src/storage/sessions.js';
+import { createSession, enqueueSyncJob, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback } from '../src/storage/sessions.js';
 import {
   connectTrainingApp,
   applyProfileFtp,
   fetchTodayPlan,
   flushSyncOutbox,
+  forgetSession,
+  pullSessions,
   getSyncConfig,
   isSyncConnected,
   syncAllSessions,
@@ -147,6 +149,79 @@ describe('training-app sync', () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { planned: null, next: null, ftp: 231 })));
       await fetchTodayPlan();
       expect(loadSettings().ftp).toBe(231);
+    });
+  });
+  describe('descarga del historial', () => {
+    const remote = (n, extra = {}) => ({
+      _id: `id${n}`,
+      clientSessionId: `cli-${n}`,
+      workoutName: `Remota ${n}`,
+      status: 'completed',
+      ftp: 240,
+      startedAt: '2026-10-01T08:00:00.000Z',
+      endedAt: '2026-10-01T09:00:00.000Z',
+      activeDurationSeconds: 3600,
+      metrics: { power: { avg: 180 } },
+      routeId: 'ruta-1',
+      dataPoints: [{ timestamp: 1, power: 180 }],
+      ...extra,
+    });
+    const route = (list) => vi.fn(async (url) => {
+      if (url.includes('/sessions?limit=')) return json(200, { sessions: list.map(({ dataPoints, ...summary }) => summary) });
+      const found = list.find((item) => url.endsWith(`/sessions/${item._id}`));
+      return found ? json(200, { session: found }) : json(404);
+    });
+
+    beforeEach(() => localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 't' })));
+
+    it('trae solo las sesiones que faltan y las deja como sesiones locales', async () => {
+      const local = createSession({ workoutName: 'Local' });
+      local.clientSessionId = 'cli-1';
+      local.status = 'completed';
+      await saveSession(local);
+
+      const fetchMock = route([remote(1), remote(2)]);
+      vi.stubGlobal('fetch', fetchMock);
+      expect(await pullSessions()).toMatchObject({ remote: 2, pulled: 1, failed: 0 });
+      expect(fetchMock.mock.calls.some(([url]) => url.endsWith('/sessions/id1'))).toBe(false);
+
+      const pulled = (await getAllSessions()).find((session) => session.clientSessionId === 'cli-2');
+      expect(pulled).toMatchObject({
+        id: 'remote_cli-2', workoutName: 'Remota 2', status: 'completed', duration: 3600, ftp: 240, routeId: 'ruta-1',
+      });
+      expect(pulled.dataPoints).toHaveLength(1);
+      expect(new Date(pulled.date).getTime()).toBe(pulled.startTime);
+
+      // Repetir no duplica
+      expect((await pullSessions()).pulled).toBe(0);
+    });
+
+    it('no vuelve a bajar lo que el usuario borró aquí y encola el borrado remoto', async () => {
+      const fetchMock = route([remote(3)]);
+      vi.stubGlobal('fetch', fetchMock);
+      await pullSessions();
+      const session = (await getAllSessions()).find((item) => item.clientSessionId === 'cli-3');
+
+      fetchMock.mockImplementation(async (url, init) => (init?.method === 'DELETE' ? json(200, { deleted: 1 }) : route([remote(3)])(url)));
+      await forgetSession(session);
+      await flushSyncOutbox();
+      const deleteCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE');
+      expect(deleteCall[0]).toBe('http://x/api/smart-trainer/sessions/cli-3');
+
+      const { deleteSession } = await import('../src/storage/sessions.js');
+      await deleteSession(session.id);
+      expect((await pullSessions()).pulled).toBe(0);
+      expect((await getAllSessions()).some((item) => item.clientSessionId === 'cli-3')).toBe(false);
+    });
+
+    it('con token caducado avisa y con error de servidor cuenta el fallo sin perder lo demás', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(401)));
+      await expect(pullSessions()).rejects.toMatchObject({ code: 'AUTH_EXPIRED' });
+
+      localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 't' }));
+      const list = [remote(4), remote(5)];
+      vi.stubGlobal('fetch', vi.fn(async (url) => (url.endsWith('/sessions/id4') ? json(500) : route(list)(url))));
+      expect(await pullSessions()).toMatchObject({ pulled: 1, failed: 1 });
     });
   });
 });
