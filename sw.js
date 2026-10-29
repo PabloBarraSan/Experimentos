@@ -1,5 +1,5 @@
 const CACHE_NAME = 'smart-trainer-v2';
-const PRECACHE = ["./assets/ExpeditionRenderer-gZt2_g-l.js","./assets/ExpeditionRenderer3D-CMSOgxXV.js","./assets/GameView-CTDUsC40.js","./assets/RideDecor-TjsyZTLn.js","./assets/RideView-CXJ7pq5e.js","./assets/RideView-DKYiiWTk.css","./assets/index-BZNyl4pz.css","./assets/index-YLEab5CQ.js","./assets/manifest-B_BapiDK.json","./assets/three-Bq2T38Z6.js","./icon-192x192.png","./icon-512x512.png","./index.html","./manifest.json"];
+const PRECACHE = ["./assets/ExpeditionRenderer-gZt2_g-l.js","./assets/ExpeditionRenderer3D-C3yDBddb.js","./assets/GameView-Bjteo3CU.js","./assets/RideDecor-TjsyZTLn.js","./assets/RideView-DKYiiWTk.css","./assets/RideView-DPZaecbq.js","./assets/index-BZNyl4pz.css","./assets/index-DazBy4Z6.js","./assets/manifest-B_BapiDK.json","./assets/three-Bq2T38Z6.js","./icon-192x192.png","./icon-512x512.png","./index.html","./manifest.json"];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
