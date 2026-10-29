@@ -17,6 +17,7 @@ import {
     isSyncConnected,
     syncAllSessions,
     pullSessions,
+    buildLinkUrl,
 } from '../sync/TrainingAppSync.js';
 
 /**
@@ -645,7 +646,7 @@ function renderTrainingAppSync(container) {
         attrs,
         styles: { ...baseStyles.input, maxWidth: '360px' },
     });
-    const baseUrl = field({ type: 'url', placeholder: 'http://localhost:4000', 'aria-label': 'URL de training-app', value: config.baseUrl || 'http://localhost:4000' });
+    const baseUrl = field({ type: 'url', placeholder: 'https://app.kitraining.app', 'aria-label': 'URL de training-app', value: config.baseUrl || 'https://app.kitraining.app' });
     const email = field({ type: 'email', autocomplete: 'email', placeholder: 'tu@email.com', 'aria-label': 'Correo de training-app', value: config.email || '' });
     const password = field({ type: 'password', autocomplete: 'current-password', placeholder: 'Contraseña', 'aria-label': 'Contraseña de training-app' });
     const connect = button({
@@ -672,7 +673,24 @@ function renderTrainingAppSync(container) {
             },
         },
     });
-    container.append(status, baseUrl, email, password, connect);
+    const link = button({
+        text: 'Conectar con mi cuenta de training-app',
+        styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
+        events: {
+            click: () => {
+                try {
+                    window.location.href = buildLinkUrl(baseUrl.value);
+                } catch (error) {
+                    status.textContent = error.message;
+                }
+            },
+        },
+    });
+    const orPassword = createElement('p', {
+        text: 'Entras con la sesión que ya tienes abierta en training-app (Google incluido); no hace falta contraseña. Si prefieres usar correo y contraseña:',
+        styles: { color: colors.textMuted, margin: 0, fontSize: '0.85rem' },
+    });
+    container.append(status, link, orPassword, baseUrl, email, password, connect);
 }
 
 /**

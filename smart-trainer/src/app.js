@@ -27,7 +27,7 @@ import { initRouter, navigate, setRouteChangeHandler, getCurrentView } from './r
 import { getActiveSession, getProgress, saveProgress } from './storage/sessions.js';
 import { getAllPresets } from './workouts/presets.js';
 import { getCachedPlanWorkout } from './workouts/planConverter.js';
-import { startBackgroundSync } from './sync/TrainingAppSync.js';
+import { consumeConnectLink, startBackgroundSync } from './sync/TrainingAppSync.js';
 import { buildWorkoutForDuration, getDefaultWorkoutDuration, getWorkoutDurationOptions } from './workouts/WorkoutConfiguration.js';
 import { migrateProgress } from './game/ProgressionService.js';
 import { logActiveSessionEvent } from './diagnostics/SessionDebugLogger.js';
@@ -578,6 +578,7 @@ function startAutoReconnect(targets) {
 }
 
 async function init() {
+    consumeConnectLink();
     startBackgroundSync();
     // El avatar del ciclista se descarga en segundo plano para que la expedición lo tenga listo.
     preloadRiderAvatar();

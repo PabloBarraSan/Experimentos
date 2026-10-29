@@ -3,7 +3,9 @@ import { loadSettings, updateSettings } from '../src/storage/settings.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSession, enqueueSyncJob, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback } from '../src/storage/sessions.js';
 import {
+  buildLinkUrl,
   connectTrainingApp,
+  consumeConnectLink,
   applyProfileFtp,
   fetchTodayPlan,
   flushSyncOutbox,
@@ -222,6 +224,39 @@ describe('training-app sync', () => {
       const list = [remote(4), remote(5)];
       vi.stubGlobal('fetch', vi.fn(async (url) => (url.endsWith('/sessions/id4') ? json(500) : route(list)(url))));
       expect(await pullSessions()).toMatchObject({ pulled: 1, failed: 1 });
+    });
+  });
+  describe('enlace sin contraseña', () => {
+    const stubLocation = (hash) => {
+      const replaceState = vi.fn();
+      vi.stubGlobal('window', { location: { hash, origin: 'https://rodillo.kitraining.app', pathname: '/', search: '' }, history: { replaceState } });
+      return replaceState;
+    };
+
+    it('construye la URL de vuelta a esta app', () => {
+      stubLocation('');
+      expect(buildLinkUrl('https://app.kitraining.app/')).toBe(
+        'https://app.kitraining.app/conectar-rodillo?return=https%3A%2F%2Frodillo.kitraining.app%2F',
+      );
+      expect(() => buildLinkUrl('app.kitraining.app')).toThrow(/http/);
+    });
+
+    it('guarda el token que llega en el fragmento y limpia la URL', () => {
+      const replaceState = stubLocation('#/connect?token=jwt123&email=yo%40mail.com&base=https%3A%2F%2Fapp.kitraining.app');
+      expect(consumeConnectLink()).toEqual({ email: 'yo@mail.com' });
+      expect(replaceState).toHaveBeenCalledWith(null, '', '/#/settings');
+      expect(getSyncConfig()).toMatchObject({ baseUrl: 'https://app.kitraining.app', token: 'jwt123', email: 'yo@mail.com' });
+      expect(isSyncConnected()).toBe(true);
+    });
+
+    it('ignora otras URLs y rechaza servidores que no sean https ni localhost', () => {
+      const replaceState = stubLocation('#/history');
+      expect(consumeConnectLink()).toBeNull();
+      expect(replaceState).not.toHaveBeenCalled();
+
+      stubLocation('#/connect?token=jwt&base=http%3A%2F%2Fevil.example');
+      expect(consumeConnectLink()).toBeNull();
+      expect(isSyncConnected()).toBe(false);
     });
   });
 });

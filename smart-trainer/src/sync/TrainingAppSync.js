@@ -60,6 +60,31 @@ export async function connectTrainingApp({ baseUrl, email, password }) {
     return { email: data.email || email };
 }
 
+/** Página de training-app que, con la sesión ya iniciada allí (Google incluido), devuelve un token a esta app. */
+export function buildLinkUrl(baseUrl) {
+    const base = normalizeBaseUrl(baseUrl);
+    if (!/^https?:\/\//.test(base)) throw new Error('La URL debe empezar por http:// o https://');
+    return `${base}/conectar-rodillo?return=${encodeURIComponent(window.location.origin + window.location.pathname)}`;
+}
+
+/**
+ * Si la URL trae #/connect?token=… (vuelta desde training-app), guarda la conexión y deja la URL en Ajustes.
+ * El token solo viaja en el fragmento: no llega a ningún servidor ni a los logs.
+ */
+export function consumeConnectLink() {
+    const hash = window.location.hash || '';
+    if (!hash.startsWith('#/connect?')) return null;
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/settings`);
+    const params = new URLSearchParams(hash.slice('#/connect?'.length));
+    const token = params.get('token');
+    const baseUrl = normalizeBaseUrl(params.get('base'));
+    if (!token || !/^(https:\/\/[^/]+|http:\/\/localhost(:\d+)?)$/.test(baseUrl)) return null;
+    const email = params.get('email') || '';
+    saveSyncConfig({ baseUrl, token, email });
+    logAppEvent('sync.link', { baseUrl });
+    return { email };
+}
+
 export function disconnectTrainingApp() {
     localStorage.removeItem(STORAGE_KEY);
 }
