@@ -201,6 +201,8 @@ describe('training-app sync', () => {
 
       // Repetir no duplica
       expect((await pullSessions()).pulled).toBe(0);
+      // La local que training-app ya tenía queda marcada: no se reenvía como pendiente.
+      expect((await getSession(local.id)).syncStatus.trainingApp.syncedAt).toBeTruthy();
     });
 
     it('no vuelve a bajar lo que el usuario borró aquí y encola el borrado remoto', async () => {
@@ -344,6 +346,9 @@ describe('training-app sync', () => {
       const { sessionFromRemote } = await import('../src/sync/remote-session.js');
       const pulled = sessionFromRemote({ clientSessionId: 'cli-remota', workoutName: 'Remota', status: 'completed', startedAt: '2026-10-01T08:00:00.000Z' });
       await saveSession(pulled);
+      // Descargada con una versión anterior, sin la marca de sincronizada.
+      const legacy = { ...sessionFromRemote({ clientSessionId: 'cli-antigua', workoutName: 'Antigua', status: 'completed', startedAt: '2026-10-01T08:00:00.000Z' }), syncStatus: {} };
+      await saveSession(legacy);
       const gone = createSession({ workoutName: 'Borrada' });
       await finishSession(gone, { duration: 900 }, 'completed');
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { deleted: 1 })));
@@ -354,6 +359,7 @@ describe('training-app sync', () => {
       vi.stubGlobal('fetch', fetchMock);
       await syncPendingSessions();
       expect(postedIds(fetchMock)).not.toContain('cli-remota');
+      expect(postedIds(fetchMock)).not.toContain('cli-antigua');
       expect(postedIds(fetchMock)).not.toContain(gone.clientSessionId);
     });
   });

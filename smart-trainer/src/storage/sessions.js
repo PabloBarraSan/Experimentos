@@ -726,7 +726,9 @@ export async function markSessionSynced(id, syncedAt = new Date().toISOString())
 }
 
 export function isSessionSynced(session) {
-    return Boolean(session?.syncStatus?.trainingApp?.syncedAt);
+    // Las descargadas de training-app (id remote_…) ya están allí aunque sean de antes de existir la marca;
+    // reenviarlas pisaría el original con una copia incompleta.
+    return Boolean(session?.syncStatus?.trainingApp?.syncedAt) || String(session?.id || '').startsWith('remote_');
 }
 
 export async function getSyncJobs() {

@@ -183,9 +183,15 @@ export async function forgetSession(session) {
 export async function pullSessions() {
     if (!isSyncConnected()) throw new Error('Conecta primero con training-app.');
     const config = getSyncConfig();
-    const known = new Set((await getAllSessions()).map((session) => session.clientSessionId));
+    const local = await getAllSessions();
+    const known = new Set(local.map((session) => session.clientSessionId));
     const deleted = getDeletedIds();
     const { sessions: remote = [] } = await getJson(config, '/sessions?limit=200');
+    // Las locales que training-app ya tiene (enviadas antes de existir la marca) no cuentan como pendientes.
+    const remoteIds = new Set(remote.map((item) => item.clientSessionId));
+    for (const session of local) {
+        if (remoteIds.has(session.clientSessionId) && !isSessionSynced(session)) await markSessionSynced(session.id).catch(() => {});
+    }
     const missing = remote.filter((item) => item.clientSessionId && !known.has(item.clientSessionId) && !deleted.has(item.clientSessionId));
 
     let pulled = 0;
@@ -360,11 +366,13 @@ export async function syncPendingSessions() {
 export function startBackgroundSync() {
     const handleOnline = () => {
         if (!isSyncConnected()) return;
-        // Primero lo pendiente (incluye borrados) y luego lo que falte aquí, para que un borrado no se descargue de vuelta.
-        queuePendingSessions()
-            .catch(() => {})
-            .then(() => flushSyncOutbox())
+        // Primero la cola (incluye borrados), para que un borrado no se descargue de vuelta; luego la descarga,
+        // que marca lo que training-app ya tiene; y al final se envían las terminadas aquí que aún falten.
+        flushSyncOutbox()
             .then(() => (isSyncConnected() && navigator.onLine ? pullSessions() : null))
+            .catch(() => {})
+            .then(() => (isSyncConnected() ? queuePendingSessions() : 0))
+            .then((pending) => (pending ? flushSyncOutbox() : null))
             .catch(() => {});
     };
     // Al volver a la pestaña se reintenta lo que quedó en cola (p. ej. tras un fallo de red al terminar).
