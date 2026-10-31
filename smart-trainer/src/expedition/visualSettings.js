@@ -3,6 +3,7 @@ const EXPEDITION_VISUAL_SETTINGS_KEY = 'smartTrainer_expedition_visuals_v1';
 export const DEFAULT_VISUAL_SETTINGS = {
     camera: 'standard',
     hud: 'essential',
+    hudSize: 'normal',
     quality: 'auto',
     reducedMotion: false,
     rivals: true,

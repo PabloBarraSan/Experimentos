@@ -110,6 +110,7 @@ export function ExpeditionView({
             padding: 'max(16px, env(safe-area-inset-top)) 18px max(18px, env(safe-area-inset-bottom))',
         },
     });
+    hud.classList.add('hud-layer');
     container.classList.add('exp-hud');
     container.appendChild(hud);
 
@@ -333,11 +334,12 @@ export function ExpeditionView({
             justifyContent: 'flex-end',
             flexWrap: 'wrap',
             gap: spacing.sm,
-            maxWidth: 'calc(100vw - 36px)',
+            maxWidth: 'calc(100vw / var(--hud-chrome-scale, 1) - 36px)',
             pointerEvents: 'auto',
             zIndex: 5,
         },
     });
+    controls.classList.add('hud-chrome');
     const pauseButton = button({
         text: 'Pausar',
         attrs: { 'aria-label': 'Pausar expedición', disabled: 'true' },
@@ -358,6 +360,12 @@ export function ExpeditionView({
         attrs: { 'aria-label': 'Cambiar información visible' },
         className: 'hud-btn',
     });
+    // Tamaño del HUD: en un monitor grande a un par de metros, «Grande» o «Lejos» amplían todos los paneles.
+    const sizeButton = button({
+        text: `TAMAÑO · ${hudSizeLabel(visualSettings.hudSize)}`,
+        attrs: { 'aria-label': 'Cambiar el tamaño del HUD' },
+        className: 'hud-btn',
+    });
     // Sonido ambiente (viento, rodadura, rueda libre, público); la preferencia se comparte con el modo ruta.
     const ambient = createAmbientAudio();
     const soundPrefs = getSoundPrefs();
@@ -369,7 +377,7 @@ export function ExpeditionView({
         className: 'hud-btn',
     });
     const visualControls = div({
-        className: 'hud-panel hud-toolbar',
+        className: 'hud-panel hud-toolbar hud-chrome',
         styles: {
             position: 'absolute',
             top: '72px',
@@ -380,7 +388,7 @@ export function ExpeditionView({
             justifyContent: 'flex-end',
             pointerEvents: 'auto',
         },
-        children: [cameraButton, hudButton, soundButton],
+        children: [cameraButton, hudButton, sizeButton, soundButton],
     });
     // Controles del entrenamiento (intensidad, saltar/alargar bloque, ERG), encima de pausa y finalizar.
     const changeIntensity = (percent) => {
@@ -582,6 +590,11 @@ export function ExpeditionView({
         ['full', 'Completos'],
         ['hidden', 'Inmersivo'],
     ], visualSettings.hud);
+    const hudSizeSelect = configSelect('Tamaño de los datos', [
+        ['normal', 'Normal'],
+        ['large', 'Grande'],
+        ['far', 'Pantalla lejana'],
+    ], visualSettings.hudSize, 'Para un monitor grande a un par de metros de la bici.');
     const qualitySelect = configSelect('Calidad', [
         ['auto', 'Automática'],
         ['low', 'Baja'],
@@ -592,7 +605,7 @@ export function ExpeditionView({
         ['on', 'Con rivales'],
         ['off', 'En solitario'],
     ], visualSettings.rivals === false ? 'off' : 'on', 'Ciclistas que rueden contigo y clasificación en vivo.');
-    visualConfig.append(cameraSelect.wrapper, hudSelect.wrapper, qualitySelect.wrapper, rivalsSelect.wrapper);
+    visualConfig.append(cameraSelect.wrapper, hudSelect.wrapper, hudSizeSelect.wrapper, qualitySelect.wrapper, rivalsSelect.wrapper);
     const configDetails = createElement('details', {
         styles: { marginBottom: spacing.lg },
         children: [
@@ -688,19 +701,28 @@ export function ExpeditionView({
 
     const rendererReady = initializeRenderer();
     const applyResponsiveLayout = () => {
+        // La escala va primero: todas las medidas de abajo se leen ya con el HUD a su tamaño final.
+        // Los botones (que solo salen al mover el ratón) crecen la mitad que las cifras para no chocar entre sí.
+        const scale = hudScale(visualSettings.hudSize);
+        const chromeScale = Math.round((1 + (scale - 1) / 2) * 100) / 100;
+        container.style.setProperty('--hud-scale', String(scale));
+        container.style.setProperty('--hud-chrome-scale', String(chromeScale));
         const compact = window.innerWidth < 600;
-        // Si la barra superior de cifras llega hasta los botones (pantallas no muy anchas), estos y el minimapa bajan una fila.
+        // Si la barra superior de cifras llega hasta los botones (pantallas no muy anchas), estos y el minimapa bajan
+        // justo por debajo de ella. Las medidas de pantalla se pasan a px del HUD (sin zoom) dividiendo por la escala.
         visualControls.style.top = '72px';
         const crowded = metricValues.getBoundingClientRect().right + 12 > visualControls.getBoundingClientRect().left;
+        const topbarBottom = metricValues.getBoundingClientRect().bottom;
+        const belowTopbar = Math.round(topbarBottom / scale) + 8;
         blockLabel.style.maxWidth = compact ? '126px' : '';
         blockLabel.style.fontSize = compact ? '10px' : typography.sizes.xs;
         modeLabel.style.maxWidth = compact ? '76px' : '';
         modeLabel.style.textAlign = compact ? 'center' : '';
         routeProgress.style.width = compact ? '42vw' : 'min(320px, 42vw)';
-        visualControls.style.top = crowded ? '112px' : '72px';
+        visualControls.style.top = crowded ? `${Math.max(112, Math.round(topbarBottom / chromeScale) + 8)}px` : '72px';
         visualControls.style.right = compact ? '12px' : '18px';
         visualControls.style.justifyContent = 'flex-end';
-        stagePrompt.style.top = compact ? '142px' : '112px';
+        stagePrompt.style.top = `${Math.max(compact ? 142 : 112, belowTopbar)}px`;
         racePanel.setCompact(compact);
         lapToast.setCompact(compact);
         stagePrompt.style.maxWidth = compact ? '82vw' : 'min(540px, 72vw)';
@@ -710,9 +732,12 @@ export function ExpeditionView({
         const controlsRect = controls.getBoundingClientRect();
         const panels = [workoutStrip.element, metrics].map((element) => element.getBoundingClientRect());
         const overlaps = panels.some((rect) => rect.width > 0 && controlsRect.left < rect.right && controlsRect.top < rect.bottom);
-        controls.style.bottom = compact || overlaps ? `${bottom.offsetHeight + 26}px` : '18px';
+        const aboveBottom = Math.round((window.innerHeight - bottom.getBoundingClientRect().top) / chromeScale) + 8;
+        controls.style.bottom = compact || overlaps ? `${aboveBottom}px` : '18px';
         metrics.style.width = compact ? 'calc(100vw - 24px)' : 'min(440px, 86vw)';
-        miniMap.element.style.top = crowded ? '160px' : '124px';
+        miniMap.element.style.top = crowded
+            ? `${Math.max(160, Math.round(visualControls.getBoundingClientRect().bottom / scale) + 10)}px`
+            : '124px';
         miniMap.element.style.right = compact ? '12px' : '18px';
         // En móvil el perfil comparte esquina con los botones de pausa: se oculta. Si pisa el panel del entrenamiento,
         // sube por encima de él.
@@ -797,9 +822,11 @@ export function ExpeditionView({
         isDemo = state.connectionState !== 'connected';
         visualSettings.camera = cameraSelect.select.value;
         visualSettings.hud = hudSelect.select.value;
+        visualSettings.hudSize = hudSizeSelect.select.value;
         visualSettings.quality = qualitySelect.select.value;
         visualSettings.rivals = rivalsSelect.select.value !== 'off';
         saveVisualSettings(visualSettings);
+        sizeButton.textContent = `TAMAÑO · ${hudSizeLabel(visualSettings.hudSize)}`;
         applyHudMode(visualSettings.hud, {
             top,
             stagePrompt,
@@ -811,6 +838,7 @@ export function ExpeditionView({
             contextValues,
         });
         applyHudExtras();
+        applyResponsiveLayout();
         await rendererReady;
         renderer?.setCameraMode?.(visualSettings.camera);
         renderer?.setQuality?.(visualSettings.quality);
@@ -1168,6 +1196,14 @@ export function ExpeditionView({
         saveVisualSettings(visualSettings);
     });
 
+    sizeButton.addEventListener('click', () => {
+        visualSettings.hudSize = cycleValue(visualSettings.hudSize, ['normal', 'large', 'far']);
+        sizeButton.textContent = `TAMAÑO · ${hudSizeLabel(visualSettings.hudSize)}`;
+        hudSizeSelect.select.value = visualSettings.hudSize;
+        applyResponsiveLayout();
+        saveVisualSettings(visualSettings);
+    });
+
     soundButton.addEventListener('click', () => {
         const { enabled } = saveSoundPrefs({ enabled: !getSoundPrefs().enabled });
         soundButton.textContent = `SONIDO · ${enabled ? 'Sí' : 'No'}`;
@@ -1471,6 +1507,22 @@ function hudLabel(hud) {
         full: 'Completo',
         hidden: 'Inmersivo',
     }[hud] || 'Esencial';
+}
+
+function hudSizeLabel(size) {
+    return { normal: 'Normal', large: 'Grande', far: 'Lejos' }[size] || 'Normal';
+}
+
+// Factor de zoom del HUD: crece con la ventana (sin bajar nunca de 1, así móvil y portátil quedan igual) y cada
+// tamaño fija el ancho de referencia y el tope. A 1920×1080: Normal ×1.3, Grande ×1.8, Lejos ×2.3.
+function hudScale(size) {
+    const { reference, max } = {
+        normal: { reference: 1450, max: 1.3 },
+        large: { reference: 1060, max: 1.8 },
+        far: { reference: 830, max: 2.3 },
+    }[size] || { reference: 1450, max: 1.3 };
+    const fit = Math.min(window.innerWidth / reference, window.innerHeight / (reference * 0.5625));
+    return Math.round(Math.min(max, Math.max(1, fit)) * 100) / 100;
 }
 
 function cycleValue(current, values) {

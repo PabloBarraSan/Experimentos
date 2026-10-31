@@ -24,6 +24,19 @@
     color: var(--hud-text);
 }
 
+/*
+ * Tamaño del HUD: el código pone --hud-scale según la ventana y el ajuste (Normal / Grande / Lejos). Con zoom se
+ * amplía todo a la vez (cifras, paneles, márgenes y medidas en línea), así que la disposición no cambia. Los
+ * botones emergentes usan --hud-chrome-scale, algo menor.
+ */
+.exp-hud .hud-layer {
+    zoom: var(--hud-scale, 1);
+}
+
+.exp-hud .hud-chrome {
+    zoom: var(--hud-chrome-scale, 1);
+}
+
 /* ---------- Panel base ---------- */
 
 .exp-hud .hud-panel {
@@ -39,7 +52,8 @@
         var(--hud-cut) 0, 100% 0, 100% calc(100% - var(--hud-cut)),
         calc(100% - var(--hud-cut)) 100%, 0 100%, 0 var(--hud-cut)
     );
-    animation: hud-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    /* Sin relleno final: si no, la animación fija opacity: 1 y los paneles no se pueden ocultar con opacity en línea. */
+    animation: hud-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
     animation-delay: var(--hud-delay, 0s);
 }
 
