@@ -28,7 +28,11 @@ export function sessionFromRemote(remote) {
         experienceMode: remote.experienceMode || 'metrics',
         adherence: remote.adherence ?? null,
         gameResult: remote.gameResult ?? null,
-        syncStatus: { strava: { synced: false, activityId: null, syncedAt: null, error: null } },
+        syncStatus: {
+            strava: { synced: false, activityId: null, syncedAt: null, error: null },
+            // Viene de training-app: ya está allí, no hay que volver a subirla.
+            trainingApp: { syncedAt: remote.updatedAt || new Date().toISOString() },
+        },
     };
     if (remote.feedback) session.feedback = remote.feedback;
     return session;

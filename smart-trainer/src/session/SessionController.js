@@ -12,6 +12,7 @@ import { TrainerAdapter } from './TrainerAdapter.js';
 import { createTelemetryPipeline } from '../telemetry/TelemetryPipeline.js';
 import { createSessionDebugLogger, logActiveSessionError, releaseSessionDebugLogger } from '../diagnostics/SessionDebugLogger.js';
 import { summarizeSessionHealth } from '../diagnostics/sessionHealth.js';
+import { flushSyncOutbox } from '../sync/TrainingAppSync.js';
 
 const MIN_SAVED_SECONDS = 60;
 
@@ -538,6 +539,7 @@ export class SessionController {
         } else {
             await finishSession(this.session, metrics, status);
             await clearActiveSession();
+            flushSyncOutbox().catch(() => {});
         }
         this.state = SESSION_STATE.COMPLETED;
         this.emitState();

@@ -15,7 +15,8 @@ import {
     disconnectTrainingApp,
     getSyncConfig,
     isSyncConnected,
-    syncAllSessions,
+    syncPendingSessions,
+    countPendingSessions,
     pullSessions,
     buildLinkUrl,
 } from '../sync/TrainingAppSync.js';
@@ -586,24 +587,32 @@ function renderTrainingAppSync(container) {
 
     if (isSyncConnected()) {
         status.textContent = `Conectado como ${config.email} · ${config.baseUrl}. Las sesiones nuevas se envían solas al terminar.`;
+        // Sesiones terminadas aquí que training-app aún no ha confirmado (p. ej. si falló la red al terminar).
         const syncButton = button({
-            text: 'Enviar todo el historial',
+            text: 'Enviar sesiones pendientes',
             styles: { ...baseStyles.button, ...baseStyles.buttonPrimary, alignSelf: 'flex-start' },
             events: {
                 click: async () => {
                     syncButton.disabled = true;
                     status.textContent = 'Enviando…';
                     try {
-                        const result = await syncAllSessions();
-                        status.textContent = `Enviadas ${result.synced} de ${result.total} sesiones${result.failed ? ` (${result.failed} con error)` : ''}.`;
+                        const result = await syncPendingSessions();
+                        status.textContent = result.total
+                            ? `Enviadas ${result.synced} de ${result.total} sesiones pendientes${result.failed ? ` (${result.failed} con error: se reintentará)` : ''}.`
+                            : 'No hay sesiones pendientes: training-app ya tiene todas las de este dispositivo.';
                     } catch (error) {
                         status.textContent = error.message;
                         if (error.code === 'AUTH_EXPIRED') renderTrainingAppSync(container);
                     }
                     syncButton.disabled = false;
+                    refreshPendingCount();
                 },
             },
         });
+        const refreshPendingCount = () => countPendingSessions()
+            .then((count) => { syncButton.textContent = count ? `Enviar sesiones pendientes (${count})` : 'Enviar sesiones pendientes'; })
+            .catch(() => {});
+        refreshPendingCount();
         const pullButton = button({
             text: 'Descargar historial',
             styles: { ...baseStyles.button, ...baseStyles.buttonSecondary, alignSelf: 'flex-start' },

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { loadSettings, updateSettings } from '../src/storage/settings.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSession, enqueueSyncJob, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback } from '../src/storage/sessions.js';
+import { createSession, enqueueSyncJob, finishSession, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback, sessionUploadJobId } from '../src/storage/sessions.js';
 import {
   buildLinkUrl,
   connectTrainingApp,
@@ -13,7 +13,8 @@ import {
   pullSessions,
   getSyncConfig,
   isSyncConnected,
-  syncAllSessions,
+  countPendingSessions,
+  syncPendingSessions,
 } from '../src/sync/TrainingAppSync.js';
 
 function stubBrowser() {
@@ -71,8 +72,12 @@ describe('training-app sync', () => {
 
   it('con token caducado desconecta y avisa, sin perder las sesiones', async () => {
     localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 'old', email: 'a@b.c' }));
+    const session = createSession({ workoutName: 'Caducada' });
+    session.status = 'completed';
+    await saveSession(session);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(401)));
-    await expect(syncAllSessions()).rejects.toMatchObject({ code: 'AUTH_EXPIRED' });
+    await expect(syncPendingSessions()).rejects.toMatchObject({ code: 'AUTH_EXPIRED' });
+    expect((await getSession(session.id)).syncStatus.trainingApp).toBeUndefined();
     expect(isSyncConnected()).toBe(false);
     expect(getSyncConfig().email).toBe('a@b.c');
   });
@@ -257,6 +262,99 @@ describe('training-app sync', () => {
       stubLocation('#/connect?token=jwt&base=http%3A%2F%2Fevil.example');
       expect(consumeConnectLink()).toBeNull();
       expect(isSyncConnected()).toBe(false);
+    });
+  });
+  describe('sesiones terminadas que no llegan a training-app', () => {
+    const connect = () => localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 't' }));
+    const postedIds = (fetchMock) => fetchMock.mock.calls
+      .filter(([, init]) => init?.method === 'POST')
+      .map(([, init]) => JSON.parse(init.body).clientSessionId);
+
+    it('al guardar una sesión abandonada queda en la cola, aunque nadie más la encole (una sola vez)', async () => {
+      const session = createSession({ workoutName: 'Plan de hoy' });
+      session.dataPoints = [{ timestamp: 1, power: 150 }];
+      await finishSession(session, { duration: 1800 }, 'abandoned');
+      await finishSession(session, { duration: 1800 }, 'abandoned');
+      const jobs = (await getSyncJobs()).filter((job) => job.payload.clientSessionId === session.clientSessionId);
+      expect(jobs).toHaveLength(1);
+      expect(jobs[0]).toMatchObject({ id: sessionUploadJobId(session.clientSessionId), type: 'complete_session' });
+
+      connect();
+      const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
+      vi.stubGlobal('fetch', fetchMock);
+      await flushSyncOutbox();
+      expect(postedIds(fetchMock)).toContain(session.clientSessionId);
+      expect((await getSession(session.id)).syncStatus.trainingApp.syncedAt).toBeTruthy();
+    });
+
+    it('una sesión guardada sin encolar (el caso del 31 oct) se recupera al reenviar pendientes y no se envía dos veces', async () => {
+      connect();
+      const session = createSession({ workoutName: 'Huérfana' });
+      session.status = 'abandoned';
+      await saveSession(session);
+      expect(await countPendingSessions()).toBeGreaterThan(0);
+
+      const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
+      vi.stubGlobal('fetch', fetchMock);
+      const result = await syncPendingSessions();
+      expect(postedIds(fetchMock)).toContain(session.clientSessionId);
+      expect(result.failed).toBe(0);
+      expect(await countPendingSessions()).toBe(0);
+
+      fetchMock.mockClear();
+      expect((await syncPendingSessions()).total).toBe(0);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('si falla el envío sigue pendiente para el siguiente intento', async () => {
+      connect();
+      const session = createSession({ workoutName: 'Sin red' });
+      await finishSession(session, { duration: 900 }, 'completed');
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+      expect((await syncPendingSessions()).failed).toBeGreaterThan(0);
+      expect((await getSyncJobs()).some((job) => job.id === sessionUploadJobId(session.clientSessionId))).toBe(true);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { id: '1' })));
+      expect((await syncPendingSessions()).failed).toBe(0);
+    });
+
+    it('lo que se encola mientras se vacía la cola se envía en la misma tanda', async () => {
+      connect();
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const fetchMock = vi.fn(async () => { await gate; return json(200, { id: '1' }); });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const first = createSession({ workoutName: 'Primera' });
+      await finishSession(first, { duration: 900 }, 'completed');
+      const running = flushSyncOutbox();
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+      const second = createSession({ workoutName: 'Segunda' });
+      await finishSession(second, { duration: 900 }, 'abandoned');
+      flushSyncOutbox();
+      release();
+      await running;
+      expect(postedIds(fetchMock)).toEqual(expect.arrayContaining([first.clientSessionId, second.clientSessionId]));
+      expect((await getSyncJobs()).filter((job) => job.type === 'complete_session')).toHaveLength(0);
+    });
+
+    it('las sesiones descargadas de training-app o borradas aquí no cuentan como pendientes', async () => {
+      connect();
+      const { sessionFromRemote } = await import('../src/sync/remote-session.js');
+      const pulled = sessionFromRemote({ clientSessionId: 'cli-remota', workoutName: 'Remota', status: 'completed', startedAt: '2026-10-01T08:00:00.000Z' });
+      await saveSession(pulled);
+      const gone = createSession({ workoutName: 'Borrada' });
+      await finishSession(gone, { duration: 900 }, 'completed');
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { deleted: 1 })));
+      await forgetSession(gone);
+      expect((await getSyncJobs()).some((job) => job.id === sessionUploadJobId(gone.clientSessionId))).toBe(false);
+
+      const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
+      vi.stubGlobal('fetch', fetchMock);
+      await syncPendingSessions();
+      expect(postedIds(fetchMock)).not.toContain('cli-remota');
+      expect(postedIds(fetchMock)).not.toContain(gone.clientSessionId);
     });
   });
 });

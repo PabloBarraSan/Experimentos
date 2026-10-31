@@ -10,6 +10,7 @@ import { ResistanceSlider } from '../components/ResistanceSlider.js';
 import { showSaveSessionDialog } from '../components/SaveSessionDialog.js';
 import { navigateTo, subscribe, updateState, AppState } from '../app.js';
 import { createSession, finishSession } from '../storage/sessions.js';
+import { flushSyncOutbox } from '../sync/TrainingAppSync.js';
 import { calculateSessionMetrics } from '../utils/calculations.js';
 
 const STALE_AFTER_MS = 3000;
@@ -476,6 +477,7 @@ export function TrainingView(state) {
                         sessionToSave.dataPoints = [...AppState.session.dataPoints];
                         sessionToSave.startTime = AppState.session.startTime;
                         await finishSession(sessionToSave, metrics);
+                        flushSyncOutbox().catch(() => {});
                     } catch (error) {
                         console.error('Error guardando sesión:', error);
                         alert('Error al guardar la sesión. Los datos no se han perdido.');

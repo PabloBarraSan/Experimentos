@@ -1,7 +1,5 @@
 import { calculateMissionXp } from './FlowEngine.js';
-import { enqueueSyncJob, getProgress, saveProgress } from '../storage/sessions.js';
-import { flushSyncOutbox, isSyncConnected } from '../sync/TrainingAppSync.js';
-import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
+import { getProgress, saveProgress } from '../storage/sessions.js';
 
 const MIN_SCORED_MINUTES = 3;
 
@@ -107,18 +105,7 @@ export async function recordMissionProgress(session) {
         streak: { activeWeeks, lastWeek: weekKey },
         updatedAt: new Date().toISOString(),
     };
+    // El envío a training-app no depende de esto: finishSession ya dejó la sesión en la cola.
     await saveProgress(next);
-    await enqueueSyncJob('complete_session', {
-        clientSessionId: session.clientSessionId,
-        session,
-        progress: next,
-    });
-    logAppEvent('sync.enqueued', {
-        clientSessionId: session.clientSessionId,
-        gainedXp,
-        // Si no hay conexión con training-app la sesión queda en cola hasta que la haya.
-        trainingAppConnected: isSyncConnected(),
-    });
-    flushSyncOutbox().catch(() => {});
     return { progress: next, gainedXp };
 }

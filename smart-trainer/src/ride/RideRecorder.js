@@ -8,6 +8,7 @@
  */
 
 import { createSession, finishSession } from '../storage/sessions.js';
+import { flushSyncOutbox } from '../sync/TrainingAppSync.js';
 import { calculateSessionMetrics } from '../utils/calculations.js';
 import { RIDE_STATUS } from './RideState.js';
 
@@ -90,7 +91,9 @@ export function createRideRecorder({ ftp = 200 } = {}) {
         metrics.distance = Math.round(distance);
         session.elapsedTime = elapsedSeconds;
 
-        return finishSession(session, metrics, status);
+        const saved = await finishSession(session, metrics, status);
+        flushSyncOutbox().catch(() => {});
+        return saved;
     }
 
     return { start, sample, finish };

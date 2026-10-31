@@ -6,7 +6,19 @@
  * (el servidor hace upsert por clientSessionId, así que reenviar no duplica).
  */
 
-import { enqueueSyncJob, getAllSessions, getSession, getSyncJobs, removeSyncJob, saveSession, withIntegratedDistance } from '../storage/sessions.js';
+import {
+    enqueueSyncJob,
+    getAllSessions,
+    getSession,
+    getSyncJobs,
+    isSessionSynced,
+    markSessionSynced,
+    queueSessionUpload,
+    removeSyncJob,
+    saveSession,
+    sessionUploadJobId,
+    withIntegratedDistance,
+} from '../storage/sessions.js';
 import { sessionFromRemote } from './remote-session.js';
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
 import { loadSettings, updateSettings } from '../storage/settings.js';
@@ -16,6 +28,8 @@ const DELETED_KEY = 'smartTrainer_deletedSessions';
 const SYNCABLE_STATUSES = new Set(['completed', 'abandoned']);
 
 let flushPromise = null;
+// Si llega trabajo nuevo mientras se vacía la cola, se repasa otra vez al terminar (la pasada en curso ya leyó la lista).
+let flushAgain = false;
 
 export function getSyncConfig() {
     try {
@@ -156,6 +170,8 @@ export async function forgetSession(session) {
         // sin localStorage no hay lista de borrados: peor caso, la sesión se vuelve a descargar
     }
     if (!isSyncConnected()) return;
+    // Si aún estaba pendiente de subir, ya no hay que subirla.
+    await removeSyncJob(sessionUploadJobId(clientSessionId)).catch(() => {});
     await enqueueSyncJob('delete_session', { clientSessionId }).catch(() => {});
     flushSyncOutbox().catch(() => {});
 }
@@ -242,6 +258,7 @@ export async function pushSession(session) {
     if (!isSyncConnected() || !navigator.onLine || !session?.clientSessionId) return false;
     try {
         await postSession(getSyncConfig(), session);
+        await markSessionSynced(session.id).catch(() => {});
         return true;
     } catch {
         return false;
@@ -251,8 +268,19 @@ export async function pushSession(session) {
 /** Envía los trabajos pendientes de la cola (sesiones recién terminadas). */
 export function flushSyncOutbox() {
     if (!isSyncConnected() || !navigator.onLine) return Promise.resolve({ synced: 0, pending: 0 });
-    if (flushPromise) return flushPromise;
-    flushPromise = runFlush().finally(() => {
+    if (flushPromise) {
+        flushAgain = true;
+        return flushPromise;
+    }
+    flushPromise = (async () => {
+        let total = { synced: 0, pending: 0 };
+        do {
+            flushAgain = false;
+            const result = await runFlush();
+            total = { synced: total.synced + result.synced, pending: result.pending };
+        } while (flushAgain && isSyncConnected());
+        return total;
+    })().finally(() => {
         flushPromise = null;
     });
     return flushPromise;
@@ -270,11 +298,20 @@ async function runFlush() {
                 synced++;
                 continue;
             }
-            // La cola guarda una copia del momento de terminar; el RPE se añade después, así que se envía la más reciente.
-            const latest = job.payload.session.id ? await getSession(job.payload.session.id).catch(() => null) : null;
-            await postSession(config, latest || job.payload.session);
+            // Se envía la versión guardada más reciente (el RPE se añade después de terminar).
+            // Los trabajos antiguos llevan una copia de la sesión; los nuevos, solo su id.
+            const sessionId = job.payload.sessionId ?? job.payload.session?.id;
+            const latest = sessionId ? await getSession(sessionId).catch(() => null) : null;
+            const session = latest || job.payload.session;
+            if (!session) {
+                // Ya no está en el historial (borrada): no hay nada que enviar.
+                await removeSyncJob(job.id);
+                continue;
+            }
+            await postSession(config, session);
+            await markSessionSynced(latest?.id).catch(() => {});
         } catch (error) {
-            logAppEvent('sync.post.error', { clientSessionId: job.payload.session?.clientSessionId, error: error.message, code: error.code ?? null });
+            logAppEvent('sync.post.error', { clientSessionId: job.payload.clientSessionId ?? job.payload.session?.clientSessionId, error: error.message, code: error.code ?? null });
             if (error.code === 'AUTH_EXPIRED') break;
             continue;
         }
@@ -285,36 +322,60 @@ async function runFlush() {
     return { synced, pending: jobs.length - synced };
 }
 
-/** Sube todo el historial local (útil para sesiones anteriores a la conexión). */
-export async function syncAllSessions() {
+/**
+ * Encola las sesiones terminadas de este dispositivo que training-app aún no tiene
+ * (p. ej. si la app se cerró antes de enviarlas). Devuelve cuántas hay pendientes.
+ */
+export async function queuePendingSessions() {
+    const deleted = getDeletedIds();
+    const pending = (await getAllSessions()).filter((session) => SYNCABLE_STATUSES.has(session.status)
+        && session.clientSessionId
+        && !isSessionSynced(session)
+        && !deleted.has(session.clientSessionId));
+    for (const session of pending) await queueSessionUpload(session);
+    if (pending.length) logAppEvent('sync.reconcile', { pending: pending.length });
+    return pending.length;
+}
+
+/** Sesiones terminadas aquí que training-app aún no ha confirmado. */
+export async function countPendingSessions() {
+    const deleted = getDeletedIds();
+    return (await getAllSessions()).filter((session) => SYNCABLE_STATUSES.has(session.status)
+        && session.clientSessionId
+        && !isSessionSynced(session)
+        && !deleted.has(session.clientSessionId)).length;
+}
+
+/** Botón de Ajustes: encola lo que falte y lo envía ya. */
+export async function syncPendingSessions() {
     if (!isSyncConnected()) throw new Error('Conecta primero con training-app.');
-    const config = getSyncConfig();
-    const sessions = (await getAllSessions()).filter(
-        (session) => SYNCABLE_STATUSES.has(session.status) && session.clientSessionId,
-    );
-    let synced = 0;
-    let failed = 0;
-    for (const session of sessions) {
-        try {
-            await postSession(config, session);
-            synced++;
-        } catch (error) {
-            if (error.code === 'AUTH_EXPIRED') throw error;
-            failed++;
-        }
-    }
+    if (!navigator.onLine) throw new Error('Sin conexión a internet: se enviarán al recuperarla.');
+    const total = await queuePendingSessions();
     await flushSyncOutbox();
-    return { total: sessions.length, synced, failed };
+    if (!isSyncConnected()) throw expireAuth(getSyncConfig());
+    const failed = await countPendingSessions();
+    return { total, synced: Math.max(0, total - failed), failed };
 }
 
 export function startBackgroundSync() {
     const handleOnline = () => {
+        if (!isSyncConnected()) return;
         // Primero lo pendiente (incluye borrados) y luego lo que falte aquí, para que un borrado no se descargue de vuelta.
-        flushSyncOutbox()
+        queuePendingSessions()
+            .catch(() => {})
+            .then(() => flushSyncOutbox())
             .then(() => (isSyncConnected() && navigator.onLine ? pullSessions() : null))
             .catch(() => {});
     };
+    // Al volver a la pestaña se reintenta lo que quedó en cola (p. ej. tras un fallo de red al terminar).
+    const handleVisible = () => {
+        if (document.visibilityState === 'visible') flushSyncOutbox().catch(() => {});
+    };
     window.addEventListener('online', handleOnline);
+    document.addEventListener('visibilitychange', handleVisible);
     handleOnline();
-    return () => window.removeEventListener('online', handleOnline);
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        document.removeEventListener('visibilitychange', handleVisible);
+    };
 }

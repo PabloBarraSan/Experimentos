@@ -329,6 +329,12 @@ export async function finishSession(session, metrics, status = session.status ==
     
     await saveSession(session);
     await clearActiveSession();
+    // La cola de envío a training-app se llena aquí, al guardar, y no desde la pantalla de resultado:
+    // si esa pantalla falla (o la vista no la tiene), la sesión no puede quedarse sin enviar.
+    await queueSessionUpload(session).catch((error) => logAppEvent('sync.enqueue.error', {
+        clientSessionId: session.clientSessionId,
+        error: error?.message ?? String(error),
+    }));
     return session;
 }
 
@@ -672,10 +678,10 @@ export async function saveProgress(progress) {
     return progress;
 }
 
-export async function enqueueSyncJob(type, payload) {
+export async function enqueueSyncJob(type, payload, id = createUuid()) {
     await initDB();
     const job = {
-        id: createUuid(),
+        id,
         type,
         payload,
         attempts: 0,
@@ -683,6 +689,44 @@ export async function enqueueSyncJob(type, payload) {
     };
     await putStoreValue(SYNC_OUTBOX_STORE, job);
     return job;
+}
+
+/** Id fijo por sesión: encolarla dos veces deja un único trabajo. */
+export function sessionUploadJobId(clientSessionId) {
+    return `complete_session:${clientSessionId}`;
+}
+
+/** Encola el envío de una sesión terminada (solo guarda la referencia: se envía la versión más reciente). */
+export async function queueSessionUpload(session) {
+    if (!session?.clientSessionId || !['completed', 'abandoned'].includes(session.status)) return null;
+    const job = await enqueueSyncJob(
+        'complete_session',
+        { clientSessionId: session.clientSessionId, sessionId: session.id ?? null },
+        sessionUploadJobId(session.clientSessionId),
+    );
+    logAppEvent('sync.enqueued', { clientSessionId: session.clientSessionId, status: session.status });
+    return job;
+}
+
+/** Marca que training-app ya tiene esta sesión (sin pisar cambios hechos entre medias: lee y escribe en la misma transacción). */
+export async function markSessionSynced(id, syncedAt = new Date().toISOString()) {
+    if (!id) return;
+    await initDB();
+    await new Promise((resolve, reject) => {
+        const transaction = db.transaction([SESSIONS_STORE], 'readwrite');
+        const store = transaction.objectStore(SESSIONS_STORE);
+        const request = store.get(id);
+        request.onsuccess = () => {
+            const stored = request.result;
+            if (stored) store.put({ ...stored, syncStatus: { ...stored.syncStatus, trainingApp: { syncedAt } } });
+        };
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+    });
+}
+
+export function isSessionSynced(session) {
+    return Boolean(session?.syncStatus?.trainingApp?.syncedAt);
 }
 
 export async function getSyncJobs() {
