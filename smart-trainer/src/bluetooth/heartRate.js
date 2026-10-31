@@ -6,6 +6,11 @@
  * Característica: Heart Rate Measurement (0x2A37)
  */
 
+import { RECONNECT_DELAYS_MS, reconnectWithBackoff } from './reconnect.js';
+
+// Intentos automáticos antes de ofrecer el botón de reconexión manual (se sigue reintentando).
+const MANUAL_RECONNECT_AFTER_ATTEMPTS = 5;
+
 // UUIDs del servicio Heart Rate
 export const HR_UUIDS = {
     HEART_RATE_SERVICE: 0x180D,
@@ -96,11 +101,15 @@ export class HeartRateManager {
         this.state = HR_CONNECTION_STATE.DISCONNECTED;
         this.sensorLocation = null;
         this.isManualDisconnect = false;
+        this.reconnecting = false;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 3;
-        
-        // Bind handler para poder removerlo
+        this.reconnectDelays = RECONNECT_DELAYS_MS;
+        // true cuando los reintentos automáticos no bastan: la UI ofrece reconectar a mano.
+        this.needsManualReconnect = false;
+
+        // Bind handlers para poder removerlos
         this.handleHRDataBound = (event) => this.handleHRData(event);
+        this.handleDisconnectionBound = () => this.handleDisconnection();
         
         // Callbacks
         this.onStateChange = callbacks.onStateChange || (() => {});
@@ -180,23 +189,19 @@ export class HeartRateManager {
         
         try {
             // Solicitar dispositivo con filtro Heart Rate Service
-            this.device = await navigator.bluetooth.requestDevice({
+            const device = await navigator.bluetooth.requestDevice({
                 filters: [
                     { services: [HR_UUIDS.HEART_RATE_SERVICE] },
                 ],
                 optionalServices: [],
             });
-            
+            this.setDevice(device);
+
             console.log('[HR] Pulsómetro seleccionado:', this.device.name);
-            
+
             // Guardar en cache
             this.saveCachedDevice(this.device);
-            
-            // Configurar listener de desconexión
-            this.device.addEventListener('gattserverdisconnected', () => {
-                this.handleDisconnection();
-            });
-            
+
             // Conectar al dispositivo
             await this.connect();
             
@@ -235,13 +240,9 @@ export class HeartRateManager {
             
             if (cachedDevice) {
                 console.log('[HR] Dispositivo permitido encontrado');
-                this.device = cachedDevice;
+                this.setDevice(cachedDevice);
                 this.isManualDisconnect = false;
-                
-                this.device.addEventListener('gattserverdisconnected', () => {
-                    this.handleDisconnection();
-                });
-                
+
                 await this.connect();
                 return this.device;
             }
@@ -254,14 +255,28 @@ export class HeartRateManager {
     }
     
     /**
-     * Conectar al dispositivo seleccionado
+     * Usar un BluetoothDevice con un único listener de desconexión
      */
-    async connect() {
+    setDevice(device) {
+        if (this.device && this.device !== device) {
+            this.device.removeEventListener?.('gattserverdisconnected', this.handleDisconnectionBound);
+        }
+        this.device = device;
+        this.device.removeEventListener?.('gattserverdisconnected', this.handleDisconnectionBound);
+        this.device.addEventListener('gattserverdisconnected', this.handleDisconnectionBound);
+    }
+
+    /**
+     * Conectar al dispositivo seleccionado.
+     * Con `reconnecting` el estado sigue en RECONNECTING y un fallo no se notifica:
+     * el bucle de reintentos decide cuándo rendirse.
+     */
+    async connect({ reconnecting = false } = {}) {
         if (!this.device) {
             throw new Error('No hay pulsómetro seleccionado');
         }
-        
-        this.setState(HR_CONNECTION_STATE.CONNECTING);
+
+        if (!reconnecting) this.setState(HR_CONNECTION_STATE.CONNECTING);
         
         try {
             // Conectar a GATT server
@@ -290,15 +305,17 @@ export class HeartRateManager {
             await this.characteristic.startNotifications();
             this.characteristic.addEventListener('characteristicvaluechanged', this.handleHRDataBound);
             
-            this.setState(HR_CONNECTION_STATE.CONNECTED);
             this.reconnectAttempts = 0;
+            this.needsManualReconnect = false;
+            this.setState(HR_CONNECTION_STATE.CONNECTED);
             this.onDeviceConnected(this.device.name, this.sensorLocation);
-            
+
             console.log('[HR] Conectado exitosamente a', this.device.name);
-            
+
         } catch (error) {
-            this.setState(HR_CONNECTION_STATE.DISCONNECTED);
             this.cleanup();
+            if (reconnecting) throw error;
+            this.setState(HR_CONNECTION_STATE.DISCONNECTED);
             this.onError(`Error al conectar pulsómetro: ${error.message}`);
             throw error;
         }
@@ -323,45 +340,71 @@ export class HeartRateManager {
     }
     
     /**
-     * Manejar desconexión
+     * Manejar desconexión: reintenta con el mismo dispositivo y espera creciente.
+     * No se rinde (la banda vuelve cuando el usuario regresa a la habitación); tras
+     * unos intentos marca `needsManualReconnect` para que la UI ofrezca un botón.
      */
     async handleDisconnection() {
-        console.warn('[HR] Pulsómetro desconectado');
-        
         if (this.isManualDisconnect) {
+            console.warn('[HR] Pulsómetro desconectado');
             this.setState(HR_CONNECTION_STATE.DISCONNECTED);
             this.onDeviceDisconnected();
             this.cleanup();
             return;
         }
-        
+        // Un intento fallido o cancelado también dispara el evento: el bucle ya está en marcha.
+        if (this.reconnecting || !this.device) return;
+
+        console.warn('[HR] Pulsómetro desconectado, reconectando…');
         this.cleanup();
-        
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.setState(HR_CONNECTION_STATE.RECONNECTING);
-            this.reconnectAttempts++;
-            
-            const delay = 2000 * this.reconnectAttempts;
-            console.log(`[HR] Intento de reconexión ${this.reconnectAttempts}/${this.maxReconnectAttempts} en ${delay}ms...`);
-            
-            await new Promise(resolve => setTimeout(resolve, delay));
-            
-            try {
-                await this.connect();
-            } catch (error) {
-                if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                    this.handleDisconnection();
-                } else {
-                    this.setState(HR_CONNECTION_STATE.DISCONNECTED);
-                    this.onDeviceDisconnected();
-                    this.onError('No se pudo reconectar al pulsómetro después de varios intentos.');
-                }
-            }
-        } else {
-            this.setState(HR_CONNECTION_STATE.DISCONNECTED);
-            this.onDeviceDisconnected();
-            this.onError('No se pudo reconectar al pulsómetro.');
+        this.reconnecting = true;
+        this.reconnectAttempts = 0;
+        this.setState(HR_CONNECTION_STATE.RECONNECTING);
+        const device = this.device;
+
+        try {
+            await reconnectWithBackoff({
+                connect: () => this.connect({ reconnecting: true }),
+                // Parar si el usuario desconecta, cambia de banda o la conecta desde otra pantalla.
+                shouldStop: () => this.isManualDisconnect || this.device !== device || this.state === HR_CONNECTION_STATE.CONNECTED,
+                delays: this.reconnectDelays,
+                forever: true,
+                onAttempt: (attempt) => {
+                    this.reconnectAttempts = attempt;
+                    console.log(`[HR] Intento de reconexión ${attempt}`);
+                },
+                onFailure: (attempt, error) => {
+                    console.warn(`[HR] Intento ${attempt} fallido:`, error?.message || error);
+                    try { device.gatt?.disconnect(); } catch { /* nada que cancelar */ }
+                    if (attempt === MANUAL_RECONNECT_AFTER_ATTEMPTS) {
+                        this.needsManualReconnect = true;
+                        this.setState(HR_CONNECTION_STATE.RECONNECTING);
+                    }
+                },
+                onAttemptTimeout: () => {
+                    try { device.gatt?.disconnect(); } catch { /* nada que cancelar */ }
+                },
+            });
+        } finally {
+            this.reconnecting = false;
         }
+    }
+
+    /**
+     * Reconexión pedida por el usuario (botón) con el mismo dispositivo, sin selector.
+     * Si falla, la UI ofrece «Buscar pulsómetro» (scan) en un clic nuevo: requestDevice
+     * necesita un gesto reciente y no puede ir detrás de otra espera.
+     */
+    async reconnect() {
+        if (!this.device) return this.scan();
+        this.isManualDisconnect = false;
+        try {
+            await this.connect({ reconnecting: this.reconnecting });
+        } catch (error) {
+            this.onError(`No se pudo reconectar el pulsómetro: ${error.message}`);
+            throw error;
+        }
+        return this.device;
     }
     
     /**
@@ -370,7 +413,7 @@ export class HeartRateManager {
     disconnect() {
         console.log('[HR] Desconexión manual iniciada');
         this.isManualDisconnect = true;
-        this.reconnectAttempts = this.maxReconnectAttempts;
+        this.needsManualReconnect = false;
         
         if (this.characteristic) {
             try {

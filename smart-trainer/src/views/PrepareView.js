@@ -119,11 +119,15 @@ export function PrepareView(state) {
     };
 
     const toggleHeartRate = async () => {
-        if (hrBusy) return;
+        // Reconectando, el clic deja de esperar a la banda anterior y abre el selector
+        // (el pulsómetro reintenta sin límite mientras no se desconecte a mano).
+        const hrReconnecting = hrState === HR_CONNECTION_STATE.RECONNECTING;
+        if (hrBusy && !hrReconnecting) return;
         if (isHRConnected) {
             state.heartRateManager?.disconnect();
             return;
         }
+        if (hrReconnecting) state.heartRateManager?.disconnect();
         try {
             await state.heartRateManager?.scan();
             navigator.vibrate?.(35);
@@ -254,7 +258,7 @@ export function PrepareView(state) {
                 button({
                     text: isHRConnected ? 'Desconectar' : (hrBusy ? hrConnectionMessage(hrState) : 'Conectar'),
                     attrs: { type: 'button', class: 'hp-btn', 'aria-busy': hrBusy ? 'true' : 'false' },
-                    styles: { opacity: hrBusy ? .6 : 1, cursor: hrBusy ? 'wait' : 'pointer' },
+                    styles: { opacity: hrBusy ? .6 : 1, cursor: hrBusy && hrState !== HR_CONNECTION_STATE.RECONNECTING ? 'wait' : 'pointer' },
                     events: { click: toggleHeartRate },
                 }),
             ] }),

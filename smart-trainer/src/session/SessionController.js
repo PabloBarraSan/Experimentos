@@ -479,9 +479,9 @@ export class SessionController {
         }
         this.session.status = 'active';
         this.state = SESSION_STATE.RUNNING;
-        if (!this.ergEnabled) {
-            this.dispatchTarget({ notify: false, force: true }).catch((error) => this.debug?.log('resume.sim.error', { error }));
-        }
+        // Reenviar el objetivo vigente (ERG o simulación libre): tras pausar o reconectar
+        // el rodillo, el objetivo anterior ya no está aplicado.
+        this.dispatchTarget({ notify: false, force: true }).catch((error) => this.debug?.log('resume.target.error', { error }));
         this.player?.resume();
         this.emitState();
         this.debug?.log('controller.running', { reason: 'resume', player: this.player?.getState() });

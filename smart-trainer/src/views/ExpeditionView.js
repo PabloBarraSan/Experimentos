@@ -198,6 +198,27 @@ export function ExpeditionView({
     });
     hud.appendChild(stagePrompt);
 
+    // Aviso de reconexión BLE: grande para leerlo a 2 m, por encima de la pausa y visible
+    // aunque el HUD esté oculto. El botón aparece si la reconexión automática no basta.
+    const deviceAlertText = createElement('span', { styles: { fontSize: '22px', fontWeight: 800 } });
+    const deviceAlertButton = button({
+        styles: {
+            display: 'none', padding: '10px 18px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+            background: '#ffd379', color: '#14110a', fontSize: '18px', fontWeight: 800,
+        },
+    });
+    const deviceAlert = div({
+        attrs: { role: 'status', 'aria-live': 'polite', 'data-device-alert': '' },
+        styles: {
+            position: 'absolute', top: '160px', left: '50%', transform: 'translateX(-50%)', zIndex: 6,
+            display: 'none', alignItems: 'center', gap: '16px', padding: '14px 22px', borderRadius: '16px',
+            background: 'rgba(40,26,4,.9)', border: '2px solid #ffd379', color: '#ffe6ad',
+            maxWidth: 'calc(100vw - 32px)', flexWrap: 'wrap', justifyContent: 'center', pointerEvents: 'auto',
+        },
+        children: [deviceAlertText, deviceAlertButton],
+    });
+    container.appendChild(deviceAlert);
+
     const routeProgress = div({
         styles: {
             width: 'min(320px, 42vw)',
@@ -660,6 +681,11 @@ export function ExpeditionView({
     let unsubscribe;
     let connectionLost = false;
     let connectionPausePromise = null;
+    // La pausa la provocó el corte del rodillo (no el usuario): al reconectar se reanuda sola.
+    let pausedByConnection = false;
+    let hrWasConnected = false;
+    let hrReconnecting = false;
+    let deviceAlertTarget = null;
     let demoInterval;
     let currentTarget = null;
     let lastBlock = null;
@@ -967,6 +993,7 @@ export function ExpeditionView({
             }, 250);
         } else {
             unsubscribe = subscribeToState?.((nextState) => {
+                syncDeviceAlert(nextState);
                 if (nextState.connectionState !== 'connected') {
                     if (!connectionLost) {
                         connectionLost = true;
@@ -977,10 +1004,12 @@ export function ExpeditionView({
                         showStagePrompt('Rodillo desconectado · sesión pausada');
                     }
                     if (controller?.state === SESSION_STATE.RUNNING && !connectionPausePromise) {
+                        pausedByConnection = true;
                         connectionPausePromise = controller.pause()
                             .catch((error) => logActiveSessionError('connection.pause.error', error))
                             .finally(() => { connectionPausePromise = null; syncPauseUI(); });
                     }
+                    syncPauseUI();
                     return;
                 }
 
@@ -988,8 +1017,24 @@ export function ExpeditionView({
                     connectionLost = false;
                     controller?.debug?.log('connection.restored', {
                         elapsedSeconds: latestTick?.totalElapsedTime || 0,
+                        autoResume: pausedByConnection,
                     });
-                    showStagePrompt('Rodillo reconectado · pulsa Reanudar');
+                    if (pausedByConnection) {
+                        // Reanudar reenvía el objetivo (ERG) al rodillo recién reconectado.
+                        pausedByConnection = false;
+                        Promise.resolve(connectionPausePromise)
+                            .then(async () => {
+                                if (controller?.state !== SESSION_STATE.PAUSED) return;
+                                await controller.resume();
+                                await wakeLock.acquire();
+                            })
+                            .catch((error) => logActiveSessionError('connection.resume.error', error))
+                            .finally(syncPauseUI);
+                        showStagePrompt('Rodillo reconectado · seguimos');
+                    } else {
+                        showStagePrompt('Rodillo reconectado · pulsa Reanudar');
+                    }
+                    syncPauseUI();
                 }
                 // Un pulso que lleva más de 5 s sin actualizarse no se muestra como si fuera actual.
                 const heartRateFresh = Date.now() - (nextState.lastHeartRateUpdateTimestamp || 0) <= 5000;
@@ -1011,7 +1056,7 @@ export function ExpeditionView({
         actualCadence.textContent = String(Math.round(cadence));
         actualHeartRate.textContent = hr ? String(Math.round(hr)) : '--';
         const hrZone = getHeartRateZone(hr, state.settings.maxHR, state.settings.restingHR);
-        heartZone.textContent = hrZone ? `Z${hrZone.zone} · ${hrZone.name}` : (frame.quality.heartRate === 'stale' ? 'Reconectando…' : 'Sin pulso');
+        heartZone.textContent = hrZone ? `Z${hrZone.zone} · ${hrZone.name}` : (hrReconnecting || frame.quality.heartRate === 'stale' ? 'Reconectando…' : 'Sin pulso');
         heartZone.style.color = hrZone?.color || 'rgba(255,255,255,.58)';
         actualHeartRate.style.color = hrZone?.color || '#ff7893';
         // El color de la potencia dice si estás en zona: verde ±5%, ámbar ±10%, rojo fuera.
@@ -1200,12 +1245,70 @@ export function ExpeditionView({
         const paused = controller?.state === SESSION_STATE.PAUSED;
         pauseButton.textContent = paused ? 'Reanudar' : 'Pausar';
         pauseOverlay.style.display = paused ? 'flex' : 'none';
-        pauseReason.textContent = connectionLost
-            ? 'Rodillo desconectado. Reconéctalo y pulsa Reanudar.'
-            : 'Tu sesión está detenida. El tiempo no corre.';
+        pauseReason.textContent = !connectionLost
+            ? 'Tu sesión está detenida. El tiempo no corre.'
+            : state.connectionState === 'reconnecting'
+                ? 'Reconectando el rodillo… La sesión seguirá sola al volver.'
+                : 'Rodillo desconectado. Reconéctalo y pulsa Reanudar.';
     }
+
+    /** Aviso de reconexión del rodillo o del pulsómetro (el rodillo tiene prioridad). */
+    function syncDeviceAlert(appState) {
+        const hrManager = appState.heartRateManager;
+        const trainerManager = appState.bluetoothManager;
+        if (appState.hrConnectionState === 'connected') hrWasConnected = true;
+        hrReconnecting = appState.hrConnectionState === 'reconnecting';
+
+        let alert = null;
+        if (appState.connectionState === 'reconnecting') {
+            alert = { target: 'trainer', text: 'Reconectando rodillo…', offerButton: trainerManager?.needsManualReconnect };
+        } else if (connectionLost && appState.connectionState === 'disconnected') {
+            alert = { target: 'trainer', text: 'Rodillo desconectado', offerButton: true };
+        } else if (hrReconnecting) {
+            alert = { target: 'hr', text: 'Reconectando pulsómetro…', offerButton: hrManager?.needsManualReconnect };
+        } else if (hrWasConnected && appState.hrConnectionState === 'disconnected' && !hrManager?.isManualDisconnect) {
+            alert = { target: 'hr', text: 'Pulsómetro desconectado', offerButton: true };
+        }
+
+        deviceAlert.style.display = alert ? 'flex' : 'none';
+        if (!alert) {
+            deviceAlertTarget = null;
+            return;
+        }
+        if (alert.target !== deviceAlertTarget) {
+            deviceAlertTarget = alert.target;
+            delete deviceAlertButton.dataset.scan;
+            deviceAlertButton.disabled = false;
+        }
+        deviceAlertText.textContent = alert.text;
+        const label = alert.target === 'trainer' ? 'rodillo' : 'pulsómetro';
+        deviceAlertButton.textContent = deviceAlertButton.dataset.scan ? `Buscar ${label}` : `Reconectar ${label}`;
+        deviceAlertButton.style.display = alert.offerButton ? '' : 'none';
+    }
+
+    // Primer clic: reconectar con el mismo dispositivo (sin selector). Si falla, el siguiente
+    // clic abre el selector: requestDevice exige un gesto reciente y no puede ir tras otra espera.
+    deviceAlertButton.addEventListener('click', async () => {
+        const manager = deviceAlertTarget === 'trainer' ? state.bluetoothManager : state.heartRateManager;
+        if (!manager || deviceAlertButton.disabled) return;
+        const useScan = Boolean(deviceAlertButton.dataset.scan);
+        deviceAlertButton.disabled = true;
+        deviceAlertButton.textContent = 'Conectando…';
+        try {
+            await (useScan ? manager.scan() : manager.reconnect());
+            delete deviceAlertButton.dataset.scan;
+        } catch (error) {
+            if (error?.name !== 'NotFoundError') deviceAlertButton.dataset.scan = 'true';
+            showStagePrompt(useScan ? 'No se encontró el dispositivo' : 'No responde · pulsa «Buscar» para elegirlo');
+        } finally {
+            deviceAlertButton.disabled = false;
+            syncDeviceAlert(state);
+        }
+    });
+
     const togglePause = async () => {
         if (!controller) return;
+        pausedByConnection = false;
         if (controller.state === SESSION_STATE.RUNNING) {
             await controller.pause();
             await wakeLock.release();
@@ -1304,6 +1407,7 @@ export function ExpeditionView({
         if (decisionTimeout) clearTimeout(decisionTimeout);
         if (decisionInterval) clearInterval(decisionInterval);
         if (unsubscribe) unsubscribe();
+        deviceAlert.style.display = 'none';
         lapToast.destroy();
         demoInterval = null;
         promptTimeout = null;
