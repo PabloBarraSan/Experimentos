@@ -18,6 +18,7 @@ import {
     saveSession,
     sessionUploadJobId,
     compactForUpload,
+    MAX_UPLOAD_BYTES,
 } from '../storage/sessions.js';
 import { sessionFromRemote } from './remote-session.js';
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
@@ -111,34 +112,69 @@ function expireAuth(config) {
     return error;
 }
 
-async function postSession(config, session) {
+// Si training-app aún no acepta gzip (el preflight de CORS lo rechaza), esta pestaña envía sin comprimir.
+let gzipRejected = false;
+
+async function gzip(text) {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/**
+ * Cuerpo del POST: comprimido con gzip, con todas las muestras (una hora ≈ 50 KB); sin compresión
+ * (navegador antiguo o servidor sin soporte), la copia recortada que cabe en el límite del proxy.
+ */
+async function encodeUpload(session, { allowGzip }) {
+    if (allowGzip && typeof CompressionStream === 'function') {
+        const upload = compactForUpload(session, Infinity);
+        const body = await gzip(JSON.stringify({ clientSessionId: session.clientSessionId, session: upload }));
+        if (body.length <= MAX_UPLOAD_BYTES) return { body, gzip: true, samples: upload.dataPoints.length };
+    }
     const upload = compactForUpload(session);
-    const body = JSON.stringify({ clientSessionId: session.clientSessionId, session: upload });
+    return { body: JSON.stringify({ clientSessionId: session.clientSessionId, session: upload }), gzip: false, samples: upload.dataPoints.length };
+}
+
+async function sendUpload(config, session, encoded) {
     const details = {
         clientSessionId: session.clientSessionId,
-        bytes: body.length,
-        samples: upload.dataPoints.length,
+        bytes: encoded.body.length,
+        gzip: encoded.gzip,
+        samples: encoded.samples,
         localSamples: session.dataPoints?.length ?? 0,
     };
-    let response;
     try {
-        response = await fetch(`${config.baseUrl}/api/smart-trainer/sessions`, {
+        const response = await fetch(`${config.baseUrl}/api/smart-trainer/sessions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(encoded.gzip ? { 'Content-Encoding': 'gzip' } : {}),
                 Authorization: `Bearer ${config.token}`,
             },
-            body,
+            body: encoded.body,
         });
+        logAppEvent('sync.post', { ...details, plannedWorkoutId: session.plannedWorkoutId ?? null, status: response.status });
+        return response;
     } catch (error) {
         logAppEvent('sync.post', { ...details, error: error.message });
         throw error;
     }
-    logAppEvent('sync.post', {
-        ...details,
-        plannedWorkoutId: session.plannedWorkoutId ?? null,
-        status: response.status,
-    });
+}
+
+async function postSession(config, session) {
+    const encoded = await encodeUpload(session, { allowGzip: !gzipRejected });
+    let response;
+    try {
+        response = await sendUpload(config, session, encoded);
+    } catch (error) {
+        if (!encoded.gzip) throw error;
+        // Puede ser un servidor que aún no admite gzip: se reintenta sin comprimir.
+        response = await sendUpload(config, session, await encodeUpload(session, { allowGzip: false }));
+        gzipRejected = true;
+    }
+    if (encoded.gzip && !gzipRejected && (response.status === 400 || response.status === 415)) {
+        response = await sendUpload(config, session, await encodeUpload(session, { allowGzip: false }));
+        if (response.ok) gzipRejected = true;
+    }
     if (response.status === 401) throw expireAuth(config);
     if (!response.ok) throw new Error(`training-app respondió ${response.status}`);
 }

@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { gunzipSync } from 'node:zlib';
 import { loadSettings, updateSettings } from '../src/storage/settings.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { compactForUpload, createSession, enqueueSyncJob, finishSession, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback, sessionUploadJobId } from '../src/storage/sessions.js';
@@ -15,6 +16,7 @@ import {
   isSyncConnected,
   countPendingSessions,
   syncPendingSessions,
+  pushSession,
 } from '../src/sync/TrainingAppSync.js';
 
 function stubBrowser() {
@@ -26,6 +28,9 @@ function stubBrowser() {
   });
   vi.stubGlobal('navigator', { onLine: true });
 }
+
+// Las sesiones se suben comprimidas con gzip.
+const sentBody = (init) => JSON.parse(init.headers['Content-Encoding'] === 'gzip' ? gunzipSync(init.body).toString() : init.body);
 
 const json = (status, body = {}) => ({ ok: status < 400, status, json: async () => body });
 
@@ -67,7 +72,7 @@ describe('training-app sync', () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://x/api/smart-trainer/sessions');
     expect(init.headers.Authorization).toBe('Bearer t');
-    expect(JSON.parse(init.body).clientSessionId).toBe(session.clientSessionId);
+    expect(sentBody(init).clientSessionId).toBe(session.clientSessionId);
   });
 
   it('con token caducado desconecta y avisa, sin perder las sesiones', async () => {
@@ -122,7 +127,7 @@ describe('training-app sync', () => {
     const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
     vi.stubGlobal('fetch', fetchMock);
     await flushSyncOutbox();
-    const sent = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body)).find((body) => body.clientSessionId === session.clientSessionId);
+    const sent = fetchMock.mock.calls.map(([, init]) => sentBody(init)).find((body) => body.clientSessionId === session.clientSessionId);
     expect(sent.session.feedback).toMatchObject({ rpe: 8, limiter: 'legs', note: 'me ardían' });
   });
 
@@ -270,7 +275,7 @@ describe('training-app sync', () => {
     const connect = () => localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 't' }));
     const postedIds = (fetchMock) => fetchMock.mock.calls
       .filter(([, init]) => init?.method === 'POST')
-      .map(([, init]) => JSON.parse(init.body).clientSessionId);
+      .map(([, init]) => sentBody(init).clientSessionId);
 
     it('al guardar una sesión abandonada queda en la cola, aunque nadie más la encole (una sola vez)', async () => {
       const session = createSession({ workoutName: 'Plan de hoy' });
@@ -399,6 +404,59 @@ describe('training-app sync', () => {
       const session = longSession();
       session.dataPoints = session.dataPoints.slice(0, 600);
       expect(compactForUpload(session).dataPoints).toHaveLength(600);
+    });
+  });
+  describe('subida comprimida', () => {
+    const connect = () => localStorage.setItem('smartTrainer_trainingApp', JSON.stringify({ baseUrl: 'http://x', token: 't' }));
+    const longSession = () => {
+      const session = createSession({ workoutName: 'Dos horas' });
+      session.status = 'completed';
+      session.trainerCommands = [{ type: 'target', power: 200 }];
+      session.dataPoints = Array.from({ length: 7200 }, (_, i) => ({
+        timestamp: 1793449538007 + i * 1000, elapsedSeconds: i, power: 170 + (i % 37), cadence: 85 + (i % 7), speed: 28.4, heartRate: 120 + Math.floor(i / 60),
+        distance: Math.round(i * 7.9), targetPower: 180, blockIndex: Math.floor(i / 600),
+        display: { power: 181.7345, cadence: 87.91 }, control: { power: 181.2 }, quality: { power: 'fresh' },
+      }));
+      return session;
+    };
+
+    it('envía con gzip todas las muestras de una sesión de 2 h, muy por debajo del límite del proxy', async () => {
+      connect();
+      const session = longSession();
+      await saveSession(session);
+      const fetchMock = vi.fn().mockResolvedValue(json(201, { id: '1' }));
+      vi.stubGlobal('fetch', fetchMock);
+      expect(await pushSession(session)).toBe(true);
+      const [, init] = fetchMock.mock.calls[0];
+      expect(init.headers['Content-Encoding']).toBe('gzip');
+      expect(init.body.length).toBeLessThan(300 * 1000);
+      const sent = sentBody(init);
+      expect(sent.session.dataPoints).toHaveLength(7200);
+      expect(sent.session.dataPoints[0]).not.toHaveProperty('display');
+      expect(sent.session.trainerCommands).toBeUndefined();
+    });
+
+    // Va el último: deja la pestaña en modo «sin gzip».
+    it('si el servidor aún no acepta gzip (falla el preflight) reintenta sin comprimir y recortada', async () => {
+      connect();
+      const session = longSession();
+      await saveSession(session);
+      const fetchMock = vi.fn(async (_url, init) => {
+        if (init.headers['Content-Encoding'] === 'gzip') throw new TypeError('Failed to fetch');
+        return json(201, { id: '1' });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+      expect(await pushSession(session)).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [, plain] = fetchMock.mock.calls[1];
+      expect(plain.headers['Content-Encoding']).toBeUndefined();
+      expect(plain.body.length).toBeLessThan(1000 * 1000);
+      expect((await getSession(session.id)).syncStatus.trainingApp.syncedAt).toBeTruthy();
+
+      // Las siguientes ya no lo intentan con gzip.
+      fetchMock.mockClear();
+      await pushSession(session);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 });

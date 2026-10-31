@@ -19,6 +19,8 @@ export default defineConfig([
         CustomEvent: 'readonly',
         Event: 'readonly',
         Blob: 'readonly',
+        CompressionStream: 'readonly',
+        Response: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
         location: 'readonly',
