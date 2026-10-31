@@ -17,7 +17,7 @@ import {
     removeSyncJob,
     saveSession,
     sessionUploadJobId,
-    withIntegratedDistance,
+    compactForUpload,
 } from '../storage/sessions.js';
 import { sessionFromRemote } from './remote-session.js';
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
@@ -112,16 +112,30 @@ function expireAuth(config) {
 }
 
 async function postSession(config, session) {
-    const response = await fetch(`${config.baseUrl}/api/smart-trainer/sessions`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${config.token}`,
-        },
-        body: JSON.stringify({ clientSessionId: session.clientSessionId, session: withIntegratedDistance(session) }),
-    });
-    logAppEvent('sync.post', {
+    const upload = compactForUpload(session);
+    const body = JSON.stringify({ clientSessionId: session.clientSessionId, session: upload });
+    const details = {
         clientSessionId: session.clientSessionId,
+        bytes: body.length,
+        samples: upload.dataPoints.length,
+        localSamples: session.dataPoints?.length ?? 0,
+    };
+    let response;
+    try {
+        response = await fetch(`${config.baseUrl}/api/smart-trainer/sessions`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${config.token}`,
+            },
+            body,
+        });
+    } catch (error) {
+        logAppEvent('sync.post', { ...details, error: error.message });
+        throw error;
+    }
+    logAppEvent('sync.post', {
+        ...details,
         plannedWorkoutId: session.plannedWorkoutId ?? null,
         status: response.status,
     });

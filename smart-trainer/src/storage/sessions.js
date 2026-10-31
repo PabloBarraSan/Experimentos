@@ -552,6 +552,33 @@ export function withIntegratedDistance(session) {
     return { ...session, dataPoints, metrics };
 }
 
+// El proxy de training-app (nginx) rechaza cuerpos de más de 1 MB con un 413 sin CORS (el navegador lo ve como «Failed to fetch»).
+export const MAX_UPLOAD_BYTES = 900_000;
+
+/**
+ * Copia de la sesión para enviar a training-app: sin el log de comandos del rodillo ni los objetos de telemetría
+ * de cada muestra (allí solo se usan los valores planos) y, si aún no cabe, con las muestras espaciadas por igual
+ * (training-app agrega en tramos de 5 s; la distancia y las métricas van aparte). La sesión local no cambia.
+ */
+export function compactForUpload(session, maxBytes = MAX_UPLOAD_BYTES) {
+    const rest = { ...withIntegratedDistance(session) };
+    delete rest.trainerCommands;
+    const flat = (rest.dataPoints || []).map((sample) => {
+        const point = { ...sample };
+        delete point.display;
+        delete point.control;
+        delete point.quality;
+        return point;
+    });
+    let compact = { ...rest, dataPoints: flat };
+    let body = JSON.stringify(compact);
+    for (let step = 2; body.length > maxBytes && flat.length > step; step++) {
+        compact = { ...rest, dataPoints: flat.filter((_, index) => index % step === 0 || index === flat.length - 1) };
+        body = JSON.stringify(compact);
+    }
+    return compact;
+}
+
 export const FEEDBACK_LIMITERS = ['legs', 'breathing', 'fatigue', 'none'];
 
 /** Normaliza lo que escribe el usuario; null si no hay un RPE válido. */

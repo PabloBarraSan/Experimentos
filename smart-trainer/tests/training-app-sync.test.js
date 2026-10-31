@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { loadSettings, updateSettings } from '../src/storage/settings.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSession, enqueueSyncJob, finishSession, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback, sessionUploadJobId } from '../src/storage/sessions.js';
+import { compactForUpload, createSession, enqueueSyncJob, finishSession, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback, sessionUploadJobId } from '../src/storage/sessions.js';
 import {
   buildLinkUrl,
   connectTrainingApp,
@@ -361,6 +361,44 @@ describe('training-app sync', () => {
       expect(postedIds(fetchMock)).not.toContain('cli-remota');
       expect(postedIds(fetchMock)).not.toContain('cli-antigua');
       expect(postedIds(fetchMock)).not.toContain(gone.clientSessionId);
+    });
+  });
+  describe('tamaño del envío', () => {
+    // Una sesión de 2 h a 1 Hz con la telemetría completa de cada muestra, como la que el proxy rechazó con 413.
+    const longSession = () => {
+      const session = createSession({ workoutName: 'Larga' });
+      session.status = 'abandoned';
+      session.trainerCommands = Array.from({ length: 500 }, (_, i) => ({ type: 'target', power: 200, at: i, result: 'ok' }));
+      session.dataPoints = Array.from({ length: 7200 }, (_, i) => ({
+        timestamp: 1793449538007 + i * 1000, elapsedSeconds: i, power: 180 + (i % 40), cadence: 88, speed: 28.43, heartRate: 135,
+        resistance: 0, distance: Math.round(i * 7.9), targetPower: 180, targetCadence: 90, blockId: 'bloque-trabajo-3', blockIndex: 3, flow: 0.8312,
+        display: { power: 182, cadence: 88, speed: 28.4, heartRate: 135 },
+        control: { power: 181, cadence: 88, speed: 28.4 },
+        quality: { power: 'ok', cadence: 'ok', heartRate: 'stale', ageMs: 120 },
+      }));
+      return session;
+    };
+
+    it('cabe por debajo del límite del proxy sin telemetría anidada ni log de comandos, y conserva la última muestra', () => {
+      const session = longSession();
+      expect(JSON.stringify(session).length).toBeGreaterThan(1024 * 1024);
+      const upload = compactForUpload(session);
+      expect(JSON.stringify({ clientSessionId: session.clientSessionId, session: upload }).length).toBeLessThan(1000 * 1000);
+      expect(upload.trainerCommands).toBeUndefined();
+      expect(upload.dataPoints[0]).not.toHaveProperty('display');
+      expect(upload.dataPoints[0]).toMatchObject({ power: 180, heartRate: 135, timestamp: session.dataPoints[0].timestamp });
+      expect(upload.dataPoints.at(-1).distance).toBe(session.dataPoints.at(-1).distance);
+      // Las muestras quedan a menos de 5 s (el tramo con el que training-app dibuja las gráficas).
+      expect(upload.dataPoints[1].timestamp - upload.dataPoints[0].timestamp).toBeLessThan(5000);
+      // La sesión local no se toca.
+      expect(session.dataPoints).toHaveLength(7200);
+      expect(session.dataPoints[0].display).toBeDefined();
+    });
+
+    it('una sesión corta se envía con todas sus muestras', () => {
+      const session = longSession();
+      session.dataPoints = session.dataPoints.slice(0, 600);
+      expect(compactForUpload(session).dataPoints).toHaveLength(600);
     });
   });
 });
