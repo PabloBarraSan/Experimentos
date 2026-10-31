@@ -102,6 +102,7 @@ export class HeartRateManager {
         this.sensorLocation = null;
         this.isManualDisconnect = false;
         this.reconnecting = false;
+        this.reconnectRun = 0;
         this.reconnectAttempts = 0;
         this.reconnectDelays = RECONNECT_DELAYS_MS;
         // true cuando los reintentos automáticos no bastan: la UI ofrece reconectar a mano.
@@ -353,20 +354,27 @@ export class HeartRateManager {
             return;
         }
         // Un intento fallido o cancelado también dispara el evento: el bucle ya está en marcha.
-        if (this.reconnecting || !this.device) return;
+        // Si lo que se cae es una conexión viva (p. ej. tras el botón manual), empieza un bucle nuevo.
+        if ((this.reconnecting && this.state !== HR_CONNECTION_STATE.CONNECTED) || !this.device) return;
 
         console.warn('[HR] Pulsómetro desconectado, reconectando…');
         this.cleanup();
+        // Cada bucle tiene su turno: uno antiguo que despierta tarde ya no actúa.
+        const run = ++this.reconnectRun;
         this.reconnecting = true;
         this.reconnectAttempts = 0;
         this.setState(HR_CONNECTION_STATE.RECONNECTING);
         const device = this.device;
+        const cancelAttempt = () => {
+            if (run !== this.reconnectRun || this.state === HR_CONNECTION_STATE.CONNECTED) return;
+            try { device.gatt?.disconnect(); } catch { /* nada que cancelar */ }
+        };
 
         try {
             await reconnectWithBackoff({
                 connect: () => this.connect({ reconnecting: true }),
                 // Parar si el usuario desconecta, cambia de banda o la conecta desde otra pantalla.
-                shouldStop: () => this.isManualDisconnect || this.device !== device || this.state === HR_CONNECTION_STATE.CONNECTED,
+                shouldStop: () => run !== this.reconnectRun || this.isManualDisconnect || this.device !== device || this.state === HR_CONNECTION_STATE.CONNECTED,
                 delays: this.reconnectDelays,
                 forever: true,
                 onAttempt: (attempt) => {
@@ -375,18 +383,16 @@ export class HeartRateManager {
                 },
                 onFailure: (attempt, error) => {
                     console.warn(`[HR] Intento ${attempt} fallido:`, error?.message || error);
-                    try { device.gatt?.disconnect(); } catch { /* nada que cancelar */ }
+                    cancelAttempt();
                     if (attempt === MANUAL_RECONNECT_AFTER_ATTEMPTS) {
                         this.needsManualReconnect = true;
                         this.setState(HR_CONNECTION_STATE.RECONNECTING);
                     }
                 },
-                onAttemptTimeout: () => {
-                    try { device.gatt?.disconnect(); } catch { /* nada que cancelar */ }
-                },
+                onAttemptTimeout: cancelAttempt,
             });
         } finally {
-            this.reconnecting = false;
+            if (run === this.reconnectRun) this.reconnecting = false;
         }
     }
 
@@ -414,6 +420,8 @@ export class HeartRateManager {
         console.log('[HR] Desconexión manual iniciada');
         this.isManualDisconnect = true;
         this.needsManualReconnect = false;
+        this.reconnectRun++;
+        this.reconnecting = false;
         
         if (this.characteristic) {
             try {

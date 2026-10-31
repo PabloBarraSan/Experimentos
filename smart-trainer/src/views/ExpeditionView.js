@@ -1247,7 +1247,7 @@ export function ExpeditionView({
         pauseOverlay.style.display = paused ? 'flex' : 'none';
         pauseReason.textContent = !connectionLost
             ? 'Tu sesión está detenida. El tiempo no corre.'
-            : state.connectionState === 'reconnecting'
+            : state.connectionState === 'reconnecting' && pausedByConnection
                 ? 'Reconectando el rodillo… La sesión seguirá sola al volver.'
                 : 'Rodillo desconectado. Reconéctalo y pulsa Reanudar.';
     }

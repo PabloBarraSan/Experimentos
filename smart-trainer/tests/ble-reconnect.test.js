@@ -169,6 +169,30 @@ describe('HeartRateManager: reconexión al caerse el GATT', () => {
         expect(manager.needsManualReconnect).toBe(false);
     });
 
+    it('si se cae justo después de reconectar a mano, arranca otro bucle y el antiguo no estorba', async () => {
+        const { manager, device } = await connectedHeartRate();
+        manager.reconnectDelays = [30];
+        device.failuresLeft = 99;
+        const staleLoop = device.drop();
+        expect(manager.state).toBe(HR_CONNECTION_STATE.RECONNECTING);
+
+        // Botón «Reconectar pulsómetro» mientras el bucle duerme.
+        device.failuresLeft = 0;
+        await manager.reconnect();
+        expect(manager.state).toBe(HR_CONNECTION_STATE.CONNECTED);
+
+        device.failuresLeft = 1;
+        const freshLoop = device.drop();
+        expect(manager.state).toBe(HR_CONNECTION_STATE.RECONNECTING);
+        await Promise.all([staleLoop, freshLoop]);
+        expect(manager.state).toBe(HR_CONNECTION_STATE.CONNECTED);
+        expect(manager.reconnecting).toBe(false);
+        expect(device.gatt.connected).toBe(true);
+        const measurement = device.chars.get(0x2A37);
+        expect(measurement.addEventListener.mock.calls.at(-1)[0]).toBe('characteristicvaluechanged');
+        expect(measurement.startNotifications).toHaveBeenCalledTimes(3);
+    });
+
     it('una desconexión manual detiene los reintentos', async () => {
         const { manager, device, callbacks } = await connectedHeartRate();
         device.outOfRange = true;
