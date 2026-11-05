@@ -1,7 +1,8 @@
 name: Desplegar smart-trainer (rodillo.kitraining.app)
 
-# Con cada push a main que toque smart-trainer: pasa los tests, compila y publica solo el sitio
-# estático en la rama deploy-rodillo. Plesk (Git + webhook de GitHub) hace pull de esa rama.
+# Con cada push a main que toque smart-trainer: pasa los tests, compila y publica el sitio estático
+# en el VPS 217.13.84.138 por SSH (antes: rama deploy-rodillo + Git de Plesk). En el VPS, kt-deploy
+# lo deja en una release nueva y cambia la web de golpe. La clave de CI solo puede ejecutar kt-deploy.
 on:
   push:
     branches: [main]
@@ -11,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: deploy-rodillo
@@ -44,30 +45,21 @@ jobs:
         run: |
           rm -rf dist/server
           find dist -name '*.map' -delete
-          cp deploy/rodillo.htaccess dist/.htaccess
-          echo "${GITHUB_SHA}" > dist/version.txt
 
-      - name: Publicar en deploy-rodillo
-        working-directory: ${{ github.workspace }}
+      - name: Publicar en el VPS
+        env:
+          VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git ls-remote --exit-code --heads origin deploy-rodillo >/dev/null; then
-            git fetch --depth 1 origin deploy-rodillo
-            git worktree add ../site FETCH_HEAD
-            git -C ../site checkout -B deploy-rodillo
-          else
-            git worktree add --detach ../site
-            git -C ../site checkout --orphan deploy-rodillo
-          fi
-          find ../site -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
-          cp -a smart-trainer/dist/. ../site/
-          cd ../site
-          git add -A
-          if git diff --cached --quiet; then
-            echo "Sin cambios que publicar."
-            exit 0
-          fi
-          git commit -m "deploy: smart-trainer ${GITHUB_SHA::7}"
-          git push origin deploy-rodillo
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_DEPLOY_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          tar -czf - -C dist . | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o BatchMode=yes \
+            deploy@217.13.84.138 "rodillo ${GITHUB_SHA}"
+
+      - name: Comprobar
+        run: |
+          set -euo pipefail
+          live=$(curl -fsS --max-time 20 "https://rodillo.kitraining.app/version.txt?t=$(date +%s)" | tr -d '[:space:]')
+          [ "$live" = "$GITHUB_SHA" ] || { echo "::error::rodillo no sirve ${GITHUB_SHA} (sirve $live)"; exit 1; }
