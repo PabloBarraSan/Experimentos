@@ -43,6 +43,7 @@ function debugRawBytes(dataView) {
     }
 }
 import { CommandQueue } from './commands.js';
+import { RECONNECT_DELAYS_MS, reconnectWithBackoff } from './reconnect.js';
 import { logActiveSessionEvent } from '../diagnostics/SessionDebugLogger.js';
 import { loadSettings } from '../storage/settings.js';
 
@@ -185,11 +186,11 @@ export class BluetoothManager {
         this.characteristics = {};
         this.state = CONNECTION_STATE.DISCONNECTED;
         this.commandQueue = null;
+        this.reconnecting = false;
+        this.reconnectRun = 0;
         this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 5; // Aumentado para permitir más intentos
-        this.reconnectDelay = 2000; // Delay inicial en ms
-        this.reconnectBackoffMultiplier = 2; // Multiplicador para backoff exponencial
-        this.maxReconnectDelay = 16000; // Delay máximo (16s)
+        this.reconnectDelays = RECONNECT_DELAYS_MS; // ~2,5 min de reintentos antes de rendirse
+        this.needsManualReconnect = false; // La UI ofrece reconectar a mano
         this.dataCallback = null;
         this.isManualDisconnect = false; // Flag para distinguir desconexión manual
         this.lastDataTimestamp = 0; // Para debounce de datos
@@ -421,9 +422,11 @@ export class BluetoothManager {
     }
     
     /**
-     * Conectar al dispositivo seleccionado
+     * Conectar al dispositivo seleccionado.
+     * Con `reconnecting` el estado sigue en RECONNECTING (sin pasos intermedios) y un
+     * fallo no se notifica: el bucle de reintentos decide cuándo rendirse.
      */
-    async connect() {
+    async connect({ reconnecting = false } = {}) {
         if (!this.device) {
             throw new BluetoothError('No hay dispositivo seleccionado', 'NO_DEVICE');
         }
@@ -432,17 +435,18 @@ export class BluetoothManager {
         // dispositivo se vuelve a registrar aquí para que siga activo después
         // de una primera desconexión.
         this.attachDeviceDisconnectListener();
-        
-        this.setState(CONNECTION_STATE.CONNECTING);
-        
+        const step = (state) => { if (!reconnecting) this.setState(state); };
+
+        step(CONNECTION_STATE.CONNECTING);
+
         try {
             // Paso 1: Conectar a GATT server
-            this.setState(CONNECTION_STATE.CONNECTING_GATT);
+            step(CONNECTION_STATE.CONNECTING_GATT);
             this.logger.info('Conectando a GATT server...');
             this.server = await this.device.gatt.connect();
-            
+
             // Paso 2: Obtener servicio FTMS
-            this.setState(CONNECTION_STATE.DISCOVERING_SERVICES);
+            step(CONNECTION_STATE.DISCOVERING_SERVICES);
             this.logger.info('Obteniendo servicio FTMS...');
             this.service = await this.server.getPrimaryService(FTMS_UUIDS.FITNESS_MACHINE_SERVICE);
             
@@ -462,7 +466,7 @@ export class BluetoothManager {
             this.commandQueue = new CommandQueue(this.characteristics.controlPoint);
             
             // Paso 5: Suscribirse a notificaciones
-            this.setState(CONNECTION_STATE.SUBSCRIBING);
+            step(CONNECTION_STATE.SUBSCRIBING);
             await this.subscribeToNotifications();
             
             // Paso 6: Solicitar control del dispositivo
@@ -476,20 +480,20 @@ export class BluetoothManager {
                 this.logger.warn('No se pudo iniciar el entrenamiento automáticamente:', error);
             }
             
-            this.setState(CONNECTION_STATE.CONNECTED);
             this.reconnectAttempts = 0;
-            this.reconnectDelay = 2000; // Reset delay
+            this.needsManualReconnect = false;
+            this.setState(CONNECTION_STATE.CONNECTED);
             this.onDeviceConnected(this.device.name);
-            
+
             this.logger.info('Conectado exitosamente a', this.device.name);
-            
+
         } catch (error) {
-            this.setState(CONNECTION_STATE.DISCONNECTED);
-            
             // Limpiar recursos en caso de error
             this.cleanup();
-            
+
             const btError = error instanceof BluetoothError ? error : BluetoothError.fromError(error);
+            if (reconnecting) throw btError;
+            this.setState(CONNECTION_STATE.DISCONNECTED);
             this.onError(btError.getUserMessage());
             throw btError;
         }
@@ -811,44 +815,76 @@ export class BluetoothManager {
             return;
         }
         
+        // Un intento fallido o cancelado también dispara el evento: el bucle ya está en marcha.
+        // Si lo que se cae es una conexión viva (p. ej. tras el botón manual), empieza un bucle nuevo.
+        if ((this.reconnecting && this.state !== CONNECTION_STATE.CONNECTED) || !this.device) return;
+
         // Limpiar recursos antes de reconectar
         this.cleanup();
-        
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            this.setState(CONNECTION_STATE.RECONNECTING);
-            this.reconnectAttempts++;
-            
-            // Calcular delay con backoff exponencial
-            const delay = Math.min(
-                this.reconnectDelay * Math.pow(this.reconnectBackoffMultiplier, this.reconnectAttempts - 1),
-                this.maxReconnectDelay
-            );
-            
-            this.logger.info(`Intento de reconexión ${this.reconnectAttempts}/${this.maxReconnectAttempts} en ${delay}ms...`);
-            
-            // Esperar antes de reconectar
-            await new Promise(resolve => setTimeout(resolve, delay));
-            
-            try {
-                await this.connect();
-            } catch (error) {
-                this.logger.error('Error en reconexión:', error);
-                // Intentar de nuevo si aún hay intentos disponibles
-                if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                    this.handleDisconnection();
-                } else {
-                    this.setState(CONNECTION_STATE.DISCONNECTED);
-                    this.onDeviceDisconnected();
-                    const btError = error instanceof BluetoothError ? error : BluetoothError.fromError(error);
-                    this.onError(`No se pudo reconectar después de ${this.maxReconnectAttempts} intentos: ${btError.getUserMessage()}`);
-                }
-            }
-        } else {
-            this.logger.error(`Máximo de intentos de reconexión alcanzado (${this.maxReconnectAttempts})`);
-            this.setState(CONNECTION_STATE.DISCONNECTED);
-            this.onDeviceDisconnected();
-            this.onError('No se pudo reconectar al dispositivo después de varios intentos.');
+        // Cada bucle tiene su turno: uno antiguo que despierta tarde ya no actúa.
+        const run = ++this.reconnectRun;
+        this.reconnecting = true;
+        this.reconnectAttempts = 0;
+        this.setState(CONNECTION_STATE.RECONNECTING);
+        const device = this.device;
+        const superseded = () => run !== this.reconnectRun || this.isManualDisconnect || this.device !== device || this.state === CONNECTION_STATE.CONNECTED;
+        const cancelAttempt = () => {
+            if (run !== this.reconnectRun || this.state === CONNECTION_STATE.CONNECTED) return;
+            try { device.gatt?.disconnect(); } catch { /* nada que cancelar */ }
+        };
+        let lastError = null;
+        let reconnected = false;
+
+        try {
+            // Mismo BluetoothDevice: gatt.connect() no necesita gesto del usuario.
+            reconnected = await reconnectWithBackoff({
+                connect: () => this.connect({ reconnecting: true }),
+                shouldStop: superseded,
+                delays: this.reconnectDelays,
+                onAttempt: (attempt) => {
+                    this.reconnectAttempts = attempt;
+                    this.logger.info(`Intento de reconexión ${attempt}/${this.reconnectDelays.length}`);
+                    logActiveSessionEvent('bluetooth.reconnect.attempt', { attempt });
+                },
+                onFailure: (attempt, error) => {
+                    lastError = error;
+                    this.logger.warn(`Intento de reconexión ${attempt} fallido:`, error?.message || error);
+                    cancelAttempt();
+                    if (attempt === Math.min(5, this.reconnectDelays.length)) {
+                        this.needsManualReconnect = true;
+                        this.setState(CONNECTION_STATE.RECONNECTING);
+                    }
+                },
+                onAttemptTimeout: cancelAttempt,
+            });
+        } finally {
+            if (run === this.reconnectRun) this.reconnecting = false;
         }
+
+        if (reconnected) {
+            logActiveSessionEvent('bluetooth.reconnected', { attempts: this.reconnectAttempts });
+            return;
+        }
+        // Se paró porque otra pantalla conectó o el usuario desconectó: nada más que hacer.
+        if (superseded()) return;
+
+        this.logger.error(`No se pudo reconectar tras ${this.reconnectAttempts} intentos`);
+        this.needsManualReconnect = true;
+        this.setState(CONNECTION_STATE.DISCONNECTED);
+        this.onDeviceDisconnected();
+        const message = lastError instanceof BluetoothError ? lastError.getUserMessage() : (lastError?.message || 'sin respuesta');
+        this.onError(`No se pudo reconectar el rodillo después de ${this.reconnectAttempts} intentos: ${message}`);
+    }
+
+    /**
+     * Reconexión pedida por el usuario (botón) con el mismo dispositivo, sin selector.
+     * Si no hay dispositivo, abre el selector (necesita el gesto del clic).
+     */
+    async reconnect() {
+        if (!this.device) return this.scan();
+        this.isManualDisconnect = false;
+        await this.connect({ reconnecting: this.reconnecting });
+        return this.device;
     }
 
     attachDeviceDisconnectListener() {
@@ -866,8 +902,10 @@ export class BluetoothManager {
      */
     disconnect() {
         this.logger.info('Desconexión manual iniciada');
-        this.isManualDisconnect = true;
-        this.reconnectAttempts = this.maxReconnectAttempts; // Evitar reconexión automática
+        this.isManualDisconnect = true; // Detiene la reconexión automática
+        this.needsManualReconnect = false;
+        this.reconnectRun++;
+        this.reconnecting = false;
         
         // Remover listeners antes de desconectar
         this.removeEventListeners();
