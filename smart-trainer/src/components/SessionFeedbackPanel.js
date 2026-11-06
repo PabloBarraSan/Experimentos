@@ -7,7 +7,7 @@
 import '../views/result.css';
 import { button, createElement, div } from '../utils/dom.js';
 import { saveSessionFeedback } from '../storage/sessions.js';
-import { pushSession } from '../sync/TrainingAppSync.js';
+import { isSyncConnected, pushSession, waitForSessionUpload } from '../sync/TrainingAppSync.js';
 
 const LIMITERS = [
     { id: 'legs', label: 'Piernas' },
@@ -28,6 +28,22 @@ function choiceGroup(className, options, onSelect) {
         onSelect(id);
     }
     return div({ attrs: { class: className, role: 'group' }, children: buttons });
+}
+
+/** Línea que confirma la subida automática: sin ella no se sabe si la sesión ya está en training-app. */
+function createUploadStatus(session) {
+    if (!isSyncConnected()) return null;
+    const line = createElement('p', { text: 'Subiendo a training-app…', attrs: { class: 'rs-status', 'aria-live': 'polite' } });
+    waitForSessionUpload(session).then((syncedAt) => {
+        if (!syncedAt) {
+            line.textContent = 'Aún sin subir a training-app: se reintentará sola.';
+            return;
+        }
+        const time = new Date(syncedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        line.textContent = `Subida a training-app a las ${time}`;
+        line.className = 'rs-status is-done';
+    });
+    return line;
 }
 
 export function createSessionFeedbackPanel(session) {
@@ -71,6 +87,7 @@ export function createSessionFeedbackPanel(session) {
             choiceGroup('rs-choices', LIMITERS, (id) => { answer.limiter = id; }),
             note,
             div({ attrs: { class: 'rs-save-row' }, children: [save, status] }),
-        ],
+            createUploadStatus(session),
+        ].filter(Boolean),
     });
 }

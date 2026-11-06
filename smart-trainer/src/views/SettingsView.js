@@ -16,6 +16,7 @@ import {
     getSyncConfig,
     isSyncConnected,
     syncPendingSessions,
+    describeLastUpload,
     countPendingSessions,
     pullSessions,
     buildLinkUrl,
@@ -587,6 +588,7 @@ function renderTrainingAppSync(container) {
 
     if (isSyncConnected()) {
         status.textContent = `Conectado como ${config.email} · ${config.baseUrl}. Las sesiones nuevas se envían solas al terminar.`;
+        describeLastUpload().then((text) => { if (text) status.textContent += ` ${text}`; }).catch(() => {});
         // Sesiones terminadas aquí que training-app aún no ha confirmado (p. ej. si falló la red al terminar).
         const syncButton = button({
             text: 'Enviar sesiones pendientes',
@@ -599,7 +601,7 @@ function renderTrainingAppSync(container) {
                         const result = await syncPendingSessions();
                         status.textContent = result.total
                             ? `Enviadas ${result.synced} de ${result.total} sesiones pendientes${result.failed ? ` (${result.failed} con error: se reintentará)` : ''}.`
-                            : 'No hay sesiones pendientes: training-app ya tiene todas las de este dispositivo.';
+                            : `No hay sesiones pendientes: training-app ya tiene todas las de este dispositivo. ${await describeLastUpload() ?? ''}`;
                     } catch (error) {
                         status.textContent = error.message;
                         if (error.code === 'AUTH_EXPIRED') renderTrainingAppSync(container);

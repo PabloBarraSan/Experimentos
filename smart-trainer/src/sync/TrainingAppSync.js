@@ -410,6 +410,24 @@ export async function countPendingSessions() {
     return finished + (await getOrphanDraft() ? 1 : 0);
 }
 
+/** Espera al envío en curso y devuelve cuándo confirmó training-app esta sesión (null si sigue sin subir). */
+export async function waitForSessionUpload(session) {
+    await flushSyncOutbox().catch(() => {});
+    const stored = await getSession(session.id).catch(() => null);
+    return stored?.syncStatus?.trainingApp?.syncedAt ?? null;
+}
+
+/** Última sesión de este dispositivo que training-app ha confirmado, en una frase. null si no hay ninguna. */
+export async function describeLastUpload() {
+    const uploaded = (await getAllSessions())
+        .filter((session) => session.syncStatus?.trainingApp?.syncedAt && !String(session.id).startsWith('remote_'))
+        .sort((a, b) => b.syncStatus.trainingApp.syncedAt.localeCompare(a.syncStatus.trainingApp.syncedAt))[0];
+    if (!uploaded) return null;
+    const when = new Date(uploaded.syncStatus.trainingApp.syncedAt)
+        .toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return `Última subida: «${uploaded.workoutName}», ${when}.`;
+}
+
 /** Botón de Ajustes: cierra la sesión que quedara sin terminar, encola lo que falte y lo envía ya. */
 export async function syncPendingSessions() {
     if (!isSyncConnected()) throw new Error('Conecta primero con training-app.');

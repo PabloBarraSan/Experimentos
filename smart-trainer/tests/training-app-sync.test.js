@@ -15,7 +15,9 @@ import {
   getSyncConfig,
   isSyncConnected,
   countPendingSessions,
+  describeLastUpload,
   syncPendingSessions,
+  waitForSessionUpload,
   pushSession,
 } from '../src/sync/TrainingAppSync.js';
 
@@ -311,6 +313,33 @@ describe('training-app sync', () => {
       fetchMock.mockClear();
       expect((await syncPendingSessions()).total).toBe(0);
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('dice qué sesión se subió y cuándo, también si el botón llega con la subida automática en curso', async () => {
+      connect();
+      const session = createSession({ workoutName: 'Recién terminada' });
+      await finishSession(session, { duration: 900 }, 'completed');
+      let release;
+      vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => { release = () => resolve(json(200, { id: '1' })); })));
+      const automatic = flushSyncOutbox();
+      await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+
+      const upload = waitForSessionUpload(session);
+      release();
+      await automatic;
+      expect(await upload).toBeTruthy();
+      expect(await describeLastUpload()).toContain('«Recién terminada»');
+    });
+
+    it('si no se pudo subir no da la sesión por subida', async () => {
+      connect();
+      const session = createSession({ workoutName: 'Sin confirmar' });
+      await finishSession(session, { duration: 900 }, 'completed');
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+      expect(await waitForSessionUpload(session)).toBeNull();
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { id: '1' })));
+      await flushSyncOutbox();
     });
 
     it('si training-app guarda la copia pero responde error, no cuenta como subida', async () => {
