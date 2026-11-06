@@ -6,10 +6,18 @@
  * Característica: Heart Rate Measurement (0x2A37)
  */
 
-import { RECONNECT_DELAYS_MS, reconnectWithBackoff } from './reconnect.js';
+import { reconnectWithBackoff } from './reconnect.js';
+import { logActiveSessionEvent } from '../diagnostics/SessionDebugLogger.js';
 
 // Intentos automáticos antes de ofrecer el botón de reconexión manual (se sigue reintentando).
 const MANUAL_RECONNECT_AFTER_ATTEMPTS = 5;
+
+// Espera antes de cada intento; el último valor se repite sin límite. Tope corto: la banda vuelve
+// en cuanto el usuario regresa a la habitación y no debe tardar medio minuto en notarse.
+const HR_RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 10000];
+
+// Una banda conectada notifica cada segundo: tanto silencio es un corte del que el navegador no ha avisado.
+const HR_SILENCE_TIMEOUT_MS = 15000;
 
 // UUIDs del servicio Heart Rate
 export const HR_UUIDS = {
@@ -104,7 +112,10 @@ export class HeartRateManager {
         this.reconnecting = false;
         this.reconnectRun = 0;
         this.reconnectAttempts = 0;
-        this.reconnectDelays = RECONNECT_DELAYS_MS;
+        this.reconnectDelays = HR_RECONNECT_DELAYS_MS;
+        this.silenceTimeoutMs = HR_SILENCE_TIMEOUT_MS;
+        this.silenceTimer = null;
+        this.connectRun = 0;
         // true cuando los reintentos automáticos no bastan: la UI ofrece reconectar a mano.
         this.needsManualReconnect = false;
 
@@ -278,6 +289,7 @@ export class HeartRateManager {
         }
 
         if (!reconnecting) this.setState(HR_CONNECTION_STATE.CONNECTING);
+        const connectRun = ++this.connectRun;
         
         try {
             // Conectar a GATT server
@@ -309,12 +321,14 @@ export class HeartRateManager {
             this.reconnectAttempts = 0;
             this.needsManualReconnect = false;
             this.setState(HR_CONNECTION_STATE.CONNECTED);
+            this.armSilenceWatchdog();
             this.onDeviceConnected(this.device.name, this.sensorLocation);
 
             console.log('[HR] Conectado exitosamente a', this.device.name);
 
         } catch (error) {
-            this.cleanup();
+            // Un intento abandonado por tiempo que falla tarde no debe romper la conexión del siguiente.
+            if (connectRun === this.connectRun) this.cleanup();
             if (reconnecting) throw error;
             this.setState(HR_CONNECTION_STATE.DISCONNECTED);
             this.onError(`Error al conectar pulsómetro: ${error.message}`);
@@ -334,6 +348,7 @@ export class HeartRateManager {
         
         try {
             const data = parseHeartRateMeasurement(dataView);
+            this.armSilenceWatchdog();
             this.onHeartRateReceived(data);
         } catch (error) {
             console.error('[HR] Error al parsear datos:', error);
@@ -358,6 +373,7 @@ export class HeartRateManager {
         if ((this.reconnecting && this.state !== HR_CONNECTION_STATE.CONNECTED) || !this.device) return;
 
         console.warn('[HR] Pulsómetro desconectado, reconectando…');
+        logActiveSessionEvent('hr.disconnected', { deviceName: this.device.name || null });
         this.cleanup();
         // Cada bucle tiene su turno: uno antiguo que despierta tarde ya no actúa.
         const run = ++this.reconnectRun;
@@ -371,18 +387,20 @@ export class HeartRateManager {
         };
 
         try {
-            await reconnectWithBackoff({
+            const reconnected = await reconnectWithBackoff({
                 connect: () => this.connect({ reconnecting: true }),
                 // Parar si el usuario desconecta, cambia de banda o la conecta desde otra pantalla.
                 shouldStop: () => run !== this.reconnectRun || this.isManualDisconnect || this.device !== device || this.state === HR_CONNECTION_STATE.CONNECTED,
                 delays: this.reconnectDelays,
                 forever: true,
+                wait: (ms) => this.waitForRetry(ms),
                 onAttempt: (attempt) => {
                     this.reconnectAttempts = attempt;
                     console.log(`[HR] Intento de reconexión ${attempt}`);
                 },
                 onFailure: (attempt, error) => {
                     console.warn(`[HR] Intento ${attempt} fallido:`, error?.message || error);
+                    logActiveSessionEvent('hr.reconnect.failed', { attempt, error: error?.message || String(error) });
                     cancelAttempt();
                     if (attempt === MANUAL_RECONNECT_AFTER_ATTEMPTS) {
                         this.needsManualReconnect = true;
@@ -391,9 +409,42 @@ export class HeartRateManager {
                 },
                 onAttemptTimeout: cancelAttempt,
             });
+            if (reconnected) logActiveSessionEvent('hr.reconnected', { attempts: this.reconnectAttempts });
         } finally {
             if (run === this.reconnectRun) this.reconnecting = false;
         }
+    }
+
+    /** Espera entre intentos, que `retryNow` puede acortar. */
+    waitForRetry(ms) {
+        return new Promise((resolve) => {
+            const timer = setTimeout(resolve, ms);
+            this.skipRetryWait = () => {
+                clearTimeout(timer);
+                resolve();
+            };
+        });
+    }
+
+    /** Reintenta ya si hay una espera en curso: en segundo plano el navegador retrasa los temporizadores. */
+    retryNow() {
+        this.skipRetryWait?.();
+        this.skipRetryWait = null;
+    }
+
+    armSilenceWatchdog() {
+        clearTimeout(this.silenceTimer);
+        this.silenceTimer = setTimeout(() => this.handleSilence(), this.silenceTimeoutMs);
+    }
+
+    /** Conectado pero mudo: el evento de desconexión no ha llegado, así que se reconecta igualmente. */
+    handleSilence() {
+        if (this.state !== HR_CONNECTION_STATE.CONNECTED) return;
+        console.warn('[HR] Sin datos del pulsómetro, se fuerza la reconexión');
+        logActiveSessionEvent('hr.silent', { timeoutMs: this.silenceTimeoutMs });
+        const device = this.device;
+        this.handleDisconnection();
+        try { device?.gatt?.disconnect(); } catch { /* el bucle ya está en marcha */ }
     }
 
     /**
@@ -446,6 +497,7 @@ export class HeartRateManager {
      * Limpiar referencias
      */
     cleanup() {
+        clearTimeout(this.silenceTimer);
         if (this.characteristic) {
             try {
                 this.characteristic.removeEventListener('characteristicvaluechanged', this.handleHRDataBound);

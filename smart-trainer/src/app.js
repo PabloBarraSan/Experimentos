@@ -717,6 +717,7 @@ async function init() {
     subscribe(() => {});
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState !== 'visible') return;
+        AppState.heartRateManager?.retryNow();
         if (!AppState.session.isActive || !AppState.session.startTime) return;
         const now = Date.now();
         const pauseDuration = AppState.session.pauseDuration || 0;

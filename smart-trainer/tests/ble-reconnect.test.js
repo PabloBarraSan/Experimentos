@@ -193,6 +193,73 @@ describe('HeartRateManager: reconexión al caerse el GATT', () => {
         expect(measurement.startNotifications).toHaveBeenCalledTimes(3);
     });
 
+    it('el caso real: la banda pasa un buen rato fuera de alcance y al volver reconecta sola', async () => {
+        const { manager, device, callbacks } = await connectedHeartRate();
+        device.outOfRange = true;
+        const loop = device.drop();
+        await vi.waitFor(() => expect(device.gatt.connect.mock.calls.length).toBeGreaterThan(40));
+        expect(manager.state).toBe(HR_CONNECTION_STATE.RECONNECTING);
+        device.outOfRange = false;
+        await loop;
+        expect(manager.state).toBe(HR_CONNECTION_STATE.CONNECTED);
+        expect(callbacks.onError).not.toHaveBeenCalled();
+    });
+
+    it('volver a registrar el mismo dispositivo no duplica el listener ni los bucles', async () => {
+        const { manager, device } = await connectedHeartRate();
+        manager.setDevice(device);
+        manager.setDevice(device);
+        await device.drop();
+        expect(device.listenerCount('gattserverdisconnected')).toBe(1);
+        expect(device.gatt.connect).toHaveBeenCalledTimes(1 + 1);
+    });
+
+    it('conectado pero sin datos: fuerza la reconexión aunque no llegue el evento', async () => {
+        const { manager, device } = await connectedHeartRate();
+        manager.silenceTimeoutMs = 5;
+        manager.armSilenceWatchdog();
+        await vi.waitFor(() => expect(device.gatt.disconnect).toHaveBeenCalled());
+        await vi.waitFor(() => expect(manager.state).toBe(HR_CONNECTION_STATE.CONNECTED));
+        expect(device.gatt.connect.mock.calls.length).toBeGreaterThan(1);
+        manager.disconnect();
+    });
+
+    it('mientras llegan latidos no salta el aviso de silencio', async () => {
+        const { manager, device, callbacks } = await connectedHeartRate();
+        manager.silenceTimeoutMs = 40;
+        const beat = { target: { value: new DataView(new Uint8Array([0, 120]).buffer) } };
+        for (let i = 0; i < 6; i++) {
+            manager.handleHRData(beat);
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        expect(device.gatt.disconnect).not.toHaveBeenCalled();
+        expect(callbacks.onHeartRateReceived).toHaveBeenCalledTimes(6);
+        manager.disconnect();
+    });
+
+    it('retryNow acorta la espera entre intentos', async () => {
+        const { manager, device } = await connectedHeartRate();
+        manager.reconnectDelays = [60000];
+        const loop = device.drop();
+        expect(device.gatt.connect).toHaveBeenCalledTimes(1);
+        manager.retryNow();
+        await loop;
+        expect(manager.state).toBe(HR_CONNECTION_STATE.CONNECTED);
+        manager.disconnect();
+    });
+
+    it('un intento abandonado que falla tarde no rompe la conexión del siguiente', async () => {
+        const { manager, device } = await connectedHeartRate();
+        let failLate;
+        device.gatt.connect.mockImplementationOnce(() => new Promise((_, reject) => { failLate = reject; }));
+        const abandoned = manager.connect({ reconnecting: true }).catch(() => {});
+        await manager.connect({ reconnecting: true });
+        failLate(new Error('tarde'));
+        await abandoned;
+        expect(manager.characteristic).not.toBeNull();
+        manager.disconnect();
+    });
+
     it('una desconexión manual detiene los reintentos', async () => {
         const { manager, device, callbacks } = await connectedHeartRate();
         device.outOfRange = true;
