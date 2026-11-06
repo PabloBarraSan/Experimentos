@@ -4,7 +4,7 @@ import { SessionController, SESSION_STATE } from '../session/SessionController.j
 import { recordMissionProgress } from '../game/ProgressionService.js';
 import { WakeLockManager } from '../session/WakeLockManager.js';
 import { installSessionDebugHooks, logActiveSessionError } from '../diagnostics/SessionDebugLogger.js';
-import { clearActiveSession } from '../storage/sessions.js';
+import { clearActiveSession, closeOrphanDraft } from '../storage/sessions.js';
 import { getCoachingState, getHeartRateZone } from '../game/CoachingEngine.js';
 import { AudioCueService } from '../game/AudioCueService.js';
 import { getPersonalGhost, interpolateGhost } from '../game/GhostService.js';
@@ -877,6 +877,8 @@ export function ExpeditionView({
         pauseButton.disabled = false;
         finishButton.disabled = false;
         if (!resume) {
+            // Empezar otra no puede borrar lo pedaleado en una sesión que quedó sin terminar.
+            await closeOrphanDraft().catch(() => null);
             await clearActiveSession().catch(() => null);
             state.recoveredSession = null;
         }

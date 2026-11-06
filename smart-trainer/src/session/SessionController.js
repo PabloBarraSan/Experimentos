@@ -4,6 +4,7 @@ import {
     createSession,
     deleteSession,
     finishSession,
+    releaseActiveSession,
     saveActiveSession,
 } from '../storage/sessions.js';
 import { calculateSessionMetrics } from '../utils/calculations.js';
@@ -554,6 +555,7 @@ export class SessionController {
         this.player?.stop();
         if (this.autosaveId) clearInterval(this.autosaveId);
         this.autosaveId = null;
+        releaseActiveSession();
         releaseSessionDebugLogger(this.debug);
     }
 

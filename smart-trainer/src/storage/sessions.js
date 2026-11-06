@@ -1,4 +1,5 @@
 import { logAppEvent } from '../diagnostics/SessionDebugLogger.js';
+import { calculateSessionMetrics } from '../utils/calculations.js';
 
 /**
  * Sessions Storage - Gestión de sesiones de entrenamiento
@@ -14,8 +15,12 @@ const WORKOUTS_STORE = 'workouts';
 const ACTIVE_SESSION_STORE = 'activeSession';
 const PROGRESS_STORE = 'progress';
 const SYNC_OUTBOX_STORE = 'syncOutbox';
+// Por debajo de esto un borrador sin terminar se tira, como un clic accidental (ver SessionController).
+const MIN_ORPHAN_SECONDS = 60;
 
 let db = null;
+// Sesión que esta pestaña está grabando ahora: su borrador no es un huérfano.
+let liveDraftId = null;
 
 /**
  * Inicializar base de datos
@@ -319,8 +324,8 @@ export function addDataPoint(session, data) {
 /**
  * Finalizar sesión y calcular métricas
  */
-export async function finishSession(session, metrics, status = session.status === 'abandoned' ? 'abandoned' : 'completed') {
-    session.endTime = Date.now();
+export async function finishSession(session, metrics, status = session.status === 'abandoned' ? 'abandoned' : 'completed', endTime = Date.now()) {
+    session.endTime = endTime;
     const wallDuration = Math.max(0, (session.endTime - session.startTime) / 1000);
     session.activeDuration = metrics?.duration ?? session.elapsedTime ?? Math.max(0, wallDuration - (session.pausedDuration || 0));
     session.duration = session.activeDuration;
@@ -366,6 +371,7 @@ export async function discardSession(session) {
 
 export async function saveActiveSession(session) {
     await initDB();
+    liveDraftId = session.id;
     const draft = {
         key: 'current',
         savedAt: Date.now(),
@@ -393,8 +399,36 @@ export async function getActiveSession() {
     });
 }
 
+/** La pantalla que grababa se ha cerrado: si queda borrador, ya nadie lo terminará. */
+export function releaseActiveSession() {
+    liveDraftId = null;
+}
+
+function draftElapsedSeconds(draft) {
+    const lastTimestamp = draft.dataPoints?.at(-1)?.timestamp ?? draft.startTime;
+    return draft.elapsedTime || Math.max(0, (lastTimestamp - draft.startTime) / 1000);
+}
+
+/** Borrador de una sesión que nunca se terminó (recarga, cierre, salir de la pantalla). Solo vive en el store de borradores. */
+export async function getOrphanDraft() {
+    const draft = await getActiveSession();
+    if (!draft?.clientSessionId || draft.id === liveDraftId || draftElapsedSeconds(draft) < MIN_ORPHAN_SECONDS) return null;
+    return draft;
+}
+
+/** Pasa el borrador huérfano al historial como sesión no completada, para que se pueda ver y enviar. */
+export async function closeOrphanDraft() {
+    const draft = await getOrphanDraft();
+    if (!draft) return null;
+    const duration = draftElapsedSeconds(draft);
+    const metrics = calculateSessionMetrics({ dataPoints: draft.dataPoints, duration }, draft.ftp);
+    logAppEvent('session.orphan.closed', { clientSessionId: draft.clientSessionId, samples: draft.dataPoints?.length ?? 0, duration });
+    return finishSession(draft, metrics, 'abandoned', draft.dataPoints?.at(-1)?.timestamp ?? Date.now());
+}
+
 export async function clearActiveSession() {
     await initDB();
+    liveDraftId = null;
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([ACTIVE_SESSION_STORE], 'readwrite');
         const request = transaction.objectStore(ACTIVE_SESSION_STORE).delete('current');

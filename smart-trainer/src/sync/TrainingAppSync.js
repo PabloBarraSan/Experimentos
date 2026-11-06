@@ -7,8 +7,10 @@
  */
 
 import {
+    closeOrphanDraft,
     enqueueSyncJob,
     getAllSessions,
+    getOrphanDraft,
     getSession,
     getSyncJobs,
     isSessionSynced,
@@ -238,9 +240,14 @@ export async function pullSessions() {
     const deleted = getDeletedIds();
     const { sessions: remote = [] } = await getJson(config, '/sessions?limit=200');
     // Las locales que training-app ya tiene (enviadas antes de existir la marca) no cuentan como pendientes.
+    // Salvo si su envío sigue en la cola: training-app guarda la copia antes de crear el entreno, así que
+    // puede listar una sesión cuyo POST respondió con error y que no ha llegado al diario.
     const remoteIds = new Set(remote.map((item) => item.clientSessionId));
+    const uploading = new Set((await getSyncJobs()).map((job) => job.id));
     for (const session of local) {
-        if (remoteIds.has(session.clientSessionId) && !isSessionSynced(session)) await markSessionSynced(session.id).catch(() => {});
+        if (remoteIds.has(session.clientSessionId) && !isSessionSynced(session) && !uploading.has(sessionUploadJobId(session.clientSessionId))) {
+            await markSessionSynced(session.id).catch(() => {});
+        }
     }
     const missing = remote.filter((item) => item.clientSessionId && !known.has(item.clientSessionId) && !deleted.has(item.clientSessionId));
 
@@ -393,23 +400,27 @@ export async function queuePendingSessions() {
     return pending.length;
 }
 
-/** Sesiones terminadas aquí que training-app aún no ha confirmado. */
+/** Sesiones de aquí que training-app aún no ha confirmado, incluida la que quedó sin terminar. */
 export async function countPendingSessions() {
     const deleted = getDeletedIds();
-    return (await getAllSessions()).filter((session) => SYNCABLE_STATUSES.has(session.status)
+    const finished = (await getAllSessions()).filter((session) => SYNCABLE_STATUSES.has(session.status)
         && session.clientSessionId
         && !isSessionSynced(session)
         && !deleted.has(session.clientSessionId)).length;
+    return finished + (await getOrphanDraft() ? 1 : 0);
 }
 
-/** Botón de Ajustes: encola lo que falte y lo envía ya. */
+/** Botón de Ajustes: cierra la sesión que quedara sin terminar, encola lo que falte y lo envía ya. */
 export async function syncPendingSessions() {
     if (!isSyncConnected()) throw new Error('Conecta primero con training-app.');
     if (!navigator.onLine) throw new Error('Sin conexión a internet: se enviarán al recuperarla.');
-    const total = await queuePendingSessions();
-    await flushSyncOutbox();
+    await closeOrphanDraft();
+    const queued = await queuePendingSessions();
+    const { synced, pending } = await flushSyncOutbox();
     if (!isSyncConnected()) throw expireAuth(getSyncConfig());
-    const failed = await countPendingSessions();
+    // Lo que sigue en la cola cuenta aunque la sesión ya tenga marca: «no hay pendientes» tiene que ser cierto.
+    const total = Math.max(queued, synced + pending);
+    const failed = Math.max(await countPendingSessions(), pending);
     return { total, synced: Math.max(0, total - failed), failed };
 }
 

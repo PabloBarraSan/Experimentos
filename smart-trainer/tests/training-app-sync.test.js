@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { gunzipSync } from 'node:zlib';
 import { loadSettings, updateSettings } from '../src/storage/settings.js';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { compactForUpload, createSession, enqueueSyncJob, finishSession, getAllSessions, getSession, getSyncJobs, initDB, saveSession, saveSessionFeedback, normalizeFeedback, sessionUploadJobId } from '../src/storage/sessions.js';
+import { clearActiveSession, compactForUpload, createSession, enqueueSyncJob, finishSession, getActiveSession, getAllSessions, getSession, getSyncJobs, initDB, markSessionSynced, releaseActiveSession, saveActiveSession, saveSession, saveSessionFeedback, normalizeFeedback, sessionUploadJobId } from '../src/storage/sessions.js';
 import {
   buildLinkUrl,
   connectTrainingApp,
@@ -311,6 +311,89 @@ describe('training-app sync', () => {
       fetchMock.mockClear();
       expect((await syncPendingSessions()).total).toBe(0);
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('si training-app guarda la copia pero responde error, no cuenta como subida', async () => {
+      connect();
+      const session = createSession({ workoutName: 'Copia sin entreno' });
+      await finishSession(session, { duration: 900 }, 'completed');
+      // El backend guarda la sesión antes de crear el Workout: un 500 deja la copia en el listado.
+      const fetchMock = vi.fn(async (url, init) => (init?.method === 'POST'
+        ? json(500)
+        : json(200, { sessions: [{ _id: 'r1', clientSessionId: session.clientSessionId }] })));
+      vi.stubGlobal('fetch', fetchMock);
+      await flushSyncOutbox();
+      await pullSessions();
+      expect((await getSession(session.id)).syncStatus.trainingApp).toBeUndefined();
+      expect((await syncPendingSessions()).failed).toBeGreaterThan(0);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { id: '1' })));
+      expect((await syncPendingSessions()).failed).toBe(0);
+      expect((await getSession(session.id)).syncStatus.trainingApp.syncedAt).toBeTruthy();
+    });
+
+    it('no dice que no hay pendientes si un envío sigue fallando en la cola', async () => {
+      connect();
+      const session = createSession({ workoutName: 'Marcada de más' });
+      await finishSession(session, { duration: 900 }, 'completed');
+      await markSessionSynced(session.id);
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(500)));
+      const result = await syncPendingSessions();
+      expect(result.total).toBeGreaterThan(0);
+      expect(result.failed).toBeGreaterThan(0);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(200, { id: '1' })));
+      expect((await syncPendingSessions()).failed).toBe(0);
+    });
+
+    describe('sesión que quedó sin terminar', () => {
+      const lastSample = 1_800_000_000_000;
+      const draft = (seconds) => {
+        const session = createSession({ workoutId: 'plan-abc', plannedWorkoutId: 'abc', workoutName: 'Del plan' });
+        session.startTime = lastSample - seconds * 1000;
+        session.dataPoints = [{ timestamp: session.startTime, power: 150 }, { timestamp: lastSample, power: 160 }];
+        return session;
+      };
+      afterEach(() => clearActiveSession());
+
+      it('tras recargar se cuenta como pendiente y se sube desde el borrador', async () => {
+        connect();
+        const session = draft(1800);
+        await saveActiveSession(session);
+        releaseActiveSession(); // recarga: esta pestaña ya no la está grabando
+        expect(await countPendingSessions()).toBeGreaterThan(0);
+
+        const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
+        vi.stubGlobal('fetch', fetchMock);
+        const result = await syncPendingSessions();
+        expect(result.failed).toBe(0);
+        const sent = fetchMock.mock.calls.map(([, init]) => sentBody(init)).find((body) => body.clientSessionId === session.clientSessionId);
+        expect(sent.session).toMatchObject({ status: 'abandoned', plannedWorkoutId: 'abc', endTime: lastSample });
+        expect(await getActiveSession()).toBeNull();
+        expect((await getSession(session.id)).syncStatus.trainingApp.syncedAt).toBeTruthy();
+      });
+
+      it('no toca la sesión que esta pestaña está grabando', async () => {
+        connect();
+        const session = draft(1800);
+        await saveActiveSession(session);
+        const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
+        vi.stubGlobal('fetch', fetchMock);
+        await syncPendingSessions();
+        expect(postedIds(fetchMock)).not.toContain(session.clientSessionId);
+        expect((await getActiveSession()).id).toBe(session.id);
+      });
+
+      it('ignora un borrador de pocos segundos', async () => {
+        connect();
+        const session = draft(20);
+        await saveActiveSession(session);
+        releaseActiveSession();
+        const fetchMock = vi.fn().mockResolvedValue(json(200, { id: '1' }));
+        vi.stubGlobal('fetch', fetchMock);
+        await syncPendingSessions();
+        expect(postedIds(fetchMock)).not.toContain(session.clientSessionId);
+      });
     });
 
     it('si falla el envío sigue pendiente para el siguiente intento', async () => {
